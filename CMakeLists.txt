@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.27)
 project(qlib C)
-
+include(CTest)
 set(CMAKE_C_STANDARD 17)
 find_package(Git QUIET)
 if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
@@ -17,36 +17,99 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     endif()
 endif()
 
+set(QLIBSRC src/cplxutil.c src/linalg.c)
+set(QLIBINC include)
+
+set(STATELIBSRC statelib/src/pstate.c)
+set(STATELIBINC statelib/include)
+
+set(GATELIBSRC gatelib/src/qhipster.c)
+set(GATELIBINC gatelib/include)
+
+set(CIRCLIBSRC circlib/src/diag.c circlib/src/operator.c circlib/src/pauli.c)
+set(CIRCLIBINC circlib/include)
+
+set(MEASLIBSRC measlib/src/exact.c)
+set(MEASLIBINC measlib/include)
+
 add_subdirectory(extern/Unity)
 
-add_executable(gatelibTest
-               gatelib/test/testQhipster.c
-               src/cplxutil.c
-               src/linalg.c
-               gatelib/src/qhipster.c)
+# include double has to be called manually when building unity library
+target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)
 
-target_include_directories(gatelibTest PRIVATE
-                           test
-                           include
-                           gatelib/include)
+set(gatelibTest gatelibTest)
+add_executable(${gatelibTest}
+        gatelib/test/testQhipster.c
+        ${QLIBSRC}
+        ${STATELIBSRC}
+        ${GATELIBSRC})
 
-target_link_libraries(gatelibTest PRIVATE unity)
+target_include_directories(${gatelibTest} PRIVATE
+        test
+        ${QLIBINC}
+        ${STATELIBINC}
+        ${GATELIBINC})
 
+target_link_libraries(${gatelibTest} PRIVATE unity)
 
-add_library(libq STATIC
-            src/cplxutil.c
-            src/linalg.c
-            statelib/src/pstate.c
-            gatelib/src/qhipster.c
-            circlib/src/diag.c
-            circlib/src/operator.c
-            circlib/src/pauli.c
-            measlib/src/exact.c)
+set(circlibTest circlibTest)
+add_executable(${circlibTest}
+        circlib/test/testPauli.c
+        ${QLIBSRC}
+        ${STATELIBSRC}
+        ${GATELIBSRC}
+        ${CIRCLIBSRC})
 
-target_include_directories(libq PRIVATE
-                           include
-                           statelib/include
-                           gatelib/include
-                           circlib/include
-                           measlib/include)
+target_include_directories(${circlibTest} PRIVATE
+        test
+        ${QLIBINC}
+        ${STATELIBINC}
+        ${GATELIBINC}
+        ${CIRCLIBINC})
 
+target_link_libraries(${circlibTest} PRIVATE unity)
+
+set(measlibTest measlibTest)
+add_executable(${measlibTest}
+        measlib/test/testExact.c
+        ${QLIBSRC}
+        ${STATELIBSRC}
+        ${GATELIBSRC}
+        ${CIRCLIBSRC}
+        ${MEASLIBSRC})
+
+target_include_directories(${measlibTest} PRIVATE
+        test
+        ${QLIBINC}
+        ${STATELIBINC}
+        ${GATELIBINC}
+        ${CIRCLIBINC}
+        ${MEASLIBINC})
+
+target_link_libraries(${measlibTest} PRIVATE unity)
+
+add_test(NAME ${gatelibTest} COMMAND ${gatelibTest})
+add_test(NAME ${circlibTest} COMMAND ${circlibTest})
+add_test(NAME ${measlibTest} COMMAND ${measlibTest})
+
+add_library(q STATIC
+        ${QLIBSRC}
+        ${STATELIBSRC}
+        ${GATELIBSRC}
+        ${CIRCLIBSRC}
+        ${MEASLIBSRC})
+
+target_include_directories(q PRIVATE
+        ${QLIBINC}
+        ${STATELIBINC}
+        ${GATELIBINC}
+        ${CIRCLIBINC}
+        ${MEASLIBINC})
+
+add_custom_command(
+        TARGET q
+        COMMENT "Run tests"
+        DEPENDS
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failures
+)
