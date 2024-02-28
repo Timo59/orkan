@@ -161,7 +161,7 @@ void applyPauliString(state_t* state, const pauli_t paulistr[]) {
                 break;
             }
             default: {
-                printf("Error in applyComponent: Invalid value for Pauli.\n");
+                printf("Error in applyPauliString: Invalid value for Pauli.\n");
                 exit(1);
             }
         }

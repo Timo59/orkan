@@ -42,7 +42,7 @@ double expValObs(const state_t* state, const obs_t* observable);
  * =================================================================================================
  */
 
-void applyPQC(state_t* state, const double params[], const obs_t evoOps[], depth_t circdepth);
+void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], depth_t circdepth);
 
 /*
  * =================================================================================================
@@ -51,7 +51,7 @@ void applyPQC(state_t* state, const double params[], const obs_t evoOps[], depth
  */
 
 double expValPQC(const state_t* state, const double params[], const obs_t* observable, \
-                 const obs_t evoOps[], depth_t circdepth);
+                 const obs_t* evoOps[], depth_t circdepth);
 
 /*
  * =================================================================================================
@@ -60,7 +60,7 @@ double expValPQC(const state_t* state, const double params[], const obs_t* obser
  */
 
 double* gradientPQC(const state_t* state, const double params[], const obs_t* observable, \
-                   const obs_t evoOps[], depth_t circdepth);
+                   const obs_t* evoOps[], depth_t circdepth);
 
 /*
  * =================================================================================================
@@ -69,7 +69,7 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
  */
 
 double* hessianPQC(const state_t* state, const double params[], const obs_t* observable, \
-                   const obs_t evoOps[], depth_t circdepth);
+                   const obs_t* evoOps[], depth_t circdepth);
 
 /*
  * =================================================================================================

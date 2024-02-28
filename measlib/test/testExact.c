@@ -89,7 +89,7 @@ void testExpValObs(void) {
     observableDiag.type = DIAG;                                                 // representation
     observableDiag.diagObs = diagObservable;                                    //
 
-    cplx_t* observableMat = pauliObservaleMat(components, coefficients, length, qubits);    // Initialize the reference
+    cplx_t* observableMat = pauliObservableMat(components, coefficients, length, qubits);    // Initialize the reference
                                                                                             // matrix according to the
                                                                                             //  Pauli string
 
@@ -149,7 +149,7 @@ void testExpValObs(void) {
     pauliObservable.coefficients = coefficients;
     pauliObservable.length = length;
 
-    observableMat = pauliObservaleMat(components, coefficients, length, qubits);
+    observableMat = pauliObservableMat(components, coefficients, length, qubits);
 
     /*
      * Calculate the expectation values
@@ -229,7 +229,7 @@ void testExpValObs(void) {
     observableDiag.type = DIAG;                                                 // Initialize the hamiltonian's diagonal
     observableDiag.diagObs = diagObservable;                                    // representation
 
-    observableMat = pauliObservaleMat(components, coefficients, length, qubits);    // Initialize the reference
+    observableMat = pauliObservableMat(components, coefficients, length, qubits);    // Initialize the reference
                                                                                     // matrix according to the
                                                                                     // Pauli string
 
@@ -329,7 +329,7 @@ void testExpValObs(void) {
     pauliObservable.coefficients = coefficients;
     pauliObservable.length = length;
 
-    observableMat = pauliObservaleMat(components, coefficients, length, qubits);
+    observableMat = pauliObservableMat(components, coefficients, length, qubits);
 
     /*
      * Calculate the expectation values
@@ -429,7 +429,7 @@ void testExpValObs(void) {
     observableDiag.type = DIAG;                                                 // Initialize the hamiltonian's diagonal
     observableDiag.diagObs = diagObservable;                                    // representation
 
-    observableMat = pauliObservaleMat(components, coefficients, length, qubits);    // Initialize the reference
+    observableMat = pauliObservableMat(components, coefficients, length, qubits);    // Initialize the reference
                                                                                     // matrix according to the
                                                                                     // Pauli string
 
@@ -545,7 +545,7 @@ void testExpValObs(void) {
     pauliObservable.coefficients = coefficients;
     pauliObservable.length = length;
 
-    observableMat = pauliObservaleMat(components, coefficients, length, qubits);
+    observableMat = pauliObservableMat(components, coefficients, length, qubits);
 
     /*
      * Calculate the expectation values
@@ -693,7 +693,7 @@ void testExpValObs(void) {
     observableDiag.type = DIAG;                                                 // Initialize the hamiltonian's diagonal
     observableDiag.diagObs = diagObservable;                                    // representation
 
-    observableMat = pauliObservaleMat(components, coefficients, length, qubits);    // Initialize the reference
+    observableMat = pauliObservableMat(components, coefficients, length, qubits);    // Initialize the reference
     // matrix according to the
     // Pauli string
 
@@ -804,7 +804,7 @@ void testExpValObs(void) {
     pauliObservable.coefficients = coefficients;
     pauliObservable.length = length;
 
-    observableMat = pauliObservaleMat(components, coefficients, length, qubits);
+    observableMat = pauliObservableMat(components, coefficients, length, qubits);
 
     /*
      * Calculate the expectation values
@@ -862,7 +862,7 @@ void testGradientPQC(void) {
     pauli_t* compEvoOps;
     double* coeffEvoOps;
     pauliObs_t* evoOpsPauli;
-    obs_t* evoOps;
+    obs_t** evoOps;
 
     cplx_t* observableMat;
 
@@ -1027,23 +1027,25 @@ void testGradientPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t*) malloc(circdepth * sizeof(obs_t));
+    evoOps = (obs_t**) malloc(circdepth * sizeof(obs_t*));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i].type = PAULI;
-        evoOps[i].pauliObs = evoOpsPauli + i;
+        evoOps[i] = (obs_t*) malloc(sizeof(obs_t));
+        evoOps[i]->type = PAULI;
+        evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
     /*
      * Calculate the matrix corresponding to the observable and the evolution operators, respectively
      */
-    observableMat = pauliObservaleMat(compObs, coeffObs, lengthObs, qubits);
+    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
 
     /*
      * Calculate the gradients
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
-        double* result = (double*) malloc(circdepth * sizeof (double));
+        double* result;
         double* reference = (double*) malloc(circdepth * sizeof(double));
+        double* reference2 = (double*) malloc(circdepth * sizeof(double));
 
         stateInitVector(&testState, testVectors[i], qubits);
         result = gradientPQC(&testState, parameters, &observable, evoOps, circdepth);
@@ -1085,7 +1087,7 @@ void testGradientPQC(void) {
          */
         for (depth_t j = 0; j < circdepth; ++j) {
             parameters[j] += 1e-9;
-            for (depth_t k = 0; k< circdepth; ++k) {
+            for (depth_t k = 0; k < circdepth; ++k) {
                 refEvoOps[k] = expTrotterizedPauliObservableMat(compEvoOps, \
                                                                 coeffEvoOps + (k * lengthEvoOps), \
                                                                 lengthEvoOps, \
@@ -1109,6 +1111,40 @@ void testGradientPQC(void) {
             free(refKet);
         }
 
+        for (depth_t j = 0; j < circdepth; ++j) {
+            refEvoOps[j] = expTrotterizedPauliObservableMat(compEvoOps, \
+                                                            coeffEvoOps + (j * lengthEvoOps), \
+                                                            lengthEvoOps, \
+                                                            parameters[j], \
+                                                            qubits);
+        }
+
+        cplx_t** refOps = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
+        for (depth_t j = 0; j < circdepth; ++j) {
+            refOps[j] = pauliObservableMat(compEvoOps, \
+                                          coeffEvoOps + (j * lengthEvoOps), \
+                                          lengthEvoOps, \
+                                          qubits);
+        }
+
+        refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
+        for (depth_t k = 1; k < circdepth; ++k) {
+            cmatVecMulInPlace(refEvoOps[k], refBra, dim);
+        }
+        cmatVecMulInPlace(observableMat, refBra, dim);
+
+        for (depth_t k = 0; k < circdepth; ++k) {
+            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
+            for (depth_t kk = 1; kk <= k; ++kk) {
+                cmatVecMulInPlace(refEvoOps[kk], refKet, dim);
+            }
+            cmatVecMulInPlace(refOps[k], refKet, dim);
+            for (depth_t kk = k + 1; kk < circdepth; ++kk) {
+                cmatVecMulInPlace(refEvoOps[kk], refKet, dim);
+            }
+            reference2[k] = 2 * cimag(cinnerProduct(refBra, refKet, dim));
+        }
+
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
 
         free(result);
@@ -1130,6 +1166,9 @@ void testGradientPQC(void) {
     free(compEvoOps);
     free(coeffEvoOps);
     free(evoOpsPauli);
+    for (depth_t i = 0; i < circdepth; ++i) {
+        free(evoOps[i]);
+    }
     free(evoOps);
     free(observableMat);
 
@@ -1303,10 +1342,11 @@ void testGradientPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t*) malloc(circdepth * sizeof(obs_t));
+    evoOps = (obs_t**) malloc(circdepth * sizeof(obs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i].type = PAULI;
-        evoOps[i].pauliObs = evoOpsPauli + i;
+        evoOps[i] = (obs_t*) malloc(sizeof(obs_t));
+        evoOps[i]->type = PAULI;
+        evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
 //    printf("Coefficients evolution operators: \n");
@@ -1319,7 +1359,7 @@ void testGradientPQC(void) {
     /*
      * Calculate the matrix corresponding to the observable and the evolution operators, respectively
      */
-    observableMat = pauliObservaleMat(compObs, coeffObs, lengthObs, qubits);
+    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
 
     /*
      * Calculate the gradients
@@ -1410,6 +1450,9 @@ void testGradientPQC(void) {
     free(compEvoOps);
     free(coeffEvoOps);
     free(evoOpsPauli);
+    for (depth_t i = 0; i < circdepth; ++i) {
+        free(evoOps[i]);
+    }
     free(evoOps);
     free(observableMat);
 
@@ -1626,10 +1669,11 @@ void testGradientPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t*) malloc(circdepth * sizeof(obs_t));
+    evoOps = (obs_t**) malloc(circdepth * sizeof(obs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i].type = PAULI;
-        evoOps[i].pauliObs = evoOpsPauli + i;
+        evoOps[i] = (obs_t*) malloc(sizeof(obs_t));
+        evoOps[i]->type = PAULI;
+        evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
 //    printf("Coefficients evolution operators: \n");
@@ -1642,7 +1686,7 @@ void testGradientPQC(void) {
     /*
      * Calculate the matrix corresponding to the observable and the evolution operators, respectively
      */
-    observableMat = pauliObservaleMat(compObs, coeffObs, lengthObs, qubits);
+    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
 
     /*
      * Calculate the gradients
@@ -1733,6 +1777,9 @@ void testGradientPQC(void) {
     free(compEvoOps);
     free(coeffEvoOps);
     free(evoOpsPauli);
+    for (depth_t i = 0; i < circdepth; ++i) {
+        free(evoOps[i]);
+    }
     free(evoOps);
     free(observableMat);
 
@@ -2000,10 +2047,11 @@ void testGradientPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t*) malloc(circdepth * sizeof(obs_t));
+    // evoOps = (obs_t**) malloc(circdepth * sizeof(obs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i].type = PAULI;
-        evoOps[i].pauliObs = evoOpsPauli + i;
+        evoOps[i] = (obs_t*) malloc(sizeof(obs_t));
+        evoOps[i]->type = PAULI;
+        evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
 //    printf("Coefficients evolution operators: \n");
@@ -2016,7 +2064,7 @@ void testGradientPQC(void) {
     /*
      * Calculate the matrix corresponding to the observable and the evolution operators, respectively
      */
-    observableMat = pauliObservaleMat(compObs, coeffObs, lengthObs, qubits);
+    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
 
     /*
      * Calculate the gradients
@@ -2107,6 +2155,9 @@ void testGradientPQC(void) {
     free(compEvoOps);
     free(coeffEvoOps);
     free(evoOpsPauli);
+    for (depth_t i = 0; i < circdepth; ++i) {
+        free(evoOps[i]);
+    }
     free(evoOps);
     free(observableMat);
 }

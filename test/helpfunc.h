@@ -4,9 +4,9 @@
  * =================================================================================================
  */
 
-#include "cplxutil.h"
+//#include "cplxutil.h"
 #include "linalg.h"
-#include "unity.h"
+//#include "unity.h"
 
 /*
  * =================================================================================================
@@ -955,7 +955,7 @@ Output:
     Double complex pointer to the array holding the Kronecker product of single qubit Pauli matrices
     according to the array stored in paulistr
 */
-cplx_t* pauliObservaleMat(const pauli_t components[], const double coefficients[], complength_t length, qubit_t qubits)
+cplx_t* pauliObservableMat(const pauli_t components[], const double coefficients[], complength_t length, qubit_t qubits)
 {
     dim_t dim = POW2(qubits, dim_t);
     cplx_t* result = (cplx_t*) calloc(dim*dim, sizeof(cplx_t));
@@ -982,7 +982,7 @@ double* pauliObservableDiag(const pauli_t components[], const double coefficient
                             qubit_t qubits) {
     dim_t dim = POW2(qubits, dim_t);
     double* result = (double*) malloc(dim * sizeof(double));
-    cplx_t* tmp = pauliObservaleMat(components, coefficients, length, qubits);
+    cplx_t* tmp = pauliObservableMat(components, coefficients, length, qubits);
     for (dim_t i = 0; i <dim; ++i) {
         result[i] = creal(tmp[i*dim + i]);
     }
