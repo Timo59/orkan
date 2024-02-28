@@ -92,7 +92,7 @@ add_test(NAME ${gatelibTest} COMMAND ${gatelibTest})
 add_test(NAME ${circlibTest} COMMAND ${circlibTest})
 add_test(NAME ${measlibTest} COMMAND ${measlibTest})
 
-add_library(q STATIC
+add_library(q SHARED
         ${QLIBSRC}
         ${STATELIBSRC}
         ${GATELIBSRC}

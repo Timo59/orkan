@@ -169,9 +169,9 @@ double expValObs(const state_t* state, const obs_t* observable) {
  * =================================================================================================
  */
 
-void applyPQC(state_t* state, const double params[], const obs_t evoOps[], depth_t circdepth) {
+void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], depth_t circdepth) {
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(state, evoOps + i, params[i]);
+        evolveWithTrotterizedObservable(state, evoOps[i], params[i]);
     }
 }
 
@@ -182,13 +182,13 @@ void applyPQC(state_t* state, const double params[], const obs_t evoOps[], depth
  */
 
 double expValPQC(const state_t* state, const double params[], const obs_t* observable, \
-                 const obs_t evoOps[], depth_t circdepth) {
+                 const obs_t* evoOps[], depth_t circdepth) {
     state_t copy;
     stateInitEmpty(&copy, state->qubits);
     stateCopyVector(&copy, state->vector);
 
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(&copy, evoOps + i, params[i]);
+        evolveWithTrotterizedObservable(&copy, evoOps[i], params[i]);
     }
 
     double result = expValObs(&copy, observable);
@@ -227,7 +227,7 @@ Output:
     An array representing the PQC's gradient at the specified point in parameter space.
 */
 double* gradientPQC(const state_t* state, const double params[], const obs_t* observable, \
-                    const obs_t evoOps[], depth_t circdepth) {
+                    const obs_t* evoOps[], depth_t circdepth) {
     state_t bra;
                                                                         
     state_t ket;
@@ -235,6 +235,43 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
     state_t tmp;
 
     register double* result = (double*) malloc(circdepth * sizeof(double));
+
+//    printf("Input state to gradientPQC:\n");
+//    cvectorPrint(state->vector, state->dimension);
+//
+//    printf("\nInput parameters to gradientPQC:\n");
+//    rvectorPrint(params, circdepth);
+//
+//    printf("\nInput observable to gradient PQC:\n");
+//    double* obsInput = observable->diagObs;
+//    rvectorPrint(obsInput, state->dimension);
+//
+//    printf("\nInput evolution operators to gradient PQC:\n");
+//    for (depth_t i = 0; i < circdepth; ++i) {
+//        switch (evoOps[i]->type) {
+//            case DIAG: {
+//                double* evoOpsInput = evoOps[i]->diagObs;
+//                rvectorPrint(evoOpsInput, state->dimension);
+//                break;
+//            }
+//            case PAULI: {
+//                pauliObs_t *evoOpsInput = evoOps[i]->pauliObs;
+//                for (complength_t j = 0; j < evoOpsInput->length; ++j) {
+//                    for (qubit_t k = 0; k < evoOpsInput->qubits; ++k) {
+//                        printf("%d", evoOpsInput->components[k + (j * evoOpsInput->qubits)]);
+//                    }
+//                    printf(", %f\n", evoOpsInput->coefficients[j]);
+//                }
+//                break;
+//            }
+//            default: {
+//                printf("Got %d instead of %d or %d", evoOps[i]->type, DIAG, PAULI);
+//                exit(1);
+//            }
+//        }
+//    }
+//
+//    printf("\nInput circdepth to gradient PQC:\n %d\n", circdepth);
 
     stateInitEmpty(&bra, state->qubits);        // Initialize bra with the input state's vector
     stateCopyVector(&bra, state->vector);
@@ -248,8 +285,9 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
     Evolve bra with all evolutional operators
     */
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(&bra, evoOps + i, params[i]);
-    }                                                                       
+        evolveWithTrotterizedObservable(&bra, evoOps[i], params[i]);
+    }
+
     /*
     Apply the observable to bra
     */
@@ -262,14 +300,13 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
     ket's overlap to the gradient. 
     */
     for (depth_t k = 0; k < circdepth; ++k) {
-        evolveWithTrotterizedObservable(&tmp, evoOps + k, params[k]);
+        evolveWithTrotterizedObservable(&tmp, evoOps[k], params[k]);
 
         stateCopyVector(&ket, tmp.vector);
-
-        applyObservable(&ket, evoOps + k);
+        applyObservable(&ket, evoOps[k]);
 
         for (depth_t l = k + 1; l < circdepth; ++l) {
-            evolveWithTrotterizedObservable(&ket, evoOps + l, params[l]);
+            evolveWithTrotterizedObservable(&ket, evoOps[l], params[l]);
         }
 
         result[k] = 2 * cimag(stateOverlap(&bra, &ket));
@@ -291,7 +328,7 @@ This function returns the hessian according to a PQC at the current point the pa
 */
 
 double* hessianPQC(const state_t* state, const double params[], const obs_t* observable, \
-                   const obs_t evoOps[], depth_t circdepth) {
+                   const obs_t* evoOps[], depth_t circdepth) {
 
     state_t tmpBra;     // temporary state holding each intermediate evolution according to the
                         // hessian's column index both bra vectors have in common
@@ -341,7 +378,7 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
     parameters
     */
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(&bra2, evoOps + i, params[i]);
+        evolveWithTrotterizedObservable(&bra2, evoOps[i], params[i]);
     }
 
     /*
@@ -352,9 +389,9 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
     triangle's row k, i.e., circdepth - k.
     */
     for (depth_t k = 0; k < circdepth; ++k) {
-        evolveWithTrotterizedObservable(&tmpKet, evoOps + k, params[k]);
+        evolveWithTrotterizedObservable(&tmpKet, evoOps[k], params[k]);
         stateCopyVector(&tmpTmpKet, tmpKet.vector);
-        applyObservable(&tmpTmpKet, evoOps + k);
+        applyObservable(&tmpTmpKet, evoOps[k]);
 
         /*
         The diagonal elements, i.e., k=l are computed seperately at each new iteration of the first
@@ -363,12 +400,12 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
         stateCopyVector(&bra1, tmpTmpKet.vector);
         stateCopyVector(&ket1, tmpTmpKet.vector);
         stateCopyVector(&ket2, tmpTmpKet.vector);
-        applyObservable(&ket2, evoOps + k);
+        applyObservable(&ket2, evoOps[k]);
 
         for (depth_t kk = k + 1; kk < circdepth; ++kk) {
-            evolveWithTrotterizedObservable(&bra1, evoOps + kk, params[kk]);
-            evolveWithTrotterizedObservable(&ket1, evoOps + kk, params[kk]);
-            evolveWithTrotterizedObservable(&ket2, evoOps + kk, params[kk]);
+            evolveWithTrotterizedObservable(&bra1, evoOps[kk], params[kk]);
+            evolveWithTrotterizedObservable(&ket1, evoOps[kk], params[kk]);
+            evolveWithTrotterizedObservable(&ket2, evoOps[kk], params[kk]);
         }
         result[k * circdepth + k] = 2 * creal(stateOverlap(&bra1, &ket1));
         result[k * circdepth + k] -= 2 * creal(stateOverlap(&bra2, &ket2));
@@ -387,28 +424,28 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
         are appended to the result and state vectors of bra1, ket1 and ket2 are reset.
         */
         for (depth_t l = k + 1; l < circdepth; ++l) {
-            evolveWithTrotterizedObservable(&tmpBra, evoOps + l, params[l]);
+            evolveWithTrotterizedObservable(&tmpBra, evoOps[l], params[l]);
             stateCopyVector(&bra1, tmpBra.vector);
-            applyObservable(&bra1, evoOps + l);
+            applyObservable(&bra1, evoOps[l]);
 
             for (depth_t ll = l + 1; ll < circdepth; ++ll) {
-                evolveWithTrotterizedObservable(&bra1, evoOps + ll, params[ll]);
+                evolveWithTrotterizedObservable(&bra1, evoOps[ll], params[ll]);
             }
 
             for (depth_t kk = k + 1; kk <= l; ++kk) {
-                evolveWithTrotterizedObservable(&tmpTmpKet, evoOps + kk, params[kk]);
+                evolveWithTrotterizedObservable(&tmpTmpKet, evoOps[kk], params[kk]);
             }
             stateCopyVector(&ket1, tmpTmpKet.vector);
             stateCopyVector(&ket2, tmpTmpKet.vector);
 
             for (depth_t kk = l + 1; kk < circdepth; ++kk) {
-                evolveWithTrotterizedObservable(&ket1, evoOps + kk, params[kk]);
+                evolveWithTrotterizedObservable(&ket1, evoOps[kk], params[kk]);
             }
             applyObservable(&ket1, observable);
 
-            applyObservable(&ket2, evoOps + l);
+            applyObservable(&ket2, evoOps[l]);
             for (depth_t ll = l + 1; ll < circdepth; ++ll) {
-                evolveWithTrotterizedObservable(&ket2, evoOps + ll, params[ll]);
+                evolveWithTrotterizedObservable(&ket2, evoOps[ll], params[ll]);
             }
             applyObservable(&ket2, observable);
 
