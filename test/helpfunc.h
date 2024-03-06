@@ -6,6 +6,7 @@
 
 //#include "cplxutil.h"
 #include "linalg.h"
+#include <stdio.h>
 //#include "unity.h"
 
 /*

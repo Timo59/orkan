@@ -276,7 +276,7 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
     stateInitEmpty(&bra, state->qubits);        // Initialize bra with the input state's vector
     stateCopyVector(&bra, state->vector);
 
-    stateInitEmpty(&ket, state->qubits);        // Initialize ket to the all zero state
+    stateInitEmpty(&ket, state->qubits);        // Initialize ket
 
     stateInitEmpty(&tmp, state->qubits);        // Initialize tmp with the input state's vector
     stateCopyVector(&tmp, state->vector);
@@ -324,145 +324,200 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
  */
 
 /*
-This function returns the hessian according to a PQC at the current point the parameter space.
+ * This function returns the hessian according to a PQC at the current point the parameter space.
+ *
+ * Input:
+ *  state_t* state:         initial state of the parameterized quantum circuit
+ *  const double params:    array of length circuit depth holding the current parameter values
+ *  obs_t observable:       observable whose expectation value's hessian with respect to the parameterized quantum
+ *                           circuit is the objective
+ *  compgate_t* evoOps:     array of length circuit depth holding pointers to the evolution operators of the PQC
+ *  depth_t circdepth:      unsigned integer holding the number of evolution operators in the PQC aka its circuit depth
+ *
+ * Output:
+ *  An array representing the PQC's gradient at the specified point in parameter space.
+ *
 */
 
 double* hessianPQC(const state_t* state, const double params[], const obs_t* observable, \
                    const obs_t* evoOps[], depth_t circdepth) {
 
-    state_t tmpBra;     // temporary state holding each intermediate evolution according to the
-                        // hessian's column index both bra vectors have in common
+    state_t tmp;        // state holding each intermediate evolution of the state vector according to the outer loop aka
+                        // the hessian's row index
+
+    state_t tmpBra;     // state holding each intermediate evolution of the state vector according to the inner loop aka
+                        // the hessian's column index
     
-    state_t tmpKet;     // temporary state holding each intermediate evolution according to the
-                        // hessian's row index both ket vectors have in common
-    
-    state_t tmpTmpKet;  // temporary state holding each intermediate evolution and applying the  
-                        // current evolutional observable according to the hessian's row as well as
-                        // the evolution according to the difference of the hessian's row and column
-                        // index
+    state_t tmpKet;     // state descendant from tmp, altered by the evolution operator according to the hessian's row
+                        // index and evolved with the remaining evolution operators up to the one according to the
+                        // hessian's column index
 
-    state_t bra1;       // state inheriting the intermediate evolution from tmpBra, then altered by
-                        // the evolution operator according to the hessian's column index and
-                        // evolved with the remaining evolution operators and used for the first
-                        // stateOverlap
+    state_t bra1;       // state descendant from tmpBra, altered by the evolution operator according to the hessian's
+                        // column index and evolved with the remaining evolution operators; used for the first overlap
 
-    state_t bra2;       // state evolved with all evolution operators and used for the second
-                        // stateOverlap
+    state_t bra2;       // state evolved with all evolution operators; used for the second overlap
 
-    state_t ket1;       // state inheriting the intermediate evolution from tmpTmpKet, then evolved
-                        // by the remaining evolution operators according to the difference of the
-                        // hessian's row and column index and used for the first stateOverlap
+    state_t ket1;       // state descendant from tmpKet, evolved with the remaining evolution operators; used for the
+                        // first overlap
 
-    state_t ket2;       // state inheriting the intermediate evolution form tmpTmpKet, then altered
-                        // by the evolution operator according to the hessian's column index and 
-                        // evolved by the remaining evolution operators
+    state_t ket2;       // state descendant from tmpKet, altered by the evolution operator according to the hessian's
+                        // column index and evolved with the remaining evolution operators; used for the second overlap
 
     register double* result = (double*) malloc((circdepth * circdepth) * sizeof(double));
-                        // array holding the upper triangle of the hessian
 
+    stateInitEmpty(&tmp, state->qubits);
     stateInitEmpty(&tmpBra, state->qubits);
     stateInitEmpty(&tmpKet, state->qubits);
-    stateInitEmpty(&tmpTmpKet, state->qubits);
     stateInitEmpty(&bra1, state->qubits);
     stateInitEmpty(&bra2, state->qubits);
     stateInitEmpty(&ket1, state->qubits);
     stateInitEmpty(&ket2, state->qubits);
 
-    stateCopyVector(&tmpBra, state->vector);
-    stateCopyVector(&tmpKet, state->vector);
-
-    stateCopyVector(&bra2, state->vector);
+    stateCopyVector(&tmp, state->vector);
 
     /*
-    Evolve the bra vector of the second stateOverlap with all evolution operators and corresponding
-    parameters
+     * 1a) Evolve the bra vector of the second stateOverlap with all evolution operators and corresponding parameters.
     */
+    stateCopyVector(&bra2, state->vector);
     for (depth_t i = 0; i < circdepth; ++i) {
         evolveWithTrotterizedObservable(&bra2, evoOps[i], params[i]);
     }
 
     /*
-    Starting in the hessian's first row, counted by k, evolve the tmpKet with all operators up to k,
-    copy its state vector to tmpTmpKet and apply the k-th evolution operator to tmpTmpKet. Then,
-    compute the diagonal element of the hessian. After allcolumns in the hessian's k-th row are
-    computed, reset tmpTmpKet as well as tmpBra and increase the index by entries in the upper
-    triangle's row k, i.e., circdepth - k.
+     * 1b) The unsigned integer k iterates through all row indices of the hessian's upper triangle. In each iteration
+     * tmp is evolved with the k-th evolution operator.
     */
     for (depth_t k = 0; k < circdepth; ++k) {
-        evolveWithTrotterizedObservable(&tmpKet, evoOps[k], params[k]);
-        stateCopyVector(&tmpTmpKet, tmpKet.vector);
-        applyObservable(&tmpTmpKet, evoOps[k]);
+        evolveWithTrotterizedObservable(&tmp, evoOps[k], params[k]);
 
         /*
-        The diagonal elements, i.e., k=l are computed seperately at each new iteration of the first
-        index because they only appear once in the matrix.
+         * 2a) tmpKet inherits its state vector from tmp and applies the k-th evolution operator to it.
+         */
+        stateCopyVector(&tmpKet, tmp.vector);
+        applyObservable(&tmpKet, evoOps[k]);
+
+        /*
+         * 2b) tmpBra inherits its state vector from tmp.
+         */
+        stateCopyVector(&tmpBra, tmp.vector);
+
+        /*
+         * 3a) The k-th diagonal element is computed separately because it only appears once in the matrix. bra1, ket1
+         * and ket2 are all descendants of tmpKet. The k-th evolution operator is applied to ket2 a second time.
         */
-        stateCopyVector(&bra1, tmpTmpKet.vector);
-        stateCopyVector(&ket1, tmpTmpKet.vector);
-        stateCopyVector(&ket2, tmpTmpKet.vector);
+        stateCopyVector(&bra1, tmpKet.vector);
+        stateCopyVector(&ket1, tmpKet.vector);
+        stateCopyVector(&ket2, tmpKet.vector);
         applyObservable(&ket2, evoOps[k]);
 
+        /*
+         * 3b) bra1, ket1 and ket2 are all evolved with the remaining evolution operators.
+         */
         for (depth_t kk = k + 1; kk < circdepth; ++kk) {
             evolveWithTrotterizedObservable(&bra1, evoOps[kk], params[kk]);
             evolveWithTrotterizedObservable(&ket1, evoOps[kk], params[kk]);
             evolveWithTrotterizedObservable(&ket2, evoOps[kk], params[kk]);
         }
-        result[k * circdepth + k] = 2 * creal(stateOverlap(&bra1, &ket1));
-        result[k * circdepth + k] -= 2 * creal(stateOverlap(&bra2, &ket2));
-        stateFreeVector(&bra1);
-        stateFreeVector(&ket1);
-        stateFreeVector(&ket2);
 
         /*
-        Starting at the k-th column in the hessian's k-th row, counted by l, evolve tmpBra with all
-        operators up to l, copy its state vector to bra1 and apply the l-th evolution operator to 
-        bra1 before evolving bra1 with all the remaining operators.
-        Moreover, evolve tmpTmpKet with all operators whose index is within [k,l], copy its state
-        vector to both, ket1 and ket2 and evolve ket1 with the remaining operators before applying
-        the observable to it. Then apply the operator corresponding to l to ket2, evolve it with the
-        remaining operators and apply the observable to it. The sum of the two stateOverlaps' real parts
-        are appended to the result and state vectors of bra1, ket1 and ket2 are reset.
+         * 3d) The observable is applied to ket1 and ket2.
+         */
+        applyObservable(&ket1, observable);
+        applyObservable(&ket2, observable);
+
+        /*
+         * 3e) The diagonal entries are added once to the array.
+         */
+        result[k * circdepth + k] = 2 * creal(stateOverlap(&bra1, &ket1));
+        result[k * circdepth + k] -= 2 * creal(stateOverlap(&bra2, &ket2));
+
+        /*
+         * 3e) The state vectors of bra1, ket1 and ket2 are freed. tmpBra still holds the initial state evolved with
+         * all evolution operators up the k-th. tmpKet, in addition, was applied the k-th evolution operator.
+         */
+//        stateFreeVector(&bra1);
+//        stateFreeVector(&ket1);
+//        stateFreeVector(&ket2);
+
+        /*
+         * 4) The unsigned integer l iterates through all column indices of the hessian's upper triangle without the
+         * diagonal, i.e., l > k. In each iteration tmpBra and tmpKet are evolved with the l-th evolution operator
         */
         for (depth_t l = k + 1; l < circdepth; ++l) {
             evolveWithTrotterizedObservable(&tmpBra, evoOps[l], params[l]);
+            evolveWithTrotterizedObservable(&tmpKet, evoOps[l], params[l]);
+
+            /*
+             * 4a) bra1 is a descendant of tmpBra, it is applied the l-th evolution operator and evolved with the
+             * remaining evolution operators.
+             */
             stateCopyVector(&bra1, tmpBra.vector);
             applyObservable(&bra1, evoOps[l]);
-
             for (depth_t ll = l + 1; ll < circdepth; ++ll) {
                 evolveWithTrotterizedObservable(&bra1, evoOps[ll], params[ll]);
             }
 
-            for (depth_t kk = k + 1; kk <= l; ++kk) {
-                evolveWithTrotterizedObservable(&tmpTmpKet, evoOps[kk], params[kk]);
-            }
-            stateCopyVector(&ket1, tmpTmpKet.vector);
-            stateCopyVector(&ket2, tmpTmpKet.vector);
-
+            /*
+             * 4b) ket1 is a descendant of tmpKet, is evolved with the remaining evolution operators and the observable
+             * is applied to it
+             */
+            stateCopyVector(&ket1, tmpKet.vector);
             for (depth_t kk = l + 1; kk < circdepth; ++kk) {
                 evolveWithTrotterizedObservable(&ket1, evoOps[kk], params[kk]);
             }
+
             applyObservable(&ket1, observable);
 
+
+            /*
+             * 4c) ket2 is a descendant of tmpKet and the l-th evolution operator is applied to it. It is evolved with
+             * the remaining evolution operators and the observable is applied to it.
+             */
+            stateCopyVector(&ket2, tmpKet.vector);
             applyObservable(&ket2, evoOps[l]);
             for (depth_t ll = l + 1; ll < circdepth; ++ll) {
                 evolveWithTrotterizedObservable(&ket2, evoOps[ll], params[ll]);
             }
             applyObservable(&ket2, observable);
 
+            /*
+             * 4d) The difference of the two overlap's real part are added to the positions corresponding to the l-th entry
+             * of the k-th row and vice versa of the array.
+             */
             result[k * circdepth + l] = 2 * creal(stateOverlap(&bra1, &ket1));
             result[k * circdepth + l] -= 2 * creal(stateOverlap(&bra2, &ket2));
             result[l * circdepth + k] = 2 * creal(stateOverlap(&bra1, &ket1));
             result[l * circdepth + k] -= 2 * creal(stateOverlap(&bra2, &ket2));
 
-            stateFreeVector(&bra1);
-            stateFreeVector(&ket1);
-            stateFreeVector(&ket2);
+            /*
+             * 4e) The state vectors of bra1, ket1 and ket2 are freed. tmpBra currently holds the initial state evolved
+             * with all evolution operators up to the l-th. tmpKet holds the initial state evolved with all evolution
+             * operators up to the k-th evolution operators, altered with the k-th evolution operator and evolved with
+             * the remaining evolution operators up to the l-th.
+             */
+        //    stateFreeVector(&bra1);
+        //    stateFreeVector(&ket1);
+        //    stateFreeVector(&ket2);
         }
-        stateFreeVector(&tmpTmpKet);
-        stateFreeVector(&tmpBra);
+
+        /*
+         * 2c) The state vectors of tmpBra and tmpKet are freed. tmp currently holds the initial state evolved with all
+         * evolution operators up to the k-th.
+         */
+    //    stateFreeVector(&tmpBra);
+    //    stateFreeVector(&tmpKet);
     }
-    stateFreeVector(&bra2);
+
+    /*
+     * The state vectors of bra2 and tmp are freed. No more state vector is attached
+     */
+    stateFreeVector(&tmp);
+    stateFreeVector(&tmpBra);
     stateFreeVector(&tmpKet);
+    stateFreeVector(&bra1);
+    stateFreeVector(&bra2);
+    stateFreeVector(&ket1);
+    stateFreeVector(&ket2);
 
     return result;
 }
