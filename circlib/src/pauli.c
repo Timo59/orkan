@@ -229,7 +229,6 @@ void applyObservablePauli(state_t* state, const pauliObs_t* observable) {
                                                 // add the state vector in tmp state to the
                                                 // intermediate state vector in tmpSum
     }
-
     stateFreeVector(&tmp);
     stateCopyVector(state, tmpSum.vector);      // copy the final state in tmpSum to the input
                                                 // state's vector
