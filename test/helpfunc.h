@@ -1046,3 +1046,7 @@ cplx_t* expTrotterizedPauliObservableMat(const pauli_t components[], const doubl
 
     return result;
 }
+
+/*
+ *
+ */
