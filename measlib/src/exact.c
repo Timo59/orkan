@@ -432,14 +432,6 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
         result[k * circdepth + k] -= 2 * creal(stateOverlap(&bra2, &ket2));
 
         /*
-         * 3e) The state vectors of bra1, ket1 and ket2 are freed. tmpBra still holds the initial state evolved with
-         * all evolution operators up the k-th. tmpKet, in addition, was applied the k-th evolution operator.
-         */
-//        stateFreeVector(&bra1);
-//        stateFreeVector(&ket1);
-//        stateFreeVector(&ket2);
-
-        /*
          * 4) The unsigned integer l iterates through all column indices of the hessian's upper triangle without the
          * diagonal, i.e., l > k. In each iteration tmpBra and tmpKet are evolved with the l-th evolution operator
         */
@@ -481,31 +473,14 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
             applyObservable(&ket2, observable);
 
             /*
-             * 4d) The difference of the two overlap's real part are added to the positions corresponding to the l-th entry
-             * of the k-th row and vice versa of the array.
+             * 4d) The difference of the two overlap's real part are added to the positions corresponding to the l-th
+             * entry of the k-th row and vice versa of the array.
              */
             result[k * circdepth + l] = 2 * creal(stateOverlap(&bra1, &ket1));
             result[k * circdepth + l] -= 2 * creal(stateOverlap(&bra2, &ket2));
             result[l * circdepth + k] = 2 * creal(stateOverlap(&bra1, &ket1));
             result[l * circdepth + k] -= 2 * creal(stateOverlap(&bra2, &ket2));
-
-            /*
-             * 4e) The state vectors of bra1, ket1 and ket2 are freed. tmpBra currently holds the initial state evolved
-             * with all evolution operators up to the l-th. tmpKet holds the initial state evolved with all evolution
-             * operators up to the k-th evolution operators, altered with the k-th evolution operator and evolved with
-             * the remaining evolution operators up to the l-th.
-             */
-        //    stateFreeVector(&bra1);
-        //    stateFreeVector(&ket1);
-        //    stateFreeVector(&ket2);
         }
-
-        /*
-         * 2c) The state vectors of tmpBra and tmpKet are freed. tmp currently holds the initial state evolved with all
-         * evolution operators up to the k-th.
-         */
-    //    stateFreeVector(&tmpBra);
-    //    stateFreeVector(&tmpKet);
     }
 
     /*

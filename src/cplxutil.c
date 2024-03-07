@@ -83,7 +83,6 @@ void rmatrixPrint(double matrix[], dim_t dim) {
     printf("[");
     vectorPrint(matrix, dim);
     for (dim_t i = 1; i < dim; ++i) {
-        printf("\n ");
         vectorPrint(matrix + (((mat_t) i) * dim), dim);
     }
     printf("]\n");
