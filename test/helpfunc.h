@@ -1048,5 +1048,110 @@ cplx_t* expTrotterizedPauliObservableMat(const pauli_t components[], const doubl
 }
 
 /*
- *
+ * Finite difference methods
  */
+
+double* finiteGradientPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_t circdepth, \
+                          pauli_t* compObs, double* coeffObs, complength_t lengthObs, \
+                          pauli_t* compEvoOps, double* coeffEvoOps, complength_t lengthEvoOps, double* parameters, \
+                          double epsilon) {
+    double* result = (double*) malloc(circdepth * sizeof(double));
+    /*
+     * 1. Calculate the observable's matrix
+     */
+    cplx_t* observableMat = observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
+
+    /*
+     * 2. Calculate the mean value at the current parameter setting
+     */
+    cplx_t** evoOpsMat = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
+    for (depth_t i = 0; i < circdepth; ++i) {
+        evoOpsMat[i] = expTrotterizedPauliObservableMat(compEvoOps, \
+                                                            coeffEvoOps + (i * lengthEvoOps), \
+                                                            lengthEvoOps, \
+                                                            parameters[i], qubits);
+    }                                                                       // Compute the evolution operator's matrices
+
+    cplx_t* bra = cmatVecMul(evoOpsMat[0], statevector, dim);            // Evolve the statevector with all
+    for (depth_t i = 1; i < circdepth; ++i) {                               // evolution operators for the bra
+        cmatVecMulInPlace(evoOpsMat[i], bra, dim);
+    }
+
+    cplx_t* ket = cmatVecMul(evoOpsMat[0], statevector, dim);            // Evolve the statevector with all
+    for (depth_t i = 1; i < circdepth; ++i) {                               // evolution operators for the ket
+        cmatVecMulInPlace(evoOpsMat[i], ket, dim);
+    }
+    cmatVecMulInPlace(observableMat, ket, dim);                             // Apply the observable to ket
+
+    double expVal = creal(cinnerProduct(bra, ket, dim));
+
+    free(bra);
+    free(ket);
+    for (depth_t i = 0; i < circdepth; ++i) {
+        free(evoOpsMat[i]);
+    }
+
+    /*
+     * 3. Shift the parameter setting by epsilon in all directions; the difference of the mean and the previous mean
+     * give the finite difference's entry
+     */
+    for (depth_t i = 0; i < circdepth; ++i) {
+        parameters[i] += epsilon;
+        for (depth_t j = 0; j < circdepth; ++j) {
+            evoOpsMat[j] = expTrotterizedPauliObservableMat(compEvoOps, \
+                                                            coeffEvoOps + (j * lengthEvoOps), \
+                                                            lengthEvoOps, \
+                                                            parameters[j], qubits);
+        }                                                                   // Compute the evolution operator's matrices
+
+        bra = cmatVecMul(evoOpsMat[0], statevector, dim);                // Evolve the statevector with all
+        for (depth_t j = 1; j < circdepth; ++j) {                               // evolution operators for the bra
+            cmatVecMulInPlace(evoOpsMat[j], bra, dim);
+        }
+
+        ket = cmatVecMul(evoOpsMat[0], statevector, dim);                // Evolve the statevector with all
+        for (depth_t j = 1; j < circdepth; ++j) {                               // evolution operators for the ket
+            cmatVecMulInPlace(evoOpsMat[j], ket, dim);
+        }
+        cmatVecMulInPlace(observableMat, ket, dim);
+
+        result[i] = (1./epsilon) * (creal(cinnerProduct(bra, ket, dim)) - expVal);
+        parameters[i] -= epsilon;
+
+        free(bra);
+        free(ket);
+        for (depth_t j = 0; j < circdepth; ++j) {
+            free(evoOpsMat[j]);
+        }
+    }
+    return result;
+}
+
+double* finiteHessianPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_t circdepth, \
+                         pauli_t* compObs, double* coeffObs, complength_t lengthObs, \
+                         pauli_t* compEvoOps, double* coeffEvoOps, complength_t lengthEvoOps, double* parameters, \
+                         double epsilon
+                         ) {
+    double* result = malloc(circdepth*circdepth * sizeof(double));
+
+    /*
+     * 1. Calculate the gradient at the current parameter setting
+     */
+    double* refGradient = finiteGradientPQC(statevector, qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                            compEvoOps, coeffEvoOps, lengthEvoOps, parameters, epsilon);
+
+    /*
+     * 2. Shift the parameter setting by epsilon in all directions; the entrywise difference to the prvious gradient
+     * gives the corresponding column of the hessian
+     */
+    for (depth_t i = 0; i < circdepth; ++i) {
+        parameters[i] += epsilon;
+        double* gradient = finiteGradientPQC(statevector, qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                            compEvoOps, coeffEvoOps, lengthEvoOps, parameters, epsilon);
+        for (depth_t j = 0; j < circdepth; ++j) {
+            result[j*circdepth + i] = (1./epsilon) * (gradient[j] - refGradient[j]);
+        }
+        parameters[i] -= epsilon;
+    }
+    return result;
+}

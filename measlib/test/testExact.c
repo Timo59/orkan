@@ -864,8 +864,6 @@ void testGradientPQC(void) {
     pauliObs_t* evoOpsPauli;
     obs_t** evoOps;
 
-    cplx_t* observableMat;
-
     /*
                                                 3 qubit, circuit depth = 2
     --------------------------------------------------------------------------------------------------------------------
@@ -1035,115 +1033,56 @@ void testGradientPQC(void) {
     }
 
     /*
-     * Calculate the matrix corresponding to the observable and the evolution operators, respectively
-     */
-    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
-
-    /*
      * Calculate the gradients
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
+        /*
+         * Gradient from gradient PQC
+         */
         double* result;
-        double* reference = (double*) malloc(circdepth * sizeof(double));
-        double* reference2 = (double*) malloc(circdepth * sizeof(double));
-
         stateInitVector(&testState, testVectors[i], qubits);
-        result = gradientPQC(&testState, parameters, &observable, evoOps, circdepth);
+        result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
 
         /*
-         * Reference gradient
-         *  1. Compute the objective's expectation value at the current parameter setting
+         * Gradient from finite difference method
          */
-        cplx_t** refEvoOps = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
-        for (depth_t j = 0; j < circdepth; ++j) {
-            refEvoOps[j] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                            coeffEvoOps + (j * lengthEvoOps), \
-                                                            lengthEvoOps, \
-                                                            parameters[j], qubits);
-        }
+        double* reference = finiteGradientPQC(refVectors[i], qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                              compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
-        cplx_t* refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t j = 1; j < circdepth; ++j) {
-            cmatVecMulInPlace(refEvoOps[j], refBra, dim);
-        }
-
-        cplx_t* refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t j = 1; j < circdepth; ++j) {
-            cmatVecMulInPlace(refEvoOps[j], refKet, dim);
-        }
-        cmatVecMulInPlace(observableMat, refKet, dim);
-
-        double expVal = creal(cinnerProduct(refBra, refKet, dim));
-
-        /*
-         * 2. Free the reference vectors
-         */
-        free(refBra);
-        free(refKet);
-
-        /*
-         * 3. Shift the parameter setting slightly by the same amount in all directions and compute the expectation
-         * value there
-         */
-        for (depth_t j = 0; j < circdepth; ++j) {
-            parameters[j] += 1e-9;
-            for (depth_t k = 0; k < circdepth; ++k) {
-                refEvoOps[k] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                                coeffEvoOps + (k * lengthEvoOps), \
-                                                                lengthEvoOps, \
-                                                                parameters[k], qubits);
-            }
-            refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refBra, dim);
-            }
-
-            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refKet, dim);
-            }
-            cmatVecMulInPlace(observableMat, refKet, dim);
-
-            reference[j] = 1e9 * (creal(cinnerProduct(refBra, refKet, dim)) - expVal);
-            parameters[j] -= 1e-9;
-
-            free(refBra);
-            free(refKet);
-        }
-
-        for (depth_t j = 0; j < circdepth; ++j) {
-            refEvoOps[j] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                            coeffEvoOps + (j * lengthEvoOps), \
-                                                            lengthEvoOps, \
-                                                            parameters[j], \
-                                                            qubits);
-        }
-
-        cplx_t** refOps = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
-        for (depth_t j = 0; j < circdepth; ++j) {
-            refOps[j] = pauliObservableMat(compEvoOps, \
-                                          coeffEvoOps + (j * lengthEvoOps), \
-                                          lengthEvoOps, \
-                                          qubits);
-        }
-
-        refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t k = 1; k < circdepth; ++k) {
-            cmatVecMulInPlace(refEvoOps[k], refBra, dim);
-        }
-        cmatVecMulInPlace(observableMat, refBra, dim);
-
-        for (depth_t k = 0; k < circdepth; ++k) {
-            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t kk = 1; kk <= k; ++kk) {
-                cmatVecMulInPlace(refEvoOps[kk], refKet, dim);
-            }
-            cmatVecMulInPlace(refOps[k], refKet, dim);
-            for (depth_t kk = k + 1; kk < circdepth; ++kk) {
-                cmatVecMulInPlace(refEvoOps[kk], refKet, dim);
-            }
-            reference2[k] = 2 * cimag(cinnerProduct(refBra, refKet, dim));
-        }
+//        double* reference2 = (double*) malloc(circdepth * sizeof(double));
+//        for (depth_t j = 0; j < circdepth; ++j) {
+//            refEvoOps[j] = expTrotterizedPauliObservableMat(compEvoOps, \
+//                                                            coeffEvoOps + (j * lengthEvoOps), \
+//                                                            lengthEvoOps, \
+//                                                            parameters[j], \
+//                                                            qubits);
+//        }
+//
+//        cplx_t** refOps = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
+//        for (depth_t j = 0; j < circdepth; ++j) {
+//            refOps[j] = pauliObservableMat(compEvoOps, \
+//                                          coeffEvoOps + (j * lengthEvoOps), \
+//                                          lengthEvoOps, \
+//                                          qubits);
+//        }
+//
+//        refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
+//        for (depth_t k = 1; k < circdepth; ++k) {
+//            cmatVecMulInPlace(refEvoOps[k], refBra, dim);
+//        }
+//        cmatVecMulInPlace(observableMat, refBra, dim);
+//
+//        for (depth_t k = 0; k < circdepth; ++k) {
+//            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
+//            for (depth_t kk = 1; kk <= k; ++kk) {
+//                cmatVecMulInPlace(refEvoOps[kk], refKet, dim);
+//            }
+//            cmatVecMulInPlace(refOps[k], refKet, dim);
+//            for (depth_t kk = k + 1; kk < circdepth; ++kk) {
+//                cmatVecMulInPlace(refEvoOps[kk], refKet, dim);
+//            }
+//            reference2[k] = 2 * cimag(cinnerProduct(refBra, refKet, dim));
+//        }
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
 
@@ -1170,7 +1109,6 @@ void testGradientPQC(void) {
         free(evoOps[i]);
     }
     free(evoOps);
-    free(observableMat);
 
     /*
                                                 3 qubit, circuit depth = 3
@@ -1349,89 +1287,22 @@ void testGradientPQC(void) {
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
-//    printf("Coefficients evolution operators: \n");
-//    rvectorPrint(coeffEvoOps, circdepth*lengthEvoOps);
-//    for (depth_t i = 0; i < circdepth; ++i) {
-//        printf("EvoOp %d: ", i);
-//        rvectorPrint(evoOpsPauli[i].coefficients, lengthEvoOps);
-//    }
-
-    /*
-     * Calculate the matrix corresponding to the observable and the evolution operators, respectively
-     */
-    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
-
     /*
      * Calculate the gradients
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
-        double* result = (double*) malloc(circdepth * sizeof (double));
-        double* reference = (double*) malloc(circdepth * sizeof(double));
-
+        /*
+         * Gradient from gradient PQC
+         */
+        double* result;
         stateInitVector(&testState, testVectors[i], qubits);
-        result = gradientPQC(&testState, parameters, &observable, evoOps, circdepth);
+        result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
 
         /*
-         * Reference gradient
-         *  1. Compute the objective's expectation value at the current parameter setting
+         * Gradient from finite difference method
          */
-        cplx_t** refEvoOps = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
-        for (depth_t j = 0; j < circdepth; ++j) {
-            refEvoOps[j] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                            coeffEvoOps + (j * lengthEvoOps), \
-                                                            lengthEvoOps, \
-                                                            parameters[j], \
-                                                            qubits);
-        }
-
-        cplx_t* refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t j = 1; j < circdepth; ++j) {
-            cmatVecMulInPlace(refEvoOps[j], refBra, dim);
-        }
-
-        cplx_t* refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t j = 1; j < circdepth; ++j) {
-            cmatVecMulInPlace(refEvoOps[j], refKet, dim);
-        }
-        cmatVecMulInPlace(observableMat, refKet, dim);
-
-        double expVal = creal(cinnerProduct(refBra, refKet, dim));
-
-        /*
-         * 2. Free the reference vectors
-         */
-        free(refBra);
-        free(refKet);
-
-        /*
-         * 3. Shift the parameter setting slightly by the same amount in all directions and compute the expectation
-         * value there
-         */
-        for (depth_t j = 0; j < circdepth; ++j) {
-            parameters[j] += 1e-9;
-            for (depth_t k = 0; k < circdepth; ++k) {
-                refEvoOps[k] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                                coeffEvoOps + (k * lengthEvoOps), \
-                                                                lengthEvoOps, \
-                                                                parameters[k], qubits);
-            }
-            refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refBra, dim);
-            }
-
-            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refKet, dim);
-            }
-            cmatVecMulInPlace(observableMat, refKet, dim);
-
-            reference[j] = 1e9 * (creal(cinnerProduct(refBra, refKet, dim)) - expVal);
-            parameters[j] -= 1e-9;
-
-            free(refBra);
-            free(refKet);
-        }
+        double* reference = finiteGradientPQC(refVectors[i], qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                              compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
     }
@@ -1454,7 +1325,6 @@ void testGradientPQC(void) {
         free(evoOps[i]);
     }
     free(evoOps);
-    free(observableMat);
 
     /*
                                                 4 qubit, circuit depth = 2
@@ -1676,89 +1546,22 @@ void testGradientPQC(void) {
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
-//    printf("Coefficients evolution operators: \n");
-//    rvectorPrint(coeffEvoOps, circdepth*lengthEvoOps);
-//    for (depth_t i = 0; i < circdepth; ++i) {
-//        printf("EvoOp %d: ", i);
-//        rvectorPrint(evoOpsPauli[i].coefficients, lengthEvoOps);
-//    }
-
-    /*
-     * Calculate the matrix corresponding to the observable and the evolution operators, respectively
-     */
-    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
-
     /*
      * Calculate the gradients
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
-        double* result = (double*) malloc(circdepth * sizeof (double));
-        double* reference = (double*) malloc(circdepth * sizeof(double));
-
+        /*
+ * Gradient from gradient PQC
+ */
+        double* result;
         stateInitVector(&testState, testVectors[i], qubits);
-        result = gradientPQC(&testState, parameters, &observable, evoOps, circdepth);
+        result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
 
         /*
-         * Reference gradient
-         *  1. Compute the objective's expectation value at the current parameter setting
+         * Gradient from finite difference method
          */
-        cplx_t** refEvoOps = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
-        for (depth_t j = 0; j < circdepth; ++j) {
-            refEvoOps[j] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                            coeffEvoOps + (j * lengthEvoOps), \
-                                                            lengthEvoOps, \
-                                                            parameters[j], \
-                                                            qubits);
-        }
-
-        cplx_t* refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t j = 1; j < circdepth; ++j) {
-            cmatVecMulInPlace(refEvoOps[j], refBra, dim);
-        }
-
-        cplx_t* refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t j = 1; j < circdepth; ++j) {
-            cmatVecMulInPlace(refEvoOps[j], refKet, dim);
-        }
-        cmatVecMulInPlace(observableMat, refKet, dim);
-
-        double expVal = creal(cinnerProduct(refBra, refKet, dim));
-
-        /*
-         * 2. Free the reference vectors
-         */
-        free(refBra);
-        free(refKet);
-
-        /*
-         * 3. Shift the parameter setting slightly by the same amount in all directions and compute the expectation
-         * value there
-         */
-        for (depth_t j = 0; j < circdepth; ++j) {
-            parameters[j] += 1e-9;
-            for (depth_t k = 0; k < circdepth; ++k) {
-                refEvoOps[k] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                                coeffEvoOps + (k * lengthEvoOps), \
-                                                                lengthEvoOps, \
-                                                                parameters[k], qubits);
-            }
-            refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refBra, dim);
-            }
-
-            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refKet, dim);
-            }
-            cmatVecMulInPlace(observableMat, refKet, dim);
-
-            reference[j] = 1e9 * (creal(cinnerProduct(refBra, refKet, dim)) - expVal);
-            parameters[j] -= 1e-9;
-
-            free(refBra);
-            free(refKet);
-        }
+        double* reference = finiteGradientPQC(refVectors[i], qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                              compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
     }
@@ -1781,7 +1584,6 @@ void testGradientPQC(void) {
         free(evoOps[i]);
     }
     free(evoOps);
-    free(observableMat);
 
     /*
                                                 4 qubit, circuit depth = 5
@@ -2054,89 +1856,22 @@ void testGradientPQC(void) {
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
-//    printf("Coefficients evolution operators: \n");
-//    rvectorPrint(coeffEvoOps, circdepth*lengthEvoOps);
-//    for (depth_t i = 0; i < circdepth; ++i) {
-//        printf("EvoOp %d: ", i);
-//        rvectorPrint(evoOpsPauli[i].coefficients, lengthEvoOps);
-//    }
-
-    /*
-     * Calculate the matrix corresponding to the observable and the evolution operators, respectively
-     */
-    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
-
     /*
      * Calculate the gradients
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
-        double* result = (double*) malloc(circdepth * sizeof (double));
-        double* reference = (double*) malloc(circdepth * sizeof(double));
-
+        /*
+ * Gradient from gradient PQC
+ */
+        double* result;
         stateInitVector(&testState, testVectors[i], qubits);
-        result = gradientPQC(&testState, parameters, &observable, evoOps, circdepth);
+        result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
 
         /*
-         * Reference gradient
-         *  1. Compute the objective's expectation value at the current parameter setting
+         * Gradient from finite difference method
          */
-        cplx_t** refEvoOps = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
-        for (depth_t j = 0; j < circdepth; ++j) {
-            refEvoOps[j] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                            coeffEvoOps + (j * lengthEvoOps), \
-                                                            lengthEvoOps, \
-                                                            parameters[j], \
-                                                            qubits);
-        }
-
-        cplx_t* refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t j = 1; j < circdepth; ++j) {
-            cmatVecMulInPlace(refEvoOps[j], refBra, dim);
-        }
-
-        cplx_t* refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-        for (depth_t j = 1; j < circdepth; ++j) {
-            cmatVecMulInPlace(refEvoOps[j], refKet, dim);
-        }
-        cmatVecMulInPlace(observableMat, refKet, dim);
-
-        double expVal = creal(cinnerProduct(refBra, refKet, dim));
-
-        /*
-         * 2. Free the reference vectors
-         */
-        free(refBra);
-        free(refKet);
-
-        /*
-         * 3. Shift the parameter setting slightly by the same amount in all directions and compute the expectation
-         * value there
-         */
-        for (depth_t j = 0; j < circdepth; ++j) {
-            parameters[j] += 1e-9;
-            for (depth_t k = 0; k < circdepth; ++k) {
-                refEvoOps[k] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                                coeffEvoOps + (k * lengthEvoOps), \
-                                                                lengthEvoOps, \
-                                                                parameters[k], qubits);
-            }
-            refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refBra, dim);
-            }
-
-            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refKet, dim);
-            }
-            cmatVecMulInPlace(observableMat, refKet, dim);
-
-            reference[j] = 1e9 * (creal(cinnerProduct(refBra, refKet, dim)) - expVal);
-            parameters[j] -= 1e-9;
-
-            free(refBra);
-            free(refKet);
-        }
+        double* reference = finiteGradientPQC(refVectors[i], qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                              compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
     }
@@ -2159,7 +1894,6 @@ void testGradientPQC(void) {
         free(evoOps[i]);
     }
     free(evoOps);
-    free(observableMat);
 }
 
 /*
@@ -2190,20 +1924,12 @@ void testHessianPQC(void) {
     pauliObs_t *evoOpsPauli;
     obs_t **evoOps;
 
-    cplx_t *observableMat;
-
     /*
                                                 3 qubit, circuit depth = 2
     --------------------------------------------------------------------------------------------------------------------
     */
     qubits = 3;
     dim = POW2(qubits, dim_t);
-
-    double delta = 1e-15;            // shift to approximate the gradient
-    double invDelta = 1e15;          // and its inverse
-
-    double epsilon = 1e-15;          // shift to approximate the hessian
-    double invEpsilon = 1e15;        // and its inverse
 
     /*
      * Define the PQC setting
@@ -2366,10 +2092,6 @@ void testHessianPQC(void) {
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
-    /*
-     * Calculate the matrix corresponding to the observable and the evolution operators, respectively
-     */
-    observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
 
     /*
      * Test objective:
@@ -2383,181 +2105,24 @@ void testHessianPQC(void) {
         /*
          * 1. Calculate the hessian via hessianPQC
          */
-        double *result = (double *) malloc(circdepth * circdepth * sizeof(double));
         stateInitVector(&testState, testVectors[i], qubits);
-        result = hessianPQC(&testState, parameters, &observable, evoOps, circdepth);
+        double* result = hessianPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
 
         /*
-         * 2. Calculate all entries of the approximated hessian's j-th column by finite difference method on the
-         * gradients
+         * Calculate the hessian via finite difference method
          */
-        double* reference = (double *) malloc(circdepth * circdepth * sizeof(double));
-        double* reference2 = (double*) malloc(circdepth * circdepth * sizeof(double));
-        for (depth_t j = 0; j < circdepth; ++j) {
+        double* reference = finiteHessianPQC(refVectors[i],qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                             compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
-            /*
-             * 2a. Calculate the objective's value at the current parameter setting and add it to every entry of the
-             * reference column
-             */
-            cplx_t **refEvoOps = (cplx_t **) malloc(circdepth * sizeof(cplx_t *));
-            for (depth_t k = 0; k < circdepth; ++k) {
-                refEvoOps[k] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                                coeffEvoOps + (k * lengthEvoOps), \
-                                                                lengthEvoOps, \
-                                                                parameters[k], \
-                                                                qubits);
-            }
+        printf("Result:\n");
+        matrixPrint(result, circdepth);
+        printf("Reference:\n");
+        matrixPrint(reference, circdepth);
 
-            cplx_t *refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refBra, dim);
-            }
+        //TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
 
-            cplx_t *refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refKet, dim);
-            }
-            cmatVecMulInPlace(observableMat, refKet, dim);
-
-            double expVal = creal(cinnerProduct(refBra, refKet, dim));
-            for (depth_t k = 0; k < circdepth; ++k) {
-                reference[j * circdepth + k] = expVal;
-            }
-
-            reference2 = gradientPQC(&testState, parameters, &observable, evoOps, circdepth);
-
-            /*
-             * 2b. Free the reference operators and vectors
-            */
-            for (depth_t k = 0; k < circdepth; ++k) {
-                free(refEvoOps[k]);
-            }
-            free(refBra);
-            free(refKet);
-
-            /*
-             * 2c. Shift the parameter setting by epsilon in the direction corresponding to the approximated hessian's
-             * column and subtract the objective's value from every entry of the reference column
-            */
-            parameters[j] += epsilon;
-
-            double* gradient = gradientPQC(&testState, parameters, &observable, evoOps, circdepth);
-            for (depth_t k = 0; k < circdepth; ++k) {
-                reference2[j * circdepth + k] -= gradient[k];
-                reference2[j * circdepth + k] *= -invEpsilon;
-            }
-
-            for (depth_t k = 0; k < circdepth; ++k) {
-                refEvoOps[k] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                                coeffEvoOps + (k * lengthEvoOps), \
-                                                                lengthEvoOps, \
-                                                                parameters[k], \
-                                                                qubits);
-            }
-
-            refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refBra, dim);
-            }
-
-            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-            for (depth_t k = 1; k < circdepth; ++k) {
-                cmatVecMulInPlace(refEvoOps[k], refKet, dim);
-            }
-            cmatVecMulInPlace(observableMat, refKet, dim);
-
-            expVal = creal(cinnerProduct(refBra, refKet, dim));
-            for (depth_t k = 0; k < circdepth; ++k) {
-                reference[j * circdepth + k] -= expVal;
-            }
-
-            /*
-             * 2d. Shift the parameter setting by delta in each direction at a time and add the objective's value to the
-             * referring row of the reference
-            */
-            for (depth_t k = 0; k < circdepth; ++k) {
-                parameters[k] += delta;
-
-                for (depth_t l = 0; l < circdepth; ++l) {
-                    refEvoOps[l] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                                    coeffEvoOps + (l * lengthEvoOps), \
-                                                                    lengthEvoOps, \
-                                                                    parameters[l],
-                                                                    qubits);
-                }
-
-                refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-                for (depth_t l = 1; l < circdepth; ++l) {
-                    cmatVecMulInPlace(refEvoOps[l], refBra, dim);
-                }
-
-                refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-                for (depth_t l = 1; l < circdepth; ++l) {
-                    cmatVecMulInPlace(refEvoOps[l], refKet, dim);
-                }
-                cmatVecMulInPlace(observableMat, refKet, dim);
-
-                reference[j * circdepth + k] += creal(cinnerProduct(refBra, refKet, dim));
-                parameters[j * circdepth + k] -= delta;
-
-                for (depth_t l = 0; l < circdepth; ++l) {
-                    free(refEvoOps[l]);
-                }
-                free(refBra);
-                free(refKet);
-            }
-
-            /*
-             * 2e. Reverse the shift by epsilon in the direction corresponding to approximated hessian's column and
-             * shift the parameter setting by delta in each direction at a time and subtract the objective's value from
-             * the referring row of the reference
-            */
-            parameters[j] -= epsilon;
-
-            for (depth_t k = 0; k < circdepth; ++k) {
-                parameters[k] += delta;
-
-                for (depth_t l = 0; l < circdepth; ++l) {
-                    refEvoOps[l] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                                    coeffEvoOps + (l * lengthEvoOps), \
-                                                                    lengthEvoOps, \
-                                                                    parameters[l],
-                                                                    qubits);
-                }
-
-                refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-                for (depth_t l = 1; l < circdepth; ++l) {
-                    cmatVecMulInPlace(refEvoOps[l], refBra, dim);
-                }
-
-                refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-                for (depth_t l = 1; l < circdepth; ++l) {
-                    cmatVecMulInPlace(refEvoOps[l], refKet, dim);
-                }
-                cmatVecMulInPlace(observableMat, refKet, dim);
-
-                reference[j * circdepth + k] -= creal(cinnerProduct(refBra, refKet, dim));
-                reference[j * circdepth + k] *= (invEpsilon * invDelta);
-                parameters[k] -= delta;
-
-                for (depth_t l = 0; l < circdepth; ++l) {
-                    free(refEvoOps[l]);
-                }
-                free(refBra);
-                free(refKet);
-            }
-            /*
-            * 5.
-            */
-            printf("Result:\n");
-            matrixPrint(result, circdepth);
-            printf("Reference: ");
-            matrixPrint(reference, circdepth);
-            printf("Reference2: ");
-            matrixPrint(reference2, circdepth);
-            //TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
-            printf("\n");
-        }
+        free(result);
+        free(reference);
     }
     /*
     * Free test vectors
@@ -2577,7 +2142,6 @@ void testHessianPQC(void) {
         free(evoOps[i]);
     }
     free(evoOps);
-    free(observableMat);
 }
 
 
