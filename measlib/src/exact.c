@@ -183,16 +183,13 @@ void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], dept
 
 double expValPQC(const state_t* state, const double params[], const obs_t* observable, \
                  const obs_t* evoOps[], depth_t circdepth) {
-    state_t copy;
-    stateInitEmpty(&copy, state->qubits);
-    stateCopyVector(&copy, state->vector);
+    state_t tmp;
+    stateInitVector(&tmp, state->vector, state->qubits);
 
-    for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(&copy, evoOps[i], params[i]);
-    }
+    applyPQC(&tmp, params, evoOps, circdepth);
 
-    double result = expValObs(&copy, observable);
-    stateFreeVector(&copy);
+    double result = expValObs(&tmp, observable);
+    stateFreeVector(&tmp);
     return result;
 }
 
@@ -317,6 +314,35 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
     return result;
 }
 
+
+double* approximateGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
+                               const obs_t* evoOps[], depth_t circdepth, double epsilon) {
+
+    register double* result = (double*) malloc(circdepth * sizeof(double));
+
+    double tmp_params[circdepth];       // temporary copy of the parameters
+    for (depth_t i = 0; i < circdepth; ++i) {
+        tmp_params[i] = params[i];
+    }
+
+
+    /*
+     * 1. Calculate the mean value at the current parameter setting
+     */
+    double mean = expValPQC(state, params, observable, evoOps, circdepth);
+
+    /*
+     * 2. For each direction shift the corresponding parameter calculate the slope by the difference method
+     */
+    for (depth_t i = 0; i < circdepth; ++i) {
+        tmp_params[i] += epsilon;
+        result[i] = (1./epsilon) * (expValPQC(state, tmp_params, observable, evoOps, circdepth) - mean);
+        tmp_params[i] -= epsilon;
+    }
+
+    return result;
+}
+
 /*
  * =================================================================================================
  *                                              hessian PQC
@@ -339,8 +365,8 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
  *
 */
 
-double* hessianPQC(const state_t* state, const double params[], const obs_t* observable, \
-                   const obs_t* evoOps[], depth_t circdepth) {
+double* hessianPQC(const state_t* state, const double params[], const obs_t* observable, const obs_t* evoOps[], \
+                   depth_t circdepth) {
 
     state_t tmp;        // state holding each intermediate evolution of the state vector according to the outer loop aka
                         // the hessian's row index
@@ -496,6 +522,12 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
 
     return result;
 }
+
+
+/*double* approximateHessianPQC(const state_t* state, const double params[], const obs_t* observable, \
+                              const obs_t* evoOps[], depth_t circdepth) {
+
+}*/
 
 /*
  * =================================================================================================
