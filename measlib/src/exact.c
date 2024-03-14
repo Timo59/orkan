@@ -1,15 +1,15 @@
 /*
- * =================================================================================================
- *                                              includes
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      includes
+ * =====================================================================================================================
  */
 
 #include "exact.h"
 
 /*
- * =================================================================================================
- *                                              expectation value
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Mean value operator
+ * =====================================================================================================================
  */
 
 /*
@@ -27,7 +27,7 @@ Input:
 Output:
     A double complex carrying the expectation value of a possibly non-hermitian operator.
 */
-cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
+cplx_t expValPauli(const state_t* state, const pauliOp_t* operator) {
     register cplx_t tmp;                                        // complex double holding the
                                                                 // expectation value of a single
                                                                 // component on the input state
@@ -49,17 +49,17 @@ cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
     */
 
     stateInitEmpty(&ket, state->qubits);
-    for (complength_t i = 0; i < op->length; ++i) {
+    for (complength_t i = 0; i < operator->length; ++i) {
         stateCopyVector(&ket, state->vector);
 
-        applyPauliString(&ket, op->components + (i * op->qubits));
+        applyPauliString(&ket, operator->components + (i * operator->qubits));
 
         tmp = cinnerProduct(state->vector, ket.vector, state->dimension);
                                                                 // store the inner product of the
                                                                 // the input state with ket, aka the
                                                                 // expectation value, in tmp               
 
-        result += (op->coefficients[i] * tmp);            // add the single component's
+        result += (operator->coefficients[i] * tmp);            // add the single component's
                                                                 // expectation value times its
                                                                 // coefficient to the existing
                                                                 // result
@@ -68,6 +68,37 @@ cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
 
     return result;
 }
+
+cplx_t expValDiag(const state_t* state, const cplx_t operator[]) {
+    register cplx_t result = 0;
+
+    for (dim_t i = 0; i < state->dimension; ++i) {
+        result += conj(state->vector[i]) * state->vector[i] * operator[i];
+    }
+
+    return result;
+}
+
+cplx_t expVal(const state_t* state, const op_t* operator) {
+    switch(operator->type) {
+        case DIAG: {
+            return expValDiag(state, operator->diagOp);
+        }
+        case PAULI: {
+            return expValPauli(state, operator->pauliOp);
+        }
+        default: {
+            perror("Error in applyOperator: Invalid operator type");
+            exit(1);
+        }
+    }
+}
+
+/*
+ * =====================================================================================================================
+ *                                                  Mean value observable
+ * =====================================================================================================================
+ */
 
 /*
 This function computes the real expectation value of an observable.
@@ -128,16 +159,6 @@ double expValObsPauli(const state_t* state, const pauliObs_t* observable) {
     return result;
 }
 
-cplx_t expValDiag(const state_t* state, const cplx_t op[]) {
-    register cplx_t result = 0;
-
-    for (dim_t i = 0; i < state->dimension; ++i) {        
-        result += conj(state->vector[i]) * state->vector[i] * op[i];
-    }
-    
-    return result;
-}
-
 double expValObsDiag(const state_t* state, const double observable[]) {
     register double result = 0;
 
@@ -163,40 +184,98 @@ double expValObs(const state_t* state, const obs_t* observable) {
     }
 }
 
+
+
 /*
- * =================================================================================================
- *                                              apply PQC
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Mean value PQC
+ * =====================================================================================================================
  */
 
-void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], depth_t circdepth) {
-    for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(state, evoOps[i], params[i]);
+double expValObsPauliPQC(const state_t* state, const double params[], const pauliObs_t* observable, \
+                         const obs_t* evoOps[], depth_t circdepth) {
+    state_t bra;                    // temporary state holding the evolved input state
+    state_t ket;                    // temporary state holding the evolved input state altered with each summand of obs
+
+    cplx_t tmp;                     // cplx_t holding each summand of the observable's mean value
+
+    register double result = 0;     // double holding the result
+
+    /*
+     * 1. Initialize tmp states
+     */
+    stateInitEmpty(&bra, state->qubits);
+    stateInitEmpty(&ket, state->qubits);
+    stateCopyVector(&bra, state->vector);
+
+    /*
+     * 2. Evolve tmp states with PQC
+     */
+    applyPQC(&bra, params, evoOps, circdepth);
+
+    /*
+     * 3. Calculate the mean of each weighted Pauli string in the observable on the input state
+     */
+    for (complength_t i = 0; i < observable->length; ++i) {
+        stateCopyVector(&ket, bra.vector);
+        applyPauliString(&ket, observable->components + (i * observable->qubits));
+
+        tmp = cinnerProduct(bra.vector, ket.vector, bra.dimension);
+
+        result += (observable->coefficients[i] * creal(tmp));
+
+    }
+
+    return result;
+}
+
+double expValObsDiagPQC(const state_t* state, const double params[], const double observable[], \
+                        const obs_t* evoOps[], depth_t circdepth) {
+    state_t tmp;                    // temporary state holding the evolved input state
+
+    register double result = 0;     // double holding the result
+
+    /*
+     * 1. Initialize tmp state
+     */
+    stateInitEmpty(&tmp, state->qubits);
+    stateCopyVector(&tmp, state->vector);
+
+    /*
+     * 2. Evolve tmp state with PQC
+     */
+    applyPQC(&tmp, params, evoOps, circdepth);
+
+    /*
+     * 3. Calculate the mean of each weighted Pauli string in the observable on the input state
+     */
+    for (dim_t i = 0; i < tmp.dimension; ++i) {
+        result += pow(cabs(tmp.vector[i]), 2) * observable[i];
+    }
+
+    return result;
+}
+
+double expValObsPQC(const state_t* state, const double params[], const obs_t* observable, \
+                    const obs_t* evoOps[], depth_t circdepth) {
+    switch(observable->type) {
+        case DIAG: {
+            return expValObsDiagPQC(state, params, observable->diagObs, evoOps, circdepth);
+        }
+        case PAULI: {
+            return expValObsPauliPQC(state, params, observable->pauliObs, evoOps, circdepth);
+        }
+        default: {
+            perror("Error in applyOperator: Invalid operator type");
+            exit(1);
+        }
     }
 }
 
 /*
- * =================================================================================================
- *                                              expectation value PQC
- * =================================================================================================
- */
-
-double expValPQC(const state_t* state, const double params[], const obs_t* observable, \
-                 const obs_t* evoOps[], depth_t circdepth) {
-    state_t tmp;
-    stateInitVector(&tmp, state->vector, state->qubits);
-
-    applyPQC(&tmp, params, evoOps, circdepth);
-
-    double result = expValObs(&tmp, observable);
-    stateFreeVector(&tmp);
-    return result;
-}
-
-/*
- * =================================================================================================
- *                                              gradient PQC
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      gradient PQC
+ * =====================================================================================================================
  */
 
 /*
@@ -315,12 +394,12 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
 }
 
 
-double* approximateGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
+double* approxGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
                                const obs_t* evoOps[], depth_t circdepth, double epsilon) {
 
     register double* result = (double*) malloc(circdepth * sizeof(double));
 
-    double tmp_params[circdepth];       // temporary copy of the parameters
+    double* tmp_params = malloc(circdepth * sizeof(double ));       // temporary copy of the parameters
     for (depth_t i = 0; i < circdepth; ++i) {
         tmp_params[i] = params[i];
     }
@@ -329,16 +408,18 @@ double* approximateGradientPQC(const state_t* state, const double params[], cons
     /*
      * 1. Calculate the mean value at the current parameter setting
      */
-    double mean = expValPQC(state, params, observable, evoOps, circdepth);
+    double mean = expValObsPQC(state, params, observable, evoOps, circdepth);
 
     /*
      * 2. For each direction shift the corresponding parameter calculate the slope by the difference method
      */
     for (depth_t i = 0; i < circdepth; ++i) {
         tmp_params[i] += epsilon;
-        result[i] = (1./epsilon) * (expValPQC(state, tmp_params, observable, evoOps, circdepth) - mean);
+        result[i] = (1./epsilon) * (expValObsPQC(state, tmp_params, observable, evoOps, circdepth) - mean);
         tmp_params[i] -= epsilon;
     }
+
+    free(tmp_params);
 
     return result;
 }

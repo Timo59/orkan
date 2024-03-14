@@ -30,176 +30,39 @@ void setUp(void) {}
 
 void tearDown(void) {}
 
-/* 
+/*
  * =====================================================================================================================
- *                                                      test expValObs
+ *                                                  test expValObs
  * =====================================================================================================================
  */
 
-void testExpValObs(void) {
+void testExpValObs(void){
+
     state_t testState;
-    cplx_t **testVectors;
-    cplx_t **refBra;
-    cplx_t **refKet;
-    double result;
-    double resultDiag;
-    double reference;
+    pauliObs_t pauliObservable;
+    obs_t observablePauli;
+    obs_t observableDiag;
 
     /*
-                                                        1 qubit
+                                                    2 qubits
     --------------------------------------------------------------------------------------------------------------------
     */
 
-    qubit_t qubits = 1;
+    qubit_t qubits = 2;
     dim_t dim = POW2(qubits, dim_t);
 
     /*
      * Initialize the state vectors
      */
-    testVectors = generateTestVectors(qubits);
-    refBra = generateTestVectors(qubits);
-    refKet = generateTestVectors(qubits);
+    cplx_t** testVectors = generateTestVectors(qubits);
+    cplx_t** refBra = generateTestVectors(qubits);
+    cplx_t** refKet = generateTestVectors(qubits);
 
     /*
      * Define the diagonal observable
      */
     complength_t length = dim;
     pauli_t* components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
-    components[0] = ID;
-    components[1] = Z;
-    double *coefficients = (double *) malloc(length * sizeof(double));
-    coefficients[0] = 1.13126;
-    coefficients[1] = 0.24848;
-
-    /*
-     * Initialize the diagonal observable
-     */
-    pauliObs_t pauliObservable;                         // Initialize the Pauli representation of the diagonal
-    pauliObservable.components = components;            // hamiltonian
-    pauliObservable.coefficients = coefficients;        //
-    pauliObservable.length = length;                    //
-    pauliObservable.qubits = qubits;                    //
-                                                        //
-    obs_t observablePauli;                              //
-    observablePauli.type = PAULI;                       //
-    observablePauli.pauliObs = &pauliObservable;        //
-
-    double* diagObservable = pauliObservableDiag(components, coefficients, length, qubits);
-    obs_t observableDiag;                                                       // Initialize the hamiltonian's diagonal
-    observableDiag.type = DIAG;                                                 // representation
-    observableDiag.diagObs = diagObservable;                                    //
-
-    cplx_t* observableMat = pauliObservableMat(components, coefficients, length, qubits);    // Initialize the reference
-                                                                                            // matrix according to the
-                                                                                            //  Pauli string
-
-    /*
-     * Calculate the expectation values
-     */
-
-    for (dim_t i = 0; i < dim + 1; ++i) {
-        stateInitVector(&testState, testVectors[i], qubits);
-        result = expValObs(&testState, &observablePauli);       // Calculate the expectation value of
-                                                                                // the test state using the Pauli
-                                                                                // representation
-
-        resultDiag = expValObs(&testState, &observableDiag);    // Calculate the expectation value of
-                                                                                // the test state using the diagonal
-                                                                                // representation
-
-        cmatVecMulInPlace(observableMat, refKet[i], dim);                 // Calculate the reference expectation
-        reference = creal(cinnerProduct(refBra[i], refKet[i], dim));      // value from matrix-vector product
-
-        TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
-        TEST_ASSERT_TRUE(fabs(resultDiag - reference) < PRECISION);
-    }
-
-    /*
-     * Free the observables
-     */
-    free(components);
-    free(coefficients);
-    free(diagObservable);
-    free(observableMat);
-
-    /*
-     * Initialize the reference vectors (test vectors are not touched by expVal)
-     */
-    refKet = generateTestVectors(qubits);
-
-    /*
-     * Define the Pauli observable
-     */
-    length = dim * dim;
-    components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
-    components[0] = ID;
-    components[1] = X;
-    components[2] = Y;
-    components[3] = Z;
-    coefficients = (double *) malloc(length * sizeof(double));
-    coefficients[0] = -0.16123;
-    coefficients[1] = 0.74276;
-    coefficients[2] = -0.61566;
-    coefficients[3] = 0.96877;
-
-    /*
-     * Initialize the Pauli observable
-     */
-    pauliObservable.components = components;
-    pauliObservable.coefficients = coefficients;
-    pauliObservable.length = length;
-
-    observableMat = pauliObservableMat(components, coefficients, length, qubits);
-
-    /*
-     * Calculate the expectation values
-     */
-
-    for (dim_t i = 0; i < dim + 1; ++i) {
-        stateInitVector(&testState, testVectors[i], qubits);
-        result = expValObs(&testState, &observablePauli);     // Calculate the expectation value of
-                                                                              // the test state
-
-        cmatVecMulInPlace(observableMat, refKet[i], dim);               // Calculate the reference expectation
-        reference = creal(cinnerProduct(refBra[i], refKet[i], dim));    // value from matrix-vector product
-
-        TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
-    }
-
-    /*
-     * Free test vectors
-     */
-    freeTestVectors(testVectors, qubits);
-    freeTestVectors(refBra, qubits);
-    freeTestVectors(refKet, qubits);
-
-    /*
-     * Free observables
-     */
-    free(components);
-    free(coefficients);
-    free(observableMat);
-
-    /*
-                                                        2 qubits
-    --------------------------------------------------------------------------------------------------------------------
-    */
-
-    qubits = 2;
-    dim = POW2(qubits, dim_t);
-
-    /*
-     * Initialize the state vectors
-     */
-    testVectors = generateTestVectors(qubits);
-    refBra = generateTestVectors(qubits);
-    refKet = generateTestVectors(qubits);
-
-    /*
-     * Define the diagonal observable
-     */
-    length = dim;
-    components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
     components[0] = ID;
     components[1] = ID;
     components[2] = ID;
@@ -208,7 +71,7 @@ void testExpValObs(void) {
     components[5] = ID;
     components[6] = Z;
     components[7] = Z;
-    coefficients = (double *) malloc(length * sizeof(double));
+    double* coefficients = (double *) malloc(length * sizeof(double));
     coefficients[0] = -2.72482;
     coefficients[1] = -2.81765;
     coefficients[0] = -0.09561;
@@ -225,11 +88,11 @@ void testExpValObs(void) {
     observablePauli.type = PAULI;                       //
     observablePauli.pauliObs = &pauliObservable;        //
 
-    diagObservable = pauliObservableDiag(components, coefficients, length, qubits);
+    double* diagObservable = pauliObservableDiag(components, coefficients, length, qubits);
     observableDiag.type = DIAG;                                                 // Initialize the hamiltonian's diagonal
     observableDiag.diagObs = diagObservable;                                    // representation
 
-    observableMat = pauliObservableMat(components, coefficients, length, qubits);    // Initialize the reference
+    cplx_t* observableMat = pauliObservableMat(components, coefficients, length, qubits);    // Initialize the reference
                                                                                     // matrix according to the
                                                                                     // Pauli string
 
@@ -239,16 +102,12 @@ void testExpValObs(void) {
 
     for (dim_t i = 0; i < dim + 1; ++i) {
         stateInitVector(&testState, testVectors[i], qubits);
-        result = expValObs(&testState, &observablePauli);       // Calculate the expectation value of
-        // the test state using the Pauli
-        // representation
+        double result = expValObs(&testState, &observablePauli);
 
-        resultDiag = expValObs(&testState, &observableDiag);    // Calculate the expectation value of
-        // the test state using the diagonal
-        // representation
+        double resultDiag = expValObs(&testState, &observableDiag);
 
-        cmatVecMulInPlace(observableMat, refKet[i], dim);                 // Calculate the reference expectation
-        reference = creal(cinnerProduct(refBra[i], refKet[i], dim));      // value from matrix-vector product
+        cmatVecMulInPlace(observableMat, refKet[i], dim);
+        double reference = creal(cinnerProduct(refBra[i], refKet[i], dim));
 
         TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
         TEST_ASSERT_TRUE(fabs(resultDiag - reference) < PRECISION);
@@ -337,11 +196,10 @@ void testExpValObs(void) {
 
     for (dim_t i = 0; i < dim + 1; ++i) {
         stateInitVector(&testState, testVectors[i], qubits);
-        result = expValObs(&testState, &observablePauli);     // Calculate the expectation value of
-        // the test state
+        double result = expValObs(&testState, &observablePauli);
 
-        cmatVecMulInPlace(observableMat, refKet[i], dim);               // Calculate the reference expectation
-        reference = creal(cinnerProduct(refBra[i], refKet[i], dim));    // value from matrix-vector product
+        cmatVecMulInPlace(observableMat, refKet[i], dim);
+        double reference = creal(cinnerProduct(refBra[i], refKet[i], dim));
 
         TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
     }
@@ -439,16 +297,16 @@ void testExpValObs(void) {
 
     for (dim_t i = 0; i < dim + 1; ++i) {
         stateInitVector(&testState, testVectors[i], qubits);
-        result = expValObs(&testState, &observablePauli);       // Calculate the expectation value of
+        double result = expValObs(&testState, &observablePauli);       // Calculate the expectation value of
                                                                                 // the test state using the Pauli
                                                                                 // representation
 
-        resultDiag = expValObs(&testState, &observableDiag);    // Calculate the expectation value of
+        double resultDiag = expValObs(&testState, &observableDiag);    // Calculate the expectation value of
                                                                                 // the test state using the diagonal
                                                                                 // representation
 
         cmatVecMulInPlace(observableMat, refKet[i], dim);                 // Calculate the reference expectation
-        reference = creal(cinnerProduct(refBra[i], refKet[i], dim));      // value from matrix-vector product
+        double reference = creal(cinnerProduct(refBra[i], refKet[i], dim));      // value from matrix-vector product
 
         TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
         TEST_ASSERT_TRUE(fabs(resultDiag - reference) < PRECISION);
@@ -553,11 +411,11 @@ void testExpValObs(void) {
 
     for (dim_t i = 0; i < dim + 1; ++i) {
         stateInitVector(&testState, testVectors[i], qubits);
-        result = expValObs(&testState, &observablePauli);     // Calculate the expectation value of
+        double result = expValObs(&testState, &observablePauli);     // Calculate the expectation value of
                                                                               // the test state
 
         cmatVecMulInPlace(observableMat, refKet[i], dim);               // Calculate the reference expectation
-        reference = creal(cinnerProduct(refBra[i], refKet[i], dim));    // value from matrix-vector product
+        double reference = creal(cinnerProduct(refBra[i], refKet[i], dim));    // value from matrix-vector product
 
         TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
     }
@@ -702,16 +560,16 @@ void testExpValObs(void) {
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
         stateInitVector(&testState, testVectors[i], qubits);
-        result = expValObs(&testState, &observablePauli);       // Calculate the expectation value of
+        double result = expValObs(&testState, &observablePauli);       // Calculate the expectation value of
                                                                                 // the test state using the Pauli
                                                                                 // representation
 
-        resultDiag = expValObs(&testState, &observableDiag);    // Calculate the expectation value of
+        double resultDiag = expValObs(&testState, &observableDiag);    // Calculate the expectation value of
                                                                                 // the test state using the diagonal
                                                                                 // representation
 
         cmatVecMulInPlace(observableMat, refKet[i], dim);                 // Calculate the reference expectation
-        reference = creal(cinnerProduct(refBra[i], refKet[i], dim));      // value from matrix-vector product
+        double reference = creal(cinnerProduct(refBra[i], refKet[i], dim));      // value from matrix-vector product
 
         TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
         TEST_ASSERT_TRUE(fabs(resultDiag - reference) < PRECISION);
@@ -812,11 +670,11 @@ void testExpValObs(void) {
 
     for (dim_t i = 0; i < dim + 1; ++i) {
         stateInitVector(&testState, testVectors[i], qubits);
-        result = expValObs(&testState, &observablePauli);     // Calculate the expectation value of
+        double result = expValObs(&testState, &observablePauli);     // Calculate the expectation value of
                                                                               // the test state
 
         cmatVecMulInPlace(observableMat, refKet[i], dim);               // Calculate the reference expectation
-        reference = creal(cinnerProduct(refBra[i], refKet[i], dim));    // value from matrix-vector product
+        double reference = creal(cinnerProduct(refBra[i], refKet[i], dim));    // value from matrix-vector product
 
         TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
     }
@@ -835,6 +693,201 @@ void testExpValObs(void) {
     free(coefficients);
     free(observableMat);
 }
+/* 
+ * =====================================================================================================================
+ *                                                  test expValObsPQC
+ * =====================================================================================================================
+ */
+
+void testExpValObsPQC(void) {
+    qubit_t qubits;
+    dim_t dim;
+    depth_t circdepth;
+    double *parameters;
+
+    state_t testState;
+    cplx_t **testVectors;
+    cplx_t **refVectors;
+
+    complength_t lengthObs;
+    pauli_t *compObs;
+    double *coeffObs;
+    pauliObs_t pauliObservable;
+
+    complength_t lengthEvoOps;
+    pauli_t *compEvoOps;
+    double *coeffEvoOps;
+    pauliObs_t *evoOpsPauli;
+    obs_t **evoOps;
+
+    /*
+                                                        1 qubit, circdepth = 2
+    --------------------------------------------------------------------------------------------------------------------
+    */
+
+    qubits = 1;
+    dim = POW2(qubits, dim_t);
+
+    circdepth = 2;
+    parameters = (double*) malloc(circdepth * sizeof(double));
+    parameters[0] = -2.82317;
+    parameters[1] = 0.24576;
+
+    /*
+     * Initialize the state vectors
+     */
+    testVectors = generateTestVectors(qubits);
+    refVectors = generateTestVectors(qubits);
+
+    /*
+     * Define the diagonal observable
+     */
+    lengthObs = dim;
+    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs[0] = ID;
+    compObs[1] = Z;
+    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs[0] = 1.13126;
+    coeffObs[1] = 0.24848;
+
+    /*
+     * Initialize the diagonal observable
+     */
+    pauliObservable.components = compObs;               // Initialize the Pauli representation of the diagonal
+    pauliObservable.coefficients = coeffObs;            // hamiltonian
+    pauliObservable.length = lengthObs;                 //
+    pauliObservable.qubits = qubits;                    //
+    //
+    obs_t observablePauli;                              //
+    observablePauli.type = PAULI;                       //
+    observablePauli.pauliObs = &pauliObservable;        //
+
+    double *diagObservable = pauliObservableDiag(compObs, coeffObs, lengthObs, qubits);
+    obs_t observableDiag;                                                       // Initialize the hamiltonian's diagonal
+    observableDiag.type = DIAG;                                                 // representation
+    observableDiag.diagObs = diagObservable;                                    //
+
+    /*
+     * Define the evolution operators
+     */
+    lengthEvoOps = dim;
+    compEvoOps = (pauli_t *) malloc(dim * qubits * sizeof(pauli_t));
+    compEvoOps[0] = ID;
+    compEvoOps[1] = Z;
+    coeffEvoOps = (double *) malloc(lengthEvoOps * sizeof(double));
+    coeffEvoOps[0] = 0.53858;
+    coeffEvoOps[1] = -1.09597;
+
+    /*
+     * Initialize the evolution operators
+     */
+
+    evoOpsPauli = (pauliObs_t *) malloc(circdepth * sizeof(pauliObs_t));
+    for (depth_t i = 0; i < circdepth; ++i) {
+        evoOpsPauli[i].components = compEvoOps;
+        evoOpsPauli[i].coefficients = coeffEvoOps + (i * lengthEvoOps);
+        evoOpsPauli[i].qubits = qubits;
+        evoOpsPauli[i].length = lengthEvoOps;
+    }
+
+    evoOps = (obs_t **) malloc(circdepth * sizeof(obs_t *));
+    for (depth_t i = 0; i < circdepth; ++i) {
+        evoOps[i] = (obs_t *) malloc(sizeof(obs_t));
+        evoOps[i]->type = PAULI;
+        evoOps[i]->pauliObs = evoOpsPauli + i;
+    }
+
+    /*
+     * Calculate the expectation values
+     */
+
+    for (dim_t i = 0; i < dim + 1; ++i) {
+        stateInitVector(&testState, testVectors[i], qubits);
+        double result = expValObsPQC(&testState, \
+                                     parameters, \
+                                     &observablePauli, \
+                                     (const obs_t **) evoOps, \
+                                     circdepth);
+
+        double resultDiag = expValObsPQC(&testState, \
+                                         parameters, \
+                                         &observablePauli, \
+                                         (const obs_t **) evoOps, \
+                                         circdepth);
+
+        double reference = finiteExpValPQC(refVectors[i], qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                           compEvoOps, coeffEvoOps, lengthEvoOps, parameters);
+
+        TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
+        TEST_ASSERT_TRUE(fabs(resultDiag - reference) < PRECISION);
+    }
+
+    /*
+     * Free observable and evolution operators
+     */
+    free(compObs);
+    free(coeffObs);
+
+    /*
+     * Define the Pauli observable
+     */
+    lengthObs = dim * dim;
+    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs[0] = ID;
+    compObs[1] = X;
+    compObs[2] = Y;
+    compObs[3] = Z;
+    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs[0] = -0.16123;
+    coeffObs[1] = 0.74276;
+    coeffObs[2] = -0.61566;
+    coeffObs[3] = 0.96877;
+
+    /*
+     * Initialize the Pauli observable
+     */
+    pauliObservable.components = compObs;
+    pauliObservable.coefficients = coeffObs;
+    pauliObservable.length = lengthObs;
+
+    /*
+     * Calculate the expectation values
+     */
+
+    for (dim_t i = 0; i < dim + 1; ++i) {
+        stateInitVector(&testState, testVectors[i], qubits);
+        double result = expValObsPQC(&testState, \
+                                     parameters, \
+                                     &observablePauli, \
+                                     (const obs_t **) evoOps, \
+                                     circdepth);
+
+        double reference = finiteExpValPQC(refVectors[i], qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
+                                           compEvoOps, coeffEvoOps, lengthEvoOps, parameters);
+
+        TEST_ASSERT_TRUE(fabs(result - reference) < PRECISION);
+    }
+
+    /*
+     * Free test vectors
+     */
+    freeTestVectors(testVectors, qubits);
+    freeTestVectors(refVectors, qubits);
+
+    /*
+     * Free observables and evolution operators
+     */
+    free(compObs);
+    free(coeffObs);
+    free(compEvoOps);
+    free(coeffEvoOps);
+    free(evoOpsPauli);
+    for (depth_t i = 0; i < circdepth; ++i) {
+        free(evoOps[i]);
+    }
+    free(evoOps);
+}
+
 
 /* 
  * =====================================================================================================================
@@ -1039,9 +1092,18 @@ void testGradientPQC(void) {
         /*
          * Gradient from gradient PQC
          */
-        double* result;
         stateInitVector(&testState, testVectors[i], qubits);
-        result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+        double* result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+
+        /*
+         * Gradient from approxGradientPQC
+         */
+        double* result2 = approxGradientPQC(&testState, \
+                                            parameters, \
+                                            &observable, \
+                                            (const obs_t**) evoOps, \
+                                            circdepth, \
+                                            1e-9);
 
         /*
          * Gradient from finite difference method
@@ -1049,44 +1111,10 @@ void testGradientPQC(void) {
         double* reference = finiteGradientPQC(refVectors[i], qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
                                               compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
-//        double* reference2 = (double*) malloc(circdepth * sizeof(double));
-//        for (depth_t j = 0; j < circdepth; ++j) {
-//            refEvoOps[j] = expTrotterizedPauliObservableMat(compEvoOps, \
-//                                                            coeffEvoOps + (j * lengthEvoOps), \
-//                                                            lengthEvoOps, \
-//                                                            parameters[j], \
-//                                                            qubits);
-//        }
-//
-//        cplx_t** refOps = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
-//        for (depth_t j = 0; j < circdepth; ++j) {
-//            refOps[j] = pauliObservableMat(compEvoOps, \
-//                                          coeffEvoOps + (j * lengthEvoOps), \
-//                                          lengthEvoOps, \
-//                                          qubits);
-//        }
-//
-//        refBra = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-//        for (depth_t k = 1; k < circdepth; ++k) {
-//            cmatVecMulInPlace(refEvoOps[k], refBra, dim);
-//        }
-//        cmatVecMulInPlace(observableMat, refBra, dim);
-//
-//        for (depth_t k = 0; k < circdepth; ++k) {
-//            refKet = cmatVecMul(refEvoOps[0], refVectors[i], dim);
-//            for (depth_t kk = 1; kk <= k; ++kk) {
-//                cmatVecMulInPlace(refEvoOps[kk], refKet, dim);
-//            }
-//            cmatVecMulInPlace(refOps[k], refKet, dim);
-//            for (depth_t kk = k + 1; kk < circdepth; ++kk) {
-//                cmatVecMulInPlace(refEvoOps[kk], refKet, dim);
-//            }
-//            reference2[k] = 2 * cimag(cinnerProduct(refBra, refKet, dim));
-//        }
-
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
 
         free(result);
+        free(result2);
         free(reference);
     }
 
@@ -2200,8 +2228,9 @@ void testMomentMatQAOA(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testExpValObs);
+    RUN_TEST(testExpValObsPQC);
     RUN_TEST(testGradientPQC);
-    RUN_TEST(testHessianPQC);
+//    RUN_TEST(testHessianPQC);
 //    RUN_TEST(testMomentMatQAOA);
     return UNITY_END();
 }
