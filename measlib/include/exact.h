@@ -21,48 +21,51 @@ extern "C" {
 #endif
 
 /*
- * =================================================================================================
- *                                              expectation value
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Mean value operator
+ * =====================================================================================================================
  */
-
 cplx_t expValPauli(const state_t* state, const pauliOp_t* op);
 
-double expValObsPauli(const state_t* state, const pauliObs_t* observable);
-
 cplx_t expValDiag(const state_t* state, const cplx_t op[]);
+
+cplx_t expVal(const state_t* state, const op_t* operator);
+
+/*
+ * =====================================================================================================================
+ *                                                  Mean value observable
+ * =====================================================================================================================
+ */
+double expValObsPauli(const state_t* state, const pauliObs_t* observable);
 
 double expValObsDiag(const state_t* state, const double observable[]);
 
 double expValObs(const state_t* state, const obs_t* observable);
 
 /*
- * =================================================================================================
- *                                              apply PQC
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Mean value PQC
+ * =====================================================================================================================
  */
 
-void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], depth_t circdepth);
+double expValObsPauliPQC(const state_t* state, const double params[], const pauliObs_t* observable, \
+                         const obs_t* evoOps[], depth_t circdepth);
 
+double expValObsDiagPQC(const state_t* state, const double params[], const double observable[], \
+                        const obs_t* evoOps[], depth_t circdepth);
+
+double expValObsPQC(const state_t* state, const double params[], const obs_t* observable, \
+                    const obs_t* evoOps[], depth_t circdepth);
 /*
- * =================================================================================================
- *                                              expectation value PQC
- * =================================================================================================
- */
-
-double expValPQC(const state_t* state, const double params[], const obs_t* observable, \
-                 const obs_t* evoOps[], depth_t circdepth);
-
-/*
- * =================================================================================================
- *                                              gradient PQC
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      gradient PQC
+ * =====================================================================================================================
  */
 
 double* gradientPQC(const state_t* state, const double params[], const obs_t* observable, \
                    const obs_t* evoOps[], depth_t circdepth);
 
-double* approximateGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
+double* approxGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
                                const obs_t* evoOps[], depth_t circdepth, double epsilon);
 
 /*
