@@ -1112,6 +1112,7 @@ void testGradientPQC(void) {
                                               compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
+        TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, APPROXPRECISION));
 
         free(result);
         free(result2);
@@ -1322,9 +1323,18 @@ void testGradientPQC(void) {
         /*
          * Gradient from gradient PQC
          */
-        double* result;
         stateInitVector(&testState, testVectors[i], qubits);
-        result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+        double* result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+
+        /*
+         * Gradient from approxGradientPQC
+         */
+        double* result2 = approxGradientPQC(&testState, \
+                                            parameters, \
+                                            &observable, \
+                                            (const obs_t**) evoOps, \
+                                            circdepth, \
+                                            1e-9);
 
         /*
          * Gradient from finite difference method
@@ -1333,6 +1343,11 @@ void testGradientPQC(void) {
                                               compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
+        TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, APPROXPRECISION));
+
+        free(result);
+        free(result2);
+        free(reference);
     }
 
     /*
@@ -1579,11 +1594,20 @@ void testGradientPQC(void) {
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
         /*
- * Gradient from gradient PQC
- */
-        double* result;
+        * Gradient from gradient PQC
+        */
         stateInitVector(&testState, testVectors[i], qubits);
-        result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+        double* result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+
+        /*
+         * Gradient from approxGradientPQC
+         */
+        double* result2 = approxGradientPQC(&testState, \
+                                            parameters, \
+                                            &observable, \
+                                            (const obs_t**) evoOps, \
+                                            circdepth, \
+                                            1e-9);
 
         /*
          * Gradient from finite difference method
@@ -1592,6 +1616,11 @@ void testGradientPQC(void) {
                                               compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
+        TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, APPROXPRECISION));
+
+        free(result);
+        free(result2);
+        free(reference);
     }
 
     /*
@@ -1889,11 +1918,20 @@ void testGradientPQC(void) {
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
         /*
- * Gradient from gradient PQC
- */
-        double* result;
+        * Gradient from gradient PQC
+        */
         stateInitVector(&testState, testVectors[i], qubits);
-        result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+        double* result = gradientPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+
+        /*
+         * Gradient from approxGradientPQC
+         */
+        double* result2 = approxGradientPQC(&testState, \
+                                            parameters, \
+                                            &observable, \
+                                            (const obs_t**) evoOps, \
+                                            circdepth, \
+                                            1e-9);
 
         /*
          * Gradient from finite difference method
@@ -1902,6 +1940,11 @@ void testGradientPQC(void) {
                                               compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
+        TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, APPROXPRECISION));
+
+        free(result);
+        free(result2);
+        free(reference);
     }
 
     /*
@@ -1929,6 +1972,16 @@ void testGradientPQC(void) {
  *                                                      test hessianPQC
  * =====================================================================================================================
  */
+
+//double* grad(const state_t* state, const double params[], const obs_t* observable, \
+//                    const obs_t* evoOps[], depth_t circdepth) {
+//    return approxGradientPQC(state, params, observable, evoOps, circdepth, 1e-9);
+//}
+
+double* grad(const state_t* state, const double params[], const obs_t* observable, \
+                    const obs_t* evoOps[], depth_t circdepth) {
+    return gradientPQC(state, params, observable, evoOps, circdepth);
+}
 
 void testHessianPQC(void) {
     qubit_t qubits;
@@ -2120,7 +2173,6 @@ void testHessianPQC(void) {
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
 
-
     /*
      * Test objective:
      * Compare the hessian obtained from hessianPQC with the approximation
@@ -2129,27 +2181,45 @@ void testHessianPQC(void) {
     for (dim_t i = 0; i < dim + 1; ++i) {
         printf("Vector: ");
         cvectorPrint(testVectors[i], dim);
+        stateInitVector(&testState, testVectors[i], qubits);
 
         /*
          * 1. Calculate the hessian via hessianPQC
          */
-        stateInitVector(&testState, testVectors[i], qubits);
-        double* result = hessianPQC(&testState, parameters, &observable, (const obs_t **) evoOps, circdepth);
+        double* result = hessianPQC(&testState, \
+                                    parameters, \
+                                    &observable, \
+                                    (const obs_t **) evoOps, \
+                                    circdepth);
 
         /*
-         * Calculate the hessian via finite difference method
+         * 2. Calculate the hessian via approximateHessianPQC
+         */
+        double* result2 = approxHessianPQC(&testState, \
+                                           parameters, \
+                                           &observable, \
+                                           (const obs_t**) evoOps, \
+                                           circdepth, \
+                                           grad, \
+                                           1e-9);
+
+        /*
+         * 3. Calculate the hessian via finite difference method
          */
         double* reference = finiteHessianPQC(refVectors[i],qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
                                              compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
 
         printf("Result:\n");
         matrixPrint(result, circdepth);
+        printf("Result 2:\n");
+        matrixPrint(result2, circdepth);
         printf("Reference:\n");
         matrixPrint(reference, circdepth);
 
         //TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
 
         free(result);
+        free(result2);
         free(reference);
     }
     /*
@@ -2230,7 +2300,7 @@ int main(void) {
     RUN_TEST(testExpValObs);
     RUN_TEST(testExpValObsPQC);
     RUN_TEST(testGradientPQC);
-//    RUN_TEST(testHessianPQC);
+    RUN_TEST(testHessianPQC);
 //    RUN_TEST(testMomentMatQAOA);
     return UNITY_END();
 }
