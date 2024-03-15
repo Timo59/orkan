@@ -26,7 +26,7 @@ extern "C" {
  */
 
 #define INVSQRT2                0.7071067811865475
-	
+
 #define MIN(a,b)                ((a) < (b) ? (a) : (b))
 #define MAX(a,b)                ((a) > (b) ? (a) : (b))
 #define SWAP(a, b, T)           do { register T q; q = *(a); *(a) = *(b); *(b) = q; } while(0)

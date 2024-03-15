@@ -312,43 +312,6 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
 
     register double* result = (double*) malloc(circdepth * sizeof(double));
 
-//    printf("Input state to gradientPQC:\n");
-//    cvectorPrint(state->vector, state->dimension);
-//
-//    printf("\nInput parameters to gradientPQC:\n");
-//    rvectorPrint(params, circdepth);
-//
-//    printf("\nInput observable to gradient PQC:\n");
-//    double* obsInput = observable->diagObs;
-//    rvectorPrint(obsInput, state->dimension);
-//
-//    printf("\nInput evolution operators to gradient PQC:\n");
-//    for (depth_t i = 0; i < circdepth; ++i) {
-//        switch (evoOps[i]->type) {
-//            case DIAG: {
-//                double* evoOpsInput = evoOps[i]->diagObs;
-//                rvectorPrint(evoOpsInput, state->dimension);
-//                break;
-//            }
-//            case PAULI: {
-//                pauliObs_t *evoOpsInput = evoOps[i]->pauliObs;
-//                for (complength_t j = 0; j < evoOpsInput->length; ++j) {
-//                    for (qubit_t k = 0; k < evoOpsInput->qubits; ++k) {
-//                        printf("%d", evoOpsInput->components[k + (j * evoOpsInput->qubits)]);
-//                    }
-//                    printf(", %f\n", evoOpsInput->coefficients[j]);
-//                }
-//                break;
-//            }
-//            default: {
-//                printf("Got %d instead of %d or %d", evoOps[i]->type, DIAG, PAULI);
-//                exit(1);
-//            }
-//        }
-//    }
-//
-//    printf("\nInput circdepth to gradient PQC:\n %d\n", circdepth);
-
     stateInitEmpty(&bra, state->qubits);        // Initialize bra with the input state's vector
     stateCopyVector(&bra, state->vector);
 
@@ -406,7 +369,7 @@ double* approxGradientPQC(const state_t* state, const double params[], const obs
 
 
     /*
-     * 1. Calculate the mean value at the current parameter setting
+     * 1. Subtract the mean value at the current parameter setting from all entries of the latter gradient
      */
     double mean = expValObsPQC(state, params, observable, evoOps, circdepth);
 
@@ -605,10 +568,39 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
 }
 
 
-/*double* approximateHessianPQC(const state_t* state, const double params[], const obs_t* observable, \
-                              const obs_t* evoOps[], depth_t circdepth) {
+double* approxHessianPQC(const state_t* state, const double params[], const obs_t* observable, \
+                         const obs_t* evoOps[], depth_t circdepth, gradPQC grad, double epsilon) {
 
-}*/
+    register double* result = (double*) malloc(circdepth*circdepth * sizeof(double));
+
+    double* tmp_params = malloc(circdepth * sizeof(double ));       // temporary copy of the parameters
+    for (depth_t i = 0; i < circdepth; ++i) {
+        tmp_params[i] = params[i];
+    }
+
+    /*
+     * 1. Calculate the gradient at the current parameter setting
+     */
+    double* refGradient = grad(state, tmp_params, observable, evoOps, circdepth);
+
+    /*
+     * 2. For each direction shift the corresponding parameter; calculate the gradient's finite difference. This will be
+     * the i-th column of the hessian.
+     */
+    for (depth_t i = 0; i < circdepth; ++i) {
+        tmp_params[i] += epsilon;
+        double* gradient = grad(state, tmp_params, observable, evoOps, circdepth);
+
+        for(depth_t j = 0; j < circdepth; ++j) {
+            result[i*circdepth + j] = (1./epsilon) * (gradient[j] - refGradient[j]);
+        }
+
+        tmp_params[i] -= epsilon;
+    }
+
+    free(tmp_params);
+    return(result);
+}
 
 /*
  * =================================================================================================
