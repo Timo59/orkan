@@ -1988,6 +1988,7 @@ void testHessianPQC(void) {
     dim_t dim;
     depth_t circdepth;
     double *parameters;
+    double epsilon = 1e-6;
 
     state_t testState;
     cplx_t **testVectors;
@@ -2201,13 +2202,13 @@ void testHessianPQC(void) {
                                            (const obs_t**) evoOps, \
                                            circdepth, \
                                            grad, \
-                                           1e-9);
+                                           epsilon);
 
         /*
          * 3. Calculate the hessian via finite difference method
          */
         double* reference = finiteHessianPQC(refVectors[i],qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
-                                             compEvoOps, coeffEvoOps, lengthEvoOps, parameters, 1e-9);
+                                             compEvoOps, coeffEvoOps, lengthEvoOps, parameters, epsilon);
 
         printf("Result:\n");
         matrixPrint(result, circdepth);
@@ -2216,7 +2217,8 @@ void testHessianPQC(void) {
         printf("Reference:\n");
         matrixPrint(reference, circdepth);
 
-        //TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
+        TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, 1e-1));
+        TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, 1e-1));
 
         free(result);
         free(result2);
