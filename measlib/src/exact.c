@@ -388,9 +388,9 @@ double* approxGradientPQC(const state_t* state, const double params[], const obs
 }
 
 /*
- * =================================================================================================
- *                                              hessian PQC
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      hessian PQC
+ * =====================================================================================================================
  */
 
 /*
@@ -603,10 +603,85 @@ double* approxHessianPQC(const state_t* state, const double params[], const obs_
 }
 
 /*
- * =================================================================================================
- *                                    Moment matrices
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Moment matrices
+ * =====================================================================================================================
  */
+
+/*
+ * This function calculates the moment matrices of a set of observables corresponding to the application of a set of
+ * unitaries.
+ *
+ * Input:
+ *  state_t* state          System's state, including statevector and Hilbert space dimension
+ *  obs_t* obs[]            Set of observables
+ *  depth_t obsc            Number of observables to calculate the moment matrix of
+ *  obs_t* srchOps[]        Set of observables making up for the unitaries
+ *  depth_t matDim          Number of operators making up for the unitaries, i.e., dimension of the resulting matrices
+ *
+ * Output:
+ *  Array of moment matrices in column major form corresponding to the input array of observables.
+ */
+
+cplx_t** momMat(const state_t* state, \
+                const obs_t* obs[], \
+                depth_t obsc, \
+                const obs_t* srchOps[], \
+                depth_t matDim, \
+                srchU applyU) {
+
+    /*
+     * 1. Set up the array of moment matrices
+     */
+    register cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+
+    for (depth_t i = 0; i < obsc; ++i) {
+        result[i] = (cplx_t*) malloc(matDim * matDim * sizeof(cplx_t));
+    }
+
+    /*
+     * 2. Initialize the temporary states altered by the unitaries
+     */
+    state_t tmpBra;
+    stateInitEmpty(&tmpBra, state->qubits);
+    state_t tmpTmpBra;
+    stateInitEmpty(&tmpTmpBra, state->qubits);
+    state_t tmpKet;
+    stateInitEmpty(&tmpKet, state->qubits);
+
+    /*
+     * 3a. Iterate the columns of all moment matrices, applying the respective unitary to the statevector
+     */
+    for (depth_t i = 0; i < matDim; ++i) {
+        stateCopyVector(&tmpKet, state->vector);
+        applyU(&tmpKet, srchOps[i]);
+
+        /*
+         * 3b. Iterate the columns' entries of all moment matrices starting at the current column's index, applying the
+         * respective unitary to the statevector
+         */
+        for (depth_t j = i; j < matDim; ++j) {
+            stateCopyVector(&tmpKet, state->vector);
+            applyU(&tmpBra, srchOps[j]);
+
+            /*
+             * 3c. Iterate the moment matrices by applying the respective observable to tmpBra's statevector and compute
+             * the overlap with tmpKet
+             */
+            for (depth_t k = 0; k < obsc; ++k) {
+                stateCopyVector(&tmpTmpBra, tmpBra.vector);
+                applyObservable(&tmpTmpBra, obs[k]);
+                result[k][i * matDim + j] = stateOverlap(&tmpTmpBra, &tmpKet);
+                result[k][j * matDim + i] = result[k][i * matDim + j];
+            }
+        }
+    }
+
+    stateFree(&tmpBra);
+    stateFree(&tmpTmpBra);
+    stateFree(&tmpKet);
+    return result;
+}
 
 /*
 This function returns the moment matrices E_{ij} and H_{ij} w.r.t. the identity, the QAOA mixer and
@@ -627,7 +702,7 @@ cplx_t* momentMatQAOA(state_t* state, const obs_t* hamiltonian, double angleB, d
 
     state_t tmpH;       // temporary state holding input state's evolution by angleB w.r.t. H
 
-    register cplx_t* result = (cplx_t*) malloc((18) * sizeof(cplx_t));
+    register cplx_t *result = (cplx_t *) malloc((18) * sizeof(cplx_t));
 
     /*
      * Initialize tmpB
@@ -635,7 +710,7 @@ cplx_t* momentMatQAOA(state_t* state, const obs_t* hamiltonian, double angleB, d
     stateInitEmpty(&tmpB, state->qubits);
     stateCopyVector(&tmpB, state->vector);
     for (qubit_t i = 0; i < tmpB.qubits; ++i) {
-        applyRX(&tmpB, i, 2*angleB);
+        applyRX(&tmpB, i, 2 * angleB);
     }
 
     /*
@@ -685,100 +760,5 @@ cplx_t* momentMatQAOA(state_t* state, const obs_t* hamiltonian, double angleB, d
      */
     stateFreeVector(&tmpB);
     stateFreeVector(&tmpH);
-    return result;
-}
-
-/*
-This function computes the moment matrices of the set of unitaries generated by exponentiating Pauli
-strings.
-
-Input:
-    state_t* state          Current state of the system, number of its qubits and the resulting
-                            Hilbert space dimension
-    obs_t* searchHerms      Observables to be exponentiated to give the search unitaries
-    double* angles          Angles defining the search unitaries
-    depth_t searchDim       Number of search unitaries
-    obs_t* observable       Observable whose expectation value is the objective
-
-Output: 
-    The moment matrix <state|U_i^* U_j|state> appended by <state|U_i^* H U_j|state> in column major
-    form.
-
-*/
-
-cplx_t* momentMatrices(const state_t* state, const obs_t searchHerms[], double* angles, \
-                       depth_t searchDim, obs_t* observable) {
-
-    state_t bra;        // state holding the bra, i.e. the complex conjugate of the input states 
-                        // times search unitary
-
-    state_t ket;        // state holding the ket, i.e. the input states times search unitary
-
-    register cplx_t* result = malloc((searchDim*searchDim) * sizeof(double));
-
-    stateInitEmpty(&bra, state->qubits);
-    stateInitEmpty(&ket, state->qubits);
-
-    /*
-    Starting in the first column, the integer i counts the column of the moment matrices.
-    */
-    for (depth_t i = 0; i < searchDim; ++i) {
-        stateCopyVector(&ket, state->vector);
-        evolveWithTrotterizedObservable(&ket, searchHerms + i, angles[i]);
-                                                                        // Evolve ket with the i-th
-                                                                        // observable by the i-th
-                                                                        // angle
-
-        result[i*searchDim + i] = 1.;                                   // The diagonal entries
-                                                                        // <state|U_i^* U_i|state>
-                                                                        // are always equal to one
-
-        result[(searchDim*searchDim) + i*searchDim + i] = (cplx_t) expValObs(&ket, observable);
-                                                                        // The diagonal entries of
-                                                                        // the objective matrix are
-                                                                        // expectation values of the
-                                                                        // observable   
-
-        /*
-        Starting at the i-th entry of the i-th column, j counts through all entries of the moment
-        matrices' lower triangle.
-        */
-        for (depth_t j = i+1; j < searchDim; ++j) {
-            stateCopyVector(&bra, state->vector);
-            evolveWithTrotterizedObservable(&bra, searchHerms + j, angles[j]);
-                                                                        // Evolve bra with the j-th
-                                                                        // observable by the j-th
-                                                                        // angle
-
-            result[i*searchDim + j] = stateOverlap(&bra, &ket);         // To the j-th entry of the
-                                                                        // i-th column add overlap
-                                                                        // <state|U_j^* U_i|state>
-
-            result[j*searchDim + i] = conj(result[i*searchDim + j]);    // By hermiticity of E, its 
-                                                                        // i-th entry of the j-th
-                                                                        // column is the complex
-                                                                        // conjugate of the j-th
-                                                                        // entry in the i-th column
-
-            applyObservable(&bra, observable);                          // Apply the observable to 
-                                                                        // bra
-            result[(searchDim*searchDim) + i*searchDim + j] = stateOverlap(&bra, &ket);
-                                                                        // and store its overlap
-                                                                        // with ket in the j-th
-                                                                        // entry in the i-th column
-                                                                        // of the objective matrix
-
-            result[(searchDim*searchDim) + j*searchDim + i] = conj(result[(searchDim*searchDim) \
-                                                                      + i*searchDim + j]);
-                                                                        // By hermiticity of H, its
-                                                                        // i-th entry of the j-th
-                                                                        // column is the complex
-                                                                        // conjugate of the j-th
-                                                                        // entry in the i-th column
-            stateFreeVector(&bra);
-
-        }
-        stateFreeVector(&ket);
-    }
     return result;
 }
