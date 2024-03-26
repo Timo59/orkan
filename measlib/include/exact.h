@@ -29,6 +29,8 @@ extern "C" {
 typedef double* (*gradPQC)(const state_t* state, const double params[], const obs_t* observable, \
                     const obs_t* evoOps[], depth_t circdepth);
 
+typedef void (*srchU)(const state_t* state, const obs_t* srchOp);
+
 /*
  * =====================================================================================================================
  *                                                  Mean value operator
@@ -78,9 +80,9 @@ double* approxGradientPQC(const state_t* state, const double params[], const obs
                                const obs_t* evoOps[], depth_t circdepth, double epsilon);
 
 /*
- * =================================================================================================
- *                                              hessian PQC
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      hessian PQC
+ * =====================================================================================================================
  */
 
 double* hessianPQC(const state_t* state, const double params[], const obs_t* observable, \
@@ -90,13 +92,14 @@ double* approxHessianPQC(const state_t* state, const double params[], const obs_
                          const obs_t* evoOps[], depth_t circdepth, gradPQC grad, double epsilon);
 
 /*
- * =================================================================================================
- *                                    Moment matrices
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Moment matrices
+ * =====================================================================================================================
  */
 
-cplx_t* momentMatrices(const state_t* state, const obs_t* searchHerms, double* angles, \
-                       depth_t searchDim, obs_t* observable);
+cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const obs_t* srchOps[], depth_t matDim, \
+                srchU applyU);
+
 
 #ifdef __cplusplus
 }

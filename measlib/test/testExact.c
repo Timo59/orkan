@@ -2247,54 +2247,29 @@ void testHessianPQC(void) {
 
 
 /*
- * =================================================================================================
- *                                    test momentMatQAOA
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  test momentMatQAOA
+ * =====================================================================================================================
  */
 
-/*
-void testMomentMatQAOA(void) {
-    */
-/*
-     *                                        2 qubits
-     *-----------------------------------------------------------------------------------------------------------------
-     *//*
+void testMomMat(void) {
+    qubit_t qubits;
+    dim_t dim;
+    cplx_t** testVectors;
 
-    qubit_t qubits = 2;
+    depth_t obsc;
+    obs_t* observables[obsc];
 
-    */
-/*
-     * Initialize the state
-     *//*
-
-    state_t testState;
-    cplx_t** testVectors = generateTestVectors(qubits);
-    cplx_t** refVectors = generateTestVectors(qubits);
-
-    */
-/*
-     * Initialize the Hamiltonian
-    *//*
-
-    pauli_t compHamiltonian[8] = {ID, ID, Z, ID, ID, Z, Z, Z};
-    double coeffHamiltonian[4] = {1.46803, 2.52930, -1.42054, -2.18498};
-
-    pauliObs_t hamiltonianPauli;
-    hamiltonianPauli.components = compHamiltonian;
-    hamiltonianPauli.coefficients = coeffHamiltonian;
-    hamiltonianPauli.length = 4;
-    hamiltonianPauli.qubits = qubits;
-
-    obs_t hamiltonian;
-    hamiltonian.type = PAULI;
-    hamiltonian.pauliObs = &hamiltonianPauli;
+    testVectors = generateTestVectors(qubits);
+    for (dim_t i = 0; i < dim + 1; ++i) {
+        cplx_t** result = momMat(&testVectors[i],)
+    }
 }
-*/
 
 /*
- * =================================================================================================
- *                                              main
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      main
+ * =====================================================================================================================
  */
 
 int main(void) {
