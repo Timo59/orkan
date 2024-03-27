@@ -29,7 +29,7 @@ extern "C" {
 typedef double* (*gradPQC)(const state_t* state, const double params[], const obs_t* observable, \
                     const obs_t* evoOps[], depth_t circdepth);
 
-typedef void (*srchU)(const state_t* state, const obs_t* srchOp);
+typedef void (*srchU)(state_t* state, const obs_t* srchOp);
 
 /*
  * =====================================================================================================================

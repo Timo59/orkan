@@ -677,9 +677,9 @@ cplx_t** momMat(const state_t* state, \
         }
     }
 
-    stateFree(&tmpBra);
-    stateFree(&tmpTmpBra);
-    stateFree(&tmpKet);
+    stateFreeVector(&tmpBra);
+    stateFreeVector(&tmpTmpBra);
+    stateFreeVector(&tmpKet);
     return result;
 }
 
