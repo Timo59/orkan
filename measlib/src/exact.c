@@ -101,67 +101,56 @@ cplx_t expVal(const state_t* state, const op_t* operator) {
  */
 
 /*
-This function computes the real expectation value of an observable.
-
-Input:
-    state_t state: a user defined structure holding the pointer to a double complex valued array
-    corresponding to the state vector, the number of qubits as an unisgned integer of type qubits_t
-    and the Hilbert space dimension aka the number of entries in the state vector as an unsigned
-    integer of type dim_t
-    obs_t observable: a user defined structure holding the pointer to an array of observables
-    comprising hermitian gates, a pointer to an array of real coefficients for each component and
-    the number of components in the compound observable
-
-Output:
-    A double carrying the expectation value of a hermitian operator (observable).
-*/
+ * This function returns the expected value of a Pauli observable on a quantum state.
+ *
+ * Input:
+ *      state_t* state:             State of a qubit system
+ *      pauliObs_t* observable:     Observable as a sum of weighted Pauli strings
+ *
+ * Output:
+ *      Expected value of the observable on the state.
+ */
 double expValObsPauli(const state_t* state, const pauliObs_t* observable) {
-    register cplx_t tmp;                                        // double complex holding the
-                                                                // expectation value of a single
-                                                                // component on the input state
+    state_t ket;                    // state, initialized to the input state, the observable's components acts on
 
-    state_t ket;                                                // a state struct holding the vector
-                                                                // that the components are applied
-                                                                // to
+    register cplx_t tmp;            // complex double holding the mean value of each observable's component
 
-    register double result = 0;                                 // double holding the sum of
-                                                                // expectation values of components
-                                                                // on the input state times the 
-                                                                // coefficients
+    register double result = 0;     // double holding the sum of the weighted mean values of observable's components
 
-    /*
-    Starting at the first sequence of gates, the integer i goes through all components and their
-    respective coefficents. The result of the component applied to the input's state vector times
-    the coefficient is stored in tmp which is used to gradually add up the resulting state vector
-    after applying the compgate in ket.
-    */
-
+    /* Initialize ket to an all zero state vector */
     stateInitEmpty(&ket, state->qubits);
+
+    /* For each component of the observable: Copy input state's vector to ket, apply component to ket, store the inner
+     * product of the input state and ket to tmp and add the real part of this mean value weighted by the corresponding
+     * coefficient to the result. */
     for (complength_t i = 0; i < observable->length; ++i) {
         stateCopyVector(&ket, state->vector);
         applyPauliString(&ket, observable->components + (i * observable->qubits));
-                                                                // applies the i-th component to the
-                                                                // state vector stored in tmp
-
         tmp = cinnerProduct(state->vector, ket.vector, state->dimension);
-                                                                // store the inner product of the
-                                                                // the input state with ket, aka the
-                                                                // expectation value, in tmp            
-
-        result += (observable->coefficients[i] * creal(tmp));   // add the single component's
-                                                                // expectation value times its
-                                                                // coefficient to the existing
-                                                                // result
-
+        result += (observable->coefficients[i] * creal(tmp));
     }
+
+    /* Free the memory allocated for ket's state vector */
     stateFreeVector(&ket);
     
     return result;
 }
 
+/*
+ * This function returns the expected value of a diagonal observable on a quantum state.
+ *
+ * Input:
+ *      state_t* state:         State of a qubit system
+ *      double observable[]:    Observable as its diagonal entries in the computational basis
+ *
+ * Output:
+ *      Expected value of the observable on the state.
+ */
 double expValObsDiag(const state_t* state, const double observable[]) {
-    register double result = 0;
+    register double result = 0;     // double holding the sum of the weighted state vector's absolute squares
 
+    /* For each of the state vector's entries: Multiply its absolute square with the corresponding observable's diagonal
+     * entry and add this to the result. */
     for (dim_t i = 0; i < state->dimension; ++i) {        
         result += pow(cabs(state->vector[i]), 2) * observable[i];
     }
@@ -169,7 +158,19 @@ double expValObsDiag(const state_t* state, const double observable[]) {
     return result;
 }
 
+/*
+ * This function returns the expected value of an observable on a quantum state, using the function determined
+ * by the type of the observable.
+ *
+ * Input:
+ *      state_t* state:     State of a qubit system
+ *      obs_t* observable:  Observable with a type union
+ *
+ * Output:
+ *      Expected value of the observable on the state.
+ */
 double expValObs(const state_t* state, const obs_t* observable) {
+    /* Depending on the type of the observable, calls either function returning the expected value */
     switch(observable->type) {
         case DIAG: {
             return expValObsDiag(state, observable->diagObs);
@@ -184,80 +185,115 @@ double expValObs(const state_t* state, const obs_t* observable) {
     }
 }
 
-
-
 /*
  * =====================================================================================================================
  *                                                  Mean value PQC
  * =====================================================================================================================
  */
 
+/*
+ * This function returns the expected value of a Pauli observable on a state evolved with a PQC.
+ *
+ * Input:
+ *      state_t* state:             Initial state of a qubit system
+ *      double params[]:            Array of evolution parameters for the PQC
+ *      pauliObs_t* observable:     Observable as a sum of Paulis strings
+ *      obs_t* evoOps[]:            Array of hermitian evolution operators
+ *      depth_t circdepth:          Number of evolution operators in the PQC
+ *
+ * Output:
+ *      Expected value of the observable on the parametrized quantum circuit.
+ */
 double expValObsPauliPQC(const state_t* state, const double params[], const pauliObs_t* observable, \
                          const obs_t* evoOps[], depth_t circdepth) {
-    state_t bra;                    // temporary state holding the evolved input state
-    state_t ket;                    // temporary state holding the evolved input state altered with each summand of obs
+    state_t bra;                    // state, initialized to the input state and evolved with the PQC
+    state_t ket;                    // state, initialized to the input state and evolved with the PQC, the observable's
+                                    // components acts on
 
-    cplx_t tmp;                     // cplx_t holding each summand of the observable's mean value
+    register cplx_t tmp;            // complex double holding the mean value of each observable's component
 
-    register double result = 0;     // double holding the result
+    register double result = 0;     // double holding the sum of the weighted mean values of observable's components
 
-    /*
-     * 1. Initialize tmp states
-     */
+    /* Initialize the temporary states and copy the input state's vector to the designated bra */
     stateInitEmpty(&bra, state->qubits);
     stateInitEmpty(&ket, state->qubits);
     stateCopyVector(&bra, state->vector);
 
-    /*
-     * 2. Evolve tmp states with PQC
-     */
+    /* Evolve the designated bra with the PQC */
     applyPQC(&bra, params, evoOps, circdepth);
 
-    /*
-     * 3. Calculate the mean of each weighted Pauli string in the observable on the input state
-     */
+    /* For each component of the observable: Copy evolved input state's vector (stored in bra) to ket, apply component
+     * to ket, store the inner product of bra and ket to tmp and add real part of this mean value weighted by the
+     * corresponding coefficient to the result. */
     for (complength_t i = 0; i < observable->length; ++i) {
         stateCopyVector(&ket, bra.vector);
         applyPauliString(&ket, observable->components + (i * observable->qubits));
-
         tmp = cinnerProduct(bra.vector, ket.vector, bra.dimension);
-
         result += (observable->coefficients[i] * creal(tmp));
-
     }
+
+    /* Free the memory allocated for bra's and ket's state vector */
+    stateFreeVector(&bra);
+    stateFreeVector(&ket);
 
     return result;
 }
 
+/*
+ * This function returns the expected value of a diagonal observable on a state evolved with a PQC.
+ *
+ * Input:
+ *      state_t* state:         Initial state of a qubit system
+ *      double params[]:        Array of evolution parameters for the PQC
+ *      double observable[]:    Observable as its diagonal entries in the computational basis
+ *      obs_t* evoOps[]:        Array of hermitian evolution operators
+ *      depth_t circdepth:      Number of evolution operators in the PQC
+ *
+ * Output:
+ *      Expected value of the observable on the parametrized quantum circuit.
+ */
 double expValObsDiagPQC(const state_t* state, const double params[], const double observable[], \
                         const obs_t* evoOps[], depth_t circdepth) {
     state_t tmp;                    // temporary state holding the evolved input state
 
     register double result = 0;     // double holding the result
 
-    /*
-     * 1. Initialize tmp state
-     */
+    /* Initialize the temporary state and copy the input state's vector to it */
     stateInitEmpty(&tmp, state->qubits);
     stateCopyVector(&tmp, state->vector);
 
-    /*
-     * 2. Evolve tmp state with PQC
-     */
+    /* Evolve temporary state with the PQC */
     applyPQC(&tmp, params, evoOps, circdepth);
 
-    /*
-     * 3. Calculate the mean of each weighted Pauli string in the observable on the input state
-     */
+    /* For each of the evolved state vector's entries: Multiply its absolute square with the corresponding observable's
+     * diagonal entry and add this to the result. */
     for (dim_t i = 0; i < tmp.dimension; ++i) {
         result += pow(cabs(tmp.vector[i]), 2) * observable[i];
     }
 
+    /* Free the memory allocated for tmp's state vector */
+    stateFreeVector(&tmp);
+
     return result;
 }
 
+/*
+ * This function returns the expected value of an observable on a state evolved with a PQC, using the function determined
+ * by the type of the observable.
+ *
+ * Input:
+ *      state_t* state:         Initial state of a qubit system
+ *      double params[]:        Array of evolution parameters for the PQC
+ *      obs_t* observable:      Observable with a type union
+ *      obs_t* evoOps[]:        Array of hermitian evolution operators
+ *      depth_t circdepth:      Number of evolution operators in the PQC
+ *
+ * Output:
+ *      Expected value of the observable on the parametrized quantum circuit.
+ */
 double expValObsPQC(const state_t* state, const double params[], const obs_t* observable, \
                     const obs_t* evoOps[], depth_t circdepth) {
+    /* Depending on the type of the observable, calls either function returning the expected value */
     switch(observable->type) {
         case DIAG: {
             return expValObsDiagPQC(state, params, observable->diagObs, evoOps, circdepth);
@@ -279,29 +315,19 @@ double expValObsPQC(const state_t* state, const double params[], const obs_t* ob
  */
 
 /*
-This function computes the gradient's specified component of a parametrised quantum circuit at the
-current point in parameter space.
-We have to assume that each parametrised quantum gate consists of a sum of commuting Pauli strings.
-
-Input:
-    state_t* state:         user defined structure holding the vector of the initial state inserted
-                            into the parametrised quantum circuit, the number of qubits it is
-                            defined on and the corresponding Hilbert space dimension
-    double point:           pointer to an array of length circuit depth holding the current values
-                            of all parameters
-    obs_t observable:       observable whose expectation value's descent direction in parameter
-                            space one is interested in, i.e., whose expectation value is to be 
-                            optimised
-    compgate_t* evoOps:     array of length circuit depth holding the evolution operators (for now
-                            only sums of Pauli strings) of the PQC
-    depth_t direction:      unsigned integer ranging from 0 to circuit depth, determining with
-                            respect to which parameter component the derivative should be computed
-    depth_t circdepth:      unsigned integer holding the number of evolution operators in the PQC
-                            aka its circuit depth
-
-Output:
-    An array representing the PQC's gradient at the specified point in parameter space.
-*/
+ * This function returns the gradient of an observable's expected value on a parametrized quantum circuit
+ *
+ * Input:
+ *      state_t* state:         Initial state of a qubit system
+ *      double params[]:        Array of evolution parameters for the PQC
+ *      obs_t* observable:      Observable with a type union
+ *      obs_t* evoOps[]:        Array of hermitian evolution operators
+ *      depth_t circdepth:      Number of evolution operators in the PQC
+ *
+ * Output:
+ *      Gradient of the observable's expected value on the parametrized quantum circuit wrt the evolution parameters at
+ *      the current point in parameter space.
+ */
 double* gradientPQC(const state_t* state, const double params[], const obs_t* observable, \
                     const obs_t* evoOps[], depth_t circdepth) {
     state_t bra;

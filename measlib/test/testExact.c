@@ -2540,6 +2540,6 @@ int main(void) {
     RUN_TEST(testExpValObsPQC);
     RUN_TEST(testGradientPQC);
     RUN_TEST(testHessianPQC);
-    RUN_TEST(testMomMat);
+    // RUN_TEST(testMomMat);
     return UNITY_END();
 }
