@@ -330,40 +330,35 @@ double expValObsPQC(const state_t* state, const double params[], const obs_t* ob
  */
 double* gradientPQC(const state_t* state, const double params[], const obs_t* observable, \
                     const obs_t* evoOps[], depth_t circdepth) {
-    state_t bra;
-                                                                        
-    state_t ket;
+    state_t bra;        // state, initialized to the input state, evolved with all evolution operators and acted on with
+                        // the observable
 
-    state_t tmp;
+    state_t tmp;        // state, initialized to the input state, holding each intermediate evolution
+                                                                        
+    state_t ket;        // state, that inherits each intermediate evolution from tmp is acted on with the respective
+                        // evolution operator and finally evolved with the remaining evolution operators
 
     register double* result = (double*) malloc(circdepth * sizeof(double));
 
-    stateInitEmpty(&bra, state->qubits);        // Initialize bra with the input state's vector
+    /* Initialize all temporary states and copy the input state's vector to bra and tmp */
+    stateInitEmpty(&bra, state->qubits);
     stateCopyVector(&bra, state->vector);
 
-    stateInitEmpty(&ket, state->qubits);        // Initialize ket
-
-    stateInitEmpty(&tmp, state->qubits);        // Initialize tmp with the input state's vector
+    stateInitEmpty(&tmp, state->qubits);
     stateCopyVector(&tmp, state->vector);
 
-    /*
-    Evolve bra with all evolutional operators
-    */
+    stateInitEmpty(&ket, state->qubits);
+
+    /* Evolve bra with all evolutional operators and apply the observable to it */
     for (depth_t i = 0; i < circdepth; ++i) {
         evolveWithTrotterizedObservable(&bra, evoOps[i], params[i]);
     }
-
-    /*
-    Apply the observable to bra
-    */
     applyObservable(&bra, observable);
 
-    /*
-    Starting at k=0, for every integer k upt to the circuit depth, evolve tmp with the k-th 
-    evolutional operator. Then copy its state vector to ket, apply the observable to ket and evolve
-    ket with the remaining evolutional operators and add two times the imaginary part of bra's and
-    ket's overlap to the gradient. 
-    */
+    /* k is an integer corresponding to the index of an evolution operator: Evolve tmp with all evolution operators up
+     * to and including the k-th, copy the resulting state vector to ket and apply the current evolution operator to
+     * ket. Evolve ket with all remaining evolution operators and store the imaginary part of its overlap with bra to
+     * the k-th entry of the gradient array. */
     for (depth_t k = 0; k < circdepth; ++k) {
         evolveWithTrotterizedObservable(&tmp, evoOps[k], params[k]);
 
@@ -376,38 +371,53 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
 
         result[k] = 2 * cimag(stateOverlap(&bra, &ket));
     }
+
+    /* Free the memory allocated to the temporary state's vectors */
     stateFreeVector(&bra);
     stateFreeVector(&ket);
     stateFreeVector(&tmp);
     return result;
 }
 
-
+/*
+ * This function returns the approximate gradient of an observable's expected value on a parametrized quantum circuit
+ * using a finite difference method.
+ *
+ * Input:
+ *      state_t* state:         Initial state of a qubit system
+ *      double params[]:        Array of evolution parameters for the PQC
+ *      obs_t* observable:      Observable with a type union
+ *      obs_t* evoOps[]:        Array of hermitian evolution operators
+ *      depth_t circdepth:      Number of evolution operators in the PQC
+ *      double epsilon:         Absolute difference the parameter values are shifted in finite difference method
+ *
+ * Output:
+ *      Gradient of the observable's expected value on the parametrized quantum circuit wrt the evolution parameters at
+ *      the current point in parameter space using a finite difference method.
+ */
 double* approxGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
                                const obs_t* evoOps[], depth_t circdepth, double epsilon) {
 
     register double* result = (double*) malloc(circdepth * sizeof(double));
 
-    double* tmp_params = malloc(circdepth * sizeof(double ));       // temporary copy of the parameters
+    /* Create a copy of the array holding the parameter values */
+    double* tmp_params = malloc(circdepth * sizeof(double ));
     for (depth_t i = 0; i < circdepth; ++i) {
         tmp_params[i] = params[i];
     }
 
-
-    /*
-     * 1. Subtract the mean value at the current parameter setting from all entries of the latter gradient
-     */
+    /* Calculate the mean value of the current parameter setting from all entries of the gradient */
     double mean = expValObsPQC(state, params, observable, evoOps, circdepth);
 
-    /*
-     * 2. For each direction shift the corresponding parameter calculate the slope by the difference method
-     */
+    /* For each direction in parameter space, shift the parameter value by epsilon and calculate the slope by the
+     * difference method */
     for (depth_t i = 0; i < circdepth; ++i) {
         tmp_params[i] += epsilon;
         result[i] = (1./epsilon) * (expValObsPQC(state, tmp_params, observable, evoOps, circdepth) - mean);
         tmp_params[i] -= epsilon;
     }
 
+    /* Free the memory allocated to the copy of the parameter array */
     free(tmp_params);
 
     return result;
@@ -420,20 +430,19 @@ double* approxGradientPQC(const state_t* state, const double params[], const obs
  */
 
 /*
- * This function returns the hessian according to a PQC at the current point the parameter space.
+ * This function returns the hessian of an observable's expected value on a parametrized quantum circuit
  *
  * Input:
- *  state_t* state:         initial state of the parameterized quantum circuit
- *  const double params:    array of length circuit depth holding the current parameter values
- *  obs_t observable:       observable whose expectation value's hessian with respect to the parameterized quantum
- *                           circuit is the objective
- *  compgate_t* evoOps:     array of length circuit depth holding pointers to the evolution operators of the PQC
- *  depth_t circdepth:      unsigned integer holding the number of evolution operators in the PQC aka its circuit depth
+ *      state_t* state:         Initial state of a qubit system
+ *      double params[]:        Array of evolution parameters for the PQC
+ *      obs_t* observable:      Observable with a type union
+ *      obs_t* evoOps[]:        Array of hermitian evolution operators
+ *      depth_t circdepth:      Number of evolution operators in the PQC
  *
  * Output:
- *  An array representing the PQC's gradient at the specified point in parameter space.
- *
-*/
+ *      Hessian of the observable's expected value on the parametrized quantum circuit wrt the evolution parameters at
+ *      the current point in parameter space.
+ */
 
 double* hessianPQC(const state_t* state, const double params[], const obs_t* observable, const obs_t* evoOps[], \
                    depth_t circdepth) {
@@ -461,6 +470,7 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
 
     register double* result = (double*) malloc((circdepth * circdepth) * sizeof(double));
 
+    /* Initialize all temporary states and copy the input state's vector to tmp */
     stateInitEmpty(&tmp, state->qubits);
     stateInitEmpty(&tmpBra, state->qubits);
     stateInitEmpty(&tmpKet, state->qubits);
@@ -471,96 +481,70 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
 
     stateCopyVector(&tmp, state->vector);
 
-    /*
-     * 1a) Evolve the bra vector of the second stateOverlap with all evolution operators and corresponding parameters.
-    */
+    /* 1a) Evolve the bra vector of the second stateOverlap with all evolution operators and corresponding parameters */
     stateCopyVector(&bra2, state->vector);
     for (depth_t i = 0; i < circdepth; ++i) {
         evolveWithTrotterizedObservable(&bra2, evoOps[i], params[i]);
     }
 
-    /*
-     * 1b) The unsigned integer k iterates through all row indices of the hessian's upper triangle. In each iteration
-     * tmp is evolved with the k-th evolution operator.
-    */
+    /* 1b) The unsigned integer k iterates through all row indices of the hessian's upper triangle. In each iteration
+     * tmp is evolved with the k-th evolution operator */
     for (depth_t k = 0; k < circdepth; ++k) {
         evolveWithTrotterizedObservable(&tmp, evoOps[k], params[k]);
 
-        /*
-         * 2a) tmpKet inherits its state vector from tmp and applies the k-th evolution operator to it.
-         */
+        /* 2a) tmpKet inherits its state vector from tmp and applies the k-th evolution operator to it */
         stateCopyVector(&tmpKet, tmp.vector);
         applyObservable(&tmpKet, evoOps[k]);
 
-        /*
-         * 2b) tmpBra inherits its state vector from tmp.
-         */
+        /* 2b) tmpBra inherits its state vector from tmp */
         stateCopyVector(&tmpBra, tmp.vector);
 
-        /*
-         * 3a) The k-th diagonal element is computed separately because it only appears once in the matrix. bra1, ket1
-         * and ket2 are all descendants of tmpKet. The k-th evolution operator is applied to ket2 a second time.
-        */
+        /* 3a) The k-th diagonal element is computed separately because it only appears once in the matrix. bra1, ket1
+         * and ket2 are all descendants of tmpKet. The k-th evolution operator is applied to ket2 a second time */
         stateCopyVector(&bra1, tmpKet.vector);
         stateCopyVector(&ket1, tmpKet.vector);
         stateCopyVector(&ket2, tmpKet.vector);
         applyObservable(&ket2, evoOps[k]);
 
-        /*
-         * 3b) bra1, ket1 and ket2 are all evolved with the remaining evolution operators.
-         */
+        /* 3b) bra1, ket1 and ket2 are all evolved with the remaining evolution operators */
         for (depth_t kk = k + 1; kk < circdepth; ++kk) {
             evolveWithTrotterizedObservable(&bra1, evoOps[kk], params[kk]);
             evolveWithTrotterizedObservable(&ket1, evoOps[kk], params[kk]);
             evolveWithTrotterizedObservable(&ket2, evoOps[kk], params[kk]);
         }
 
-        /*
-         * 3d) The observable is applied to ket1 and ket2.
-         */
+        /* 3d) The observable is applied to ket1 and ket2 */
         applyObservable(&ket1, observable);
         applyObservable(&ket2, observable);
 
-        /*
-         * 3e) The diagonal entries are added once to the array.
-         */
+        /* 3e) The diagonal entries are added once to the array */
         result[k * circdepth + k] = 2 * creal(stateOverlap(&bra1, &ket1));
         result[k * circdepth + k] -= 2 * creal(stateOverlap(&bra2, &ket2));
 
-        /*
-         * 4) The unsigned integer l iterates through all column indices of the hessian's upper triangle without the
-         * diagonal, i.e., l > k. In each iteration tmpBra and tmpKet are evolved with the l-th evolution operator
-        */
+        /* 4) The unsigned integer l iterates through all column indices of the hessian's upper triangle without the
+         * diagonal, i.e., l > k. In each iteration tmpBra and tmpKet are evolved with the l-th evolution operator */
         for (depth_t l = k + 1; l < circdepth; ++l) {
             evolveWithTrotterizedObservable(&tmpBra, evoOps[l], params[l]);
             evolveWithTrotterizedObservable(&tmpKet, evoOps[l], params[l]);
 
-            /*
-             * 4a) bra1 is a descendant of tmpBra, it is applied the l-th evolution operator and evolved with the
-             * remaining evolution operators.
-             */
+            /* 4a) bra1 is a descendant of tmpBra, it is applied the l-th evolution operator and evolved with the
+             * remaining evolution operators */
             stateCopyVector(&bra1, tmpBra.vector);
             applyObservable(&bra1, evoOps[l]);
             for (depth_t ll = l + 1; ll < circdepth; ++ll) {
                 evolveWithTrotterizedObservable(&bra1, evoOps[ll], params[ll]);
             }
 
-            /*
-             * 4b) ket1 is a descendant of tmpKet, is evolved with the remaining evolution operators and the observable
-             * is applied to it
-             */
+            /* 4b) ket1 is a descendant of tmpKet, is evolved with the remaining evolution operators and the observable
+             * is applied to it */
             stateCopyVector(&ket1, tmpKet.vector);
             for (depth_t kk = l + 1; kk < circdepth; ++kk) {
                 evolveWithTrotterizedObservable(&ket1, evoOps[kk], params[kk]);
             }
-
             applyObservable(&ket1, observable);
 
-
-            /*
-             * 4c) ket2 is a descendant of tmpKet and the l-th evolution operator is applied to it. It is evolved with
-             * the remaining evolution operators and the observable is applied to it.
-             */
+            /* 4c) ket2 is a descendant of tmpKet and the l-th evolution operator is applied to it. It is evolved with
+             * the remaining evolution operators and the observable is applied to it */
             stateCopyVector(&ket2, tmpKet.vector);
             applyObservable(&ket2, evoOps[l]);
             for (depth_t ll = l + 1; ll < circdepth; ++ll) {
@@ -568,10 +552,8 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
             }
             applyObservable(&ket2, observable);
 
-            /*
-             * 4d) The difference of the two overlap's real part are added to the positions corresponding to the l-th
-             * entry of the k-th row and vice versa of the array.
-             */
+            /* 4d) The difference of the two overlap's real part are added to the positions corresponding to the l-th
+             * entry of the k-th row and vice versa of the array */
             result[k * circdepth + l] = 2 * creal(stateOverlap(&bra1, &ket1));
             result[k * circdepth + l] -= 2 * creal(stateOverlap(&bra2, &ket2));
             result[l * circdepth + k] = 2 * creal(stateOverlap(&bra1, &ket1));
@@ -579,9 +561,7 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
         }
     }
 
-    /*
-     * The state vectors of bra2 and tmp are freed. No more state vector is attached
-     */
+    /* Free all the memory allocated for the temporary state's vectors */
     stateFreeVector(&tmp);
     stateFreeVector(&tmpBra);
     stateFreeVector(&tmpKet);
@@ -593,26 +573,39 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
     return result;
 }
 
-
+/*
+ * This function returns the approximate hessian of an observable's expected value on a parametrized quantum circuit
+ * using a finite difference method
+ *
+ * Input:
+ *      state_t* state:         Initial state of a qubit system
+ *      double params[]:        Array of evolution parameters for the PQC
+ *      obs_t* observable:      Observable with a type union
+ *      obs_t* evoOps[]:        Array of hermitian evolution operators
+ *      depth_t circdepth:      Number of evolution operators in the PQC
+ *      gradPQC grad:           Function that computes the gradient of a PQC
+ *      double epsilon:         Absolute difference the parameter values are shifted in finite difference method
+ *
+ * Output:
+ *      Approximate hessian of the observable's expected value on the parametrized quantum circuit wrt the evolution
+ *      parameters at the current point in parameter space using a finite difference method on the gradient.
+ */
 double* approxHessianPQC(const state_t* state, const double params[], const obs_t* observable, \
                          const obs_t* evoOps[], depth_t circdepth, gradPQC grad, double epsilon) {
 
     register double* result = (double*) malloc(circdepth*circdepth * sizeof(double));
 
-    double* tmp_params = malloc(circdepth * sizeof(double ));       // temporary copy of the parameters
+    /* Create a copy of the array holding the parameter values */
+    double* tmp_params = malloc(circdepth * sizeof(double ));
     for (depth_t i = 0; i < circdepth; ++i) {
         tmp_params[i] = params[i];
     }
 
-    /*
-     * 1. Calculate the gradient at the current parameter setting
-     */
+    /* Compute the gradient at the current parameter setting */
     double* refGradient = grad(state, tmp_params, observable, evoOps, circdepth);
 
-    /*
-     * 2. For each direction shift the corresponding parameter; calculate the gradient's finite difference. This will be
-     * the i-th column of the hessian.
-     */
+    /* For each direction in parameter space, shift the parameter value by epsilon and calculate the gradient's finite
+     * difference. This is the i-th column of the hessian */
     for (depth_t i = 0; i < circdepth; ++i) {
         tmp_params[i] += epsilon;
         double* gradient = grad(state, tmp_params, observable, evoOps, circdepth);
@@ -624,6 +617,7 @@ double* approxHessianPQC(const state_t* state, const double params[], const obs_
         tmp_params[i] -= epsilon;
     }
 
+    /* Free the memory allocated to the copy of the parameter array */
     free(tmp_params);
     return(result);
 }
@@ -635,156 +629,71 @@ double* approxHessianPQC(const state_t* state, const double params[], const obs_
  */
 
 /*
- * This function calculates the moment matrices of a set of observables corresponding to the application of a set of
- * unitaries.
+ * This function calculates the moment matrices of a set of observables.
  *
  * Input:
- *  state_t* state          System's state, including statevector and Hilbert space dimension
- *  obs_t* obs[]            Set of observables
- *  depth_t obsc            Number of observables to calculate the moment matrix of
- *  obs_t* srchOps[]        Set of observables making up for the unitaries
- *  depth_t matDim          Number of operators making up for the unitaries, i.e., dimension of the resulting matrices
+ *      state_t* state:     Initial state of a qubit system
+ *      obs_t* obs[]:       Array of observables constituting the moment matrices
+ *      depth_t obsc:       Number of observables to calculate the moment matrix of
+ *      obs_t* srchOps[]:   Set of observables generating the search unitaries
+ *      depth_t matDim      Dimension of the moment matrices; i.e., number of operators generating the search unitaries
  *
  * Output:
- *  Array of moment matrices in column major form corresponding to the input array of observables.
+ *  Array of moment matrices with respect to search unitaries generated from a set of hermitian operators in column
+ *  major form in order corresponding to the input array of observables.
  */
 
-cplx_t** momMat(const state_t* state, \
-                const obs_t* obs[], \
-                depth_t obsc, \
-                const obs_t* srchOps[], \
-                depth_t matDim, \
+cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const obs_t* srchOps[], depth_t matDim, \
                 srchU applyU) {
 
-    /*
-     * 1. Set up the array of moment matrices
-     */
+    /* Set up the array of moment matrices */
     register cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
-
     for (depth_t i = 0; i < obsc; ++i) {
         result[i] = (cplx_t*) malloc(matDim * matDim * sizeof(cplx_t));
     }
 
-    /*
-     * 2. Initialize the temporary states altered by the unitaries
-     */
-    state_t tmpBra;
-    stateInitEmpty(&tmpBra, state->qubits);
-    state_t tmpTmpBra;
-    stateInitEmpty(&tmpTmpBra, state->qubits);
+    /* Initialize the temporary states altered by the unitaries */
+    state_t bra;
+    stateInitEmpty(&bra, state->qubits);
+    state_t ket;
+    stateInitEmpty(&ket, state->qubits);
     state_t tmpKet;
     stateInitEmpty(&tmpKet, state->qubits);
 
-    /*
-     * 3a. Iterate the columns of all moment matrices, applying the respective unitary to the statevector
-     */
+    /* Iterate the columns of all moment matrices; copy the input state's vector to tmpKet and apply the column's search
+     * unitary to it */
     for (depth_t i = 0; i < matDim; ++i) {
         stateCopyVector(&tmpKet, state->vector);
         applyU(&tmpKet, srchOps[i]);
 
-        /*
-         * 3b. Iterate the columns' entries of all moment matrices starting at the current column's index, applying the
-         * respective unitary to the statevector
-         */
-        for (depth_t j = i; j < matDim; ++j) {
-            stateCopyVector(&tmpKet, state->vector);
-            applyU(&tmpBra, srchOps[j]);
+        /* Iterate the moment matrices; copy tmpKet's vector to ket, apply the moment matrix's observable to it and
+         * store the real part of the overlap with tmpKet to the moment matrix's diagonal entry */
+        for (depth_t j = 0; j <obsc; ++j) {
+            stateCopyVector(&ket, tmpKet.vector);
+            applyObservable(&ket, obs[j]);
+            result[j][i + matDim * i] = creal(stateOverlap(&tmpKet, &ket));
+        }
 
-            /*
-             * 3c. Iterate the moment matrices by applying the respective observable to tmpBra's statevector and compute
-             * the overlap with tmpKet
-             */
+        /* Iterate the columns' entries of all moment matrices starting at the current column's index; copy the input
+         * state's vector to tmpBra and apply the row's search unitary to it */
+        for (depth_t j = i; j < matDim; ++j) {
+            stateCopyVector(&bra, state->vector);
+            applyU(&bra, srchOps[j]);
+
+            /* Iterate the moment matrices; copy tmpBra's vector to tmpTmpBra and apply the moment matrix's observable
+             * to it. */
             for (depth_t k = 0; k < obsc; ++k) {
-                stateCopyVector(&tmpTmpBra, tmpBra.vector);
-                applyObservable(&tmpTmpBra, obs[k]);
-                result[k][i * matDim + j] = stateOverlap(&tmpTmpBra, &tmpKet);
+                stateCopyVector(&ket, tmpKet.vector);
+                applyObservable(&ket, obs[k]);
+                result[k][i * matDim + j] = stateOverlap(&bra, &ket);
                 result[k][j * matDim + i] = result[k][i * matDim + j];
             }
         }
     }
 
-    stateFreeVector(&tmpBra);
-    stateFreeVector(&tmpTmpBra);
+    /* Free all the memory allocated for the temporary state's vectors */
+    stateFreeVector(&bra);
+    stateFreeVector(&ket);
     stateFreeVector(&tmpKet);
-    return result;
-}
-
-/*
-This function returns the moment matrices E_{ij} and H_{ij} w.r.t. the identity, the QAOA mixer and
-the phase separator as search unitaries.
-
- Input:
-    state_t* state:         state of the system
-    obs_t hamiltonian:      the objective function's hamiltonian
-    double angleB:          mixer's evolution parameter
-    double angleH:          phase separator's evolution parameter
-
-Output:
-    Array holding the matrix E in column major order concatenated with the matrix H in column major
-    order.
-*/
-cplx_t* momentMatQAOA(state_t* state, const obs_t* hamiltonian, double angleB, double angleH) {
-    state_t tmpB;       // temporary state holding input state's evolution by angleB w.r.t. B
-
-    state_t tmpH;       // temporary state holding input state's evolution by angleB w.r.t. H
-
-    register cplx_t *result = (cplx_t *) malloc((18) * sizeof(cplx_t));
-
-    /*
-     * Initialize tmpB
-     */
-    stateInitEmpty(&tmpB, state->qubits);
-    stateCopyVector(&tmpB, state->vector);
-    for (qubit_t i = 0; i < tmpB.qubits; ++i) {
-        applyRX(&tmpB, i, 2 * angleB);
-    }
-
-    /*
-     * Initialize tmpH
-     */
-    stateInitEmpty(&tmpH, state->qubits);
-    stateCopyVector(&tmpH, state->vector);
-    evolveWithTrotterizedObservable(&tmpH, hamiltonian, angleH);
-
-    /*
-     * Save E in column major form to the first 9 entries of result
-     */
-    result[0] = 1. + 0. * I;
-    result[1] = stateOverlap(&tmpB, state);
-    result[2] = stateOverlap(&tmpH, state);
-    result[3] = conj(result[1]);
-    result[4] = 1. + 0. * I;
-    result[5] = stateOverlap(&tmpH, &tmpB);
-    result[6] = conj(result[2]);
-    result[7] = conj(result[5]);
-    result[8] = 1. + 0. * I;
-
-    /*
-     * Save H in column major form to the other 9 entries of result starting with the diagonal
-     * elements
-     */
-    result[9] = expValObs(state, hamiltonian);
-    result[13] = expValObs(&tmpB, hamiltonian);
-    result[17] = expValObs(&tmpH, hamiltonian);
-    /*
-     * Apply the hamiltonian to tmpB and compute all expectation values involving it
-     */
-    applyObservable(&tmpB, hamiltonian);
-    result[10] = stateOverlap(&tmpB, state);
-    result[12] = conj(result[10]);
-    result[14] = stateOverlap(&tmpH, &tmpB);
-    result[16] = conj(result[14]);
-    /*
-     * Apply the hamiltonian to tmpH and compute the remaining expectation value
-     */
-    applyObservable(&tmpH, hamiltonian);
-    result[11] = stateOverlap(&tmpH, state);
-    result[15] = conj(result[11]);
-
-    /*
-     * Free temporary state vectors
-     */
-    stateFreeVector(&tmpB);
-    stateFreeVector(&tmpH);
     return result;
 }
