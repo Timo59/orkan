@@ -671,7 +671,7 @@ cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const ob
         for (depth_t j = 0; j <obsc; ++j) {
             stateCopyVector(&ket, tmpKet.vector);
             applyObservable(&ket, obs[j]);
-            result[j][i + matDim * i] = creal(stateOverlap(&tmpKet, &ket));
+            result[j][matDim * i + i] = creal(stateOverlap(&tmpKet, &ket));
         }
 
         /* Iterate the columns' entries of all moment matrices starting at the current column's index; copy the input
@@ -686,7 +686,7 @@ cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const ob
                 stateCopyVector(&ket, tmpKet.vector);
                 applyObservable(&ket, obs[k]);
                 result[k][i * matDim + j] = stateOverlap(&bra, &ket);
-                result[k][j * matDim + i] = result[k][i * matDim + j];
+                result[k][j * matDim + i] = conj(result[k][i * matDim + j]);
             }
         }
     }
