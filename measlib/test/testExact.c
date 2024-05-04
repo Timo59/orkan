@@ -2284,9 +2284,8 @@ void testMomMat(void) {
     dim = POW2(4, dim_t);
     testVectors = generateTestVectors(qubits);
 
-    /*
-     * 2. Initialize two observables to be diagonal in the computational basis
-     */
+    /* Initialize two observables to be diagonal in the computational basis */
+
     lengthObs = dim;
     obsc = 2;
     compObs = (pauli_t*) malloc(qubits * lengthObs * sizeof(pauli_t));
@@ -2404,9 +2403,7 @@ void testMomMat(void) {
         observables[i]->pauliObs = obsPauli + i;
     }
 
-    /*
-     * 3. Initialize the rotations around the three axes and the identity as search unitaries
-     */
+    /* Initialize the rotations around the three axes and the identity as search unitaries */
     lengthSrchObs = qubits;
     dimMat = 4;
     srchComps = (pauli_t*) malloc(dimMat * lengthSrchObs * qubits * sizeof(pauli_t));
@@ -2496,7 +2493,37 @@ void testMomMat(void) {
         srchObs[i]->pauliObs = srchObsPauli + i;
     }
 
+    /* Define and allocate the reference matrix */
+    cplx_t** reference = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+    for (depth_t i = 0; i < obsc; ++i) {
+        reference[i] = (cplx_t*) malloc(dimMat * dimMat * sizeof(cplx_t));
+    }
+
+    /* Define and allocate the observables' matrices */
+    cplx_t** obsMat = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+
+    /* Compute the observables' matrices */
+    for (depth_t i = 0; i < obsc; ++i) {
+        obsMat[i] = pauliObservableMat(compObs, \
+                                       coeffObs + (i * lengthObs), \
+                                       lengthObs, \
+                                       qubits);
+    }
+
+    /* Define and allocate the search unitaries' matrices */
+    cplx_t** srchObsMat = (cplx_t**) malloc(dimMat * sizeof(cplx_t*));
+
+    /* Compute the unitary matrices from the search operators */
+    for (depth_t i = 0; i < dimMat; ++i) {
+        srchObsMat[i] = expTrotterizedPauliObservableMat(srchComps + (i * lengthSrchObs * qubits), \
+                                                         srchCoeffs, \
+                                                         lengthSrchObs , \
+                                                         0.05, qubits);
+    }
+
     for (dim_t i = 0; i < dim + 1; ++i) {
+
+        /* Compute the moment matrices using the exact function */
         stateInitVector(&testState, testVectors[i], qubits);
         cplx_t** result = momMat(&testState, \
                                  (const obs_t **) observables, \
@@ -2504,13 +2531,47 @@ void testMomMat(void) {
                                  (const obs_t **) srchObs, \
                                  dimMat, \
                                  applyU);
+        printf("Result: \n");
         for (depth_t j = 0; j < obsc; ++j) {
             matrixPrint(result[j], dimMat);
         }
+
+        /* Compute the reference moment matrices in column major form using matrix multiplication */
+        for (depth_t j = 0; j < dimMat; ++j) {
+            cplx_t* refKet = cmatVecMul(srchObsMat[j], testState.vector, dim);
+
+            for (depth_t k = 0; k < obsc; ++k) {
+                cplx_t* refBra = cmatVecMul(obsMat[k], refKet, dim);
+                reference[k][j * dimMat + j] = creal(cinnerProduct(refBra, refKet, dim));
+                free(refBra);
+            }
+
+            for (depth_t k = 0; k < dimMat; ++k) {
+                cplx_t* refBra = cmatVecMul(srchObsMat[k], refKet, dim);
+                for (depth_t l = 0; l < obsc; ++l) {
+                    reference[l][j * dimMat + k] = cinnerProduct(refBra, refKet, dim);
+                    reference[l][k * dimMat + j] = conj(reference[l][j * dimMat + k]);
+                }
+                free(refBra);
+            }
+            free(refKet);
+        }+
+
+        printf("Reference: \n");
+        for (depth_t j = 0; j < obsc; ++j) {
+            matrixPrint(reference[j], dimMat);
+        }
+
         free(result);
         stateFreeVector(&testState);
     }
-    freeTestVectors(testVectors, qubits);
+
+    /* Free all allocated memory */
+    for (depth_t i = 0; i < obsc; ++i) {
+        free(reference[i]);
+    }
+    free(reference);
+    free(testVectors);
     free(compObs);
     free(coeffObs);
     free(obsPauli);
@@ -2518,6 +2579,10 @@ void testMomMat(void) {
         free(observables[i]);
     }
     free(observables);
+    for (depth_t i = 0; i < obsc; ++i) {
+        free(obsMat[i]);
+    }
+    free(obsMat);
 
     free(srchComps);
     free(srchCoeffs);
@@ -2526,6 +2591,10 @@ void testMomMat(void) {
         free(srchObs[i]);
     }
     free(srchObs);
+    for (depth_t i = 0; i < dimMat; ++i) {
+        free(srchObsMat[i]);
+    }
+    free(srchObsMat);
 }
 
 /*
@@ -2540,6 +2609,6 @@ int main(void) {
     RUN_TEST(testExpValObsPQC);
     RUN_TEST(testGradientPQC);
     RUN_TEST(testHessianPQC);
-    // RUN_TEST(testMomMat);
+    RUN_TEST(testMomMat);
     return UNITY_END();
 }
