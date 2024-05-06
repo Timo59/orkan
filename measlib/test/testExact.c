@@ -2513,7 +2513,7 @@ void testMomMat(void) {
     /* Define and allocate the search unitaries' matrices */
     cplx_t** srchObsMat = (cplx_t**) malloc(dimMat * sizeof(cplx_t*));
 
-    /* Compute the unitary matrices from the search operators */
+    /* Compute the search unitary matrices from the search operators */
     for (depth_t i = 0; i < dimMat; ++i) {
         srchObsMat[i] = expTrotterizedPauliObservableMat(srchComps + (i * lengthSrchObs * qubits), \
                                                          srchCoeffs, \
@@ -2531,10 +2531,10 @@ void testMomMat(void) {
                                  (const obs_t **) srchObs, \
                                  dimMat, \
                                  applyU);
-        printf("Result: \n");
-        for (depth_t j = 0; j < obsc; ++j) {
-            matrixPrint(result[j], dimMat);
-        }
+//        printf("Result: \n");
+//        for (depth_t j = 0; j < obsc; ++j) {
+//            matrixPrint(result[j], dimMat);
+//        }
 
         /* Compute the reference moment matrices in column major form using matrix multiplication */
         for (depth_t j = 0; j < dimMat; ++j) {
@@ -2547,19 +2547,25 @@ void testMomMat(void) {
             }
 
             for (depth_t k = 0; k < dimMat; ++k) {
-                cplx_t* refBra = cmatVecMul(srchObsMat[k], refKet, dim);
+                cplx_t* tmpBra = cmatVecMul(srchObsMat[k], testState.vector, dim);
                 for (depth_t l = 0; l < obsc; ++l) {
+                    cplx_t* refBra = cmatVecMul(obsMat[l], tmpBra, dim);
                     reference[l][j * dimMat + k] = cinnerProduct(refBra, refKet, dim);
                     reference[l][k * dimMat + j] = conj(reference[l][j * dimMat + k]);
+                    free(refBra);
                 }
-                free(refBra);
+                free(tmpBra);
             }
             free(refKet);
-        }+
+        }
 
-        printf("Reference: \n");
+//        printf("Reference: \n");
+//        for (depth_t j = 0; j < obsc; ++j) {
+//            matrixPrint(reference[j], dimMat);
+//        }
+
         for (depth_t j = 0; j < obsc; ++j) {
-            matrixPrint(reference[j], dimMat);
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(result[j], reference[j], dimMat * dimMat, 1e-6));
         }
 
         free(result);
