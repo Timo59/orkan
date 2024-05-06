@@ -6,6 +6,7 @@
 
 #include "helpfunc.h"
 #include "gatelib.h"
+#include "cplxutil.h"
 #include "unity.h"
 
 /*
