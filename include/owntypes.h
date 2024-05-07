@@ -26,6 +26,7 @@ extern "C" {
  */
 
 #define INVSQRT2                0.7071067811865475
+#define PI                      3.1415926535897932
 
 #define MIN(a,b)                ((a) < (b) ? (a) : (b))
 #define MAX(a,b)                ((a) > (b) ? (a) : (b))

@@ -636,7 +636,8 @@ double* approxHessianPQC(const state_t* state, const double params[], const obs_
  *      obs_t* obs[]:       Array of observables constituting the moment matrices
  *      depth_t obsc:       Number of observables to calculate the moment matrix of
  *      obs_t* srchOps[]:   Set of observables generating the search unitaries
- *      depth_t matDim      Dimension of the moment matrices; i.e., number of operators generating the search unitaries
+ *      depth_t matDim:     Dimension of the moment matrices; i.e., number of operators generating the search unitaries
+ *      srchU applyU:       Rule to transform search operators to search unitaries
  *
  * Output:
  *  Array of moment matrices with respect to search unitaries generated from a set of hermitian operators in column
@@ -687,6 +688,77 @@ cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const ob
                 applyObservable(&ket, obs[k]);
                 result[k][i * matDim + j] = stateOverlap(&bra, &ket);
                 result[k][j * matDim + i] = conj(result[k][i * matDim + j]);
+            }
+        }
+    }
+
+    /* Free all the memory allocated for the temporary state's vectors */
+    stateFreeVector(&bra);
+    stateFreeVector(&ket);
+    stateFreeVector(&tmpKet);
+    return result;
+}
+
+/*
+ * This function calculates the moment matrices of a PQC.
+ *
+ * Input:
+ *      state_t* state:         Initial state of a qubit system
+ *      obs_t* obs[]:           Array of observables constituting the moment matrices
+ *      depth_t obsc:           Number of observables to calculate the moment matrix of
+ *      obs_t* evoOps[]:       Set of observables generating the search unitaries
+ *      depth_t circdepth:      Dimension of the moment matrices; i.e., number of evolution operators in the PQC
+ *      double angles[]:        Array of angles in the evolution
+ *
+ * Output:
+ *  Array of moment matrices with respect to fixed angle evolution unitaries in column major form in order corresponding
+ *  to the input array of observables.
+ */
+cplx_t** momMatPQC(const state_t* state, const obs_t* obs[], depth_t obsc, const obs_t* evoOps[], depth_t circdepth, \
+                   double angles[]) {
+
+    /* Set up the array of moment matrices */
+    register cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+    for (depth_t i = 0; i < obsc; ++i) {
+        result[i] = (cplx_t*) malloc(circdepth * circdepth * sizeof(cplx_t));
+    }
+
+    /* Initialize the temporary states altered by the unitaries */
+
+    state_t bra;
+    stateInitEmpty(&bra, state->qubits);
+    state_t ket;
+    stateInitEmpty(&ket, state->qubits);
+    state_t tmpKet;
+    stateInitEmpty(&tmpKet, state->qubits);
+
+    /* Iterate the columns of all moment matrices; copy the input state's vector to tmpKet and apply the column's search
+     * unitary to it */
+    for (depth_t i = 0; i < circdepth; ++i) {
+        stateCopyVector(&tmpKet, state->vector);
+        evolveWithTrotterizedObservable(&tmpKet, evoOps[i], angles[i]);
+
+        /* Iterate the moment matrices; copy tmpKet's vector to ket, apply the moment matrix's observable to it and
+         * store the real part of the overlap with tmpKet to the moment matrix's diagonal entry */
+        for (depth_t j = 0; j <obsc; ++j) {
+            stateCopyVector(&ket, tmpKet.vector);
+            applyObservable(&ket, obs[j]);
+            result[j][circdepth * i + i] = creal(stateOverlap(&tmpKet, &ket));
+        }
+
+        /* Iterate the columns' entries of all moment matrices starting at the current column's index; copy the input
+         * state's vector to tmpBra and apply the row's search unitary to it */
+        for (depth_t j = i; j < circdepth; ++j) {
+            stateCopyVector(&bra, state->vector);
+            evolveWithTrotterizedObservable(&bra, evoOps[j], angles[j]);
+
+            /* Iterate the moment matrices; copy tmpBra's vector to tmpTmpBra and apply the moment matrix's observable
+             * to it. */
+            for (depth_t k = 0; k < obsc; ++k) {
+                stateCopyVector(&ket, tmpKet.vector);
+                applyObservable(&ket, obs[k]);
+                result[k][i * circdepth + j] = stateOverlap(&bra, &ket);
+                result[k][j * circdepth + i] = conj(result[k][i * circdepth + j]);
             }
         }
     }

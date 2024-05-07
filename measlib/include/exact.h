@@ -100,6 +100,9 @@ double* approxHessianPQC(const state_t* state, const double params[], const obs_
 cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const obs_t* srchOps[], depth_t matDim, \
                 srchU applyU);
 
+cplx_t** momMatPQC(const state_t* state, const obs_t* obs[], depth_t obsc, const obs_t* evoOps[], depth_t circdepth, \
+                   double angles[]);
+
 
 #ifdef __cplusplus
 }
