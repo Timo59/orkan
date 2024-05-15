@@ -86,3 +86,47 @@ void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], dept
         evolveWithTrotterizedObservable(state, evoOps[i], params[i]);
     }
 }
+
+/*
+ * =====================================================================================================================
+ *                                      Linear combination of parametrized quantum gates
+ * =====================================================================================================================
+ */
+
+/*
+ * This function performs a linear combination of parametrized quantum gates on a quantum state returning the quantum
+ * state conditioned on the outcome of an ancillary measurement (normalized).
+ *
+ * Input:
+ *      state_t* state:         Input state of a quantum system
+ *      cplx_t coeff[]:         Coefficients of the evolution operators in their linear combination
+ *      double par[]:           Angles of the evolution operators
+ *      obs_t* evoOps[]:        Array of observables for the evolution operators
+ *      depth_t parc:           Number of evolution operators
+ *
+ * Output:
+ *      The function has no output value, instead it performs the linear combination of unitaries on the state vector of
+ *      the quantum state.
+ */
+
+void lcupqg(state_t* state, const cplx_t coeff[], const double par[], const obs_t* evoOps[], depth_t parc) {
+    cplx_t* stateVec = (cplx_t*) calloc(state->dimension, sizeof(cplx_t));
+    state_t tmp;
+    stateInitEmpty(&tmp, state->qubits);
+
+    /* For each evolution operator, evolve the input state and store the resulting state vector multiplied with the
+     * coefficient of the LCU to stateVec */
+    for (depth_t i = 0; i < parc; ++i) {
+        stateCopyVector(&tmp, state->vector);
+        evolveWithTrotterizedObservable(&tmp, evoOps[i], par[i]);
+
+        cblas_zaxpy((int) state->dimension, coeff + i, tmp.vector, 1, stateVec, 1);
+    }
+    stateFreeVector(&tmp);
+
+    /* Renormalize the state vector and update the state's vector */
+    __LAPACK_double_complex normLCU = (__LAPACK_double_complex) 1. / cblas_dznrm2((int) state->dimension, stateVec, 1);
+    cblas_zscal((int) state->dimension, (__LAPACK_double_complex*) &normLCU, stateVec, 1);
+
+    state->vector = stateVec;
+}
