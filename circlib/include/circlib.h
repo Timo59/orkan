@@ -10,6 +10,7 @@
 #include "diag.h"
 #include "pauli.h"
 #include <stdio.h>
+#include <vecLib/vecLib.h>
 
 /*
  * =====================================================================================================================
@@ -79,6 +80,14 @@ void evolveWithTrotterizedObservable(state_t* state, const obs_t* observable, do
  */
 
 void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], depth_t circdepth);
+
+/*
+ * =====================================================================================================================
+ *                                      Linear combination of parametrized quantum gates
+ * =====================================================================================================================
+ */
+
+void lcupqg(state_t* state, const cplx_t coeff[], const double par[], const obs_t* evoOps[], depth_t parc);
 
 #ifdef __cplusplus
 }

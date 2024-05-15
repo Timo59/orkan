@@ -96,10 +96,14 @@ void rmatrixPrint(double matrix[], dim_t dim) {
 
 void cnumberPrint(cplx_t number) {
     printf("%.17g ", creal(number));
-    if (cimag(number) >= 0) {
+    if (cimag(number) > 0) {
         printf("+ i%.17g", cimag(number));
-    } else {
+    }
+    else if (cimag(number) < 0) {
         printf("- i%.17g", -cimag(number));
+    }
+    else {
+        printf("+ i0.");
     }
 }
 
@@ -117,7 +121,6 @@ void cmatrixPrint(cplx_t matrix[], dim_t dim) {
     printf("[");
     cvectorPrint(matrix, dim);
     for (dim_t i = 1; i < dim; ++i) {
-        printf("\n ");
         cvectorPrint(matrix + (((mat_t) i) * dim), dim);
     }
     printf("]\n");

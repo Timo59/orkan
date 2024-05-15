@@ -37,6 +37,8 @@ add_subdirectory(extern/Unity)
 # include double has to be called manually when building unity library
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)
 
+add_compile_definitions(ACCELERATE_NEW_LAPACK)
+
 set(gatelibTest gatelibTest)
 add_executable(${gatelibTest}
         gatelib/test/testQhipster.c
@@ -105,6 +107,9 @@ target_include_directories(q PRIVATE
         ${GATELIBINC}
         ${CIRCLIBINC}
         ${MEASLIBINC})
+
+target_link_libraries(q -lBLAS
+                        -lLAPACK)
 
 add_custom_command(
         TARGET q
