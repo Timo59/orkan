@@ -69,7 +69,10 @@ target_include_directories(${circlibTest} PRIVATE
         ${GATELIBINC}
         ${CIRCLIBINC})
 
-target_link_libraries(${circlibTest} PRIVATE unity)
+target_link_libraries(${circlibTest} PRIVATE unity
+                                     -lblas
+                                     -llapack
+)
 
 set(measlibTest measlibTest)
 add_executable(${measlibTest}
@@ -88,7 +91,10 @@ target_include_directories(${measlibTest} PRIVATE
         ${CIRCLIBINC}
         ${MEASLIBINC})
 
-target_link_libraries(${measlibTest} PRIVATE unity)
+target_link_libraries(${measlibTest} PRIVATE unity
+                                     -lblas
+                                     -llapack
+)
 
 add_test(NAME ${gatelibTest} COMMAND ${gatelibTest})
 add_test(NAME ${circlibTest} COMMAND ${circlibTest})
