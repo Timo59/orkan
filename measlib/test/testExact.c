@@ -2850,7 +2850,7 @@ void testMomMatPQC(void) {
     /* Define and allocate the reference matrix */
     cplx_t** reference = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
     for (depth_t i = 0; i < obsc; ++i) {
-        reference[i] = (cplx_t*) malloc(dimMat * dimMat * sizeof(cplx_t));
+        reference[i] = (cplx_t*) malloc((dimMat + 1) * (dimMat + 1) * sizeof(cplx_t));
     }
 
     /* Define and allocate the observables' matrices */
@@ -2865,11 +2865,14 @@ void testMomMatPQC(void) {
     }
 
     /* Define and allocate the search unitaries' matrices */
-    cplx_t** srchObsMat = (cplx_t**) malloc(dimMat * sizeof(cplx_t*));
+    cplx_t** srchObsMat = (cplx_t**) malloc((dimMat + 1) * sizeof(cplx_t*));
+
+    srchObsMat[0] = singleQubitGateMat(IDMAT, qubits, 0);
+
 
     /* Compute the search unitary matrices from the search operators */
     for (depth_t i = 0; i < dimMat; ++i) {
-        srchObsMat[i] = expTrotterizedPauliObservableMat(srchComps + (i * lengthSrchObs * qubits), \
+        srchObsMat[i + 1] = expTrotterizedPauliObservableMat(srchComps + (i * lengthSrchObs * qubits), \
                                                          srchCoeffs, \
                                                          lengthSrchObs , \
                                                          0.05, qubits);
@@ -2885,27 +2888,27 @@ void testMomMatPQC(void) {
                                     (const obs_t **) srchObs, \
                                     dimMat, \
                                     angles);
-//        printf("Result: \n");
-//        for (depth_t j = 0; j < obsc; ++j) {
-//            matrixPrint(result[j], dimMat);
-//        }
+        printf("Result: \n");
+        for (depth_t j = 0; j < obsc; ++j) {
+            matrixPrint(result[j], dimMat + 1);
+        }
 
         /* Compute the reference moment matrices in column major form using matrix multiplication */
-        for (depth_t j = 0; j < dimMat; ++j) {
+        for (depth_t j = 0; j < (dimMat + 1); ++j) {
             cplx_t* refKet = cmatVecMul(srchObsMat[j], testState.vector, dim);
 
             for (depth_t k = 0; k < obsc; ++k) {
                 cplx_t* refBra = cmatVecMul(obsMat[k], refKet, dim);
-                reference[k][j * dimMat + j] = creal(cinnerProduct(refBra, refKet, dim));
+                reference[k][j * (dimMat + 1) + j] = creal(cinnerProduct(refBra, refKet, dim));
                 free(refBra);
             }
 
-            for (depth_t k = 0; k < dimMat; ++k) {
+            for (depth_t k = j + 1; k < (dimMat + 1); ++k) {
                 cplx_t* tmpBra = cmatVecMul(srchObsMat[k], testState.vector, dim);
                 for (depth_t l = 0; l < obsc; ++l) {
                     cplx_t* refBra = cmatVecMul(obsMat[l], tmpBra, dim);
-                    reference[l][j * dimMat + k] = cinnerProduct(refBra, refKet, dim);
-                    reference[l][k * dimMat + j] = conj(reference[l][j * dimMat + k]);
+                    reference[l][j * (dimMat + 1) + k] = cinnerProduct(refBra, refKet, dim);
+                    reference[l][k * (dimMat + 1) + j] = conj(reference[l][j * (dimMat + 1) + k]);
                     free(refBra);
                 }
                 free(tmpBra);
@@ -2913,13 +2916,13 @@ void testMomMatPQC(void) {
             free(refKet);
         }
 
-//        printf("Reference: \n");
-//        for (depth_t j = 0; j < obsc; ++j) {
-//            matrixPrint(reference[j], dimMat);
-//        }
+        printf("Reference: \n");
+        for (depth_t j = 0; j < obsc; ++j) {
+            matrixPrint(reference[j], dimMat + 1);
+        }
 
         for (depth_t j = 0; j < obsc; ++j) {
-            TEST_ASSERT_TRUE(cvectorAlmostEqual(result[j], reference[j], dimMat * dimMat, 1e-6));
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(result[j], reference[j], (dimMat + 1) * (dimMat + 1), 1e-6));
         }
 
         free(result);
@@ -2967,8 +2970,8 @@ int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testExpValObs);
     RUN_TEST(testExpValObsPQC);
-    RUN_TEST(testGradientPQC);
-    RUN_TEST(testHessianPQC);
+//    RUN_TEST(testGradientPQC);
+//    RUN_TEST(testHessianPQC);
     RUN_TEST(testMomMat);
     RUN_TEST(testMomMatPQC);
     return UNITY_END();

@@ -10,6 +10,7 @@
 #include "owntypes.h"
 #include <complex.h>
 #include <math.h>
+#include <vecLib/vecLib.h>
 #include <stdlib.h>
 
 /*

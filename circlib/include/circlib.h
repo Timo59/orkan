@@ -87,7 +87,7 @@ void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], dept
  * =====================================================================================================================
  */
 
-void lcupqg(state_t* state, const cplx_t coeff[], const double par[], const obs_t* evoOps[], depth_t parc);
+void lcupqg(state_t* state, const cplx_t coeff[], const double angles[], const obs_t* evoOps[], depth_t angelsc);
 
 #ifdef __cplusplus
 }
