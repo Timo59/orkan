@@ -142,6 +142,25 @@ void applyH(state_t* state, qubit_t qubit) {
 
 /*
  * =================================================================================================
+ *                                              Hadamard-Y gate
+ * =================================================================================================
+ */
+
+void applyHy(state_t* state, qubit_t qubit) {
+    dim_t blockDistance = POW2(qubit + 1, dim_t);
+    dim_t flipDistance = POW2(qubit, dim_t);
+    cplx_t tmp;
+    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+        for (dim_t j = i; j < i + flipDistance; ++j) {
+            tmp = state->vector[j];
+            state->vector[j] = INVSQRT2 * (tmp - I * state->vector[j + flipDistance]);
+            state->vector[j + flipDistance] = INVSQRT2 * (I * tmp - state->vector[j + flipDistance]);
+        }
+    }
+}
+
+/*
+ * =================================================================================================
  *                                              T gate
  * =================================================================================================
  */
@@ -184,6 +203,66 @@ void applyP(state_t* state, qubit_t qubit, double angle) {
 
 void applyPdagger(state_t* state, qubit_t qubit, double angle) {
     applyP(state, qubit, -angle);
+}
+
+/*
+ * =================================================================================================
+ *                                              rotation gates
+ * =================================================================================================
+ */
+
+void applyRX(state_t* state, qubit_t qubit, double angle) {
+    dim_t blockDistance = POW2(qubit + 1, dim_t);
+    dim_t flipDistance = POW2(qubit, dim_t);
+    angle /= 2.;
+    cplx_t tmp;
+    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+        for (dim_t j = i; j < i + flipDistance; ++j) {
+            tmp = state->vector[j];
+            state->vector[j] = cos(angle) * tmp - I * sin(angle) * state->vector[j + flipDistance];
+            state->vector[j + flipDistance] = -I * sin(angle) * tmp + cos(angle) \
+                                             * state->vector[j + flipDistance];
+        }
+    }
+}
+
+void applyRXdagger(state_t* state, qubit_t qubit, double angle) {
+    applyRX(state, qubit, -angle);
+}
+
+void applyRY(state_t* state, qubit_t qubit, double angle) {
+    dim_t blockDistance = POW2(qubit + 1, dim_t);
+    dim_t flipDistance = POW2(qubit, dim_t);
+    angle /= 2.;
+    cplx_t tmp;
+    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+        for (dim_t j = i; j < i + flipDistance; ++j) {
+            tmp = state->vector[j];
+            state->vector[j] = cos(angle) * tmp - sin(angle) * state->vector[j + flipDistance];
+            state->vector[j + flipDistance] = sin(angle) * tmp + cos(angle) \
+                                             * state->vector[j + flipDistance];
+        }
+    }
+}
+
+void applyRYdagger(state_t* state, qubit_t qubit, double angle) {
+    applyRY(state, qubit, -angle);
+}
+
+void applyRZ(state_t* state, qubit_t qubit, double angle) {
+    dim_t blockDistance = POW2(qubit + 1, dim_t);
+    dim_t flipDistance = POW2(qubit, dim_t);
+    angle /= 2.;
+    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+        for (dim_t j = i; j < i + flipDistance; ++j) {
+            state->vector[j] *= cos(angle) - I * sin(angle);
+            state->vector[j + flipDistance] *= cos(angle) + I * sin(angle);
+        }
+    }
+}
+
+void applyRZdagger(state_t* state, qubit_t qubit, double angle) {
+    applyRZ(state, qubit, -angle);
 }
 
 /*
@@ -354,6 +433,27 @@ void applyCH(state_t* state, qubit_t control, qubit_t target) {
 
 /*
  * =================================================================================================
+ *                                              controlled Hadamard-Y gate
+ * =================================================================================================
+ */
+
+void applyCHy(state_t* state, qubit_t control, qubit_t target) {
+    dim_t blockDistance = POW2(target + 1, dim_t);
+    dim_t flipDistance = POW2(target, dim_t);
+    cplx_t tmp;
+    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+        for (dim_t j = i; j < i + flipDistance; ++j) {
+            if (j & POW2(control ,dim_t)) {
+                tmp = state->vector[j];
+                state->vector[j] = INVSQRT2 * (tmp - I * state->vector[j + flipDistance]);
+                state->vector[j + flipDistance] = INVSQRT2 * (I * tmp - state->vector[j + flipDistance]);
+            }
+        }
+    }
+}
+
+/*
+ * =================================================================================================
  *                                              controlled T gate
  * =================================================================================================
  */
@@ -402,66 +502,6 @@ void applyCP(state_t* state, qubit_t control, qubit_t target, double angle) {
 
 void applyCPdagger(state_t* state, qubit_t control, qubit_t target, double angle) {
     applyCP(state, control, target, -angle);
-}
-
-/*
- * =================================================================================================
- *                                              rotation gates
- * =================================================================================================
- */
-
-void applyRX(state_t* state, qubit_t qubit, double angle) {
-    dim_t blockDistance = POW2(qubit + 1, dim_t);
-    dim_t flipDistance = POW2(qubit, dim_t);
-    angle /= 2.;
-    cplx_t tmp;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
-        for (dim_t j = i; j < i + flipDistance; ++j) {
-            tmp = state->vector[j];
-            state->vector[j] = cos(angle) * tmp - I * sin(angle) * state->vector[j + flipDistance];
-            state->vector[j + flipDistance] = -I * sin(angle) * tmp + cos(angle) \
-                                             * state->vector[j + flipDistance];
-        }
-    }
-}
-
-void applyRXdagger(state_t* state, qubit_t qubit, double angle) {
-    applyRX(state, qubit, -angle);
-}
-
-void applyRY(state_t* state, qubit_t qubit, double angle) {
-    dim_t blockDistance = POW2(qubit + 1, dim_t);
-    dim_t flipDistance = POW2(qubit, dim_t);
-    angle /= 2.;
-    cplx_t tmp;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
-        for (dim_t j = i; j < i + flipDistance; ++j) {
-            tmp = state->vector[j];
-            state->vector[j] = cos(angle) * tmp - sin(angle) * state->vector[j + flipDistance];
-            state->vector[j + flipDistance] = sin(angle) * tmp + cos(angle) \
-                                             * state->vector[j + flipDistance];
-        }
-    }
-}
-
-void applyRYdagger(state_t* state, qubit_t qubit, double angle) {
-    applyRY(state, qubit, -angle);
-}
-
-void applyRZ(state_t* state, qubit_t qubit, double angle) {
-    dim_t blockDistance = POW2(qubit + 1, dim_t);
-    dim_t flipDistance = POW2(qubit, dim_t);
-    angle /= 2.;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
-        for (dim_t j = i; j < i + flipDistance; ++j) {
-            state->vector[j] *= cos(angle) - I * sin(angle);
-            state->vector[j + flipDistance] *= cos(angle) + I * sin(angle);
-        }
-    }
-}
-
-void applyRZdagger(state_t* state, qubit_t qubit, double angle) {
-    applyRZ(state, qubit, -angle);
 }
 
 /*

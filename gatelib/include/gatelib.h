@@ -48,6 +48,14 @@ void applyH(state_t* state, qubit_t qubit);
 
 /*
  * =================================================================================================
+ *                                              Hadamard-Y gate
+ * =================================================================================================
+ */
+
+void applyHy(state_t* state, qubit_t qubit);
+
+/*
+ * =================================================================================================
  *                                              T gate
  * =================================================================================================
  */
@@ -65,6 +73,24 @@ void applyTdagger(state_t* state, qubit_t qubit);
 void applyP(state_t* state, qubit_t qubit, double angle);
 
 void applyPdagger(state_t* state, qubit_t qubit, double angle);
+
+/*
+ * =================================================================================================
+ *                                              rotation gates
+ * =================================================================================================
+ */
+
+void applyRX(state_t* state, qubit_t qubit, double angle);
+
+void applyRXdagger(state_t* state, qubit_t qubit, double angle);
+
+void applyRY(state_t* state, qubit_t qubit, double angle);
+
+void applyRYdagger(state_t* state, qubit_t qubit, double angle);
+
+void applyRZ(state_t* state, qubit_t qubit, double angle);
+
+void applyRZdagger(state_t* state, qubit_t qubit, double angle);
 
 /*
  * =================================================================================================
@@ -92,6 +118,14 @@ void applyCH(state_t* state, qubit_t control, qubit_t target);
 
 /*
  * =================================================================================================
+ *                                              controlled Hadamard-Y gate
+ * =================================================================================================
+ */
+
+void applyCHy(state_t* state, qubit_t control, qubit_t target);
+
+/*
+ * =================================================================================================
  *                                              controlled T gate
  * =================================================================================================
  */
@@ -109,24 +143,6 @@ void applyCTdagger(state_t* state, qubit_t control, qubit_t target);
 void applyCP(state_t* state, qubit_t control, qubit_t target, double angle);
 
 void applyCPdagger(state_t* state, qubit_t control, qubit_t target, double angle);
-
-/*
- * =================================================================================================
- *                                              rotation gates
- * =================================================================================================
- */
-
-void applyRX(state_t* state, qubit_t qubit, double angle);
-
-void applyRXdagger(state_t* state, qubit_t qubit, double angle);
-
-void applyRY(state_t* state, qubit_t qubit, double angle);
-
-void applyRYdagger(state_t* state, qubit_t qubit, double angle);
-
-void applyRZ(state_t* state, qubit_t qubit, double angle);
-
-void applyRZdagger(state_t* state, qubit_t qubit, double angle);
 
 /*
  * =================================================================================================
