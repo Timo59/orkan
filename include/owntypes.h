@@ -48,7 +48,7 @@ typedef unsigned        dim_t;
 typedef unsigned        mat_t;
 typedef unsigned        depth_t;
 typedef unsigned        iter_t;
-typedef double _Complex cplx_t;
+typedef double complex cplx_t;
 
 typedef enum pauli {
     ID,
