@@ -66,7 +66,7 @@ typedef unsigned        dim_t;
 typedef unsigned        mat_t;
 typedef unsigned        depth_t;
 typedef unsigned        iter_t;
-typedef double _Complex cplx_t;
+typedef double complex  cplx_t;
 
 typedef enum pauli {
     ID,
@@ -295,6 +295,14 @@ void applyH(state_t* state, qubit_t qubit);
 
 /*
  * =================================================================================================
+ *                                              Hadamard-Y gate
+ * =================================================================================================
+ */
+
+void applyHy(state_t* state, qubit_t qubit);
+
+/*
+ * =================================================================================================
  *                                              T gate
  * =================================================================================================
  */
@@ -312,6 +320,24 @@ void applyTdagger(state_t* state, qubit_t qubit);
 void applyP(state_t* state, qubit_t qubit, double angle);
 
 void applyPdagger(state_t* state, qubit_t qubit, double angle);
+
+/*
+ * =================================================================================================
+ *                                              rotation gates
+ * =================================================================================================
+ */
+
+void applyRX(state_t* state, qubit_t qubit, double angle);
+
+void applyRXdagger(state_t* state, qubit_t qubit, double angle);
+
+void applyRY(state_t* state, qubit_t qubit, double angle);
+
+void applyRYdagger(state_t* state, qubit_t qubit, double angle);
+
+void applyRZ(state_t* state, qubit_t qubit, double angle);
+
+void applyRZdagger(state_t* state, qubit_t qubit, double angle);
 
 /*
  * =================================================================================================
@@ -339,6 +365,14 @@ void applyCH(state_t* state, qubit_t control, qubit_t target);
 
 /*
  * =================================================================================================
+ *                                              controlled Hadamard-Y gate
+ * =================================================================================================
+ */
+
+void applyCHy(state_t* state, qubit_t control, qubit_t target);
+
+/*
+ * =================================================================================================
  *                                              controlled T gate
  * =================================================================================================
  */
@@ -359,24 +393,6 @@ void applyCPdagger(state_t* state, qubit_t control, qubit_t target, double angle
 
 /*
  * =================================================================================================
- *                                              rotation gates
- * =================================================================================================
- */
-
-void applyRX(state_t* state, qubit_t qubit, double angle);
-
-void applyRXdagger(state_t* state, qubit_t qubit, double angle);
-
-void applyRY(state_t* state, qubit_t qubit, double angle);
-
-void applyRYdagger(state_t* state, qubit_t qubit, double angle);
-
-void applyRZ(state_t* state, qubit_t qubit, double angle);
-
-void applyRZdagger(state_t* state, qubit_t qubit, double angle);
-
-/*
- * =================================================================================================
  *                                              SWAP gate
  * =================================================================================================
  */
@@ -390,6 +406,16 @@ void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2);
  */
 
 void applyToffoli(state_t* state, qubit_t control1, qubit_t control2, qubit_t target);
+
+/*
+ * =================================================================================================
+ *                                              component applications
+ * =================================================================================================
+ */
+
+void applyPauliString(state_t* state, const pauli_t paulistr[]);
+
+void evolveWithPauliString(state_t* state, const pauli_t paulistr[], double angle);
 
 /*
  * =================================================================================================
