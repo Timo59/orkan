@@ -722,11 +722,10 @@ cplx_t** momMatPQC(const state_t* state, const obs_t* obs[], depth_t obsc, const
     /* Set up the array of moment matrices */
     register cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
     for (depth_t i = 0; i < obsc; ++i) {
-        result[i] = (cplx_t*) malloc(circdepth * circdepth * sizeof(cplx_t));
+        result[i] = (cplx_t*) malloc((circdepth + 1) * (circdepth + 1) * sizeof(*(result[i])));
     }
 
     /* Initialize the temporary states altered by the unitaries */
-
     state_t bra;
     stateInitEmpty(&bra, state->qubits);
     state_t ket;
@@ -734,23 +733,38 @@ cplx_t** momMatPQC(const state_t* state, const obs_t* obs[], depth_t obsc, const
     state_t tmpKet;
     stateInitEmpty(&tmpKet, state->qubits);
 
+    /* The topmost diagonal entry of each moment matrix is the corresponding observable's mean value wrt to the input
+     * state */
+    for (depth_t i = 0; i < obsc; ++i) {
+        result[i][0] = expValObs(state, obs[i]);
+    }
+
     /* Iterate the columns of all moment matrices; copy the input state's vector to tmpKet and apply the column's search
      * unitary to it */
     for (depth_t i = 0; i < circdepth; ++i) {
         stateCopyVector(&tmpKet, state->vector);
         evolveWithTrotterizedObservable(&tmpKet, evoOps[i], angles[i]);
 
+        /* Iterate the moment matrices; copy tmpKet to bra and apply the corresponding observable to compute the first
+         * column/row of each moment matrix */
+        for (depth_t j = 0; j < obsc; ++j) {
+            stateCopyVector(&bra, tmpKet.vector);
+            applyObservable(&bra, obs[j]);
+            result[j][i + 1] = stateOverlap(&bra, state);
+            result[j][(i + 1) * (circdepth + 1)] = conj(result[j][i + 1]);
+        }
+
         /* Iterate the moment matrices; copy tmpKet's vector to ket, apply the moment matrix's observable to it and
          * store the real part of the overlap with tmpKet to the moment matrix's diagonal entry */
-        for (depth_t j = 0; j <obsc; ++j) {
+        for (depth_t j = 0; j < obsc; ++j) {
             stateCopyVector(&ket, tmpKet.vector);
             applyObservable(&ket, obs[j]);
-            result[j][circdepth * i + i] = creal(stateOverlap(&tmpKet, &ket));
+            result[j][(i + 1) * (circdepth + 1) + (i + 1)] = creal(stateOverlap(&tmpKet, &ket));
         }
 
         /* Iterate the columns' entries of all moment matrices starting at the current column's index; copy the input
          * state's vector to tmpBra and apply the row's search unitary to it */
-        for (depth_t j = i; j < circdepth; ++j) {
+        for (depth_t j = i + 1; j < circdepth; ++j) {
             stateCopyVector(&bra, state->vector);
             evolveWithTrotterizedObservable(&bra, evoOps[j], angles[j]);
 
@@ -759,8 +773,8 @@ cplx_t** momMatPQC(const state_t* state, const obs_t* obs[], depth_t obsc, const
             for (depth_t k = 0; k < obsc; ++k) {
                 stateCopyVector(&ket, tmpKet.vector);
                 applyObservable(&ket, obs[k]);
-                result[k][i * circdepth + j] = stateOverlap(&bra, &ket);
-                result[k][j * circdepth + i] = conj(result[k][i * circdepth + j]);
+                result[k][(i + 1) * (circdepth + 1) + (j + 1)] = stateOverlap(&bra, &ket);
+                result[k][(j + 1) * (circdepth + 1) + (i + 1)] = conj(result[k][(i + 1) * (circdepth + 1) + (j + 1)]);
             }
         }
     }
