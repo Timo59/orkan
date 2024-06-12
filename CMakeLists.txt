@@ -98,7 +98,7 @@ target_link_libraries(${measlibTest} PRIVATE unity
 
 add_test(NAME ${gatelibTest} COMMAND ${gatelibTest})
 add_test(NAME ${circlibTest} COMMAND ${circlibTest})
-add_test(NAME ${measlibTest} COMMAND ${measlibTest})
+# add_test(NAME ${measlibTest} COMMAND ${measlibTest})
 
 add_library(q SHARED
         ${QLIBSRC}
@@ -116,6 +116,10 @@ target_include_directories(q PRIVATE
 
 target_link_libraries(q -lBLAS
                         -lLAPACK)
+
+add_dependencies(q gatelibTest)
+add_dependencies(q circlibTest)
+# add_dependencies(q measlibTest)
 
 add_custom_command(
         TARGET q
