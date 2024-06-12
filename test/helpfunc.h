@@ -1105,7 +1105,7 @@ double* finiteGradientPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_
                           pauli_t* compObs, double* coeffObs, complength_t lengthObs, \
                           pauli_t* compEvoOps, double* coeffEvoOps, complength_t lengthEvoOps, double* parameters, \
                           double epsilon) {
-    double* result = (double*) malloc(circdepth * sizeof(double));
+    double* result = malloc(circdepth * sizeof(double));
     /*
      * 1. Calculate the observable's matrix
      */
@@ -1127,7 +1127,7 @@ double* finiteGradientPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_
         double value = finiteExpValPQC(statevector, qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
                                        compEvoOps, coeffEvoOps, lengthEvoOps, parameters);
 
-        result[i] = (1./epsilon) * (value - expVal);
+        result[i] = (1. / epsilon) * (value - expVal);
         parameters[i] -= epsilon;
     }
 

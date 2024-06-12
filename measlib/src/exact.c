@@ -338,7 +338,7 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
     state_t ket;        // state, that inherits each intermediate evolution from tmp is acted on with the respective
                         // evolution operator and finally evolved with the remaining evolution operators
 
-    register double* result = (double*) malloc(circdepth * sizeof(double));
+    double* result = malloc(circdepth * sizeof(double));
 
     /* Initialize all temporary states and copy the input state's vector to bra and tmp */
     stateInitEmpty(&bra, state->qubits);
@@ -398,7 +398,7 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
 double* approxGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
                                const obs_t* evoOps[], depth_t circdepth, double epsilon) {
 
-    register double* result = (double*) malloc(circdepth * sizeof(double));
+    double* result = (double*) malloc(circdepth * sizeof(double));
 
     /* Create a copy of the array holding the parameter values */
     double* tmp_params = malloc(circdepth * sizeof(double ));
@@ -468,7 +468,7 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
     state_t ket2;       // state descendant from tmpKet, altered by the evolution operator according to the hessian's
                         // column index and evolved with the remaining evolution operators; used for the second overlap
 
-    register double* result = (double*) malloc((circdepth * circdepth) * sizeof(double));
+    double* result = malloc(circdepth * circdepth * sizeof(double));
 
     /* Initialize all temporary states and copy the input state's vector to tmp */
     stateInitEmpty(&tmp, state->qubits);
@@ -593,32 +593,34 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
 double* approxHessianPQC(const state_t* state, const double params[], const obs_t* observable, \
                          const obs_t* evoOps[], depth_t circdepth, gradPQC grad, double epsilon) {
 
-    register double* result = (double*) malloc(circdepth*circdepth * sizeof(double));
+    double* result = malloc(circdepth * circdepth * sizeof(double));
 
     /* Create a copy of the array holding the parameter values */
-    double* tmp_params = malloc(circdepth * sizeof(double ));
+    double* tmpParams = malloc(circdepth * sizeof(double));
     for (depth_t i = 0; i < circdepth; ++i) {
-        tmp_params[i] = params[i];
+        tmpParams[i] = params[i];
     }
 
+
     /* Compute the gradient at the current parameter setting */
-    double* refGradient = grad(state, tmp_params, observable, evoOps, circdepth);
+    double* refGradient = grad(state, tmpParams, observable, evoOps, circdepth);
 
     /* For each direction in parameter space, shift the parameter value by epsilon and calculate the gradient's finite
      * difference. This is the i-th column of the hessian */
     for (depth_t i = 0; i < circdepth; ++i) {
-        tmp_params[i] += epsilon;
-        double* gradient = grad(state, tmp_params, observable, evoOps, circdepth);
+        tmpParams[i] += epsilon;
+        double* gradient = grad(state, tmpParams, observable, evoOps, circdepth);
 
         for(depth_t j = 0; j < circdepth; ++j) {
-            result[i*circdepth + j] = (1./epsilon) * (gradient[j] - refGradient[j]);
+            result[i * circdepth + j] = (1. / epsilon) * (gradient[j] - refGradient[j]);
         }
-
-        tmp_params[i] -= epsilon;
+        free(gradient);
+        tmpParams[i] -= epsilon;
     }
 
     /* Free the memory allocated to the copy of the parameter array */
-    free(tmp_params);
+    free(refGradient);
+    free(tmpParams);
     return(result);
 }
 
@@ -648,7 +650,7 @@ cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const ob
                 srchU applyU) {
 
     /* Set up the array of moment matrices */
-    register cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+    cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
     for (depth_t i = 0; i < obsc; ++i) {
         result[i] = (cplx_t*) malloc(matDim * matDim * sizeof(cplx_t));
     }

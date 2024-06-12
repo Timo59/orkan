@@ -62,7 +62,7 @@ void testExpValObs(void){
      * Define the diagonal observable
      */
     complength_t length = dim;
-    pauli_t* components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
+    pauli_t* components = calloc(qubits * length, sizeof(pauli_t));
     components[0] = ID;
     components[1] = ID;
     components[2] = ID;
@@ -71,7 +71,7 @@ void testExpValObs(void){
     components[5] = ID;
     components[6] = Z;
     components[7] = Z;
-    double* coefficients = (double *) malloc(length * sizeof(double));
+    double* coefficients = calloc(length, sizeof(double));
     coefficients[0] = -2.72482;
     coefficients[1] = -2.81765;
     coefficients[0] = -0.09561;
@@ -130,7 +130,7 @@ void testExpValObs(void){
      * Define the Pauli observable
      */
     length = dim * dim;
-    components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
+    components = calloc(qubits * length, sizeof(pauli_t));
     components[0] = ID;
     components[1] = ID;
     components[2] = ID;
@@ -163,7 +163,7 @@ void testExpValObs(void){
     components[29] = Y;
     components[30] = Z;
     components[31] = Z;
-    coefficients = (double *) malloc(length * sizeof(double));
+    coefficients = calloc(length, sizeof(double));
     coefficients[0] = -0.67065;
     coefficients[1] = 2.96533;
     coefficients[2] = -1.46769;
@@ -237,7 +237,7 @@ void testExpValObs(void){
      * Define the diagonal observable
      */
     length = dim;
-    components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
+    components = calloc(qubits * length, sizeof(pauli_t));
     components[0] = ID;
     components[1] = ID;
     components[2] = ID;
@@ -262,7 +262,7 @@ void testExpValObs(void){
     components[21] = Z;
     components[22] = Z;
     components[23] = Z;
-    coefficients = (double *) malloc(length * sizeof(double));
+    coefficients = calloc(length, sizeof(double));
     coefficients[0] = -0.46007;
     coefficients[1] = -1.00870;
     coefficients[2] = -1.30764;
@@ -329,7 +329,7 @@ void testExpValObs(void){
      * Define the Pauli observable
      */
     length = 2 * dim;
-    components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
+    components = calloc(qubits * length, sizeof(pauli_t));
     components[0] = ID;
     components[1] = ID;
     components[2] = ID;
@@ -378,7 +378,7 @@ void testExpValObs(void){
     components[45] = Y;
     components[46] = Z;
     components[47] = Z;
-    coefficients = (double *) malloc(length * sizeof(double));
+    coefficients = calloc(length, sizeof(double));
     coefficients[0] = 2.16540;
     coefficients[1] = 1.69670;
     coefficients[2] = 0.19151;
@@ -453,7 +453,7 @@ void testExpValObs(void){
      * Define the diagonal observable
      */
     length = dim;
-    components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
+    components = calloc(qubits * length, sizeof(pauli_t));
     components[0] = ID;
     components[1] = ID;
     components[2] = ID;
@@ -518,7 +518,7 @@ void testExpValObs(void){
     components[61] = Z;
     components[62] = Z;
     components[63] = Z;
-    coefficients = (double *) malloc(length * sizeof(double));
+    coefficients = calloc(length, sizeof(double));
     coefficients[0] = -1.79196;
     coefficients[1] = 1.46429;
     coefficients[2] = -1.75880;
@@ -592,7 +592,7 @@ void testExpValObs(void){
      * Define the Pauli observable
      */
     length = 12;
-    components = (pauli_t *) malloc(qubits * length * sizeof(pauli_t));
+    components = calloc(qubits * length, sizeof(pauli_t));
     components[0] = ID;
     components[1] = ID;
     components[2] = ID;
@@ -641,7 +641,7 @@ void testExpValObs(void){
     components[45] = Y;
     components[46] = Z;
     components[47] = Z;
-    coefficients = (double *) malloc(length * sizeof(double));
+    coefficients = calloc(length, sizeof(double));
     coefficients[0] = -1.39395;
     coefficients[1] = 2.08556;
     coefficients[2] = -0.92705;
@@ -729,7 +729,7 @@ void testExpValObsPQC(void) {
     dim = POW2(qubits, dim_t);
 
     circdepth = 2;
-    parameters = (double*) malloc(circdepth * sizeof(double));
+    parameters = calloc(circdepth, sizeof(double));
     parameters[0] = -2.82317;
     parameters[1] = 0.24576;
 
@@ -743,10 +743,10 @@ void testExpValObsPQC(void) {
      * Define the diagonal observable
      */
     lengthObs = dim;
-    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs = calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = Z;
-    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs = calloc(lengthObs, sizeof(double));
     coeffObs[0] = 1.13126;
     coeffObs[1] = 0.24848;
 
@@ -771,10 +771,10 @@ void testExpValObsPQC(void) {
      * Define the evolution operators
      */
     lengthEvoOps = dim;
-    compEvoOps = (pauli_t *) malloc(dim * qubits * sizeof(pauli_t));
+    compEvoOps = calloc(dim * qubits, sizeof(pauli_t));
     compEvoOps[0] = ID;
     compEvoOps[1] = Z;
-    coeffEvoOps = (double *) malloc(lengthEvoOps * sizeof(double));
+    coeffEvoOps = calloc(lengthEvoOps, sizeof(double));
     coeffEvoOps[0] = 0.53858;
     coeffEvoOps[1] = -1.09597;
 
@@ -782,7 +782,7 @@ void testExpValObsPQC(void) {
      * Initialize the evolution operators
      */
 
-    evoOpsPauli = (pauliObs_t *) malloc(circdepth * sizeof(pauliObs_t));
+    evoOpsPauli = calloc(circdepth, sizeof(pauliObs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
         evoOpsPauli[i].components = compEvoOps;
         evoOpsPauli[i].coefficients = coeffEvoOps + (i * lengthEvoOps);
@@ -790,9 +790,9 @@ void testExpValObsPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t **) malloc(circdepth * sizeof(obs_t *));
+    evoOps = calloc(circdepth, sizeof(obs_t*));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i] = (obs_t *) malloc(sizeof(obs_t));
+        evoOps[i] = calloc(1, sizeof(obs_t));
         evoOps[i]->type = PAULI;
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
@@ -832,12 +832,12 @@ void testExpValObsPQC(void) {
      * Define the Pauli observable
      */
     lengthObs = dim * dim;
-    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs = calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = X;
     compObs[2] = Y;
     compObs[3] = Z;
-    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs = calloc(lengthObs, sizeof(double));
     coeffObs[0] = -0.16123;
     coeffObs[1] = 0.74276;
     coeffObs[2] = -0.61566;
@@ -928,7 +928,7 @@ void testGradientPQC(void) {
      * Define the PQC setting
      */
     circdepth = 2;
-    parameters = (double*) malloc(circdepth * sizeof(double));
+    parameters = calloc(circdepth, sizeof(double));
     parameters[0] = -2.62501;
     parameters[1] = 0.81390;
 
@@ -942,7 +942,7 @@ void testGradientPQC(void) {
      * Define the observable
      */
     lengthObs = 2 * dim;
-    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs = calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = ID;
     compObs[2] = ID;
@@ -991,7 +991,7 @@ void testGradientPQC(void) {
     compObs[45] = Y;
     compObs[46] = Z;
     compObs[47] = Z;
-    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs = calloc(lengthObs, sizeof(double));
     coeffObs[0] = 2.16540;
     coeffObs[1] = 1.69670;
     coeffObs[2] = 0.19151;
@@ -1024,7 +1024,7 @@ void testGradientPQC(void) {
      * Define the evolution operators
      */
     lengthEvoOps = dim;
-    compEvoOps = (pauli_t*) malloc(qubits * lengthEvoOps * sizeof(pauli_t));
+    compEvoOps = calloc(qubits * lengthEvoOps, sizeof(pauli_t));
     compEvoOps[0] = ID;
     compEvoOps[1] = ID;
     compEvoOps[2] = ID;
@@ -1049,7 +1049,7 @@ void testGradientPQC(void) {
     compEvoOps[21] = Z;
     compEvoOps[22] = Z;
     compEvoOps[23] = Z;
-    coeffEvoOps = (double*) malloc(circdepth * lengthEvoOps * sizeof(double));
+    coeffEvoOps = calloc(circdepth * lengthEvoOps, sizeof(double));
     coeffEvoOps[0] = -0.39448;                                              // array is a concatenation of coefficients
     coeffEvoOps[1] = 1.70424;                                               // for all evolution operators
     coeffEvoOps[2] = -1.83775;
@@ -1070,7 +1070,7 @@ void testGradientPQC(void) {
     /*
      * Initialize the evolution operators
      */
-    evoOpsPauli = (pauliObs_t*) malloc(circdepth * sizeof(pauliObs_t));
+    evoOpsPauli = calloc(circdepth, sizeof(pauliObs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
         evoOpsPauli[i].components = compEvoOps;
         evoOpsPauli[i].coefficients = coeffEvoOps + (i * lengthEvoOps);
@@ -1078,9 +1078,9 @@ void testGradientPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t**) malloc(circdepth * sizeof(obs_t*));
+    evoOps = calloc(circdepth, sizeof(obs_t*));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i] = (obs_t*) malloc(sizeof(obs_t));
+        evoOps[i] = calloc(1, sizeof(obs_t));
         evoOps[i]->type = PAULI;
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
@@ -1150,7 +1150,7 @@ void testGradientPQC(void) {
      * Define the PQC setting
      */
     circdepth = 3;
-    parameters = (double*) malloc(circdepth * sizeof(double));
+    parameters = calloc(circdepth, sizeof(double));
     parameters[0] = 0.33305;
     parameters[1] = 0.24576;
     parameters[2] = 1.27367;
@@ -1165,7 +1165,7 @@ void testGradientPQC(void) {
      * Define the observable
      */
     lengthObs = 2 * dim;
-    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs = calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = ID;
     compObs[2] = ID;
@@ -1214,7 +1214,7 @@ void testGradientPQC(void) {
     compObs[45] = Y;
     compObs[46] = Z;
     compObs[47] = Z;
-    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs = calloc(lengthObs, sizeof(double));
     coeffObs[0] = -0.10682;
     coeffObs[1] = -0.47524;
     coeffObs[2] = 0.91975;
@@ -1247,7 +1247,7 @@ void testGradientPQC(void) {
      * Define the evolution operators
      */
     lengthEvoOps = dim;
-    compEvoOps = (pauli_t*) malloc(qubits * lengthEvoOps * sizeof(pauli_t));
+    compEvoOps = calloc(qubits * lengthEvoOps, sizeof(pauli_t));
     compEvoOps[0] = ID;
     compEvoOps[1] = ID;
     compEvoOps[2] = ID;
@@ -1272,7 +1272,7 @@ void testGradientPQC(void) {
     compEvoOps[21] = Z;
     compEvoOps[22] = Z;
     compEvoOps[23] = Z;
-    coeffEvoOps = (double*) malloc(circdepth * lengthEvoOps * sizeof(double));
+    coeffEvoOps = calloc(circdepth * lengthEvoOps, sizeof(double));
     coeffEvoOps[0] = -0.75749;                                             // array is a concatenation of coefficients
     coeffEvoOps[1] = 1.14340;                                              // for all evolution operators
     coeffEvoOps[2] = -0.16411;
@@ -1301,7 +1301,7 @@ void testGradientPQC(void) {
     /*
      * Initialize the evolution operators
      */
-    evoOpsPauli = (pauliObs_t*) malloc(circdepth * sizeof(pauliObs_t));
+    evoOpsPauli = calloc(circdepth, sizeof(pauliObs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
         evoOpsPauli[i].components = compEvoOps;
         evoOpsPauli[i].coefficients = coeffEvoOps + (i * lengthEvoOps);
@@ -1309,9 +1309,9 @@ void testGradientPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t**) malloc(circdepth * sizeof(obs_t));
+    evoOps = calloc(circdepth, sizeof(obs_t*));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i] = (obs_t*) malloc(sizeof(obs_t));
+        evoOps[i] = calloc(1, sizeof(obs_t));
         evoOps[i]->type = PAULI;
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
@@ -1380,7 +1380,7 @@ void testGradientPQC(void) {
      * Define the PQC setting
      */
     circdepth = 2;
-    parameters = (double*) malloc(circdepth * sizeof(double));
+    parameters = calloc(circdepth, sizeof(double));
     parameters[0] = -2.62785;
     parameters[1] = -1.30088;
 
@@ -1394,7 +1394,7 @@ void testGradientPQC(void) {
      * Define the observable
      */
     lengthObs = 12;
-    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs = calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = ID;
     compObs[2] = ID;
@@ -1443,7 +1443,7 @@ void testGradientPQC(void) {
     compObs[45] = Y;
     compObs[46] = Z;
     compObs[47] = Z;
-    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs = calloc(lengthObs, sizeof(double));
     coeffObs[0] = 0.83694;
     coeffObs[1] = 2.59855;
     coeffObs[2] = 1.14935;
@@ -1472,7 +1472,7 @@ void testGradientPQC(void) {
      * Define the evolution operators
      */
     lengthEvoOps = dim;
-    compEvoOps = (pauli_t*) malloc(qubits * lengthEvoOps * sizeof(pauli_t));
+    compEvoOps = calloc(qubits * lengthEvoOps, sizeof(pauli_t));
     compEvoOps[0] = ID;
     compEvoOps[1] = ID;
     compEvoOps[2] = ID;
@@ -1537,7 +1537,7 @@ void testGradientPQC(void) {
     compEvoOps[61] = Z;
     compEvoOps[62] = Z;
     compEvoOps[63] = Z;
-    coeffEvoOps = (double*) malloc(circdepth * lengthEvoOps * sizeof(double));
+    coeffEvoOps = calloc(circdepth * lengthEvoOps, sizeof(double));
     coeffEvoOps[0] = 2.47766;
     coeffEvoOps[1] = -2.76095;
     coeffEvoOps[2] = 0.18111;
@@ -1574,7 +1574,7 @@ void testGradientPQC(void) {
     /*
      * Initialize the evolution operators
      */
-    evoOpsPauli = (pauliObs_t*) malloc(circdepth * sizeof(pauliObs_t));
+    evoOpsPauli = calloc(circdepth, sizeof(pauliObs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
         evoOpsPauli[i].components = compEvoOps;
         evoOpsPauli[i].coefficients = coeffEvoOps + (i * lengthEvoOps);
@@ -1582,9 +1582,9 @@ void testGradientPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t**) malloc(circdepth * sizeof(obs_t));
+    evoOps = calloc(circdepth, sizeof(obs_t*));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i] = (obs_t*) malloc(sizeof(obs_t));
+        evoOps[i] = calloc(1, sizeof(obs_t));
         evoOps[i]->type = PAULI;
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
@@ -1653,7 +1653,7 @@ void testGradientPQC(void) {
      * Define the PQC setting
      */
     circdepth = 5;
-    parameters = (double*) malloc(circdepth * sizeof(double));
+    parameters = calloc(circdepth, sizeof(double));
     parameters[0] = -1.31679;
     parameters[1] = 2.91097;
     parameters[2] = -0.06082;
@@ -1670,7 +1670,7 @@ void testGradientPQC(void) {
      * Define the observable
      */
     lengthObs = 12;
-    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs = calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = ID;
     compObs[2] = ID;
@@ -1719,7 +1719,7 @@ void testGradientPQC(void) {
     compObs[45] = Y;
     compObs[46] = Z;
     compObs[47] = Z;
-    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs = calloc(lengthObs, sizeof(double));
     coeffObs[0] = -2.20587;
     coeffObs[1] = -2.13108;
     coeffObs[2] = -2.55177;
@@ -1748,7 +1748,7 @@ void testGradientPQC(void) {
      * Define the evolution operators
      */
     lengthEvoOps = dim;
-    compEvoOps = (pauli_t*) malloc(qubits * lengthEvoOps * sizeof(pauli_t));
+    compEvoOps = calloc(qubits * lengthEvoOps, sizeof(pauli_t));
     compEvoOps[0] = ID;
     compEvoOps[1] = ID;
     compEvoOps[2] = ID;
@@ -1813,7 +1813,7 @@ void testGradientPQC(void) {
     compEvoOps[61] = Z;
     compEvoOps[62] = Z;
     compEvoOps[63] = Z;
-    coeffEvoOps = (double*) malloc(circdepth * lengthEvoOps * sizeof(double));
+    coeffEvoOps = calloc(circdepth * lengthEvoOps, sizeof(double));
     coeffEvoOps[0] = 0.22325;
     coeffEvoOps[1] = -1.94488;
     coeffEvoOps[2] = 1.42335;
@@ -1898,7 +1898,7 @@ void testGradientPQC(void) {
     /*
      * Initialize the evolution operators
      */
-    evoOpsPauli = (pauliObs_t*) malloc(circdepth * sizeof(pauliObs_t));
+    evoOpsPauli = calloc(circdepth, sizeof(pauliObs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
         evoOpsPauli[i].components = compEvoOps;
         evoOpsPauli[i].coefficients = coeffEvoOps + (i * lengthEvoOps);
@@ -1906,9 +1906,8 @@ void testGradientPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    // evoOps = (obs_t**) malloc(circdepth * sizeof(obs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i] = (obs_t*) malloc(sizeof(obs_t));
+        evoOps[i] = calloc(1, sizeof(obs_t));
         evoOps[i]->type = PAULI;
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
@@ -1973,11 +1972,6 @@ void testGradientPQC(void) {
  * =====================================================================================================================
  */
 
-//double* grad(const state_t* state, const double params[], const obs_t* observable, \
-//                    const obs_t* evoOps[], depth_t circdepth) {
-//    return approxGradientPQC(state, params, observable, evoOps, circdepth, 1e-9);
-//}
-
 double* grad(const state_t* state, const double params[], const obs_t* observable, \
                     const obs_t* evoOps[], depth_t circdepth) {
     return gradientPQC(state, params, observable, evoOps, circdepth);
@@ -1987,24 +1981,24 @@ void testHessianPQC(void) {
     qubit_t qubits;
     dim_t dim;
     depth_t circdepth;
-    double *parameters;
+    double* parameters;
     double epsilon = 1e-6;
 
     state_t testState;
-    cplx_t **testVectors;
-    cplx_t **refVectors;
+    cplx_t** testVectors;
+    cplx_t** refVectors;
 
     complength_t lengthObs;
-    pauli_t *compObs;
-    double *coeffObs;
+    pauli_t* compObs;
+    double* coeffObs;
     pauliObs_t pauliObservable;
     obs_t observable;
 
     complength_t lengthEvoOps;
-    pauli_t *compEvoOps;
-    double *coeffEvoOps;
-    pauliObs_t *evoOpsPauli;
-    obs_t **evoOps;
+    pauli_t* compEvoOps;
+    double* coeffEvoOps;
+    pauliObs_t* evoOpsPauli;
+    obs_t** evoOps;
 
     /*
                                                 3 qubit, circuit depth = 2
@@ -2017,7 +2011,7 @@ void testHessianPQC(void) {
      * Define the PQC setting
      */
     circdepth = 2;
-    parameters = (double *) malloc(circdepth * sizeof(double));
+    parameters = calloc(circdepth, sizeof(double));
     parameters[0] = 1.39628;
     parameters[1] = -2.83693;
 
@@ -2030,8 +2024,8 @@ void testHessianPQC(void) {
     /*
      * Define the observable
      */
-    lengthObs = 2 * dim;
-    compObs = (pauli_t *) malloc(qubits * lengthObs * sizeof(pauli_t));
+    lengthObs = 16;
+    compObs = calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = ID;
     compObs[2] = ID;
@@ -2080,7 +2074,7 @@ void testHessianPQC(void) {
     compObs[45] = Y;
     compObs[46] = Z;
     compObs[47] = Z;
-    coeffObs = (double *) malloc(lengthObs * sizeof(double));
+    coeffObs = calloc(lengthObs, sizeof(double));
     coeffObs[0] = 2.42261;
     coeffObs[1] = -0.17700;
     coeffObs[2] = -2.07679;
@@ -2112,8 +2106,8 @@ void testHessianPQC(void) {
     /*
      * Define the evolution operators
      */
-    lengthEvoOps = dim;
-    compEvoOps = (pauli_t *) malloc(qubits * lengthEvoOps * sizeof(pauli_t));
+    lengthEvoOps = 8;
+    compEvoOps = calloc(qubits * lengthEvoOps, sizeof(pauli_t));
     compEvoOps[0] = ID;
     compEvoOps[1] = ID;
     compEvoOps[2] = ID;
@@ -2138,7 +2132,7 @@ void testHessianPQC(void) {
     compEvoOps[21] = Z;
     compEvoOps[22] = Z;
     compEvoOps[23] = Z;
-    coeffEvoOps = (double *) malloc(circdepth * lengthEvoOps * sizeof(double));
+    coeffEvoOps = calloc(circdepth * lengthEvoOps, sizeof(double));
     coeffEvoOps[0] = 2.50220;                                                // array is a concatenation of coefficients
     coeffEvoOps[1] = -0.81084;                                               // for all evolution operators
     coeffEvoOps[2] = -2.14617;
@@ -2159,7 +2153,7 @@ void testHessianPQC(void) {
     /*
      * Initialize the evolution operators
      */
-    evoOpsPauli = (pauliObs_t *) malloc(circdepth * sizeof(pauliObs_t));
+    evoOpsPauli = calloc(circdepth, sizeof(pauliObs_t));
     for (depth_t i = 0; i < circdepth; ++i) {
         evoOpsPauli[i].components = compEvoOps;
         evoOpsPauli[i].coefficients = coeffEvoOps + (i * lengthEvoOps);
@@ -2167,9 +2161,9 @@ void testHessianPQC(void) {
         evoOpsPauli[i].length = lengthEvoOps;
     }
 
-    evoOps = (obs_t **) malloc(circdepth * sizeof(obs_t *));
+    evoOps = calloc(circdepth, sizeof(obs_t*));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOps[i] = (obs_t *) malloc(sizeof(obs_t));
+        evoOps[i] = calloc(1, sizeof(obs_t));
         evoOps[i]->type = PAULI;
         evoOps[i]->pauliObs = evoOpsPauli + i;
     }
@@ -2180,8 +2174,6 @@ void testHessianPQC(void) {
      *      H(x).(epsilon * vec{e_{i}}) = (grad f)(x + epsilon * vec{e_{i}}) - (grad f)(x)
      */
     for (dim_t i = 0; i < dim + 1; ++i) {
-//        printf("Vector: ");
-//        cvectorPrint(testVectors[i], dim);
         stateInitVector(&testState, testVectors[i], qubits);
 
         /*
@@ -2209,13 +2201,6 @@ void testHessianPQC(void) {
          */
         double* reference = finiteHessianPQC(refVectors[i],qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
                                              compEvoOps, coeffEvoOps, lengthEvoOps, parameters, epsilon);
-
-//        printf("Result:\n");
-//        matrixPrint(result, circdepth);
-//        printf("Result 2:\n");
-//        matrixPrint(result2, circdepth);
-//        printf("Reference:\n");
-//        matrixPrint(reference, circdepth);
 
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, 1e-1));
         TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, 1e-1));
@@ -2288,7 +2273,7 @@ void testMomMat(void) {
 
     lengthObs = dim;
     obsc = 2;
-    compObs = (pauli_t*) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs = (pauli_t*) calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = ID;
     compObs[2] = ID;
@@ -2354,7 +2339,7 @@ void testMomMat(void) {
     compObs[62] = Z;
     compObs[63] = Z;
 
-    coeffObs = (double*) malloc(obsc * lengthObs * sizeof(double));
+    coeffObs = calloc(obsc * lengthObs, sizeof(double));
     coeffObs[0] = -3.02593;
     coeffObs[1] = -0.16359;
     coeffObs[2] = -1.10004;
@@ -2388,7 +2373,7 @@ void testMomMat(void) {
     coeffObs[30] = -0.20716;
     coeffObs[31] = 3.04246;
 
-    obsPauli = (pauliObs_t*) malloc(obsc * sizeof(pauliObs_t));
+    obsPauli = calloc(obsc, sizeof(pauliObs_t));
     for (depth_t i = 0; i < obsc; ++i) {
         obsPauli[i].components = compObs;
         obsPauli[i].coefficients = coeffObs + (i * lengthObs);
@@ -2396,9 +2381,9 @@ void testMomMat(void) {
         obsPauli[i].qubits = qubits;
     }
 
-    observables = (obs_t**) malloc(obsc * sizeof(obs_t*));
+    observables = calloc(obsc, sizeof(obs_t*));
     for (depth_t i = 0; i < obsc; ++i) {
-        observables[i] = (obs_t*) malloc(sizeof(obs_t));
+        observables[i] = calloc(1, sizeof(obs_t));
         observables[i]->type = PAULI;
         observables[i]->pauliObs = obsPauli + i;
     }
@@ -2406,7 +2391,7 @@ void testMomMat(void) {
     /* Initialize the rotations around the three axes and the identity as search unitaries */
     lengthSrchObs = qubits;
     dimMat = 4;
-    srchComps = (pauli_t*) malloc(dimMat * lengthSrchObs * qubits * sizeof(pauli_t));
+    srchComps = calloc(dimMat * lengthSrchObs * qubits, sizeof(pauli_t));
     srchComps[0] = ID;
     srchComps[1] = ID;
     srchComps[2] = ID;
@@ -2472,13 +2457,13 @@ void testMomMat(void) {
     srchComps[62] = ID;
     srchComps[63] = Z;
 
-    srchCoeffs = (double*) malloc(lengthObs * sizeof(double));
+    srchCoeffs = calloc(lengthObs, sizeof(double));
     srchCoeffs[0] = 1.;
     srchCoeffs[1] = 1.;
     srchCoeffs[2] = 1.;
     srchCoeffs[3] = 1.;
 
-    srchObsPauli = (pauliObs_t*) malloc(dimMat * sizeof(pauliObs_t));
+    srchObsPauli = calloc(dimMat, sizeof(pauliObs_t));
     for (depth_t i = 0; i < dimMat; ++i) {
         srchObsPauli[i].components = srchComps + (i * lengthSrchObs * qubits);
         srchObsPauli[i].coefficients = srchCoeffs;
@@ -2486,21 +2471,21 @@ void testMomMat(void) {
         srchObsPauli[i].qubits = qubits;
     }
 
-    srchObs = (obs_t**) malloc(dimMat * sizeof(obs_t*));
+    srchObs = calloc(dimMat, sizeof(obs_t*));
     for (depth_t i = 0; i < dimMat; ++i) {
-        srchObs[i] = (obs_t*) malloc(sizeof(obs_t));
+        srchObs[i] = calloc(1, sizeof(obs_t));
         srchObs[i]->type = PAULI;
         srchObs[i]->pauliObs = srchObsPauli + i;
     }
 
     /* Define and allocate the reference matrix */
-    cplx_t** reference = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+    cplx_t** reference = calloc(obsc, sizeof(cplx_t*));
     for (depth_t i = 0; i < obsc; ++i) {
-        reference[i] = (cplx_t*) malloc(dimMat * dimMat * sizeof(cplx_t));
+        reference[i] = calloc(dimMat * dimMat, sizeof(cplx_t));
     }
 
     /* Define and allocate the observables' matrices */
-    cplx_t** obsMat = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+    cplx_t** obsMat = calloc(obsc, sizeof(cplx_t*));
 
     /* Compute the observables' matrices */
     for (depth_t i = 0; i < obsc; ++i) {
@@ -2511,7 +2496,7 @@ void testMomMat(void) {
     }
 
     /* Define and allocate the search unitaries' matrices */
-    cplx_t** srchObsMat = (cplx_t**) malloc(dimMat * sizeof(cplx_t*));
+    cplx_t** srchObsMat = calloc(dimMat, sizeof(cplx_t*));
 
     /* Compute the search unitary matrices from the search operators */
     for (depth_t i = 0; i < dimMat; ++i) {
@@ -2531,10 +2516,6 @@ void testMomMat(void) {
                                  (const obs_t **) srchObs, \
                                  dimMat, \
                                  applyU);
-//        printf("Result: \n");
-//        for (depth_t j = 0; j < obsc; ++j) {
-//            matrixPrint(result[j], dimMat);
-//        }
 
         /* Compute the reference moment matrices in column major form using matrix multiplication */
         for (depth_t j = 0; j < dimMat; ++j) {
@@ -2558,11 +2539,6 @@ void testMomMat(void) {
             }
             free(refKet);
         }
-
-//        printf("Reference: \n");
-//        for (depth_t j = 0; j < obsc; ++j) {
-//            matrixPrint(reference[j], dimMat);
-//        }
 
         for (depth_t j = 0; j < obsc; ++j) {
             TEST_ASSERT_TRUE(cvectorAlmostEqual(result[j], reference[j], dimMat * dimMat, 1e-6));
@@ -2636,7 +2612,7 @@ void testMomMatPQC(void) {
 
     lengthObs = dim;
     obsc = 2;
-    compObs = (pauli_t*) malloc(qubits * lengthObs * sizeof(pauli_t));
+    compObs = calloc(qubits * lengthObs, sizeof(pauli_t));
     compObs[0] = ID;
     compObs[1] = ID;
     compObs[2] = ID;
@@ -2702,7 +2678,7 @@ void testMomMatPQC(void) {
     compObs[62] = Z;
     compObs[63] = Z;
 
-    coeffObs = (double*) malloc(obsc * lengthObs * sizeof(double));
+    coeffObs = calloc(obsc * lengthObs, sizeof(double));
     coeffObs[0] = -3.02593;
     coeffObs[1] = -0.16359;
     coeffObs[2] = -1.10004;
@@ -2736,7 +2712,7 @@ void testMomMatPQC(void) {
     coeffObs[30] = -0.20716;
     coeffObs[31] = 3.04246;
 
-    obsPauli = (pauliObs_t*) malloc(obsc * sizeof(pauliObs_t));
+    obsPauli = calloc(obsc, sizeof(pauliObs_t));
     for (depth_t i = 0; i < obsc; ++i) {
         obsPauli[i].components = compObs;
         obsPauli[i].coefficients = coeffObs + (i * lengthObs);
@@ -2744,9 +2720,9 @@ void testMomMatPQC(void) {
         obsPauli[i].qubits = qubits;
     }
 
-    observables = (obs_t**) malloc(obsc * sizeof(obs_t*));
+    observables = calloc(obsc, sizeof(obs_t*));
     for (depth_t i = 0; i < obsc; ++i) {
-        observables[i] = (obs_t*) malloc(sizeof(obs_t));
+        observables[i] = calloc(1, sizeof(obs_t));
         observables[i]->type = PAULI;
         observables[i]->pauliObs = obsPauli + i;
     }
@@ -2754,7 +2730,7 @@ void testMomMatPQC(void) {
     /* Initialize the rotations around the three axes and the identity as search unitaries */
     lengthSrchObs = qubits;
     dimMat = 4;
-    srchComps = (pauli_t*) malloc(dimMat * lengthSrchObs * qubits * sizeof(pauli_t));
+    srchComps = calloc(dimMat * lengthSrchObs * qubits, sizeof(pauli_t));
     srchComps[0] = ID;
     srchComps[1] = ID;
     srchComps[2] = ID;
@@ -2820,19 +2796,19 @@ void testMomMatPQC(void) {
     srchComps[62] = ID;
     srchComps[63] = Z;
 
-    srchCoeffs = (double*) malloc(lengthSrchObs * sizeof(double));
+    srchCoeffs = calloc(lengthSrchObs, sizeof(double));
     srchCoeffs[0] = 1.;
     srchCoeffs[1] = 1.;
     srchCoeffs[2] = 1.;
     srchCoeffs[3] = 1.;
 
-    double* angles = (double*) malloc(dimMat * sizeof(double));
+    double* angles = calloc(dimMat, sizeof(double));
     angles[0] = 0.05;
     angles[1] = 0.05;
     angles[2] = 0.05;
     angles[3] = 0.05;
 
-    srchObsPauli = (pauliObs_t*) malloc(dimMat * sizeof(pauliObs_t));
+    srchObsPauli = calloc(dimMat, sizeof(pauliObs_t));
     for (depth_t i = 0; i < dimMat; ++i) {
         srchObsPauli[i].components = srchComps + (i * lengthSrchObs * qubits);
         srchObsPauli[i].coefficients = srchCoeffs;
@@ -2840,21 +2816,21 @@ void testMomMatPQC(void) {
         srchObsPauli[i].qubits = qubits;
     }
 
-    srchObs = (obs_t**) malloc(dimMat * sizeof(obs_t*));
+    srchObs = calloc(dimMat, sizeof(obs_t*));
     for (depth_t i = 0; i < dimMat; ++i) {
-        srchObs[i] = (obs_t*) malloc(sizeof(obs_t));
+        srchObs[i] = calloc(1, sizeof(obs_t));
         srchObs[i]->type = PAULI;
         srchObs[i]->pauliObs = srchObsPauli + i;
     }
 
     /* Define and allocate the reference matrix */
-    cplx_t** reference = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+    cplx_t** reference = calloc(obsc, sizeof(cplx_t*));
     for (depth_t i = 0; i < obsc; ++i) {
-        reference[i] = (cplx_t*) malloc(dimMat * dimMat * sizeof(cplx_t));
+        reference[i] = calloc(dimMat * dimMat, sizeof(cplx_t));
     }
 
     /* Define and allocate the observables' matrices */
-    cplx_t** obsMat = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
+    cplx_t** obsMat = calloc(obsc, sizeof(cplx_t*));
 
     /* Compute the observables' matrices */
     for (depth_t i = 0; i < obsc; ++i) {
@@ -2865,7 +2841,7 @@ void testMomMatPQC(void) {
     }
 
     /* Define and allocate the search unitaries' matrices */
-    cplx_t** srchObsMat = (cplx_t**) malloc(dimMat * sizeof(cplx_t*));
+    cplx_t** srchObsMat = calloc(dimMat, sizeof(cplx_t*));
 
     /* Compute the search unitary matrices from the search operators */
     for (depth_t i = 0; i < dimMat; ++i) {
@@ -2885,10 +2861,6 @@ void testMomMatPQC(void) {
                                     (const obs_t **) srchObs, \
                                     dimMat, \
                                     angles);
-//        printf("Result: \n");
-//        for (depth_t j = 0; j < obsc; ++j) {
-//            matrixPrint(result[j], dimMat);
-//        }
 
         /* Compute the reference moment matrices in column major form using matrix multiplication */
         for (depth_t j = 0; j < dimMat; ++j) {
@@ -2912,11 +2884,6 @@ void testMomMatPQC(void) {
             }
             free(refKet);
         }
-
-//        printf("Reference: \n");
-//        for (depth_t j = 0; j < obsc; ++j) {
-//            matrixPrint(reference[j], dimMat);
-//        }
 
         for (depth_t j = 0; j < obsc; ++j) {
             TEST_ASSERT_TRUE(cvectorAlmostEqual(result[j], reference[j], dimMat * dimMat, 1e-6));
