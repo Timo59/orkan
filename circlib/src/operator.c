@@ -99,7 +99,7 @@ void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], dept
  *
  * Input:
  *      state_t* state:         Input state of a quantum system
- *      cplx_t coeff[]:         Coefficients of the evolution operators in their linear combination
+ *      cplx_t coeff[]:         Coefficients of the evolution operators in the linear combination
  *      double par[]:           Angles of the evolution operators
  *      obs_t* evoOps[]:        Array of observables for the evolution operators
  *      depth_t parc:           Number of evolution operators
@@ -109,24 +109,32 @@ void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], dept
  *      the quantum state.
  */
 
-void lcupqg(state_t* state, const cplx_t coeff[], const double par[], const obs_t* evoOps[], depth_t parc) {
+void lcupqg(state_t* state, const cplx_t coeff[], const double angles[], const obs_t* evoOps[], depth_t anglesc) {
     cplx_t* stateVec = (cplx_t*) calloc(state->dimension, sizeof(cplx_t));
     state_t tmp;
     stateInitEmpty(&tmp, state->qubits);
 
+    cblas_zaxpy((__LAPACK_int) state->dimension,
+                (__LAPACK_double_complex*) coeff,
+                (__LAPACK_double_complex*) state->vector,
+                (__LAPACK_int) 1,
+                (__LAPACK_double_complex*) stateVec,
+                (__LAPACK_int) 1);
+
     /* For each evolution operator, evolve the input state and store the resulting state vector multiplied with the
      * coefficient of the LCU to stateVec */
-    for (depth_t i = 0; i < parc; ++i) {
+    for (depth_t i = 0; i < anglesc; ++i) {
         stateCopyVector(&tmp, state->vector);
-        evolveWithTrotterizedObservable(&tmp, evoOps[i], par[i]);
+        evolveWithTrotterizedObservable(&tmp, evoOps[i], angles[i]);
 
-        cblas_zaxpy((int) state->dimension, coeff + i, tmp.vector, 1, stateVec, 1);
+        cblas_zaxpy((__LAPACK_int) state->dimension,
+                    (__LAPACK_double_complex*) coeff + (i + 1),
+                    (__LAPACK_double_complex*) tmp.vector,
+                    (__LAPACK_int) 1,
+                    (__LAPACK_double_complex*) stateVec,
+                    (__LAPACK_int) 1);
     }
     stateFreeVector(&tmp);
-
-    /* Renormalize the state vector and update the state's vector */
-    __LAPACK_double_complex normLCU = (__LAPACK_double_complex) 1. / cblas_dznrm2((int) state->dimension, stateVec, 1);
-    cblas_zscal((int) state->dimension, (__LAPACK_double_complex*) &normLCU, stateVec, 1);
 
     state->vector = stateVec;
 }
