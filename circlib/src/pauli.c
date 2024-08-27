@@ -235,6 +235,13 @@ void applyObservablePauli(state_t* state, const pauliObs_t* observable) {
     stateFreeVector(&tmpSum);
 }
 
+/*
+ * This function evolves a state with the with a Pauli string.
+ *
+ * Input:
+ *      state_t* state: State to be evolved
+ *      pauli_t paulistr[]:
+ */
 void evolveWithPauliString(state_t* state, const pauli_t paulistr[], double angle) {
     cplx_t* tmpVector = (cplx_t*) malloc(sizeof(cplx_t) * state->dimension);
 
@@ -243,7 +250,6 @@ void evolveWithPauliString(state_t* state, const pauli_t paulistr[], double angl
         tmpVector[entry] *= cos(angle);
         state->vector[entry] *= -I * sin(angle);
     }
-
     applyPauliString(state, paulistr);
     for (dim_t entry = 0; entry < state->dimension; ++entry) {
         state->vector[entry] += tmpVector[entry];

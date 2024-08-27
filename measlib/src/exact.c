@@ -111,11 +111,11 @@ cplx_t expVal(const state_t* state, const op_t* operator) {
  *      Expected value of the observable on the state.
  */
 double expValObsPauli(const state_t* state, const pauliObs_t* observable) {
-    state_t ket;                    // state, initialized to the input state, the observable's components acts on
+    state_t ket;            // state, initialized to the input state, the observable's components acts on
 
-    register cplx_t tmp;            // complex double holding the mean value of each observable's component
+    cplx_t tmp;             // complex double holding the mean value of each observable's component
 
-    register double result = 0;     // double holding the sum of the weighted mean values of observable's components
+    double result = 0;      // double holding the sum of the weighted mean values of observable's components
 
     /* Initialize ket to an all zero state vector */
     stateInitEmpty(&ket, state->qubits);
@@ -147,7 +147,7 @@ double expValObsPauli(const state_t* state, const pauliObs_t* observable) {
  *      Expected value of the observable on the state.
  */
 double expValObsDiag(const state_t* state, const double observable[]) {
-    register double result = 0;     // double holding the sum of the weighted state vector's absolute squares
+    double result = 0;      // double holding the sum of the weighted state vector's absolute squares
 
     /* For each of the state vector's entries: Multiply its absolute square with the corresponding observable's diagonal
      * entry and add this to the result. */

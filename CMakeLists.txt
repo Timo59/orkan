@@ -105,7 +105,8 @@ add_executable(${measlibTest}
 
 target_compile_options(${measlibTest} PRIVATE
         -Xpreprocessor
-        -fopenmp)
+        -fopenmp
+        -O3)
 
 target_include_directories(${measlibTest} PRIVATE
         test
@@ -138,7 +139,8 @@ add_library(q SHARED
 
 target_compile_options(q PRIVATE
         -Xpreprocessor
-        -fopenmp)
+        -fopenmp
+        -O3)
 
 target_include_directories(q PRIVATE
         ${QLIBINC}
