@@ -39,7 +39,7 @@ void applyX(state_t* state, qubit_t qubit) {
     dim_t j;                                            // index that runs within the inner loop
                                                         // changing only those bits in the index's
                                                         // binary representationindex right to the
-                                                        // the one specified by qubit
+                                                        // one specified by qubit
 
     dim_t blockDistance = POW2(qubit + 1, dim_t);       // distance in decimal representation of
                                                         // blocks within which the swap of two
@@ -77,6 +77,59 @@ void applyX(state_t* state, qubit_t qubit) {
             SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
         }
     }
+}
+
+void applyXomp(state_t* state, qubit_t qubit) {
+    dim_t blockDistance = POW2(qubit + 1, dim_t);
+    dim_t flipDistance = POW2(qubit, dim_t);
+#pragma omp parallel for
+    {
+        for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+            for (dim_t j = i; j < i + flipDistance; ++j) {
+                SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+            }
+        }
+    };
+}
+
+void applyXomp_ext(state_t* state, qubit_t qubit) {
+    dim_t blockDistance = POW2(qubit + 1, dim_t);
+    dim_t flipDistance = POW2(qubit, dim_t);
+    if (state->qubits - qubit > 4) {
+#pragma omp parallel for
+        {
+            for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+                for (dim_t j = i; j < i + flipDistance; ++j) {
+                    SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+                }
+            }
+        };
+    }
+    else if (state->qubits - qubit <= 4) {
+#pragma omp parallel for
+        {
+            for (dim_t i = 0; i < flipDistance; ++i) {
+                for (dim_t j = i; j < state->dimension; j += blockDistance) {
+                    SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+                }
+            }
+        };
+    }
+}
+
+void applyXgcd(state_t* state, qubit_t qubit) {
+    dim_t blockCount = POW2(state->qubits - qubit - 1, dim_t);
+    dim_t blockDistance = POW2(qubit + 1, dim_t);
+    dim_t flipDistance = POW2(qubit, dim_t);
+
+    /* get a concurrent dispatch queue */
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+    dispatch_apply(blockCount, queue, ^(size_t i) {
+        for (dim_t j = i * blockDistance; j < i * blockDistance + flipDistance; ++j) {
+            SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+        }
+    });
 }
 
 void applyY(state_t* state, qubit_t qubit) {

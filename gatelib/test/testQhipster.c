@@ -16,7 +16,7 @@
  */
 
 #define PRECISION               1e-8
-#define MAXQUBITS               4
+#define MAXQUBITS               6
 
 /*
  * =================================================================================================
@@ -108,7 +108,7 @@ void testApplyX(void) {
                                                                             // gate matrix from 
                                                                             // Kronecker product
 
-                applyX(&testState, position);                                // applies the Pauli-X
+                applyXgcd(&testState, position);                                // applies the Pauli-X
                                                                             // gate according to the
                                                                             // tested method
 

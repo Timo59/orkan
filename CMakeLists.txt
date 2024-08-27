@@ -24,7 +24,8 @@ set(STATELIBSRC statelib/src/pstate.c)
 set(STATELIBINC statelib/include)
 
 set(GATELIBSRC gatelib/src/qhipster.c)
-set(GATELIBINC gatelib/include)
+set(GATELIBINC gatelib/include /opt/homebrew/opt/libomp/include)
+set(GATELIBLINK /opt/homebrew/opt/libomp/lib)
 
 set(CIRCLIBSRC circlib/src/diag.c circlib/src/operator.c circlib/src/pauli.c)
 set(CIRCLIBINC circlib/include)
@@ -46,13 +47,23 @@ add_executable(${gatelibTest}
         ${STATELIBSRC}
         ${GATELIBSRC})
 
+target_compile_options(${gatelibTest} PRIVATE
+        -Xpreprocessor
+        -fopenmp)
+
 target_include_directories(${gatelibTest} PRIVATE
         test
         ${QLIBINC}
         ${STATELIBINC}
-        ${GATELIBINC})
+        ${GATELIBINC}
+        /opt/homebrew/opt/libomp/include)
 
-target_link_libraries(${gatelibTest} PRIVATE unity)
+target_link_directories(${gatelibTest} PRIVATE
+        ${GATELIBLINK})
+
+target_link_libraries(${gatelibTest} PRIVATE
+        -lomp
+        unity)
 
 set(circlibTest circlibTest)
 add_executable(${circlibTest}
@@ -62,6 +73,10 @@ add_executable(${circlibTest}
         ${GATELIBSRC}
         ${CIRCLIBSRC})
 
+target_compile_options(${circlibTest} PRIVATE
+        -Xpreprocessor
+        -fopenmp)
+
 target_include_directories(${circlibTest} PRIVATE
         test
         ${QLIBINC}
@@ -69,9 +84,14 @@ target_include_directories(${circlibTest} PRIVATE
         ${GATELIBINC}
         ${CIRCLIBINC})
 
-target_link_libraries(${circlibTest} PRIVATE unity
-                                     -lblas
-                                     -llapack
+target_link_directories(${circlibTest} PRIVATE
+        ${GATELIBLINK})
+
+target_link_libraries(${circlibTest} PRIVATE
+        -lblas
+        -llapack
+        -lomp
+        unity
 )
 
 set(measlibTest measlibTest)
@@ -83,6 +103,10 @@ add_executable(${measlibTest}
         ${CIRCLIBSRC}
         ${MEASLIBSRC})
 
+target_compile_options(${measlibTest} PRIVATE
+        -Xpreprocessor
+        -fopenmp)
+
 target_include_directories(${measlibTest} PRIVATE
         test
         ${QLIBINC}
@@ -91,9 +115,14 @@ target_include_directories(${measlibTest} PRIVATE
         ${CIRCLIBINC}
         ${MEASLIBINC})
 
-target_link_libraries(${measlibTest} PRIVATE unity
-                                     -lblas
-                                     -llapack
+target_link_directories(${measlibTest} PRIVATE
+        ${GATELIBLINK})
+
+target_link_libraries(${measlibTest} PRIVATE
+        -lblas
+        -llapack
+        -lomp
+        unity
 )
 
 add_test(NAME ${gatelibTest} COMMAND ${gatelibTest})
@@ -107,6 +136,10 @@ add_library(q SHARED
         ${CIRCLIBSRC}
         ${MEASLIBSRC})
 
+target_compile_options(q PRIVATE
+        -Xpreprocessor
+        -fopenmp)
+
 target_include_directories(q PRIVATE
         ${QLIBINC}
         ${STATELIBINC}
@@ -114,8 +147,13 @@ target_include_directories(q PRIVATE
         ${CIRCLIBINC}
         ${MEASLIBINC})
 
-target_link_libraries(q -lBLAS
-                        -lLAPACK)
+target_link_directories(q PUBLIC
+        ${GATELIBLINK})
+
+target_link_libraries(q
+        -lBLAS
+        -lLAPACK
+        -lomp)
 
 add_dependencies(q gatelibTest)
 add_dependencies(q circlibTest)
