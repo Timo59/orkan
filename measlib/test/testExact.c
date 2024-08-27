@@ -44,9 +44,9 @@ void testExpValObs(void){
     obs_t observableDiag;
 
     /*
-                                                    2 qubits
-    --------------------------------------------------------------------------------------------------------------------
-    */
+     *                                                  2 qubits
+     *------------------------------------------------------------------------------------------------------------------
+     */
 
     qubit_t qubits = 2;
     dim_t dim = POW2(qubits, dim_t);
@@ -59,7 +59,7 @@ void testExpValObs(void){
     cplx_t** refKet = generateTestVectors(qubits);
 
     /*
-     * Define the diagonal observable
+     * Determine Pauli strings and their coefficients for the diagonal observable
      */
     complength_t length = dim;
     pauli_t* components = calloc(qubits * length, sizeof(pauli_t));
@@ -78,15 +78,16 @@ void testExpValObs(void){
     coefficients[1] = -2.97345;
 
     /*
-     * Initialize the diagonal observable
+     * Define the diagonal observable in terms of Pauli strings
      */
-    pauliObservable.components = components;            // Initialize the Pauli representation of the diagonal
-    pauliObservable.coefficients = coefficients;        // hamiltonian
-    pauliObservable.length = length;                    //
-    pauliObservable.qubits = qubits;                    //
-                                                        //
-    observablePauli.type = PAULI;                       //
-    observablePauli.pauliObs = &pauliObservable;        //
+    pauliObservable.components = components;
+    pauliObservable.coefficients = coefficients;
+    pauliObservable.length = length;
+    pauliObservable.qubits = qubits;
+
+    observablePauli.type = PAULI;
+    observablePauli.pauliObs = &pauliObservable;
+
 
     double* diagObservable = pauliObservableDiag(components, coefficients, length, qubits);
     observableDiag.type = DIAG;                                                 // Initialize the hamiltonian's diagonal
@@ -1653,7 +1654,7 @@ void testGradientPQC(void) {
      * Define the PQC setting
      */
     circdepth = 5;
-    parameters = calloc(circdepth, sizeof(double));
+    parameters = (double*) malloc(circdepth * sizeof(double));
     parameters[0] = -1.31679;
     parameters[1] = 2.91097;
     parameters[2] = -0.06082;
@@ -2712,7 +2713,7 @@ void testMomMatPQC(void) {
     coeffObs[30] = -0.20716;
     coeffObs[31] = 3.04246;
 
-    obsPauli = calloc(obsc, sizeof(pauliObs_t));
+    obsPauli = (pauliObs_t*) malloc(obsc * sizeof(pauliObs_t));
     for (depth_t i = 0; i < obsc; ++i) {
         obsPauli[i].components = compObs;
         obsPauli[i].coefficients = coeffObs + (i * lengthObs);
@@ -2845,6 +2846,7 @@ void testMomMatPQC(void) {
 
     srchObsMat[0] = singleQubitGateMat(IDMAT, qubits, 0);
 
+
     /* Compute the search unitary matrices from the search operators */
     for (depth_t i = 0; i < dimMat; ++i) {
         srchObsMat[i + 1] = expTrotterizedPauliObservableMat(srchComps + (i * lengthSrchObs * qubits), \
@@ -2945,7 +2947,7 @@ int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testExpValObs);
     RUN_TEST(testExpValObsPQC);
-//    RUN_TEST(testGradientPQC);
+    RUN_TEST(testGradientPQC);
 //    RUN_TEST(testHessianPQC);
     RUN_TEST(testMomMat);
     RUN_TEST(testMomMatPQC);

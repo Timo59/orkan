@@ -108,7 +108,7 @@ void testApplyX(void) {
                                                                             // gate matrix from 
                                                                             // Kronecker product
 
-                applyXgcd(&testState, position);                                // applies the Pauli-X
+                applyXomp_new(&testState, position);                                // applies the Pauli-X
                                                                             // gate according to the
                                                                             // tested method
 

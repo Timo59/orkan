@@ -82,7 +82,7 @@ void applyX(state_t* state, qubit_t qubit) {
 void applyXomp(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-#pragma omp parallel for
+#pragma omp parallel for default(none) shared(state, blockDistance, flipDistance) schedule(dynamic)
     {
         for (dim_t i = 0; i < state->dimension; i += blockDistance) {
             for (dim_t j = i; j < i + flipDistance; ++j) {
@@ -92,11 +92,11 @@ void applyXomp(state_t* state, qubit_t qubit) {
     };
 }
 
-void applyXomp_ext(state_t* state, qubit_t qubit) {
+void applyXomp_ext4(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-    if (state->qubits - qubit > 4) {
-#pragma omp parallel for
+    if (state->qubits - qubit > 3) {
+#pragma omp parallel for default(none) shared(state, blockDistance, flipDistance)
         {
             for (dim_t i = 0; i < state->dimension; i += blockDistance) {
                 for (dim_t j = i; j < i + flipDistance; ++j) {
@@ -105,8 +105,8 @@ void applyXomp_ext(state_t* state, qubit_t qubit) {
             }
         };
     }
-    else if (state->qubits - qubit <= 4) {
-#pragma omp parallel for
+    else if (state->qubits - qubit <= 3) {
+#pragma omp parallel for default(none) shared(state, blockDistance, flipDistance)
         {
             for (dim_t i = 0; i < flipDistance; ++i) {
                 for (dim_t j = i; j < state->dimension; j += blockDistance) {
@@ -117,18 +117,33 @@ void applyXomp_ext(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyXgcd(state_t* state, qubit_t qubit) {
-    dim_t blockCount = POW2(state->qubits - qubit - 1, dim_t);
-    dim_t blockDistance = POW2(qubit + 1, dim_t);
+void applyXomp_new(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
+    dim_t indices = POW2(state->qubits - 1, dim_t);
+
+#pragma omp parallel for default(none) shared(flipDistance, indices, qubit, state)
+    {
+        for (dim_t i = 0; i < indices; ++i) {
+            dim_t left = (i & (~0U << qubit)) << 1;
+            dim_t right = i & ~(~0U << qubit);
+            i = (left | right);
+            SWAP(state->vector + i, state->vector + (i + flipDistance), cplx_t);
+        }
+    };
+}
+
+void applyXgcd(state_t* state, qubit_t qubit) {
+    dim_t flipDistance = POW2(qubit, dim_t);
+    dim_t indices = POW2(state->qubits - 1, dim_t);
 
     /* get a concurrent dispatch queue */
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
-    dispatch_apply(blockCount, queue, ^(size_t i) {
-        for (dim_t j = i * blockDistance; j < i * blockDistance + flipDistance; ++j) {
-            SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
-        }
+    dispatch_apply(indices, queue, ^(size_t i) {
+        dim_t left = (i & (~0U << qubit)) << 1;
+        dim_t right = i & ~(~0U << qubit);
+        i = (left | right);
+        SWAP(state->vector + i, state->vector + (i + flipDistance), cplx_t);
     });
 }
 
