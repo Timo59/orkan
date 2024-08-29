@@ -80,70 +80,57 @@ void applyX(state_t* state, qubit_t qubit) {
 }
 
 void applyXomp(state_t* state, qubit_t qubit) {
-    dim_t blockDistance = POW2(qubit + 1, dim_t);
-    dim_t flipDistance = POW2(qubit, dim_t);
-#pragma omp parallel for default(none) shared(state, blockDistance, flipDistance) schedule(dynamic)
-    {
-        for (dim_t i = 0; i < state->dimension; i += blockDistance) {
-            for (dim_t j = i; j < i + flipDistance; ++j) {
-                SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
-            }
-        }
-    };
-}
-
-void applyXomp_ext4(state_t* state, qubit_t qubit) {
-    dim_t blockDistance = POW2(qubit + 1, dim_t);
-    dim_t flipDistance = POW2(qubit, dim_t);
-    if (state->qubits - qubit > 3) {
-#pragma omp parallel for default(none) shared(state, blockDistance, flipDistance)
-        {
-            for (dim_t i = 0; i < state->dimension; i += blockDistance) {
-                for (dim_t j = i; j < i + flipDistance; ++j) {
-                    SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
-                }
-            }
-        };
-    }
-    else if (state->qubits - qubit <= 3) {
-#pragma omp parallel for default(none) shared(state, blockDistance, flipDistance)
-        {
-            for (dim_t i = 0; i < flipDistance; ++i) {
-                for (dim_t j = i; j < state->dimension; j += blockDistance) {
-                    SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
-                }
-            }
-        };
-    }
-}
-
-void applyXomp_new(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
 
 #pragma omp parallel for default(none) shared(flipDistance, indices, qubit, state)
-    {
-        for (dim_t i = 0; i < indices; ++i) {
-            dim_t left = (i & (~0U << qubit)) << 1;
-            dim_t right = i & ~(~0U << qubit);
-            i = (left | right);
-            SWAP(state->vector + i, state->vector + (i + flipDistance), cplx_t);
-        }
-    };
+    for (dim_t i = 0; i < indices; ++i) {
+        dim_t left = (i & (~0U << qubit)) << 1;
+        dim_t right = i & ~(~0U << qubit);
+        dim_t j = (left | right);
+        SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+    }
+}
+
+void applyXblas(state_t* state, qubit_t qubit) {
+    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
+    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
+
+    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
+    }
+}
+
+void applyXomp_blas(state_t* state, qubit_t qubit) {
+    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
+    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
+
+
+#pragma omp parallel for default(none) shared(flipDistance, blockDistance, qubit, state)
+    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
+    }
 }
 
 void applyXgcd(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
+    dim_t stride = (state->qubits > 9) ? POW2(state->qubits - 8, dim_t) : indices;
 
-    /* get a concurrent dispatch queue */
+    /* Get a concurrent dispatch queue */
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
-    dispatch_apply(indices, queue, ^(size_t i) {
-        dim_t left = (i & (~0U << qubit)) << 1;
-        dim_t right = i & ~(~0U << qubit);
-        i = (left | right);
-        SWAP(state->vector + i, state->vector + (i + flipDistance), cplx_t);
+    dispatch_apply(indices / stride, queue, ^(size_t i) {
+        size_t j = i * stride;
+        size_t j_stop = j + stride;
+
+        do {
+            dim_t left = (j & (~0U << qubit)) << 1;
+            dim_t right = j & ~(~0U << qubit);
+            dim_t k = (left | right);
+            SWAP(state->vector + k, state->vector + (k + flipDistance), cplx_t);
+            ++j;
+        }while (j < j_stop);
     });
 }
 

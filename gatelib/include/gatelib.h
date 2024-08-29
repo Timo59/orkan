@@ -13,6 +13,8 @@
 #include <math.h>
 #include <omp.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <vecLib/vecLib.h>
 
 /*
  * =================================================================================================
@@ -34,9 +36,9 @@ void applyX(state_t* state, qubit_t qubit);
 
 void applyXomp(state_t* state, qubit_t qubit);
 
-void applyXomp_ext4(state_t* state, qubit_t qubit);
+void applyXblas(state_t* state, qubit_t qubit);
 
-void applyXomp_new(state_t* state, qubit_t qubit);
+void applyXomp_blas(state_t* state, qubit_t qubit);
 
 void applyXgcd(state_t* state, qubit_t qubit);
 
