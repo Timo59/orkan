@@ -49,7 +49,8 @@ add_executable(${gatelibTest}
 
 target_compile_options(${gatelibTest} PRIVATE
         -Xpreprocessor
-        -fopenmp)
+        -fopenmp
+        -O2)
 
 target_include_directories(${gatelibTest} PRIVATE
         test
@@ -62,6 +63,8 @@ target_link_directories(${gatelibTest} PRIVATE
         ${GATELIBLINK})
 
 target_link_libraries(${gatelibTest} PRIVATE
+        -lblas
+        -llapack
         -lomp
         unity)
 
@@ -140,7 +143,7 @@ add_library(q SHARED
 target_compile_options(q PRIVATE
         -Xpreprocessor
         -fopenmp
-        -O3)
+        -O2)
 
 target_include_directories(q PRIVATE
         ${QLIBINC}
