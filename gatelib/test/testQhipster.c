@@ -163,7 +163,7 @@ void testApplyY(void) {
             for (dim_t i = 0; i < dim + 1; ++i) {
                 stateInitVector(&testState, stateVectors[i], qubits);
                 result = cmatVecMul(gateMatrix, testVectors[i], dim);
-                applyY(&testState, position);
+                applyYgcd(&testState, position);
                 TEST_ASSERT_TRUE(cvectorAlmostEqual(result, testState.vector, dim, PRECISION));
                 free(result);
             }
@@ -195,7 +195,7 @@ void testApplyZ(void) {
             for (dim_t i = 0; i < dim + 1; ++i) {
                 stateInitVector(&testState, stateVectors[i], qubits);
                 result = cmatVecMul(gateMatrix, testVectors[i], dim);
-                applyZ(&testState, position);
+                applyZgcd(&testState, position);
                 TEST_ASSERT_TRUE(cvectorAlmostEqual(result, testState.vector, dim, PRECISION));
                 free(result);
             }
