@@ -79,6 +79,15 @@ void applyX(state_t* state, qubit_t qubit) {
     }
 }
 
+void applyXblas(state_t* state, qubit_t qubit) {
+    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
+    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
+
+    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
+    }
+}
+
 void applyXomp(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
@@ -92,21 +101,11 @@ void applyXomp(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyXblas(state_t* state, qubit_t qubit) {
-    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
-    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
-
-    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
-    }
-}
-
 void applyXomp_blas(state_t* state, qubit_t qubit) {
     __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
     __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
 
-
-#pragma omp parallel for default(none) shared(flipDistance, blockDistance, qubit, state)
+#pragma omp parallel for default(none) shared(blockDistance, flipDistance, qubit, state)
     for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
         cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
     }
@@ -115,7 +114,7 @@ void applyXomp_blas(state_t* state, qubit_t qubit) {
 void applyXgcd(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
-    dim_t stride = (state->qubits > 9) ? POW2(state->qubits - 8, dim_t) : indices;
+    dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;
 
     /* Get a concurrent dispatch queue */
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
@@ -134,6 +133,8 @@ void applyXgcd(state_t* state, qubit_t qubit) {
     });
 }
 
+/**********************************************************************************************************************/
+
 void applyY(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
@@ -146,6 +147,74 @@ void applyY(state_t* state, qubit_t qubit) {
     }
 }
 
+void applyYblas(state_t* state, qubit_t qubit) {
+    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
+    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
+    __LAPACK_double_complex plus = I;
+    __LAPACK_double_complex minus = -I;
+
+    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
+        cblas_zscal(flipDistance, &minus, state->vector + i, 1);
+        cblas_zscal(flipDistance, &plus, state->vector + (i + flipDistance), 1);
+    }
+}
+
+void applyYomp(state_t* state, qubit_t qubit) {
+    dim_t flipDistance = POW2(qubit, dim_t);
+    dim_t indices = POW2(state->qubits - 1, dim_t);
+
+#pragma omp parallel for default(none) shared(flipDistance, indices, qubit, state)
+    for (dim_t i = 0; i < indices; ++i) {
+        dim_t left = (i & (~0U << qubit)) << 1;
+        dim_t right = i & ~(~0U << qubit);
+        dim_t j = (left | right);
+        SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+        state->vector[j] *= -I;
+        state->vector[j + flipDistance] *= I;
+    }
+}
+
+void applyYomp_blas(state_t* state, qubit_t qubit) {
+    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
+    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
+    __LAPACK_double_complex plus = I;
+    __LAPACK_double_complex minus = -I;
+
+#pragma omp parallel for default(none) shared(blockDistance, flipDistance, minus, plus, qubit, state)
+    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
+        cblas_zscal(flipDistance, &minus, state->vector + i, 1);
+        cblas_zscal(flipDistance, &plus, state->vector + (i + flipDistance), 1);
+    }
+}
+
+void applyYgcd(state_t* state, qubit_t qubit) {
+    dim_t flipDistance = POW2(qubit, dim_t);
+    dim_t indices = POW2(state->qubits - 1, dim_t);
+    dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;
+
+    /* Get a concurrent dispatch queue */
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+    dispatch_apply(indices / stride, queue, ^(size_t i) {
+        size_t j = i * stride;
+        size_t j_stop = j + stride;
+
+        do {
+            dim_t left = (j & (~0U << qubit)) << 1;
+            dim_t right = j & ~(~0U << qubit);
+            dim_t k = (left | right);
+            SWAP(state->vector + k, state->vector + (k + flipDistance), cplx_t);
+            state->vector[k] *= -I;
+            state->vector[k + flipDistance] *= I;
+            ++j;
+        }while (j < j_stop);
+    });
+}
+
+/**********************************************************************************************************************/
+
 void applyZ(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
@@ -154,6 +223,64 @@ void applyZ(state_t* state, qubit_t qubit) {
             state->vector[j + flipDistance] *= -1;
         }
     }
+}
+
+void applyZblas(state_t* state, qubit_t qubit) {
+    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
+    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
+    __LAPACK_double_complex minus = -1;
+
+    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
+        cblas_zscal(flipDistance, &minus, state->vector + (i + flipDistance), 1);
+    }
+}
+
+void applyZomp(state_t* state, qubit_t qubit) {
+    dim_t flipDistance = POW2(qubit, dim_t);
+    dim_t indices = POW2(state->qubits - 1, dim_t);
+
+#pragma omp parallel for default(none) shared(flipDistance, indices, qubit, state)
+    for (dim_t i = 0; i < indices; ++i) {
+        dim_t left = (i & (~0U << qubit)) << 1;
+        left |= (1 << qubit);
+        dim_t right = i & ~(~0U << qubit);
+        dim_t j = (left | right);
+        state->vector[j] *= -1;
+    }
+}
+
+void applyZomp_blas(state_t* state, qubit_t qubit) {
+    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
+    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
+    __LAPACK_double_complex minus = -1;
+
+#pragma omp parallel for default(none) shared(blockDistance, flipDistance, minus, qubit, state)
+    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
+        cblas_zscal(flipDistance, &minus, state->vector + (i + flipDistance), 1);
+    }
+}
+
+void applyZgcd(state_t* state, qubit_t qubit) {
+    dim_t flipDistance = POW2(qubit, dim_t);
+    dim_t indices = POW2(state->qubits - 1, dim_t);
+    dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;
+
+    /* Get a concurrent dispatch queue */
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+    dispatch_apply(indices / stride, queue, ^(size_t i) {
+        size_t j = i * stride;
+        size_t j_stop = j + stride;
+
+        do {
+            dim_t left = (j & (~0U << qubit)) << 1;
+            left |= (1 << qubit);
+            dim_t right = j & ~(~0U << qubit);
+            dim_t k = (left | right);
+            state->vector[k] *= -1;
+            ++j;
+        }while (j < j_stop);
+    });
 }
 
 /*

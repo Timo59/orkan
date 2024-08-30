@@ -34,17 +34,37 @@ extern "C" {
 
 void applyX(state_t* state, qubit_t qubit);
 
-void applyXomp(state_t* state, qubit_t qubit);
-
 void applyXblas(state_t* state, qubit_t qubit);
+
+void applyXomp(state_t* state, qubit_t qubit);
 
 void applyXomp_blas(state_t* state, qubit_t qubit);
 
 void applyXgcd(state_t* state, qubit_t qubit);
 
+/**********************************************************************************************************************/
+
 void applyY(state_t* state, qubit_t qubit);
 
+void applyYblas(state_t* state, qubit_t qubit);
+
+void applyYomp(state_t* state, qubit_t qubit);
+
+void applyYomp_blas(state_t* state, qubit_t qubit);
+
+void applyYgcd(state_t* state, qubit_t qubit);
+
+/**********************************************************************************************************************/
+
 void applyZ(state_t* state, qubit_t qubit);
+
+void applyZblas(state_t* state, qubit_t qubit);
+
+void applyZomp(state_t* state, qubit_t qubit);
+
+void applyZomp_blas(state_t* state, qubit_t qubit);
+
+void applyZgcd(state_t* state, qubit_t qubit);
 
 /*
  * =================================================================================================
