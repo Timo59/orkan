@@ -54,6 +54,10 @@ void applyOperatorPauli(state_t* state, const pauliOp_t* op);
 
 void applyObservablePauli(state_t* state, const pauliObs_t* observable);
 
+void applyObservablePauliBlas(state_t* state, const pauliObs_t* observable);
+
+void applyObservablePauliOmp(state_t* state, const pauliObs_t* observable);
+
 void evolveWithPauliString(state_t* state, const pauli_t paulistr[], double angle);
 
 void evolveWithTrotterizedObservablePauli(state_t* state, const pauliObs_t* observable, double angle);

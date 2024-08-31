@@ -159,12 +159,12 @@ cplx_t** generateTestVectors(qubit_t qubits) {
                                                                         // Hilbert space according
                                                                         // to the number of qubits
 
-    cplx_t** vectors = (cplx_t**) calloc(dim + 1, sizeof(cplx_t*));     // pointer to an array of 
+    cplx_t** vectors = calloc(dim + 1, sizeof(cplx_t*));     // pointer to an array of
                                                                         // dim + 1 double complex
                                                                         // pointers holding the 
                                                                         // test vectors
 
-    vectors[dim] = (cplx_t*) calloc(dim, sizeof(cplx_t));               // initialise the last entry
+    vectors[dim] = calloc(dim, sizeof(*(vectors[dim])));     // initialise the last entry
                                                                         // of the vector array as a
                                                                         // pointer to a 1d array
                                                                         // with dim entries
@@ -177,7 +177,7 @@ cplx_t** generateTestVectors(qubit_t qubits) {
     */                                                                    
     for (dim_t i = 0; i < dim; ++i) {
         
-        vectors[i] = (cplx_t*) calloc(dim, sizeof(cplx_t));             // initialise the i-th entry
+        vectors[i] = calloc(dim, sizeof(*(vectors[i])));     // initialise the i-th entry
                                                                         // of the vectors array as a
                                                                         // pointer to a 1d array of
                                                                         // size dim with all entries
@@ -225,6 +225,21 @@ void freeTestVectors(cplx_t** vectors, qubit_t qubits) {
     }
     free(vectors);                          // free the allocated memory for the pointers to the
                                             // test vectors
+}
+
+/*
+ * This function returns an array of all possible Pauli strings on the specified number of qubits
+ */
+pauli_t* allPauliStrings(qubit_t qubits) {
+    dim_t stringc =  (1 << (2 * qubits));
+    pauli_t* result = calloc(qubits * stringc, sizeof(pauli_t));
+
+    for (dim_t i = 1; i < stringc; ++i) {
+        for (qubit_t j = 0; j < qubits; ++j) {
+            result[i * qubits + j] = (i / (1 << (2 * j))) % 4;
+        }
+    }
+    return result;
 }
 
 /*

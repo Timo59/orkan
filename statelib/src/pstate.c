@@ -16,7 +16,7 @@
 void stateInitEmpty(state_t* state, qubit_t qubits) {
 	state->qubits = qubits;
 	state->dimension = POW2(qubits, dim_t);
-	state->vector = (cplx_t*) calloc(state->dimension, sizeof(cplx_t));
+	state->vector = calloc(state->dimension, sizeof(cplx_t));
 }
 
 void stateInitZero(state_t* state, qubit_t qubits) {
