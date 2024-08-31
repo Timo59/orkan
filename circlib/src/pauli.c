@@ -1,15 +1,15 @@
 /*
- * =================================================================================================
- *                                              includes
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      includes
+ * =====================================================================================================================
  */
 
 #include "pauli.h"
 
 /*
- * =================================================================================================
+ * =====================================================================================================================
  *                                              compound gate constructor
- * =================================================================================================
+ * =====================================================================================================================
  */
 
 // void initCompgate(compgate_t* compgate, complength_t length, qubit_t qubits) {
@@ -25,9 +25,9 @@
 // }
 
 /* 
- * =================================================================================================
+ * =====================================================================================================================
  *                                              compound gate fusion
- * =================================================================================================
+ * =====================================================================================================================
  */
 
 // void fuseCompgates(compgate_t* result, compgate_t compgate1, compgate_t compgate2) {
@@ -137,9 +137,20 @@
 // }
 
 /*
- * =================================================================================================
+ * =====================================================================================================================
  *                                              component applications
- * =================================================================================================
+ * =====================================================================================================================
+ */
+
+/*
+ * This function applies a Pauli string to a quantum state.
+ *
+ * Input:
+ *      state_t* state:         State of the qubit system
+ *      pauli_t paulistr[]:     Pauli string, i.e., array of Pauli operators
+ *
+ * Output:
+ *      This function has no return value, but changes the statevector in place.
  */
 
 void applyPauliString(state_t* state, const pauli_t paulistr[]) {
@@ -168,14 +179,27 @@ void applyPauliString(state_t* state, const pauli_t paulistr[]) {
     }
 }
 
-void applyOperatorPauli(state_t* state, const pauliOp_t* op) {
-    state_t tmp;
-    state_t tmpSum;
 
+/*
+ * This function applies a Pauli operator to a quantum state.
+ *
+ * Input:
+ *      state_t* state:         State of the qubit system
+ *      pauliOp_t* op:          Pauli operator, i.e., a complex linear combination of Pauli strings
+ *
+ * Output:
+ *      This function has no return value, but changes the statevector in place.
+ */
+void applyOperatorPauli(state_t* state, const pauliOp_t* op) {
+    state_t tmp;        // temporary vector to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);
+    state_t tmpSum;     // temporary vector holding each intermediate sum of altered input vectors
     stateInitEmpty(&tmpSum, state->qubits);
 
     for (complength_t i = 0; i < op->length; ++i) {
+        /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
+         * Pauli string's coefficient. Add the result to the temporary sum vector.
+         */
         stateCopyVector(&tmp, state->vector);
         applyPauliString(&tmp, op->components + (i * op->qubits));
         cscalarVecMulInPlace(op->coefficients[i], tmp.vector, state->dimension);
@@ -187,52 +211,80 @@ void applyOperatorPauli(state_t* state, const pauliOp_t* op) {
     stateFreeVector(&tmpSum);
 }
 
+
 /*
-This function applies an observable, which is a sum of Pauli strings with real coefficients, to a 
-state.
-
-Input:
-    state_t state:                  state that the observable is to be applied on
-    const pauliObs_t observable:    observable that is applied to the state    
-*/
+ * This function applies a Pauli observable to a quantum state.
+ *
+ * Input:
+ *      state_t* state:         State of the qubit system
+ *      pauliOp_t* op:          Pauli operator, i.e., a real linear combination of Pauli strings
+ *
+ * Output:
+ *      This function has no return value, but changes the statevector in place.
+ */
 void applyObservablePauli(state_t* state, const pauliObs_t* observable) {
-    state_t tmp;                                // temporary state each Pauli string of the
-                                                // observable is applied to
+    state_t tmp;                                        // temporary vector to apply each Pauli string to
+    stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
+    state_t tmpSum;                                     // temporary vector holding each intermediate sum of altered input
+                                                        // vectors
+    stateInitEmpty(&tmpSum, state->qubits);     // initialize tmpSum's statevector to all zeros
 
-    state_t tmpSum;                             // temporary state holding each intermediate sum
-                                                // of the observable's summands application to the
-                                                // input state
-
-    stateInitEmpty(&tmp, state->qubits);         // initialize tmp's statevector to all zeros
-
-    stateInitEmpty(&tmpSum, state->qubits);      // initialize tmpSum's statevector to all zeros
-
-    /*
-    Starting with the first Pauli string, corresponding to the first qubits entries in the
-    observable's components, apply the Pauli string, multiply by the corresponding coefficient and
-    add the resulting state vector to the temporary sum state for each Pauli string.
-    Note that the Pauli strings are in a continuous array, which means that the applyPauliString
-    function takes blocks of length observable.qubits and then moves forward by the same amount.
-    */
     for (complength_t i = 0; i < observable->length; ++i) {
-        stateCopyVector(&tmp, state->vector);   // copy the input state's vector to tmp's
-                                                // statevector
-
+        /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
+         * Pauli string's coefficient. Add the result to the temporary sum vector.
+         */
+        stateCopyVector(&tmp, state->vector);
         applyPauliString(&tmp, observable->components + (i * observable->qubits));
-                                                // apply the Pauli string according to the current
-                                                // block in observable.components to the tmp state
-
         cscalarVecMulInPlace((cplx_t) observable->coefficients[i], tmp.vector, state->dimension);
-                                                // multiply the tmp state by the coefficient
-                                                // to observable.coefficient according
         cvecAddInPlace(tmpSum.vector, tmp.vector, state->dimension);
-                                                // add the state vector in tmp state to the
-                                                // intermediate state vector in tmpSum
     }
     stateFreeVector(&tmp);
-    stateCopyVector(state, tmpSum.vector);      // copy the final state in tmpSum to the input
-                                                // state's vector
-    stateFreeVector(&tmpSum);
+    stateFreeVector(state);
+    state->vector = tmpSum.vector;
+}
+
+void applyObservablePauliBlas(state_t* state, const pauliObs_t* observable) {
+    __LAPACK_int N = (__LAPACK_int) state->dimension;
+    state_t tmp;                                        // temporary vector to apply each Pauli string to
+    stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
+    state_t tmpSum;                                     // temporary vector holding each intermediate sum of altered input
+                                                        // vectors
+    stateInitEmpty(&tmpSum, state->qubits);     // initialize tmpSum's statevector to all zeros
+
+    for (complength_t i = 0; i < observable->length; ++i) {
+        /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
+         * Pauli string's coefficient. Add the result to the temporary sum vector.
+         */
+        cblas_zcopy(N, state->vector, 1, tmp.vector, 1);
+        applyPauliString(&tmp, observable->components + (i * observable->qubits));
+        __LAPACK_double_complex alpha = observable->coefficients[i];
+        cblas_zaxpy(N, &alpha, tmp.vector, 1, tmpSum.vector, 1);
+    }
+    stateFreeVector(&tmp);
+    stateFreeVector(state);
+    state->vector = tmpSum.vector;
+}
+
+void applyObservablePauliOmp(state_t* state, const pauliObs_t* observable) {
+    state_t tmp;                                        // temporary vector to apply each Pauli string to
+    stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
+    state_t tmpSum;                                     // temporary vector holding each intermediate sum of altered input
+    // vectors
+    stateInitEmpty(&tmpSum, state->qubits);     // initialize tmpSum's statevector to all zeros
+
+# pragma omp parallel for default(none) private(tmp) shared(observable, state, tmpSum)
+    for (complength_t i = 0; i < observable->length; ++i) {
+        /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
+         * Pauli string's coefficient. Add the result to the temporary sum vector.
+         */
+        stateCopyVector(&tmp, state->vector);
+        applyPauliString(&tmp, observable->components + (i * observable->qubits));
+        cscalarVecMulInPlace((cplx_t) observable->coefficients[i], tmp.vector, state->dimension);
+        cvecAddInPlace(tmpSum.vector, tmp.vector, state->dimension);
+    }
+    stateFreeVector(&tmp);
+    stateFreeVector(state);
+    state->vector = tmpSum.vector;
 }
 
 /*
