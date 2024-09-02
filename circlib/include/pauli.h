@@ -43,9 +43,9 @@ typedef struct pauliObs {
 } pauliObs_t;
 
 /*
- * =================================================================================================
- *                                              component applications
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  component applications
+ * =====================================================================================================================
  */
 
 void applyPauliString(state_t* state, const pauli_t paulistr[]);
@@ -56,11 +56,17 @@ void applyObservablePauli(state_t* state, const pauliObs_t* observable);
 
 void applyObservablePauliBlas(state_t* state, const pauliObs_t* observable);
 
+void applyObservablePauliBlas_new(state_t* state, const pauliObs_t* observable);
+
 void applyObservablePauliOmp(state_t* state, const pauliObs_t* observable);
+
+void applyObservablePauliOmp_blas(state_t* state, const pauliObs_t* observable);
 
 void evolveWithPauliString(state_t* state, const pauli_t paulistr[], double angle);
 
 void evolveWithTrotterizedObservablePauli(state_t* state, const pauliObs_t* observable, double angle);
+
+void evolveWithTrotterizedObservablePauliDagger(state_t* state, const pauliObs_t* observable, double angle);
 
 #ifdef __cplusplus
 }

@@ -9,7 +9,6 @@
 #include "cplxutil.h"
 #include "linalg.h"
 #include "unity.h"
-//#include <cblas.h>
 
 /*
  * =====================================================================================================================
@@ -17,8 +16,40 @@
  * =====================================================================================================================
  */
 
-#define PRECISION               1e-8
 #define APPROXPRECISION         1e-5
+#define MAXQUBITS               4
+#define PRECISION               1e-8
+#define PSTRINGSC               (1 << (2 * MAXQUBITS))
+
+double coeffs[PSTRINGSC] = {-0.91579, -0.25652, -1.51508, 1.05323, -1.23536, 1.49867, -1.53926, -0.49826, 1.22999,
+                            -1.92813, 2.85517, -2.47542, -0.38280, -2.09975, 1.00740, 2.35575, -2.45489, -0.30425,
+                            1.06238, -2.77212, 2.41397, -1.34010, -0.22039, -2.24888, 2.71889, -1.92035, -1.50087,
+                            2.09585, -2.08985, 0.68230, 2.44196, -2.82084, 2.48521, -1.22644, -1.00846, 1.69127,
+                            0.06418, -2.35933, -0.19995, 0.31603, -1.73091, 1.14717, 2.33569, 0.57928, -0.25737,
+                            -0.45009, 2.78098, 2.95678, 1.91381, 2.54352, -2.15822, 1.72263, 2.05691, 2.39287, 1.58683,
+                            -2.90241, 2.59916, 2.73879, 2.95639, 0.56235, 1.44027, -0.81242, 0.38418, 1.18629, -1.17247,
+                            -0.12436, 1.62449, -2.43752, 1.66196, -0.47336, 1.84992, 1.95881, -1.00553, 2.13265,
+                            0.56086, -1.56981, 1.04719, 2.60808, -1.84578, 1.20584, -2.35521, -1.32020, 2.01014,
+                            1.26375, 1.27048, 2.59090, 1.23691, -1.80077, 1.93343, -2.91482, -0.53376, 3.03015, 1.48057,
+                            2.76056, -0.43952, 0.21942, 2.04924, -1.52948, 0.75794, 1.35086, -0.38534, 2.40243,
+                            -2.48500, -2.20105, -2.82368, -2.47896, -1.40897, -2.55432, 0.71394, 2.17555, 1.98635,
+                            0.40811, 0.67655, -0.49530, -2.67357, -1.41395, -1.15755, -0.06063, -2.72028, -1.61941,
+                            -2.16315, -1.75902, 0.20458, 0.80771, 0.57488, 1.72225, -1.41010, -0.81181, -2.49148,
+                            1.94778, 2.34203, -1.32821, 0.96816, -1.26649, -2.30224, -2.87518, 2.88520, 2.96937,
+                            -2.76896, 2.62508, -2.13933, -2.31723, -1.37332, -0.77016, -2.62147, -2.50779, -0.60819,
+                            1.91038, 1.60209, 1.67136, 1.46729, -1.07858, -2.11997, -0.13966, 2.05480, 0.97619,
+                            -0.11150, 0.30797, 0.83008, -0.52598, -2.93730, 0.21551, -2.75580, 0.49142, 1.47556,
+                            2.71840, -2.22514, 1.00911, -2.89986, 1.31044, -0.51764, -2.79606, 1.47126, 1.95153,
+                            -0.63209, -1.85194, 2.84156, 2.90295, -1.84033, -0.04310, 1.75775, 0.95017, -2.10064,
+                            -2.76770, -2.32057, -2.28410, -2.83722, -2.45986, 1.78606, 0.27618, -0.54108, 2.49172,
+                            -2.89120, -0.52169, -2.68745, 0.03343, -0.11790, 3.09736, -3.02081, -1.37294, -1.99044,
+                            2.31419, -1.32603, 1.60068, -0.04666, 1.81738, -0.28430, -2.46847, -1.26959, 2.27198,
+                            -0.83803, -0.98007, 2.58755, -2.09000, 0.98269, -2.82227, 1.92823, 0.86559, 2.27735,
+                            1.34150, -1.16303, -0.63376, -0.07276, 0.39234, 1.33977, 1.88932, -0.83778, 1.88427,
+                            0.37126, 1.13776, 2.62312, 0.62600, 1.28199, -0.55797, 2.12048, 0.85703, 1.50861, 1.45908,
+                            2.99503, 0.04893, 1.38351, -0.47853, -1.81710, -2.53381, -0.17439, 0.45945, -0.70423,
+                            0.10357, 1.14029, 0.34762, 2.70903, 2.34953, 1.29763, 2.76502, -2.88920, -1.20820};
+
 
 /*
  * =====================================================================================================================
@@ -35,6 +66,48 @@ void tearDown(void) {}
  *                                                  test expValObs
  * =====================================================================================================================
  */
+
+/*
+ * This function checks whether calculating the mean using expValObs coincides with calculating it using Kronecker
+ * matrix-vector products on 1 to MAXQUBITS qubits.
+ * Input:
+ *      -
+ * Output:
+ *      There is no return value. Only checks whether the test and the reference results are equal to some precision for
+ *      an observable which is a linear combination of all possible Pauli strings.
+*/
+//void testexpValObs(void) {
+//    state_t testState;          // State equipped with the test statevectors
+//
+//    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+//
+//        dim_t dim = POW2(qubits, dim_t);                        // Hilbert space dimension
+//        cplx_t** testVectors = generateTestVectors(qubits);     // Statevectors altered by the test function
+//        cplx_t** refVectors = generateTestVectors(qubits);      // Statevectors altered by matrix multiplication
+//        // (reference)
+//        pauliObs_t obs;                                         // Declare the observable
+//        pauli_t* comps = allPauliStrings(qubits);               // Concatenation of all Pauli strings
+//        obs.components = comps;
+//        obs.coefficients = coeffs;
+//        complength_t length = (1 << (2 * qubits));
+//        obs.length = length;
+//        obs.qubits = qubits;
+//
+//        /* Compute the observable's matrix representation */
+//        cplx_t* evoMatrix = expTrotterizedPauliObservableMat(comps, coeffs, length, angle[0], qubits);
+//
+//        for (dim_t i = 0; i < dim + 1; ++i) {
+//            stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
+//            /* Apply test function */
+//            evolveWithTrotterizedObservablePauli(&testState, &obs, angle[0]);// Apply test function
+//
+//            cmatVecMulInPlace(evoMatrix, refVectors[i], dim);        // Multiply reference vector with matrix in
+//            // place
+//
+//            TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+//        }
+//    }
+//}
 
 void testExpValObs(void){
 
