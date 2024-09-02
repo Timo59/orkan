@@ -225,9 +225,8 @@ void applyOperatorPauli(state_t* state, const pauliOp_t* op) {
 void applyObservablePauli(state_t* state, const pauliObs_t* observable) {
     state_t tmp;                                        // temporary vector to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
-    state_t tmpSum;                                     // temporary vector holding each intermediate sum of altered input
-                                                        // vectors
-    stateInitEmpty(&tmpSum, state->qubits);     // initialize tmpSum's statevector to all zeros
+    /* temporary vector holding each intermediate sum of altered input vectors */
+    cplx_t* tmpSum = calloc(state->dimension, sizeof(cplx_t));
 
     for (complength_t i = 0; i < observable->length; ++i) {
         /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
@@ -236,20 +235,20 @@ void applyObservablePauli(state_t* state, const pauliObs_t* observable) {
         stateCopyVector(&tmp, state->vector);
         applyPauliString(&tmp, observable->components + (i * observable->qubits));
         cscalarVecMulInPlace((cplx_t) observable->coefficients[i], tmp.vector, state->dimension);
-        cvecAddInPlace(tmpSum.vector, tmp.vector, state->dimension);
+        cvecAddInPlace(tmpSum, tmp.vector, state->dimension);
     }
     stateFreeVector(&tmp);
-    stateFreeVector(state);
-    state->vector = tmpSum.vector;
+    stateCopyVector(state, tmpSum);
+    free(tmpSum);
 }
 
 void applyObservablePauliBlas(state_t* state, const pauliObs_t* observable) {
     __LAPACK_int N = (__LAPACK_int) state->dimension;
     state_t tmp;                                        // temporary vector to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
-    state_t tmpSum;                                     // temporary vector holding each intermediate sum of altered input
-                                                        // vectors
-    stateInitEmpty(&tmpSum, state->qubits);     // initialize tmpSum's statevector to all zeros
+    /* temporary vector holding each intermediate sum of altered input vectors */
+    cplx_t* tmpSum = calloc(state->dimension, sizeof(cplx_t));
+
 
     for (complength_t i = 0; i < observable->length; ++i) {
         /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
@@ -258,33 +257,71 @@ void applyObservablePauliBlas(state_t* state, const pauliObs_t* observable) {
         cblas_zcopy(N, state->vector, 1, tmp.vector, 1);
         applyPauliString(&tmp, observable->components + (i * observable->qubits));
         __LAPACK_double_complex alpha = observable->coefficients[i];
-        cblas_zaxpy(N, &alpha, tmp.vector, 1, tmpSum.vector, 1);
+        cblas_zaxpy(N, &alpha, tmp.vector, 1, tmpSum, 1);
     }
     stateFreeVector(&tmp);
-    stateFreeVector(state);
-    state->vector = tmpSum.vector;
+    cblas_zcopy(N, tmpSum, 1, state->vector, 1);
+    free(tmpSum);
 }
 
 void applyObservablePauliOmp(state_t* state, const pauliObs_t* observable) {
     state_t tmp;                                        // temporary vector to apply each Pauli string to
-    stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
-    state_t tmpSum;                                     // temporary vector holding each intermediate sum of altered input
-    // vectors
-    stateInitEmpty(&tmpSum, state->qubits);     // initialize tmpSum's statevector to all zeros
+    /* temporary vector holding each intermediate sum of altered input vectors */
+    cplx_t* tmpSum = calloc(state->dimension, sizeof(cplx_t));
 
-# pragma omp parallel for default(none) private(tmp) shared(observable, state, tmpSum)
-    for (complength_t i = 0; i < observable->length; ++i) {
-        /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
-         * Pauli string's coefficient. Add the result to the temporary sum vector.
-         */
-        stateCopyVector(&tmp, state->vector);
-        applyPauliString(&tmp, observable->components + (i * observable->qubits));
-        cscalarVecMulInPlace((cplx_t) observable->coefficients[i], tmp.vector, state->dimension);
-        cvecAddInPlace(tmpSum.vector, tmp.vector, state->dimension);
+# pragma omp parallel default(none) private(tmp) shared(observable, state, tmpSum)
+    {
+#pragma omp for
+        for (complength_t i = 0; i < observable->length; ++i) {
+            /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
+             * Pauli string's coefficient. Add the result to the temporary sum vector.
+             */
+            stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
+            stateCopyVector(&tmp, state->vector);
+            applyPauliString(&tmp, observable->components + (i * observable->qubits));
+            cscalarVecMulInPlace((cplx_t) observable->coefficients[i], tmp.vector, state->dimension);
+
+#pragma omp critical(sum)
+            {
+                cvecAddInPlace(tmpSum, tmp.vector, state->dimension);
+            }
+            stateFreeVector(&tmp);
+        }
+
     }
-    stateFreeVector(&tmp);
-    stateFreeVector(state);
-    state->vector = tmpSum.vector;
+    stateCopyVector(state, tmpSum);
+    free(tmpSum);
+}
+
+void applyObservablePauliOmp_blas(state_t* state, const pauliObs_t* observable) {
+    __LAPACK_int N = (__LAPACK_int) state->dimension;
+    state_t tmp;                                        // temporary vector to apply each Pauli string to
+    /* temporary vector holding each intermediate sum of altered input vectors */
+    cplx_t* tmpSum = calloc(state->dimension, sizeof(cplx_t));
+
+# pragma omp parallel default(none) private(tmp) shared(N, observable, state, tmpSum)
+    {
+#pragma omp for
+        for (complength_t i = 0; i < observable->length; ++i) {
+            /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
+             * Pauli string's coefficient. Add the result to the temporary sum vector.
+             */
+            stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
+            cblas_zcopy(N, state->vector, 1, tmp.vector, 1);
+            applyPauliString(&tmp, observable->components + (i * observable->qubits));
+            __LAPACK_double_complex alpha = observable->coefficients[i];
+
+
+#pragma omp critical(sum)
+            {
+                cblas_zaxpy(N, &alpha, tmp.vector, 1, tmpSum, 1);
+            }
+            stateFreeVector(&tmp);
+        }
+
+    }
+    cblas_zcopy(N, tmpSum, 1, state->vector, 1);
+    free(tmpSum);
 }
 
 /*
@@ -315,5 +352,14 @@ void evolveWithTrotterizedObservablePauli(state_t* state, const pauliObs_t* obse
     for (complength_t i = 0; i < observable->length; ++i) {
         evolveWithPauliString(state, observable->components + (i * observable->qubits), \
                               angle * observable->coefficients[i]);
+    }
+}
+
+void evolveWithTrotterizedObservablePauliDagger(state_t* state, const pauliObs_t* observable, \
+                                          double angle) {
+    for (complength_t i = 0; i < observable->length; ++i) {
+        evolveWithPauliString(state,
+                              observable->components + ((observable->length - i - 1) * observable->qubits),
+                              -angle * observable->coefficients[observable->length - i - 1]);
     }
 }

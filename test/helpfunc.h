@@ -1054,8 +1054,9 @@ cplx_t* expTrotterizedPauliObservableMat(const pauli_t components[], const doubl
 
     for (complength_t i = 0; i < length; ++i)
     {
-        tmp = expPauliStringMat(components + (i * qubits), \
-                                coefficients[i] * angle, qubits);
+        tmp = expPauliStringMat(components + ((length - i - 1) * qubits),
+                                coefficients[length - i - 1] * angle,
+                                qubits);
         cmatMulInPlace(result, tmp, dim);
     }
 
