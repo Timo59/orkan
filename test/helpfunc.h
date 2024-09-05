@@ -242,6 +242,18 @@ pauli_t* allPauliStrings(qubit_t qubits) {
     return result;
 }
 
+pauli_t* allPauliStringsDiag(qubit_t qubits) {
+    dim_t stringc =  (1 << qubits);
+    pauli_t* result = calloc(qubits * stringc, sizeof(pauli_t));
+
+    for (dim_t i = 1; i < stringc; ++i) {
+        for (qubit_t j = 0; j < qubits; ++j) {
+            result[i * qubits + j] = (i / (1 << j)) % 2;
+        }
+    }
+    return result;
+}
+
 /*
 This function computes the matrix of applying one single qubit gate to the qubit at position in a
 system of qubits qubits.

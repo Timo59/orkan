@@ -101,21 +101,22 @@ void testApplyObservablePauli(void) {
 
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
-            applyObservablePauliOmp(&testState, &obs);                 // Apply test function
+            applyObservablePauliOmp_blas(&testState, &obs);                 // Apply test function
 
             cmatVecMulInPlace(obsMatrix, refVectors[i],dim);        // Multiply reference vector with matrix in
-                                                                    // place
-
+                                                                        // place
             TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+
+            stateFreeVector(&testState);
         }
 
         freeTestVectors(refVectors, qubits);
         refVectors = NULL;
-        freeTestVectors(testVectors, qubits);
-        testVectors = NULL;
+        free(testVectors);
 
         free(comps);
         comps = NULL;
+        free(obsMatrix);
     }
 }
 
@@ -142,15 +143,15 @@ void testEvolveWithPauliString(void) {
     for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
 
         dim_t dim = POW2(qubits, dim_t);                        // Hilbert space dimension
-        cplx_t** testVectors = generateTestVectors(qubits);     // Statevectors altered by the test function
-        cplx_t** refVectors = generateTestVectors(qubits);      // Statevectors altered by matrix multiplication
-                                                                // (reference)
         dim_t stringc = (1 << (2 * qubits));                    // Number of Pauli strings for qubits
         pauli_t* strings = allPauliStrings(qubits);             // Concatenation of all Pauli strings
 
         for (dim_t i = 0; i < stringc; ++i) {
+            cplx_t** testVectors = generateTestVectors(qubits);     // Statevectors altered by the test function
+            cplx_t** refVectors = generateTestVectors(qubits);      // Statevectors altered by matrix multiplication
+                                                                    // (reference)
             /* Compute the observable's matrix representation */
-            cplx_t *evoMatrix = expPauliStringMat(strings + i, coeffs[i], qubits);
+            cplx_t* evoMatrix = expPauliStringMat(strings + i, coeffs[i], qubits);
 
             for (dim_t j = 0; j < dim + 1; ++j) {
                 stateInitVector(&testState, testVectors[j], qubits);        // Initialize test state
@@ -164,13 +165,15 @@ void testEvolveWithPauliString(void) {
                 evolveWithPauliString(&testState, strings + i, -coeffs[i]); // Reverse test function
 
                 TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[j], testState.vector, dim, PRECISION));
-            }
-        }
 
-        freeTestVectors(refVectors, qubits);
-        refVectors = NULL;
-        freeTestVectors(testVectors, qubits);
-        testVectors = NULL;
+                stateFreeVector(&testState);
+            }
+            freeTestVectors(refVectors, qubits);
+            free(testVectors);
+
+            free(evoMatrix);
+            evoMatrix = NULL;
+        }
 
         free(strings);
         strings = NULL;
@@ -228,15 +231,17 @@ void testEvolveWithTrotterizedObservablePauli(void) {
             evolveWithTrotterizedObservablePauliDagger(&testState, &obs, angle[0]);
 
             TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+
+            stateFreeVector(&testState);
         }
 
         freeTestVectors(refVectors, qubits);
         refVectors = NULL;
-        freeTestVectors(testVectors, qubits);
-        testVectors = NULL;
+        free(testVectors);
 
         free(comps);
         comps = NULL;
+        free(evoMatrix);
     }
 }
 
