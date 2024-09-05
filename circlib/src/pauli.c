@@ -238,8 +238,8 @@ void applyObservablePauli(state_t* state, const pauliObs_t* observable) {
         cvecAddInPlace(tmpSum, tmp.vector, state->dimension);
     }
     stateFreeVector(&tmp);
-    stateCopyVector(state, tmpSum);
-    free(tmpSum);
+    stateFreeVector(state);
+    state->vector = tmpSum;
 }
 
 void applyObservablePauliBlas(state_t* state, const pauliObs_t* observable) {
@@ -260,8 +260,8 @@ void applyObservablePauliBlas(state_t* state, const pauliObs_t* observable) {
         cblas_zaxpy(N, &alpha, tmp.vector, 1, tmpSum, 1);
     }
     stateFreeVector(&tmp);
-    cblas_zcopy(N, tmpSum, 1, state->vector, 1);
-    free(tmpSum);
+    stateFreeVector(state);
+    state->vector = tmpSum;
 }
 
 void applyObservablePauliOmp(state_t* state, const pauliObs_t* observable) {
@@ -289,8 +289,8 @@ void applyObservablePauliOmp(state_t* state, const pauliObs_t* observable) {
         }
 
     }
-    stateCopyVector(state, tmpSum);
-    free(tmpSum);
+    stateFreeVector(state);
+    state->vector = tmpSum;
 }
 
 void applyObservablePauliOmp_blas(state_t* state, const pauliObs_t* observable) {
@@ -320,8 +320,8 @@ void applyObservablePauliOmp_blas(state_t* state, const pauliObs_t* observable) 
         }
 
     }
-    cblas_zcopy(N, tmpSum, 1, state->vector, 1);
-    free(tmpSum);
+    stateFreeVector(state);
+    state->vector = tmpSum;
 }
 
 /*

@@ -330,6 +330,7 @@ void cmatVecMulInPlace(const cplx_t a[], cplx_t v[], dim_t dim) {
             v[i] += a[i * dim + j] * tmp[j];
         }
     }
+    free(tmp);
 }
 
 /*
