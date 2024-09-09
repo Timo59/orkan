@@ -15,7 +15,7 @@
 void applyOperator(state_t* state, const op_t* op) {
     switch(op->type) {
         case DIAG: {
-            applyOperatorDiag(state, op->diagOp);
+            applyOpDiag(state, op->diagOp);
             break;
         }
         case PAULI: {
@@ -81,9 +81,9 @@ void evolveWithTrotterizedObservable(state_t* state, const obs_t* observable, do
  * =====================================================================================================================
  */
 
-void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], depth_t circdepth) {
+void applyPQC(state_t* state, const double par[], const obs_t* evoOps[], depth_t circdepth) {
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(state, evoOps[i], params[i]);
+        evolveWithTrotterizedObservable(state, evoOps[i], par[i]);
     }
 }
 

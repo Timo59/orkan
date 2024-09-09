@@ -204,8 +204,8 @@ double expValObs(const state_t* state, const obs_t* observable) {
  * Output:
  *      Expected value of the observable on the parametrized quantum circuit.
  */
-double expValObsPauliPQC(const state_t* state, const double params[], const pauliObs_t* observable, \
-                         const obs_t* evoOps[], depth_t circdepth) {
+double expValObsPqcPauli(const state_t* state, const double par[], const pauliObs_t* observable, \
+                         const obs_t *evoOps[], depth_t circdepth) {
     state_t bra;                    // state, initialized to the input state and evolved with the PQC
     state_t ket;                    // state, initialized to the input state and evolved with the PQC, the observable's
                                     // components acts on
@@ -220,7 +220,7 @@ double expValObsPauliPQC(const state_t* state, const double params[], const paul
     stateCopyVector(&bra, state->vector);
 
     /* Evolve the designated bra with the PQC */
-    applyPQC(&bra, params, evoOps, circdepth);
+    applyPQC(&bra, par, evoOps, circdepth);
 
     /* For each component of the observable: Copy evolved input state's vector (stored in bra) to ket, apply component
      * to ket, store the inner product of bra and ket to tmp and add real part of this mean value weighted by the
@@ -252,8 +252,8 @@ double expValObsPauliPQC(const state_t* state, const double params[], const paul
  * Output:
  *      Expected value of the observable on the parametrized quantum circuit.
  */
-double expValObsDiagPQC(const state_t* state, const double params[], const double observable[], \
-                        const obs_t* evoOps[], depth_t circdepth) {
+double expValObsPqcDiag(const state_t* state, const double par[], const double observable[], \
+                        const obs_t *evoOps[], depth_t circdepth) {
     state_t tmp;                    // temporary state holding the evolved input state
 
     register double result = 0;     // double holding the result
@@ -263,7 +263,7 @@ double expValObsDiagPQC(const state_t* state, const double params[], const doubl
     stateCopyVector(&tmp, state->vector);
 
     /* Evolve temporary state with the PQC */
-    applyPQC(&tmp, params, evoOps, circdepth);
+    applyPQC(&tmp, par, evoOps, circdepth);
 
     /* For each of the evolved state vector's entries: Multiply its absolute square with the corresponding observable's
      * diagonal entry and add this to the result. */
@@ -291,15 +291,15 @@ double expValObsDiagPQC(const state_t* state, const double params[], const doubl
  * Output:
  *      Expected value of the observable on the parametrized quantum circuit.
  */
-double expValObsPQC(const state_t* state, const double params[], const obs_t* observable, \
+double expValObsPQC(const state_t* state, const double par[], const obs_t* observable, \
                     const obs_t* evoOps[], depth_t circdepth) {
     /* Depending on the type of the observable, calls either function returning the expected value */
     switch(observable->type) {
         case DIAG: {
-            return expValObsDiagPQC(state, params, observable->diagObs, evoOps, circdepth);
+            return expValObsPqcDiag(state, par, observable->diagObs, evoOps, circdepth);
         }
         case PAULI: {
-            return expValObsPauliPQC(state, params, observable->pauliObs, evoOps, circdepth);
+            return expValObsPqcPauli(state, par, observable->pauliObs, evoOps, circdepth);
         }
         default: {
             perror("Error in applyOperator: Invalid operator type");
