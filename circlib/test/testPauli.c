@@ -6,8 +6,6 @@
 
 #include "helpfunc.h"
 #include "pauli.h"
-#include "cplxutil.h"
-#include "linalg.h"
 #include "unity.h"
 
 
@@ -81,6 +79,7 @@ void tearDown(void) {}
 
 void testApplyObservablePauli(void) {
     state_t testState;          // State equipped with the test statevectors
+    pauliObs_t obs;
 
     for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
 
@@ -88,7 +87,7 @@ void testApplyObservablePauli(void) {
         cplx_t** testVectors = generateTestVectors(qubits);     // Statevectors altered by the test function
         cplx_t** refVectors = generateTestVectors(qubits);      // Statevectors altered by matrix multiplication
                                                                 // (reference)
-        pauliObs_t obs;                                         // Declare the observable
+
         pauli_t* comps = allPauliStrings(qubits);               // Concatenation of all Pauli strings
         obs.components = comps;
         obs.coefficients = coeffs;

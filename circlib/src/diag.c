@@ -12,7 +12,7 @@
  * =================================================================================================
  */
 
-void applyOperatorDiag(state_t* state, const cplx_t op[]) {
+void applyOpDiag(state_t* state, const cplx_t op[]) {
     for (dim_t i = 0; i < state->dimension; ++i) {
         state->vector[i] *= op[i];
     }

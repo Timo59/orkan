@@ -59,11 +59,11 @@ double expValObs(const state_t* state, const obs_t* observable);
  * =====================================================================================================================
  */
 
-double expValObsPauliPQC(const state_t* state, const double params[], const pauliObs_t* observable, \
-                         const obs_t* evoOps[], depth_t circdepth);
+double expValObsPqcPauli(const state_t* state, const double par[], const pauliObs_t* observable, \
+                         const obs_t *evoOps[], depth_t circdepth);
 
-double expValObsDiagPQC(const state_t* state, const double params[], const double observable[], \
-                        const obs_t* evoOps[], depth_t circdepth);
+double expValObsPqcDiag(const state_t* state, const double par[], const double observable[], \
+                        const obs_t *evoOps[], depth_t circdepth);
 
 double expValObsPQC(const state_t* state, const double params[], const obs_t* observable, \
                     const obs_t* evoOps[], depth_t circdepth);

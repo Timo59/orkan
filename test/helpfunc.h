@@ -248,7 +248,7 @@ pauli_t* allPauliStringsDiag(qubit_t qubits) {
 
     for (dim_t i = 1; i < stringc; ++i) {
         for (qubit_t j = 0; j < qubits; ++j) {
-            result[i * qubits + j] = (i / (1 << j)) % 2;
+            result[i * qubits + j] = 3 * ((i / (1 << j)) % 2);
         }
     }
     return result;
@@ -1056,8 +1056,11 @@ cplx_t* expPauliStringMat(const pauli_t paulistr[], double angle, qubit_t qubits
     return result;
 }
 
-cplx_t* expTrotterizedPauliObservableMat(const pauli_t components[], const double coefficients[], \
-                                         complength_t length, double angle, qubit_t qubits) {
+cplx_t* expTrotterizedPauliObservableMat(const pauli_t components[],
+                                         const double coefficients[],
+                                         complength_t length,
+                                         double angle,
+                                         qubit_t qubits) {
     dim_t dim = POW2(qubits, dim_t);
 
     cplx_t* result = identityMat(qubits);
@@ -1079,9 +1082,17 @@ cplx_t* expTrotterizedPauliObservableMat(const pauli_t components[], const doubl
  * Finite difference methods
  */
 
-double finiteExpValPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_t circdepth, \
-                          pauli_t* compObs, double* coeffObs, complength_t lengthObs, \
-                          pauli_t* compEvoOps, double* coeffEvoOps, complength_t lengthEvoOps, double* parameters
+double finiteExpValPQC(cplx_t* statevector,
+                       qubit_t qubits,
+                       dim_t dim,
+                       depth_t circdepth,
+                       pauli_t* compObs,
+                       double* coeffObs,
+                       complength_t lengthObs,
+                       pauli_t* compEvoOps,
+                       double* coeffEvoOps,
+                       complength_t lengthEvoOps,
+                       double* par
                        ) {
     /*
      * 1. Calculate the observable's matrix
@@ -1093,10 +1104,11 @@ double finiteExpValPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_t c
      */
     cplx_t** evoOpsMat = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOpsMat[i] = expTrotterizedPauliObservableMat(compEvoOps, \
-                                                            coeffEvoOps + (i * lengthEvoOps), \
-                                                            lengthEvoOps, \
-                                                            parameters[i], qubits);
+        evoOpsMat[i] = expTrotterizedPauliObservableMat(compEvoOps,
+                                                        coeffEvoOps + (i * lengthEvoOps),
+                                                        lengthEvoOps,
+                                                        par[i],
+                                                        qubits);
     }
 
     /*
@@ -1121,6 +1133,7 @@ double finiteExpValPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_t c
 
     free(bra);
     free(ket);
+    free(observableMat);
     for (depth_t i = 0; i < circdepth; ++i) {
         free(evoOpsMat[i]);
     }
