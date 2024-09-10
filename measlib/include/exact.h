@@ -76,7 +76,7 @@ double expValObsPQC(const state_t* state, const double params[], const obs_t* ob
 double* gradientPQC(const state_t* state, const double params[], const obs_t* observable, \
                    const obs_t* evoOps[], depth_t circdepth);
 
-double* approxGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
+double* approxGradientPQC(const state_t* state, const double par[], const obs_t* observable, \
                                const obs_t* evoOps[], depth_t circdepth, double epsilon);
 
 /*

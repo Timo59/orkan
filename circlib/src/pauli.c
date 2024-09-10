@@ -331,7 +331,10 @@ void applyObservablePauliOmp_blas(state_t* state, const pauliObs_t* observable) 
  *      state_t* state: State to be evolved
  *      pauli_t paulistr[]:
  */
-void evolveWithPauliString(state_t* state, const pauli_t paulistr[], double angle) {
+void evolveWithPauliString(state_t* state,
+                           const pauli_t paulistr[],
+                           double angle)
+{
     cplx_t* tmpVector = (cplx_t*) malloc(sizeof(cplx_t) * state->dimension);
 
     for (dim_t entry = 0; entry < state->dimension; ++entry) {
@@ -347,7 +350,8 @@ void evolveWithPauliString(state_t* state, const pauli_t paulistr[], double angl
     free(tmpVector);
 }
 
-void evolveWithTrotterizedObservablePauli(state_t* state, const pauliObs_t* observable, \
+void evolveWithTrotterizedObservablePauli(state_t* state,
+                                          const pauliObs_t* observable, \
                                           double angle) {
     for (complength_t i = 0; i < observable->length; ++i) {
         evolveWithPauliString(state, observable->components + (i * observable->qubits), \
