@@ -195,7 +195,7 @@ double expValObs(const state_t* state, const obs_t* observable) {
  * This function returns the expected value of a Pauli observable on a state evolved with a PQC.
  *
  * Input:
- *      state_t* state:             Initial state of a qubit system
+ *      state_t* state:             Initial state of the qubit system
  *      double params[]:            Array of evolution parameters for the PQC
  *      pauliObs_t* observable:     Observable as a sum of Paulis strings
  *      obs_t* evoOps[]:            Array of hermitian evolution operators
@@ -204,8 +204,12 @@ double expValObs(const state_t* state, const obs_t* observable) {
  * Output:
  *      Expected value of the observable on the parametrized quantum circuit.
  */
-double expValObsPqcPauli(const state_t* state, const double par[], const pauliObs_t* observable, \
-                         const obs_t *evoOps[], depth_t circdepth) {
+double expValObsPqcPauli(const state_t* state,
+                         const double par[],
+                         const pauliObs_t* observable,
+                         const obs_t *evoOps[],
+                         depth_t circdepth)
+{
     state_t bra;                    // state, initialized to the input state and evolved with the PQC
     state_t ket;                    // state, initialized to the input state and evolved with the PQC, the observable's
                                     // components acts on
@@ -252,8 +256,12 @@ double expValObsPqcPauli(const state_t* state, const double par[], const pauliOb
  * Output:
  *      Expected value of the observable on the parametrized quantum circuit.
  */
-double expValObsPqcDiag(const state_t* state, const double par[], const double observable[], \
-                        const obs_t *evoOps[], depth_t circdepth) {
+double expValObsPqcDiag(const state_t* state,
+                        const double par[],
+                        const double observable[],
+                        const obs_t *evoOps[],
+                        depth_t circdepth)
+{
     state_t tmp;                    // temporary state holding the evolved input state
 
     register double result = 0;     // double holding the result
@@ -291,8 +299,12 @@ double expValObsPqcDiag(const state_t* state, const double par[], const double o
  * Output:
  *      Expected value of the observable on the parametrized quantum circuit.
  */
-double expValObsPQC(const state_t* state, const double par[], const obs_t* observable, \
-                    const obs_t* evoOps[], depth_t circdepth) {
+double expValObsPQC(const state_t* state,
+                    const double par[],
+                    const obs_t* observable,
+                    const obs_t* evoOps[],
+                    depth_t circdepth)
+{
     /* Depending on the type of the observable, calls either function returning the expected value */
     switch(observable->type) {
         case DIAG: {
@@ -319,7 +331,7 @@ double expValObsPQC(const state_t* state, const double par[], const obs_t* obser
  *
  * Input:
  *      state_t* state:         Initial state of a qubit system
- *      double params[]:        Array of evolution parameters for the PQC
+ *      double par[]:           Array of evolution parameters for the PQC
  *      obs_t* observable:      Observable with a type union
  *      obs_t* evoOps[]:        Array of hermitian evolution operators
  *      depth_t circdepth:      Number of evolution operators in the PQC
@@ -328,8 +340,12 @@ double expValObsPQC(const state_t* state, const double par[], const obs_t* obser
  *      Gradient of the observable's expected value on the parametrized quantum circuit wrt the evolution parameters at
  *      the current point in parameter space.
  */
-double* gradientPQC(const state_t* state, const double params[], const obs_t* observable, \
-                    const obs_t* evoOps[], depth_t circdepth) {
+double* gradientPQC(const state_t* state,
+                    const double par[],
+                    const obs_t* observable,
+                    const obs_t* evoOps[],
+                    depth_t circdepth)
+{
     state_t bra;        // state, initialized to the input state, evolved with all evolution operators and acted on with
                         // the observable
 
@@ -351,7 +367,7 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
 
     /* Evolve bra with all evolutional operators and apply the observable to it */
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(&bra, evoOps[i], params[i]);
+        evolveWithTrotterizedObservable(&bra, evoOps[i], par[i]);
     }
     applyObservable(&bra, observable);
 
@@ -360,13 +376,13 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
      * ket. Evolve ket with all remaining evolution operators and store the imaginary part of its overlap with bra to
      * the k-th entry of the gradient array. */
     for (depth_t k = 0; k < circdepth; ++k) {
-        evolveWithTrotterizedObservable(&tmp, evoOps[k], params[k]);
+        evolveWithTrotterizedObservable(&tmp, evoOps[k], par[k]);
 
         stateCopyVector(&ket, tmp.vector);
         applyObservable(&ket, evoOps[k]);
 
         for (depth_t l = k + 1; l < circdepth; ++l) {
-            evolveWithTrotterizedObservable(&ket, evoOps[l], params[l]);
+            evolveWithTrotterizedObservable(&ket, evoOps[l], par[l]);
         }
 
         result[k] = 2 * cimag(stateOverlap(&bra, &ket));
@@ -385,7 +401,7 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
  *
  * Input:
  *      state_t* state:         Initial state of a qubit system
- *      double params[]:        Array of evolution parameters for the PQC
+ *      double par[]:           Array of evolution parameters for the PQC
  *      obs_t* observable:      Observable with a type union
  *      obs_t* evoOps[]:        Array of hermitian evolution operators
  *      depth_t circdepth:      Number of evolution operators in the PQC
@@ -395,30 +411,34 @@ double* gradientPQC(const state_t* state, const double params[], const obs_t* ob
  *      Gradient of the observable's expected value on the parametrized quantum circuit wrt the evolution parameters at
  *      the current point in parameter space using a finite difference method.
  */
-double* approxGradientPQC(const state_t* state, const double params[], const obs_t* observable, \
-                               const obs_t* evoOps[], depth_t circdepth, double epsilon) {
-
+double* approxGradientPQC(const state_t* state,
+                          const double par[],
+                          const obs_t* observable,
+                          const obs_t* evoOps[],
+                          depth_t circdepth,
+                          double epsilon)
+{
     double* result = (double*) malloc(circdepth * sizeof(double));
 
     /* Create a copy of the array holding the parameter values */
-    double* tmp_params = malloc(circdepth * sizeof(double ));
+    double* tmpPar = malloc(circdepth * sizeof(double));
     for (depth_t i = 0; i < circdepth; ++i) {
-        tmp_params[i] = params[i];
+        tmpPar[i] = par[i];
     }
 
     /* Calculate the mean value of the current parameter setting from all entries of the gradient */
-    double mean = expValObsPQC(state, params, observable, evoOps, circdepth);
+    double mean = expValObsPQC(state, par, observable, evoOps, circdepth);
 
     /* For each direction in parameter space, shift the parameter value by epsilon and calculate the slope by the
      * difference method */
     for (depth_t i = 0; i < circdepth; ++i) {
-        tmp_params[i] += epsilon;
-        result[i] = (1./epsilon) * (expValObsPQC(state, tmp_params, observable, evoOps, circdepth) - mean);
-        tmp_params[i] -= epsilon;
+        tmpPar[i] += epsilon;
+        result[i] = (1./epsilon) * (expValObsPQC(state, tmpPar, observable, evoOps, circdepth) - mean);
+        tmpPar[i] -= epsilon;
     }
 
     /* Free the memory allocated to the copy of the parameter array */
-    free(tmp_params);
+    free(tmpPar);
 
     return result;
 }
@@ -646,16 +666,18 @@ double* approxHessianPQC(const state_t* state, const double params[], const obs_
  *  major form in order corresponding to the input array of observables.
  */
 
-cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const obs_t* srchOps[], depth_t matDim, \
-                srchU applyU) {
-
-    /* Set up the array of moment matrices */
-    cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
-    for (depth_t i = 0; i < obsc; ++i) {
+cplx_t** momMat(const state_t* state,
+                const obs_t* obs[],
+                depth_t obsc,
+                const obs_t* srchOps[],
+                depth_t matDim,
+                srchU applyU)
+{
+    cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));            // Array holding as many moment
+    for (depth_t i = 0; i < obsc; ++i) {                                        // matrices as there are observables
         result[i] = (cplx_t*) malloc(matDim * matDim * sizeof(cplx_t));
     }
 
-    /* Initialize the temporary states altered by the unitaries */
     state_t bra;
     stateInitEmpty(&bra, state->qubits);
     state_t ket;

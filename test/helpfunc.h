@@ -4,7 +4,7 @@
  * =================================================================================================
  */
 
-//#include "cplxutil.h"
+#include "cplxutil.h"
 #include "linalg.h"
 #include <stdio.h>
 //#include "unity.h"
@@ -249,6 +249,30 @@ pauli_t* allPauliStringsDiag(qubit_t qubits) {
     for (dim_t i = 1; i < stringc; ++i) {
         for (qubit_t j = 0; j < qubits; ++j) {
             result[i * qubits + j] = 3 * ((i / (1 << j)) % 2);
+        }
+    }
+    return result;
+}
+
+pauli_t* allPauliStringsX(qubit_t qubits) {
+    dim_t stringc =  (1 << qubits);
+    pauli_t* result = calloc(qubits * stringc, sizeof(pauli_t));
+
+    for (dim_t i = 1; i < stringc; ++i) {
+        for (qubit_t j = 0; j < qubits; ++j) {
+            result[i * qubits + j] = (i / (1 << j)) % 2;
+        }
+    }
+    return result;
+}
+
+pauli_t* allPauliStringsY(qubit_t qubits) {
+    dim_t stringc =  (1 << qubits);
+    pauli_t* result = calloc(qubits * stringc, sizeof(pauli_t));
+
+    for (dim_t i = 1; i < stringc; ++i) {
+        for (qubit_t j = 0; j < qubits; ++j) {
+            result[i * qubits + j] = 2 * ((i / (1 << j)) % 2);
         }
     }
     return result;
@@ -897,42 +921,31 @@ cplx_t* doublyControlledGateMat(const cplx_t mat[], qubit_t qubits, qubit_t cont
 }
 
 /*
-This function generates the matrix corresponding to a Pauli string
+ * =====================================================================================================================
+ *                                                  Pauli string matrices
+ * =====================================================================================================================
+ */
 
-Input:
-    const paulistr_t paulistr: user defined struct holding an array of Paulis and the number of
-    qubits they act on
-
-Output:
-    Double complex pointer to the array holding the Kronecker product of single qubit Pauli matrices
-    according to the array stored in paulistr
-*/
+/*
+ * This function returns the matrix representation of a single Pauli string.
+ *
+ * Input:
+ *      pauli_t paulistr[]      Array holding the Pauli string's components
+ *      qubit_t qubits          Number of qubits; i.e., number of components
+ *
+ * Output:
+ *      The Kronecker product of qubit Pauli matrices stored in a dynamical memory block in row major form
+ */
 cplx_t* pauliStringMat(const pauli_t paulistr[], qubit_t qubits) {
-    cplx_t* result = ONE;                                               // double complex pointer
-                                                                        // used to store the final
-                                                                        // Kronecker product of
-                                                                        // of Paulis on the qubits
-
-    cplx_t* tmp;                                                        // double complex pointer
-                                                                        // hodling each intermediate
-                                                                        // Kronecker product of
-                                                                        // Paulis
+    cplx_t* result = ONE;       // Output initialized to the array {1.0+0.0I}
+    cplx_t* tmp;                // Temporary array holding each intermediate Kronecker product
 
     /*
-    Starting at the first position determines which of the Pauli matrices has to contribute to the
-    Kronecker product with the current intermediate matrix stored in result until all qubits are
-    evaluated.
-    */
+     * Iterate through the Pauli string from the right and depending on the Pauli matrix store the current Kronecker
+     * product in tmp.
+     */
     for (qubit_t i = 0; i < qubits; ++i) {
-        /*
-        Case distinction: Which static matrix defined in the beginning has to contribute to the
-        Kronecker product according to paulistr.
-        */
         switch (paulistr[qubits - i - 1]) {
-            /*
-            For each case of a Pauli the Kronecker product of the intermediate matrix with the
-            corresponding Pauli is stored in tmp.
-            */
             case ID: {
                 tmp = ckronecker(result, IDMAT, POW2(i, dim_t), 2);
                 break;
@@ -950,136 +963,150 @@ cplx_t* pauliStringMat(const pauli_t paulistr[], qubit_t qubits) {
                 break;
             }
             default: {
-                printf("Error in constructing Pauli string matrix.\n");     // If the current Pauli
-                                                                            // mentioned in paulistr
-                                                                            // is not one out of the
-                                                                            // above return an error
+                printf("Error in constructing Pauli string matrix.\n");
                 exit(1);
             }
         }
-        /*
-        Except for the first iteration step, result is freed.
-        */
-        if (i != 0) {
-            free(result);                                                   
+
+        if (i != 0) {           // Except for the first iteration(no memory allocated), free the memory allocated for
+            free(result);       // result
         }
-        /*
-        result is now pointing to the same adress tmp is pointing to.
-        */
-        result = tmp;
+        result = tmp;           // Change result's address to that of tmp
     }
     return result;
 }
 
 /*
-This function generates the matrix corresponding to an observable that is a sum of weighted Pauli
-strings
+ * This function returns the matrix representation of an observable built from Pauli strings; i.e., a real linear
+ * combination of Pauli strings.
+ *
+ * Input:
+ *      pauli_t comps[]         Concatenation of the observable's Pauli strings
+ *      double coeffs[]         Array of the coefficients for each observable's Pauli string
+ *      complength_t length     Number of constituents; i.e, number of Pauli strings
+ *      qubit_t qubits          Number of qubits; i.e., number of components for each Pauli string
+ *
+ * Output:
+ *      The sum of Kronecker products of qubit Pauli matrices weighted with their respective coefficients stored in a
+ *      dynamical memory block in row major form
+ */
+cplx_t* pauliObservableMat(const pauli_t comps[], const double coeffs[], complength_t length, qubit_t qubits) {
+    dim_t dim = POW2(qubits, dim_t);                                            // Hilbert space dimension
+    cplx_t* result = (cplx_t*) calloc(dim*dim, sizeof(cplx_t));     // The resulting square matrix
+    cplx_t* tmp;                                                                // Temporary holding each intermediate
 
-Input:
-    const paulistr_t paulistr: user defined struct holding an array of Paulis and the number of
-    qubits they act on
-
-Output:
-    Double complex pointer to the array holding the Kronecker product of single qubit Pauli matrices
-    according to the array stored in paulistr
-*/
-cplx_t* pauliObservableMat(const pauli_t components[], const double coefficients[], complength_t length, qubit_t qubits)
-{
-    dim_t dim = POW2(qubits, dim_t);
-    cplx_t* result = (cplx_t*) calloc(dim*dim, sizeof(cplx_t));
-    cplx_t* tmp;
-
+    /*
+     * Iterate the Pauli strings, create their matrices and add them times the coefficient to the resulting matrix
+     */
     for(complength_t i = 0; i < length; ++i) {
-        tmp = pauliStringMat(components + (i*qubits), qubits);
-        cscalarMatMulInPlace(coefficients[i], tmp, dim);
+        tmp = pauliStringMat(comps + (i * qubits), qubits);
+        cscalarMatMulInPlace(coeffs[i], tmp, dim);
         cmatAddInPlace(result, tmp, dim);
+    }
+
+    free(tmp);
+    return result;
+}
+
+/*
+ * This function returns the diagonal of an observable built only from diagonal Pauli strings; i.e., a real linear
+ * combination of diagonal Pauli strings.
+ *
+ * Input:
+ *      pauli_t comps[]         Concatenation of the observable's Pauli strings
+ *      double coeffs[]         Array of the coefficients for each observable's Pauli string
+ *      complength_t length     Number of constituents; i.e, number of Pauli strings
+ *      qubit_t qubits          Number of qubits; i.e., number of components for each Pauli string
+ *
+ * Output:
+ *      The diagonal entries of the observable matrix generated by pauliObservableMat stored in a
+ *      dynamical memory block
+ */
+double* pauliObservableDiag(const pauli_t comps[], const double coeffs[], complength_t length, qubit_t qubits) {
+    dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+    double* result = (double*) malloc(dim * sizeof(double));        // The resulting array of diagonal entries
+    cplx_t* tmp = pauliObservableMat(comps, coeffs, length, qubits);    // Temporary holding the observable matrix
+
+    for (dim_t i = 0; i <dim; ++i) {                                    // Iterate through diagonal entries and store
+        result[i] = creal(tmp[i*dim + i]);                              // them to result
     }
     free(tmp);
     return result;
 }
 
 /*
- * This function generates an array of the diagonal entries of an observable's matrix representation.
+ * This function returns the matrix representation of the evolution with a Pauli string by an angle.
  *
  * Input:
- *      pauli_t components[]:       Pauli strings corresponding to the observable
- *      double coefficients[]:      Coefficients of the Pauli strings
+ *      pauli_t paulistr[]      Array holding the Pauli string's components
+ *      double angle            Angle of the evolution; i.e., factor in the exponential expression
+ *      qubit_t qubits          Number of qubits; i.e., number of components
  *
+ * Output:
+ *      The matrix exponential of the Pauli string matrix generated by pauliStringMat, calculated with cosine and sine
+ *      since any Pauli string is involutive, stored in a dynamical memory block in row major form
  */
-double* pauliObservableDiag(const pauli_t components[], const double coefficients[], complength_t length, \
-                            qubit_t qubits) {
-    dim_t dim = POW2(qubits, dim_t);
-    double* result = (double*) malloc(dim * sizeof(double));
-    cplx_t* tmp = pauliObservableMat(components, coefficients, length, qubits);
-    for (dim_t i = 0; i <dim; ++i) {
-        result[i] = creal(tmp[i*dim + i]);
-    }
+
+cplx_t* expPauliStringMat(const pauli_t paulistr[], double angle, qubit_t qubits) {
+    dim_t dim = POW2(qubits, dim_t);                            // Hilbert space dimension
+    cplx_t* result = identityMat(qubits);                       // The resulting matrix initialized to the all identity
+                                                                // matrix
+
+    cscalarMatMulInPlace(cos(angle), result, dim);      // Multiply the all identity matrix with cos(angle)
+    cplx_t* tmp = pauliStringMat(paulistr, qubits);             // tmp holds the Pauli string matrix
+    cscalarMatMulInPlace(-I * sin(angle), tmp, dim);    // Multiply the Pauli string matrix by -I * sin(angle)
+    cmatAddInPlace(result, tmp, dim);                   // Add tmp entry-wise to result
+
+    free(tmp);
     return result;
 }
 
 /*
-This function generates the matrix for an evolution of a Pauli string by an angle.
+ * This function returns the matrix representation of the evolution with an observable by an angle in Lie-Trotter
+ * approximation to first order.
+ *
+ * Input:
+ *      pauli_t comps[]         Concatenation of the observable's Pauli strings
+ *      double coeffs[]         Array of the coefficients for each observable's Pauli string
+ *      complength_t length     Number of constituents; i.e, number of Pauli strings
+ *      double angle            Angle of the evolution; i.e., factor in the exponential expression
+ *      qubit_t qubits          Number of qubits; i.e., number of components for each Pauli string
+ *
+ * Output:
+ *      The matrix exponential of the observable times (-I * angle), calculated as the product of matrix exponentials
+ *      from the observable's Pauli strings(assuming they commute) generated by expPauliStringMat, stored in a dynamical
+ *      memory block in row major form
+ */
 
-Input:
-    const paulistr_t paulistr: user defined struct holding an array of Paulis and the number of
-    qubits they act on
-Output:
-    Double complex pointer to an array holding the exponential of a Pauli string times an angle and
-    the imaginary unit. Since any Pauli string is involutive, one computes this as
-    cos(angle) * ID - I * sin(angle) * PauliMat
-*/
-cplx_t* expPauliStringMat(const pauli_t paulistr[], double angle, qubit_t qubits) {
-    dim_t dim = POW2(qubits, dim_t);                    // unsigned integer holding the Hilbert
-                                                        // space's dimension according to the number
-                                                        // of qubits
-
-    cplx_t* result = identityMat(qubits);               // complex double pointer holding the final
-                                                        // evolution matrix, initialised to be the 
-                                                        // identity matrix on the specified number  
-                                                        // of qubits
-
-    cscalarMatMulInPlace(cos(angle), result, dim);      // multiply all entries of the identity 
-                                                        // matrix stored in result by cos(angle)
-
-    cplx_t* tmp = pauliStringMat(paulistr, qubits);     // complex double pointer holding the matrix
-                                                        // corresponding to the Pauli string given 
-                                                        // by paulistr
-
-    cscalarMatMulInPlace(-I * sin(angle), tmp, dim);    // multiply all entries of the combined
-                                                        // Pauli matrix stored in tmp by
-                                                        // -I * sin(angle)
-
-    cmatAddInPlace(result, tmp, dim);                   // add all entries in the result array by 
-                                                        // the entries in tmp
-
-    free(tmp);                                          // free the memory allocated to tmp
-    return result;
-}
-
-cplx_t* expTrotterizedPauliObservableMat(const pauli_t components[],
-                                         const double coefficients[],
+cplx_t* expTrotterizedPauliObservableMat(const pauli_t comps[],
+                                         const double coeffs[],
                                          complength_t length,
                                          double angle,
-                                         qubit_t qubits) {
-    dim_t dim = POW2(qubits, dim_t);
+                                         qubit_t qubits)
+{
+    dim_t dim = POW2(qubits, dim_t);            // Hilbert space dimension
+    cplx_t* result = identityMat(qubits);       // The resulting matrix
+    cplx_t* tmp;                                // Temporary holding each Pauli string's matrix exponential
 
-    cplx_t* result = identityMat(qubits);
-
-    cplx_t* tmp;
-
-    for (complength_t i = 0; i < length; ++i)
-    {
-        tmp = expPauliStringMat(components + ((length - i - 1) * qubits),
-                                coefficients[length - i - 1] * angle,
+    /*
+     * Iterate through the observable's Pauli strings from the right, store their matrix exponential to tmp and multiply
+     * it to the resulting matrix
+     */
+    for (complength_t i = 0; i < length; ++i) {
+        tmp = expPauliStringMat(comps + ((length - i - 1) * qubits),
+                                coeffs[length - i - 1] * angle,
                                 qubits);
         cmatMulInPlace(result, tmp, dim);
+        free(tmp);
     }
 
     return result;
 }
 
 /*
- * Finite difference methods
+ * =====================================================================================================================
+ *                                              Finite difference methods
+ * =====================================================================================================================
  */
 
 double finiteExpValPQC(cplx_t* statevector,
@@ -1142,64 +1169,116 @@ double finiteExpValPQC(cplx_t* statevector,
     return result;
 }
 
-double* finiteGradientPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_t circdepth, \
-                          pauli_t* compObs, double* coeffObs, complength_t lengthObs, \
-                          pauli_t* compEvoOps, double* coeffEvoOps, complength_t lengthEvoOps, double* parameters, \
-                          double epsilon) {
-    double* result = malloc(circdepth * sizeof(double));
-    /*
-     * 1. Calculate the observable's matrix
-     */
-    cplx_t* observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
+double* finiteGradientPQC(cplx_t* statevector,
+                          qubit_t qubits,
+                          dim_t dim,
+                          depth_t circdepth,
+                          pauli_t* compObs,
+                          double* coeffObs,
+                          complength_t lengthObs,
+                          pauli_t* compEvoOps,
+                          double* coeffEvoOps,
+                          complength_t lengthEvoOps,
+                          double* par,
+                          double epsilon)
+{
+    double* result = malloc(circdepth * sizeof(double));    // The resulting array holding the gradients components
+
+    double expVal = finiteExpValPQC(statevector,                // Calculate the obserable's expectation value at the
+                                    qubits,                     // current parameter setting
+                                    dim,
+                                    circdepth,
+                                    compObs,
+                                    coeffObs,
+                                    lengthObs,
+                                    compEvoOps,
+                                    coeffEvoOps,
+                                    lengthEvoOps,
+                                    par);
 
     /*
-     * 2. Calculate the mean value at the current parameter setting
-     */
-    double expVal = finiteExpValPQC(statevector, qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
-                                    compEvoOps, coeffEvoOps, lengthEvoOps, parameters);
-
-    /*
-     * 3. Shift the parameter setting by epsilon in all directions; the difference of the mean and the previous mean
-     * give the finite difference's entry
+     * Iterate the entries of the parameter vector, shift it by epsilon, calculate the observable's expectation value
+     * and enter the difference quotient to result's component
      */
     for (depth_t i = 0; i < circdepth; ++i) {
-        parameters[i] += epsilon;
+        par[i] += epsilon;
 
-        double value = finiteExpValPQC(statevector, qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
-                                       compEvoOps, coeffEvoOps, lengthEvoOps, parameters);
+        double value = finiteExpValPQC(statevector,
+                                       qubits,
+                                       dim,
+                                       circdepth,
+                                       compObs,
+                                       coeffObs,
+                                       lengthObs,
+                                       compEvoOps,
+                                       coeffEvoOps,
+                                       lengthEvoOps,
+                                       par);
 
         result[i] = (1. / epsilon) * (value - expVal);
-        parameters[i] -= epsilon;
+        par[i] -= epsilon;
     }
 
     return result;
 }
 
-double* finiteHessianPQC(cplx_t* statevector, qubit_t qubits, dim_t dim, depth_t circdepth, \
-                         pauli_t* compObs, double* coeffObs, complength_t lengthObs, \
-                         pauli_t* compEvoOps, double* coeffEvoOps, complength_t lengthEvoOps, double* parameters, \
+double* finiteHessianPQC(cplx_t* statevector,
+                         qubit_t qubits,
+                         dim_t dim,
+                         depth_t circdepth,
+                         pauli_t* compObs,
+                         double* coeffObs,
+                         complength_t lengthObs,
+                         pauli_t* compEvoOps,
+                         double* coeffEvoOps,
+                         complength_t lengthEvoOps,
+                         double* par,
                          double epsilon
-                         ) {
+                         )
+{
     double* result = malloc(circdepth*circdepth * sizeof(double));
 
     /*
      * 1. Calculate the gradient at the current parameter setting
      */
-    double* refGradient = finiteGradientPQC(statevector, qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
-                                            compEvoOps, coeffEvoOps, lengthEvoOps, parameters, epsilon);
+    double* refGradient = finiteGradientPQC(statevector,
+                                            qubits,
+                                            dim,
+                                            circdepth,
+                                            compObs,
+                                            coeffObs,
+                                            lengthObs,
+                                            compEvoOps,
+                                            coeffEvoOps,
+                                            lengthEvoOps,
+                                            par,
+                                            epsilon);
 
     /*
      * 2. Shift the parameter setting by epsilon in all directions; the entrywise difference to the prvious gradient
      * gives the corresponding column of the hessian
      */
     for (depth_t i = 0; i < circdepth; ++i) {
-        parameters[i] += epsilon;
-        double* gradient = finiteGradientPQC(statevector, qubits, dim, circdepth, compObs, coeffObs, lengthObs, \
-                                            compEvoOps, coeffEvoOps, lengthEvoOps, parameters, epsilon);
+        par[i] += epsilon;
+        double* gradient = finiteGradientPQC(statevector,
+                                             qubits,
+                                             dim,
+                                             circdepth,
+                                             compObs,
+                                             coeffObs,
+                                             lengthObs,
+                                             compEvoOps,
+                                             coeffEvoOps,
+                                             lengthEvoOps,
+                                             par,
+                                             epsilon);
+
         for (depth_t j = 0; j < circdepth; ++j) {
-            result[j*circdepth + i] = (1./epsilon) * (gradient[j] - refGradient[j]);
+            result[j * circdepth + i] = (1. / epsilon) * (gradient[j] - refGradient[j]);
         }
-        parameters[i] -= epsilon;
+        par[i] -= epsilon;
+        free(gradient);
     }
+    free(refGradient);
     return result;
 }

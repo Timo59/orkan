@@ -108,8 +108,7 @@ add_executable(${measlibTest}
 
 target_compile_options(${measlibTest} PRIVATE
         -Xpreprocessor
-        -fopenmp
-        -O3)
+        -fopenmp)
 
 target_include_directories(${measlibTest} PRIVATE
         test
