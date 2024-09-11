@@ -693,10 +693,8 @@ cplx_t** momMat(const state_t* state,
 
         /* Iterate the moment matrices; copy tmpKet's vector to ket, apply the moment matrix's observable to it and
          * store the real part of the overlap with tmpKet to the moment matrix's diagonal entry */
-        for (depth_t j = 0; j <obsc; ++j) {
-            stateCopyVector(&ket, tmpKet.vector);
-            applyObservable(&ket, obs[j]);
-            result[j][matDim * i + i] = creal(stateOverlap(&tmpKet, &ket));
+        for (depth_t j = 0; j < obsc; ++j) {
+            expValObs(&tmpKet, obs[j]);
         }
 
         /* Iterate the columns' entries of all moment matrices starting at the current column's index; copy the input
@@ -724,7 +722,7 @@ cplx_t** momMat(const state_t* state,
 }
 
 /*
- * This function calculates the moment matrices of a PQC.
+ * This function calculates the moment matrices with respect to the PQC's evolution operators as search unitaries.
  *
  * Input:
  *      state_t* state:         Initial state of a qubit system
@@ -732,13 +730,17 @@ cplx_t** momMat(const state_t* state,
  *      depth_t obsc:           Number of observables to calculate the moment matrix of
  *      obs_t* evoOps[]:       Set of observables generating the search unitaries
  *      depth_t circdepth:      Dimension of the moment matrices; i.e., number of evolution operators in the PQC
- *      double angles[]:        Array of angles in the evolution
+ *      double angles[]:        Array of fixed angles in the evolution
  *
  * Output:
- *  Array of moment matrices with respect to fixed angle evolution unitaries in column major form in order corresponding
- *  to the input array of observables.
+ *  Array of moment matrices with respect to fixed angle evolution unitaries and preceding identity operator in column
+ *  major form in order corresponding to the input array of observables.
  */
-cplx_t** momMatPQC(const state_t* state, const obs_t* obs[], depth_t obsc, const obs_t* evoOps[], depth_t circdepth, \
+cplx_t** momMatPQC(const state_t* state,
+                   const obs_t* obs[],
+                   depth_t obsc,
+                   const obs_t* evoOps[],
+                   depth_t circdepth,
                    double angles[]) {
 
     /* Set up the array of moment matrices */
@@ -779,9 +781,7 @@ cplx_t** momMatPQC(const state_t* state, const obs_t* obs[], depth_t obsc, const
         /* Iterate the moment matrices; copy tmpKet's vector to ket, apply the moment matrix's observable to it and
          * store the real part of the overlap with tmpKet to the moment matrix's diagonal entry */
         for (depth_t j = 0; j < obsc; ++j) {
-            stateCopyVector(&ket, tmpKet.vector);
-            applyObservable(&ket, obs[j]);
-            result[j][(i + 1) * (circdepth + 1) + (i + 1)] = creal(stateOverlap(&tmpKet, &ket));
+            result[j][(i + 1) * (circdepth + 1) + (i + 1)] = expValObs(&tmpKet, obs[j]);
         }
 
         /* Iterate the columns' entries of all moment matrices starting at the current column's index; copy the input
