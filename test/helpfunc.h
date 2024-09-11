@@ -293,12 +293,12 @@ Output:
     with one single qubit gate at the position specified by position.
 
 */
-cplx_t* singleQubitGateMat(const cplx_t mat[], qubit_t qubits, qubit_t position) {
+cplx_t* singleQubitGateMat(const cplx_t mat[], qubit_t qubits, qubit_t pos) {
     /*
     If either no qubits are involved or the position of the affected qubit lies outside the range of
     available qubits, the function terminates with an error message.
     */
-    if (qubits == 0 || position >= qubits) {
+    if (qubits == 0 || pos >= qubits) {
         printf("Couldn't create tensorized single qubit gate!\n");
         return NULL;
     }
@@ -321,7 +321,7 @@ cplx_t* singleQubitGateMat(const cplx_t mat[], qubit_t qubits, qubit_t position)
         the kronecker product of the matrix stored in result with the single qubit gate is computed.
         The output, a pointer to the resulting array, is stored in tmp. 
         */
-        if (i == qubits - position - 1) {
+        if (i == qubits - pos - 1) {
             tmp = ckronecker(result, mat, POW2(i, dim_t), 2);   // kronecker product of the current
                                                                 // result with 2^{i} rows and
                                                                 // columns with the single qubit
@@ -354,31 +354,31 @@ cplx_t* singleQubitGateMat(const cplx_t mat[], qubit_t qubits, qubit_t position)
     return result;
 }
 
-cplx_t* RXGateMat(qubit_t qubits, qubit_t position, double angle) {
+cplx_t* RXGateMat(qubit_t qubits, qubit_t pos, double angle) {
     angle /= 2.;
     cplx_t mat[4] = {cos(angle) + 0.0 * I, \
                      0.0 - sin(angle) * I, \
                      0.0 - sin(angle) * I, \
                      cos(angle) + 0.0 * I};
-    return singleQubitGateMat(mat, qubits, position);
+    return singleQubitGateMat(mat, qubits, pos);
 }
 
-cplx_t* RYGateMat(qubit_t qubits, qubit_t position, double angle) {
+cplx_t* RYGateMat(qubit_t qubits, qubit_t pos, double angle) {
     angle /= 2.;
     cplx_t mat[4] = {cos(angle) + 0.0 * I, \
                      -sin(angle) + 0.0 * I, \
                      sin(angle) + 0.0 * I, \
                      cos(angle) + 0.0 * I};
-    return singleQubitGateMat(mat, qubits, position);
+    return singleQubitGateMat(mat, qubits, pos);
 }
 
-cplx_t* RZGateMat(qubit_t qubits, qubit_t position, double angle) {
+cplx_t* RZGateMat(qubit_t qubits, qubit_t pos, double angle) {
     angle /= 2.;
     cplx_t mat[4] = {cos(angle) - sin(angle) * I, \
                      0.0 + 0.0 * I, \
                      0.0 + 0.0 * I, \
                      cos(angle) + sin(angle) * I};
-    return singleQubitGateMat(mat, qubits, position);
+    return singleQubitGateMat(mat, qubits, pos);
 }
 
 /*
@@ -406,16 +406,10 @@ cplx_t* controlledGateMat(const cplx_t mat[], qubit_t qubits, qubit_t control, q
         return NULL;
     }
 
-    cplx_t* inactiveControl = ONE;      // double complex pointer to the array holding the matrix 
-                                        // corresponding to the case where the control qubit is
-                                        // in the zero state and therefore inactive
-    cplx_t* activeControl = ONE;        // double complex pointer to the array holding the matrix 
-                                        // corresponding to the case where the control qubit is
-                                        // in the one state and therefore active
-    cplx_t* tmpInactive;                // double complex pointer holding the temporary matrix of
-                                        // inactive control qubit
-    cplx_t* tmpActive;                  // double complex pointer holding the temporary matrix of
-                                        // sactive control qubit
+    cplx_t* inactiveControl = ONE;      // Array holding the matrix for control qubit equals 1
+    cplx_t* activeControl = ONE;        // Array holding the matrix for control qubit equals 1
+    cplx_t* tmpInactive;                // Temporary
+    cplx_t* tmpActive;                  // Temporary
 
     /*
     Starting at the leftmost position, identity matrices are appended to Kronecker product of the
