@@ -33,14 +33,14 @@ extern "C" {
  * --------------------
  * Description: This struct represents a multi-qubit pure state.
  * Contents:    
- *      vector:             Vector representation of the state.
- *      qubits:             Number of qubits of the underlying system.
- *      length:             Length of the state's vector representation.
+ *      vec:        Vector representation of the state.
+ *      qubits:     Number of qubits of the underlying system.
+ *      dim:        Length of the state's vector representation.
  */
 typedef struct state {
-    cplx_t* vector;
+    cplx_t* vec;
     qubit_t qubits;
-    dim_t dimension;
+    dim_t dim;
 } state_t;
 
 /*

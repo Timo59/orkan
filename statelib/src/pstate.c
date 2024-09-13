@@ -15,32 +15,32 @@
 
 void stateInitEmpty(state_t* state, qubit_t qubits) {
 	state->qubits = qubits;
-	state->dimension = POW2(qubits, dim_t);
-	state->vector = calloc(state->dimension, sizeof(cplx_t));
+	state->dim = POW2(qubits, dim_t);
+	state->vec = calloc(state->dim, sizeof(cplx_t));
 }
 
 void stateInitZero(state_t* state, qubit_t qubits) {
 	stateInitEmpty(state, qubits);
-	state->vector[0] = 1.0; 
+	state->vec[0] = 1.0;
 }
 
 void stateInitPlus(state_t* state, qubit_t qubits) {
 	stateInitEmpty(state, qubits);
-	double prefactor = 1. / sqrt(state->dimension);
-	for (dim_t i = 0; i < state->dimension; ++i) {
-		state->vector[i] = prefactor;
+	double prefactor = 1. / sqrt(state->dim);
+	for (dim_t i = 0; i < state->dim; ++i) {
+		state->vec[i] = prefactor;
 	}
 }
 
 void stateInitVector(state_t* state, cplx_t vector[], qubit_t qubits) {
 	state->qubits = qubits;
-	state->dimension = POW2(qubits, dim_t);
-	state->vector = vector;
+	state->dim = POW2(qubits, dim_t);
+	state->vec = vector;
 }
 
 void stateCopyVector(state_t* state, const cplx_t vector[]) {
-	for (dim_t i = 0; i < state->dimension; ++i) {
-		state->vector[i] = vector[i];
+	for (dim_t i = 0; i < state->dim; ++i) {
+		state->vec[i] = vector[i];
 	}
 }
 
@@ -51,7 +51,7 @@ void stateCopyVector(state_t* state, const cplx_t vector[]) {
  */
 
 void stateFreeVector(state_t* state) {
-	free(state->vector);
+	free(state->vec);
 }
 
 void stateFree(state_t* state) {
@@ -67,8 +67,8 @@ void stateFree(state_t* state) {
 
 cplx_t stateOverlap(const state_t* state1, const state_t* state2) {
 	cplx_t result = 0;
-	for (dim_t i = 0; i < state1->dimension; ++i) {
-		result += conj(state1->vector[i]) * state2->vector[i];
+	for (dim_t i = 0; i < state1->dim; ++i) {
+		result += conj(state1->vec[i]) * state2->vec[i];
 	}
 	return result;
 }

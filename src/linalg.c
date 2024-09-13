@@ -354,7 +354,7 @@ cplx_t* ckronecker(const cplx_t a[], const cplx_t b[], dim_t dimA, dim_t dimB)
                                                         // of row and column of the kronecker
                                                         // product's entry
 
-    cplx_t* result = (cplx_t*) malloc(((mat_t) dimA) * dimA * dimB * dimB * sizeof(cplx_t));
+    cplx_t* result = malloc(dimA * dimA * dimB * dimB * sizeof(cplx_t));
                                                         // Complex double pointer to a 1d array
                                                         // of the size dimA * dimB * dimA * dimB
                                                         // holding the entries of the kronecker

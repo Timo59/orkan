@@ -13,68 +13,30 @@
  */
 
 /*
-This function executes the Pauli-X gate on a specified qubit whose state along with the other
-qubits' state determine the overall register's pure state.
-
-Input:
-    state_t state: a user defined structure holding the pointer to a double complex valued array
-    corresponding to the state vector, the number of qubits as an unisgned integer of type qubits_t
-    and the Hilbert space dimension aka the number of entries in the state vector as an unsigned
-    integer of type dim_t
-    qubit_t qubit: an unsigned integer holding the qubit's position from the right in a bit string
-    the Pauli-X gate acts on
-
-Output:
-    There is no return value, but the array's elements the pointer in state refers to are exchanged
-    depending on the qubit the Pauli-X gate acts on. The function swaps each entry of the array with
-    the one whose index in bit representation only differs at the position determined by qubit.
-*/
+ * This function executes the Pauli-X gate on a specified qubit of a quantum state in a qubit system
+ *
+ * Input:
+ *      state_t* state:     State of a qubits system
+ *      qubit_t qubit:      Qubit the gate is executed on
+ *
+ * Output:
+ *      There is no return value; the state vector is changed in place.
+ */
 
 void applyX(state_t* state, qubit_t qubit) {
-    dim_t i;                                            // index that determines the starting point
-                                                        // of the inner loop changing only those
-                                                        // bits in the index's binary representation
-                                                        // left to the one specified by qubit
+    dim_t blockDistance = POW2(qubit + 1, dim_t);       // Range of indices whose state vector entries after the
+                                                        // execution of the single qubit gate will be linear
+                                                        // combinations of entries with indices only within the range
+    dim_t flipDistance = POW2(qubit, dim_t);            // Distance of indices whose state vector entries after the
+                                                        // execution of the single qubit gate will be linear
+                                                        // combinations of their entries prior to the execution
 
-    dim_t j;                                            // index that runs within the inner loop
-                                                        // changing only those bits in the index's
-                                                        // binary representationindex right to the
-                                                        // one specified by qubit
-
-    dim_t blockDistance = POW2(qubit + 1, dim_t);       // distance in decimal representation of
-                                                        // blocks within which the swap of two
-                                                        // amplitudes takes place, i.e. encompasses
-                                                        // all qubits to the right of the specified
-                                                        // qubit and the qubit itself
-
-    dim_t flipDistance = POW2(qubit, dim_t);            // distance in decimal representation of 
-                                                        // indices differing only in the value of
-                                                        // the specified qubit
-
-    /*
-    Starting in the first block, i.e., the block where all bits to the left of qubit in binary
-    representation are zero, the integer i for counting the starting index for the block is set to
-    zero. After each block, consisting of 2^{qubit - 1} swaps, is processed, it proceeds with
-    increasing i by 2^{qubit + 1}. This corresponds to gradually increasing the bits in the index's
-    binary representation left to the one specified by qubit while reseting all bits to its right
-    to zero.
-    */
-    for (i = 0; i < state->dimension; i += blockDistance) {
-        /*
-        The inner loop starts with all bits in the index's binary representation right to the one
-        specified by qubit initialized with zero, as handed over by the outer loop. Thereafter j is 
-        increased by one in each iteration until all 2^0 + 2^1 + ... + 2^{qubit-1} = 2^qubit - 1
-        entries are swapped.
-        */
-        for (j = i; j < i + flipDistance; ++j) {
-            /*
-            At each iterational step the value of the j-th entry originating from the pointer stored
-            in state is stored to a temporary double complex variable. Subesequently, one sets the
-            value the j-th entry's pointer holds to be the value of the entry whose index's binary
-            representation only differs in qubit. Finally, the latter pointer is set to the value
-            stored under the temporary and j.
-            */
-            SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {     // Iterate the computational basis states with all zeros
+                                                                // to the right and including the target qubit
+        for (dim_t j = i; j < i + flipDistance; ++j) {              // Iterate the computational basis states whose
+                                                                    // qubits left to and including the target qubit
+                                                                    // are constant
+            SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);      // Swap entry with entry at flipDistance
         }
     }
 }
@@ -83,8 +45,8 @@ void applyXblas(state_t* state, qubit_t qubit) {
     __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
     __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
 
-    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
+    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vec + i, 1, state->vec + (i + flipDistance), 1);
     }
 }
 
@@ -97,7 +59,7 @@ void applyXomp(state_t* state, qubit_t qubit) {
         dim_t left = (i & (~0U << qubit)) << 1;
         dim_t right = i & ~(~0U << qubit);
         dim_t j = (left | right);
-        SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+        SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
     }
 }
 
@@ -106,8 +68,8 @@ void applyXomp_blas(state_t* state, qubit_t qubit) {
     __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
 
 #pragma omp parallel for default(none) shared(blockDistance, flipDistance, qubit, state)
-    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
+    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vec + i, 1, state->vec + (i + flipDistance), 1);
     }
 }
 
@@ -127,7 +89,7 @@ void applyXgcd(state_t* state, qubit_t qubit) {
             dim_t left = (j & (~0U << qubit)) << 1;
             dim_t right = j & ~(~0U << qubit);
             dim_t k = (left | right);
-            SWAP(state->vector + k, state->vector + (k + flipDistance), cplx_t);
+            SWAP(state->vec + k, state->vec + (k + flipDistance), cplx_t);
             ++j;
         }while (j < j_stop);
     });
@@ -138,11 +100,11 @@ void applyXgcd(state_t* state, qubit_t qubit) {
 void applyY(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
-            state->vector[j] *= -I;
-            state->vector[j + flipDistance] *= I;
+            SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
+            state->vec[j] *= -I;
+            state->vec[j + flipDistance] *= I;
         }
     }
 }
@@ -153,10 +115,10 @@ void applyYblas(state_t* state, qubit_t qubit) {
     __LAPACK_double_complex plus = I;
     __LAPACK_double_complex minus = -I;
 
-    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
-        cblas_zscal(flipDistance, &minus, state->vector + i, 1);
-        cblas_zscal(flipDistance, &plus, state->vector + (i + flipDistance), 1);
+    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vec + i, 1, state->vec + (i + flipDistance), 1);
+        cblas_zscal(flipDistance, &minus, state->vec + i, 1);
+        cblas_zscal(flipDistance, &plus, state->vec + (i + flipDistance), 1);
     }
 }
 
@@ -169,9 +131,9 @@ void applyYomp(state_t* state, qubit_t qubit) {
         dim_t left = (i & (~0U << qubit)) << 1;
         dim_t right = i & ~(~0U << qubit);
         dim_t j = (left | right);
-        SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
-        state->vector[j] *= -I;
-        state->vector[j + flipDistance] *= I;
+        SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
+        state->vec[j] *= -I;
+        state->vec[j + flipDistance] *= I;
     }
 }
 
@@ -182,10 +144,10 @@ void applyYomp_blas(state_t* state, qubit_t qubit) {
     __LAPACK_double_complex minus = -I;
 
 #pragma omp parallel for default(none) shared(blockDistance, flipDistance, minus, plus, qubit, state)
-    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vector + i, 1, state->vector + (i + flipDistance), 1);
-        cblas_zscal(flipDistance, &minus, state->vector + i, 1);
-        cblas_zscal(flipDistance, &plus, state->vector + (i + flipDistance), 1);
+    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
+        cblas_zswap(flipDistance, state->vec + i, 1, state->vec + (i + flipDistance), 1);
+        cblas_zscal(flipDistance, &minus, state->vec + i, 1);
+        cblas_zscal(flipDistance, &plus, state->vec + (i + flipDistance), 1);
     }
 }
 
@@ -205,9 +167,9 @@ void applyYgcd(state_t* state, qubit_t qubit) {
             dim_t left = (j & (~0U << qubit)) << 1;
             dim_t right = j & ~(~0U << qubit);
             dim_t k = (left | right);
-            SWAP(state->vector + k, state->vector + (k + flipDistance), cplx_t);
-            state->vector[k] *= -I;
-            state->vector[k + flipDistance] *= I;
+            SWAP(state->vec + k, state->vec + (k + flipDistance), cplx_t);
+            state->vec[k] *= -I;
+            state->vec[k + flipDistance] *= I;
             ++j;
         }while (j < j_stop);
     });
@@ -218,9 +180,9 @@ void applyYgcd(state_t* state, qubit_t qubit) {
 void applyZ(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            state->vector[j + flipDistance] *= -1;
+            state->vec[j + flipDistance] *= -1;
         }
     }
 }
@@ -230,8 +192,8 @@ void applyZblas(state_t* state, qubit_t qubit) {
     __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
     __LAPACK_double_complex minus = -1;
 
-    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
-        cblas_zscal(flipDistance, &minus, state->vector + (i + flipDistance), 1);
+    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
+        cblas_zscal(flipDistance, &minus, state->vec + (i + flipDistance), 1);
     }
 }
 
@@ -245,7 +207,7 @@ void applyZomp(state_t* state, qubit_t qubit) {
         left |= (1 << qubit);
         dim_t right = i & ~(~0U << qubit);
         dim_t j = (left | right);
-        state->vector[j] *= -1;
+        state->vec[j] *= -1;
     }
 }
 
@@ -255,8 +217,8 @@ void applyZomp_blas(state_t* state, qubit_t qubit) {
     __LAPACK_double_complex minus = -1;
 
 #pragma omp parallel for default(none) shared(blockDistance, flipDistance, minus, qubit, state)
-    for (__LAPACK_int i = 0; i < state->dimension; i += blockDistance) {
-        cblas_zscal(flipDistance, &minus, state->vector + (i + flipDistance), 1);
+    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
+        cblas_zscal(flipDistance, &minus, state->vec + (i + flipDistance), 1);
     }
 }
 
@@ -277,24 +239,24 @@ void applyZgcd(state_t* state, qubit_t qubit) {
             left |= (1 << qubit);
             dim_t right = j & ~(~0U << qubit);
             dim_t k = (left | right);
-            state->vector[k] *= -1;
+            state->vec[k] *= -1;
             ++j;
         }while (j < j_stop);
     });
 }
 
 /*
- * =================================================================================================
- *                                              Clifford gates
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Clifford gates
+ * =====================================================================================================================
  */
 
 void applyS(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            state->vector[j + flipDistance] *= I;
+            state->vec[j + flipDistance] *= I;
         }
     }
 }
@@ -302,9 +264,9 @@ void applyS(state_t* state, qubit_t qubit) {
 void applySdagger(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            state->vector[j + flipDistance] *= -I;
+            state->vec[j + flipDistance] *= -I;
         }
     }
 }
@@ -313,46 +275,46 @@ void applyH(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     cplx_t tmp;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            tmp = state->vector[j];
-            state->vector[j] = INVSQRT2 * (tmp + state->vector[j + flipDistance]);
-            state->vector[j + flipDistance] = INVSQRT2 * (tmp - state->vector[j + flipDistance]);
+            tmp = state->vec[j];
+            state->vec[j] = INVSQRT2 * (tmp + state->vec[j + flipDistance]);
+            state->vec[j + flipDistance] = INVSQRT2 * (tmp - state->vec[j + flipDistance]);
         }
     }
 }
 
 /*
- * =================================================================================================
- *                                              Hadamard-Y gate
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Hadamard-Y gate
+ * =====================================================================================================================
  */
 
 void applyHy(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     cplx_t tmp;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            tmp = state->vector[j];
-            state->vector[j] = INVSQRT2 * (tmp - I * state->vector[j + flipDistance]);
-            state->vector[j + flipDistance] = INVSQRT2 * (I * tmp - state->vector[j + flipDistance]);
+            tmp = state->vec[j];
+            state->vec[j] = INVSQRT2 * (tmp - I * state->vec[j + flipDistance]);
+            state->vec[j + flipDistance] = INVSQRT2 * (I * tmp - state->vec[j + flipDistance]);
         }
     }
 }
 
 /*
- * =================================================================================================
- *                                              T gate
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      T gate
+ * =====================================================================================================================
  */
 
 void applyT(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            state->vector[j + flipDistance] *= (INVSQRT2 + INVSQRT2 * I);
+            state->vec[j + flipDistance] *= (INVSQRT2 + INVSQRT2 * I);
         }
     }
 }
@@ -360,25 +322,25 @@ void applyT(state_t* state, qubit_t qubit) {
 void applyTdagger(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            state->vector[j + flipDistance] *= (INVSQRT2 - INVSQRT2 * I);
+            state->vec[j + flipDistance] *= (INVSQRT2 - INVSQRT2 * I);
         }
     }
 }
 
 /*
- * =================================================================================================
- *                                              P gate
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      P gate
+ * =====================================================================================================================
  */
 
 void applyP(state_t* state, qubit_t qubit, double angle) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            state->vector[j + flipDistance] *= cos(angle) + sin(angle) * I;
+            state->vec[j + flipDistance] *= cos(angle) + sin(angle) * I;
         }
     }
 }
@@ -388,9 +350,9 @@ void applyPdagger(state_t* state, qubit_t qubit, double angle) {
 }
 
 /*
- * =================================================================================================
- *                                              rotation gates
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                  Rotation gates
+ * =====================================================================================================================
  */
 
 void applyRX(state_t* state, qubit_t qubit, double angle) {
@@ -398,12 +360,12 @@ void applyRX(state_t* state, qubit_t qubit, double angle) {
     dim_t flipDistance = POW2(qubit, dim_t);
     angle /= 2.;
     cplx_t tmp;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            tmp = state->vector[j];
-            state->vector[j] = cos(angle) * tmp - I * sin(angle) * state->vector[j + flipDistance];
-            state->vector[j + flipDistance] = -I * sin(angle) * tmp + cos(angle) \
-                                             * state->vector[j + flipDistance];
+            tmp = state->vec[j];
+            state->vec[j] = cos(angle) * tmp - I * sin(angle) * state->vec[j + flipDistance];
+            state->vec[j + flipDistance] = -I * sin(angle) * tmp + cos(angle) \
+ * state->vec[j + flipDistance];
         }
     }
 }
@@ -417,12 +379,12 @@ void applyRY(state_t* state, qubit_t qubit, double angle) {
     dim_t flipDistance = POW2(qubit, dim_t);
     angle /= 2.;
     cplx_t tmp;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            tmp = state->vector[j];
-            state->vector[j] = cos(angle) * tmp - sin(angle) * state->vector[j + flipDistance];
-            state->vector[j + flipDistance] = sin(angle) * tmp + cos(angle) \
-                                             * state->vector[j + flipDistance];
+            tmp = state->vec[j];
+            state->vec[j] = cos(angle) * tmp - sin(angle) * state->vec[j + flipDistance];
+            state->vec[j + flipDistance] = sin(angle) * tmp + cos(angle) \
+ * state->vec[j + flipDistance];
         }
     }
 }
@@ -435,10 +397,10 @@ void applyRZ(state_t* state, qubit_t qubit, double angle) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     angle /= 2.;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
-            state->vector[j] *= cos(angle) - I * sin(angle);
-            state->vector[j + flipDistance] *= cos(angle) + I * sin(angle);
+            state->vec[j] *= cos(angle) - I * sin(angle);
+            state->vec[j + flipDistance] *= cos(angle) + I * sin(angle);
         }
     }
 }
@@ -448,95 +410,41 @@ void applyRZdagger(state_t* state, qubit_t qubit, double angle) {
 }
 
 /*
- * =================================================================================================
+ * =====================================================================================================================
  *                                              controlled Pauli gates
- * =================================================================================================
+ * =====================================================================================================================
  */
 
 /*
-This function executes a Pauli-X gate on the second qubit specified in the input based on whether 
-the first qubit specified in the input is in the |1> state and changes the corresponding entries in
-the pure state's vector representation.
-
-Input:
-    state_t state: a user defined structure holding the pointer to a double complex valued array
-    corresponding to the state vector, the number of qubits as an unisgned integer of type qubits_t
-    and the Hilbert space dimension aka the number of entries in the state vector as an unsigned
-    integer of type dim_t
-    qubit_t control: an unsigned integer holding the qubit's position from the right in a bit string
-    that controls the execution of the Pauli-X gate on the target qubit
-    qubit_t target: an unsigned integer holding the qubit's position from the right in a bit string
-    the Pauli-X gate acts on if the control qubit is in the |1> state
-Output:
-    There is no output value, but the array's elements the pointer in state refers to are
-    exchanged with those whose index in bit representation differs only at the position specified by
-    target if the bit at the position specified by control is 1.
-*/
+ * This function applies a Pauli-X gate on the target qubit conditioned on the control qubit
+ *
+ * Input:
+ *      state_t* state:     State of qubit system
+ *      qubit_t control:    Qubit the execution is conditioned on
+ *      qubit_t target:     Qubit the single qubit gate is applied to conditioned on control
+ *
+ * Output:
+ *      The function has no output, but alters the state vector of state according to the execution of the gate.
+ */
 void applyCX(state_t* state, qubit_t control, qubit_t target) {
-    dim_t i;                                            // index that determines the starting point
-                                                        // of the inner loop changing only those
-                                                        // bits in the index's binary representation
-                                                        // left to the one specified by target
+    dim_t blockDistance = POW2(target + 1, dim_t);      // Range of indices whose state vector entries after the
+                                                        // execution of the single qubit gate will be linear
+                                                        // combinations of entries with indices only within the range
+    dim_t flipDistance = POW2(target, dim_t);           // Distance of indices whose state vector entries after the
+                                                        // execution of the single qubit gate will be linear
+                                                        // combinations of their entries prior to the execution
 
-    dim_t j;                                            // index that runs within the inner loop
-                                                        // changing only those bits in the index's
-                                                        // binary representationindex right to the
-                                                        // the one specified by target
 
-    // qubit_t left_qubit = MAX(control, target);           // index of the left qubit
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {   // Iterate the computational basis states with all zeros
+                                                                // to the right and including the target qubit
 
-    // qubit_t right_qubit = MIN(control, target);          // index of the right qubit
+        for (dim_t j = i; j < i + flipDistance; ++j) {          // Iterate the computational basis states whose
+                                                                // qubits left to and including the qubit specified
+                                                                    // by target are constant
 
-    dim_t blockDistance = POW2(target + 1, dim_t);
-                                                        // distance in decimal representation of
-                                                        // blocks within which the swap of two
-                                                        // amplitudes takes place, i.e. encompasses
-                                                        // all qubits to the right of the specified
-                                                        // target and the target itself
-
-    // dim_t minorBlockDistance = POW2(right_qubit + 1, dim_t);
-
-    dim_t flipDistance = POW2(target, dim_t);           // distance in decimal representation of 
-                                                        // indices differing only in the value of
-                                                        // the specified target
-
-    // dim_t offsetDistance = POW2(control, dim_t);     // distance from the all zero bit to the
-                                                        // first bit with a one at the position of
-                                                        // the control qubit
-    /*
-    Starting in the first block, i.e., the block where all bits in the binary representation left to
-    the one specified by target are zero, the integer i, which serves as the starting index in the
-    block, is set to zero. After each block, consisting of 2^{target - 1} potential swaps, i is
-    increased by 2^{target + 1}. This corresponds to gradually increasing the bits left to target
-    in the index's binary representation and reseting those right to it to zero until all blocks are
-    evaluated when i reaches the integer dimension.
-    */
-    for (i = 0; i < state->dimension; i += blockDistance) {
-        /*
-        The inner loop starts with all bits right to target in the index's binary representation
-        initialized to zero, as handed over by the outer loop. The integer j then counts through all
-        possible integers within block distance, thereby gradually changing the bits right to traget
-        in the index's binary representation until no further incrementation in these bits is
-        possible.    
-        */
-        for (j = i; j < i + flipDistance; ++j) {
-            /*
-            The CNOT operation is executed only if the bit at position control in the current 
-            index's binary representation is equal to one. This is done by a bitwise AND operation
-            on the current integer and 2^control. Since the latter's bit representation has only
-            zeros except for a one at position control from the right, the resulting bit string has
-            only zeros except for a one at position control from the right only if j's bit
-            representation has a one there.
-            */
-            if (j & POW2(control ,dim_t)) {
-                /*
-                Meeting the condition, the value of the j-th entry originating from the pointer
-                stored in state is stored to a temporary double complex variable. Subesequently, one
-                sets the value the j-th entry's pointer holds to be the value of the entry whose
-                index's binary representation only differs in qubit. Finally, the latter pointer is
-                set to the value stored under the temporary and j.
-                */
-                SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+            if (j & POW2(control ,dim_t)) {                                             // If the current iterate has a
+                                                                                        // one at the control position:
+                SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);    // Execute Pauli-X on target
             }
         }
     }
@@ -545,12 +453,12 @@ void applyCX(state_t* state, qubit_t control, qubit_t target) {
 void applyCY(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
-                state->vector[j] *= -I;
-                state->vector[j + flipDistance] *= I;
+                SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
+                state->vec[j] *= -I;
+                state->vec[j + flipDistance] *= I;
             }
         }
     }
@@ -559,10 +467,10 @@ void applyCY(state_t* state, qubit_t control, qubit_t target) {
 void applyCZ(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                state->vector[j + flipDistance] *= -1;
+                state->vec[j + flipDistance] *= -1;
             }
         }
     }
@@ -577,10 +485,10 @@ void applyCZ(state_t* state, qubit_t control, qubit_t target) {
 void applyCS(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                state->vector[j + flipDistance] *= I;
+                state->vec[j + flipDistance] *= I;
             }
         }
     }
@@ -589,10 +497,10 @@ void applyCS(state_t* state, qubit_t control, qubit_t target) {
 void applyCSdagger(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                state->vector[j + flipDistance] *= -I;
+                state->vec[j + flipDistance] *= -I;
             }
         }
     }
@@ -602,12 +510,12 @@ void applyCH(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     cplx_t tmp;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                tmp = state->vector[j];
-                state->vector[j] = INVSQRT2 * (tmp + state->vector[j + flipDistance]);
-                state->vector[j + flipDistance] = INVSQRT2 * (tmp - state->vector[j + flipDistance]);
+                tmp = state->vec[j];
+                state->vec[j] = INVSQRT2 * (tmp + state->vec[j + flipDistance]);
+                state->vec[j + flipDistance] = INVSQRT2 * (tmp - state->vec[j + flipDistance]);
             }
         }
     }
@@ -623,12 +531,12 @@ void applyCHy(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     cplx_t tmp;
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                tmp = state->vector[j];
-                state->vector[j] = INVSQRT2 * (tmp - I * state->vector[j + flipDistance]);
-                state->vector[j + flipDistance] = INVSQRT2 * (I * tmp - state->vector[j + flipDistance]);
+                tmp = state->vec[j];
+                state->vec[j] = INVSQRT2 * (tmp - I * state->vec[j + flipDistance]);
+                state->vec[j + flipDistance] = INVSQRT2 * (I * tmp - state->vec[j + flipDistance]);
             }
         }
     }
@@ -643,10 +551,10 @@ void applyCHy(state_t* state, qubit_t control, qubit_t target) {
 void applyCT(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                state->vector[j + flipDistance] *= INVSQRT2 + INVSQRT2 * I;
+                state->vec[j + flipDistance] *= INVSQRT2 + INVSQRT2 * I;
             }
         }
     }
@@ -655,10 +563,10 @@ void applyCT(state_t* state, qubit_t control, qubit_t target) {
 void applyCTdagger(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                state->vector[j + flipDistance] *= INVSQRT2 - INVSQRT2 * I;
+                state->vec[j + flipDistance] *= INVSQRT2 - INVSQRT2 * I;
             }
         }
     }
@@ -673,10 +581,10 @@ void applyCTdagger(state_t* state, qubit_t control, qubit_t target) {
 void applyCP(state_t* state, qubit_t control, qubit_t target, double angle) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
-    for (dim_t i = 0; i < state->dimension; i += blockDistance) {
+    for (dim_t i = 0; i < state->dim; i += blockDistance) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             if (j & POW2(control ,dim_t)) {
-                state->vector[j + flipDistance] *= cos(angle) + sin(angle) * I;
+                state->vec[j + flipDistance] *= cos(angle) + sin(angle) * I;
             }
         }
     }
@@ -768,7 +676,7 @@ void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2)
     The loop terminates, when all bits left to the one specified by qubit2 in the index's binary
     representation are set to one.
     */
-    for (i = 0; i < state->dimension; i += majorBlockDistance) {
+    for (i = 0; i < state->dim; i += majorBlockDistance) {
         /*
         The inner loop always starts with all bits right to the one specified by the left qubit in
         the index's binary representation initialised to zero except for the one at the position
@@ -796,7 +704,7 @@ void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2)
                 index's binary representation only differs in the left and the right qubit. Finally,
                 the latter pointer is set to the value stored under the temporary and j.
                 */
-                SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+                SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
             }
         }
     }
@@ -848,7 +756,7 @@ void applyToffoli(state_t* state, qubit_t control1, qubit_t control2, qubit_t ta
     is increased by blockDistance after each iteration, thereby incrementing the bits left to target
     by one.
     */
-    for (i = 0; i < state->dimension; i += blockDistance)
+    for (i = 0; i < state->dim; i += blockDistance)
     {
         /*
         The integer j starts at the same configuration of bits in the index's binary representation
@@ -869,7 +777,7 @@ void applyToffoli(state_t* state, qubit_t control1, qubit_t control2, qubit_t ta
                 index's binary representation only differs in qubit. Finally, the latter pointer is
                 set to the value stored under the temporary and j.
                 */
-                SWAP(state->vector + j, state->vector + (j + flipDistance), cplx_t);
+                SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
             }
         }
     }

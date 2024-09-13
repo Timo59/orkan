@@ -60,7 +60,7 @@ void testApplyX(void) {
                 applyX(&testState, pos);                                    // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                                                                                         // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
             }
             freeTestVectors(testVectors, qubits);
@@ -102,7 +102,7 @@ void testApplyY(void) {
                 applyY(&testState, pos);                                    // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);   // Matrix multiplication as
                                                                                         // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
             }
             freeTestVectors(testVectors, qubits);
@@ -144,7 +144,7 @@ void testApplyZ(void) {
                 applyZ(&testState, pos);                                    // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                                                                                         // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
             }
             freeTestVectors(testVectors, qubits);
@@ -189,11 +189,11 @@ void testApplyS(void) {
                 applyS(&testState, pos);                                    // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                                                                                         // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
 
                 applySdagger(&testState, pos);                  // Apply the inverse of S
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
             }
             freeTestVectors(testVectors, qubits);
             free(gateMat);
@@ -234,7 +234,7 @@ void testApplyH(void) {
                 applyH(&testState, pos);                                    // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                 // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
             }
             freeTestVectors(testVectors, qubits);
@@ -279,11 +279,11 @@ void testApplyT(void) {
                 applyT(&testState, pos);                                    // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                                                                                         // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
 
                 applyTdagger(&testState, pos);                  // Apply the inverse of S
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
             }
             freeTestVectors(testVectors, qubits);
             free(gateMat);
@@ -328,7 +328,7 @@ void testApplyCX(void) {
                     applyCX(&testState, control, target);                           // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                                                                                         // reference
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
                 }
                 freeTestVectors(testVectors, qubits);
@@ -341,7 +341,7 @@ void testApplyCX(void) {
 
 /*
  * =====================================================================================================================
- *                                              test applyCX
+ *                                              test applyCY
  * =====================================================================================================================
  */
 
@@ -375,7 +375,7 @@ void testApplyCY(void) {
                     applyCY(&testState, control, target);                           // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                                                                                         // reference
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
                 }
                 freeTestVectors(testVectors, qubits);
@@ -422,7 +422,7 @@ void testApplyCZ(void) {
                     applyCZ(&testState, control, target);                           // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                     // reference
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
                 }
                 freeTestVectors(testVectors, qubits);
@@ -470,11 +470,11 @@ void testApplyCS(void) {
                     applyCS(&testState, control, target);                           // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                                                                                         // reference
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
 
                     applyCSdagger(&testState, control, target);                     // Apply the inverse test fucntion
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
                 }
                 freeTestVectors(testVectors, qubits);
                 free(gateMat);
@@ -520,7 +520,7 @@ void testApplyCH(void) {
                     applyCH(&testState, control, target);                           // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                     // reference
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
                 }
                 freeTestVectors(testVectors, qubits);
@@ -568,11 +568,11 @@ void testApplyCT(void) {
                     applyCT(&testState, control, target);                           // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                     // reference
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
 
                     applyCTdagger(&testState, control, target);                     // Apply the inverse test fucntion
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
                 }
                 freeTestVectors(testVectors, qubits);
                 free(gateMat);
@@ -618,11 +618,11 @@ void testApplyRX(void) {
                 applyRX(&testState, pos, angle);                            // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                 // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
 
                 applyRXdagger(&testState, pos, angle);                    // Apply the inverse of RX
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
             }
             freeTestVectors(testVectors, qubits);
             free(gateMat);
@@ -667,11 +667,11 @@ void testApplyRY(void) {
                 applyRY(&testState, pos, angle);                            // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                 // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
 
                 applyRYdagger(&testState, pos, angle);                    // Apply the inverse of RX
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
             }
             freeTestVectors(testVectors, qubits);
             free(gateMat);
@@ -716,11 +716,11 @@ void testApplyRZ(void) {
                 applyRZ(&testState, pos, angle);                            // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                 // reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
 
                 applyRZdagger(&testState, pos, angle);                    // Apply the inverse of RX
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
             }
             freeTestVectors(testVectors, qubits);
             free(gateMat);
@@ -764,7 +764,7 @@ void testApplySWAP(void) {
                     applySWAP(&testState, right_qubit, left_qubit);
                     cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);
 
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
 
                     free(reference);
                 }
@@ -820,7 +820,7 @@ void testApplyToffoli(void) {
                         cplx_t* reference = cmatVecMul(gateMat, testVectors[i], dim);
                         applyToffoli(&testState, control1, control2, target);
 
-                        TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                        TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                         free(reference);
                     }
                     freeTestVectors(testVectors, qubits);

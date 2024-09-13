@@ -59,7 +59,7 @@ void tearDown(void) {}
  *      vector are equal to some precision after an evolution and when reversing the evolution.
  */
 
-void testApplyOpDiag(void) {
+void testApplyObsDiag(void) {
     state_t testState;
 
     for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
@@ -68,10 +68,10 @@ void testApplyOpDiag(void) {
         cplx_t** refVectors = generateTestVectors(qubits);
 
         pauli_t* comps = allPauliStringsDiag(qubits);
-        cplx_t* op = pauliObservableDiag(comps, )
+        double* obs = pauliObservableDiag(comps, coeffs, STRINGC, qubits);
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);
-            applyOpDiag(testState, op);
+            applyObsDiag(testState, obs);
         }
         freeTestVectors(testVectors, qubits);
         freeTestVectors(refVectors, qubits);

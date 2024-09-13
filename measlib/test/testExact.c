@@ -187,8 +187,8 @@ void testExpValObs(void) {
         obsDiag.type = DIAG;
         obsDiag.diagObs = diagObs;
 
-        pauliObs.components = comps;
-        pauliObs.coefficients = coeffs;
+        pauliObs.comps = comps;
+        pauliObs.coeffs = coeffs;
         pauliObs.length = length;
         pauliObs.qubits = qubits;
         obsPauli.type = PAULI;
@@ -218,7 +218,7 @@ void testExpValObs(void) {
 
         free(obsDiag.diagObs);
 
-        pauliObs.components = comps;
+        pauliObs.comps = comps;
         pauliObs.length = length;
 
         free(obsMatrix);
@@ -281,8 +281,8 @@ void testExpValObsPQC(void) {
         obsDiag.type = DIAG;                                    // Initialize the diagonal observable with all possible
         obsDiag.diagObs = diagObs;                              // diagonal Pauli strings and random coefficients
 
-        pauliObs.components = comps_pauli;                      // Initialize the Pauli observable with all possible
-        pauliObs.coefficients = coeffs;                         // Pauli strings and random coefficients
+        pauliObs.comps = comps_pauli;                      // Initialize the Pauli observable with all possible
+        pauliObs.coeffs = coeffs;                         // Pauli strings and random coefficients
         pauliObs.length = length_pauli;
         pauliObs.qubits = qubits;
         obsPauli.type = PAULI;
@@ -339,8 +339,8 @@ void testExpValObsPQC(void) {
                 free(evoOps[i]->diagObs);                                   // free diagonal observable array
                 evoOpsPauli[i] = malloc(sizeof(*(evoOpsPauli[i])));
 
-                evoOpsPauli[i]->components = comps_pauli;
-                evoOpsPauli[i]->coefficients = coeffs + (i * length_pauli);
+                evoOpsPauli[i]->comps = comps_pauli;
+                evoOpsPauli[i]->coeffs = coeffs + (i * length_pauli);
                 evoOpsPauli[i]->length = length_pauli;
                 evoOpsPauli[i]->qubits = qubits;
 
@@ -434,8 +434,8 @@ void testGradientPQC(void) {
         obsDiag.type = DIAG;                                    // Initialize the diagonal observable with all possible
         obsDiag.diagObs = diagObs;                              // diagonal Pauli strings and random coefficients
 
-        pauliObs.components = comps_pauli;                      // Initialize the Pauli observable with all possible
-        pauliObs.coefficients = coeffs;                         // Pauli strings and random coefficients
+        pauliObs.comps = comps_pauli;                      // Initialize the Pauli observable with all possible
+        pauliObs.coeffs = coeffs;                         // Pauli strings and random coefficients
         pauliObs.length = length_pauli;
         pauliObs.qubits = qubits;
         obsPauli.type = PAULI;
@@ -515,8 +515,8 @@ void testGradientPQC(void) {
                 free(evoOps[i]->diagObs);                                   // free diagonal observable array
                 evoOpsPauli[i] = malloc(sizeof(*(evoOpsPauli[i])));
 
-                evoOpsPauli[i]->components = compsY;
-                evoOpsPauli[i]->coefficients = coeffs + (i * length_diag);
+                evoOpsPauli[i]->comps = compsY;
+                evoOpsPauli[i]->coeffs = coeffs + (i * length_diag);
                 evoOpsPauli[i]->length = length_diag;
                 evoOpsPauli[i]->qubits = qubits;
 
@@ -642,8 +642,8 @@ void testHessianPQC(void) {
         obsDiag.type = DIAG;                                    // Initialize the diagonal observable with all possible
         obsDiag.diagObs = diagObs;                              // diagonal Pauli strings and random coefficients
 
-        pauliObs.components = comps_pauli;                      // Initialize the Pauli observable with all possible
-        pauliObs.coefficients = coeffs;                         // Pauli strings and random coefficients
+        pauliObs.comps = comps_pauli;                      // Initialize the Pauli observable with all possible
+        pauliObs.coeffs = coeffs;                         // Pauli strings and random coefficients
         pauliObs.length = length_pauli;
         pauliObs.qubits = qubits;
         obsPauli.type = PAULI;
@@ -725,8 +725,8 @@ void testHessianPQC(void) {
                 free(evoOps[i]->diagObs);                                   // free diagonal observable array
                 evoOpsPauli[i] = malloc(sizeof(*(evoOpsPauli[i])));
 
-                evoOpsPauli[i]->components = compsY;
-                evoOpsPauli[i]->coefficients = coeffs + (i * length_diag);
+                evoOpsPauli[i]->comps = compsY;
+                evoOpsPauli[i]->coeffs = coeffs + (i * length_diag);
                 evoOpsPauli[i]->length = length_diag;
                 evoOpsPauli[i]->qubits = qubits;
 
@@ -837,8 +837,8 @@ void testMomMat(void) {
         pauliObs_t* obsPauli[obsc];
         for (int i = 0; i < obsc - 1; ++i) {
             obsPauli[i] = malloc(sizeof(*(obsPauli[i])));
-            obsPauli[i]->components = comps_pauli;                      // Initialize 4 Pauli observables with all
-            obsPauli[i]->coefficients = coeffs + (i * length_pauli);    // possible Pauli strings and the 4 sets of
+            obsPauli[i]->comps = comps_pauli;                      // Initialize 4 Pauli observables with all
+            obsPauli[i]->coeffs = coeffs + (i * length_pauli);    // possible Pauli strings and the 4 sets of
             obsPauli[i]->length = length_pauli;                         // coefficients
             obsPauli[i]->qubits = qubits;
 
@@ -881,7 +881,7 @@ void testMomMat(void) {
 
             /* Compute the reference moment matrices in column major form using matrix multiplication */
             for (depth_t j = 0; j < obsc; ++j) {                                            // Iterate columns; apply
-                cplx_t* refKet = cmatVecMul(srchOpsMat[j], testState.vector, dim);  // search unitary
+                cplx_t* refKet = cmatVecMul(srchOpsMat[j], testState.vec, dim);  // search unitary
 
                 for (depth_t k = 0; k < obsc; ++k) {                                        // Iterate moment matrices;
                     cplx_t* refBra = cmatVecMul(obsMat[k], refKet, dim);            // compute diagonals
@@ -890,7 +890,7 @@ void testMomMat(void) {
                 }
 
                 for (depth_t k = 0; k < obsc; ++k) {                                            // Iterate rows; apply
-                    cplx_t* tmpBra = cmatVecMul(srchOpsMat[k], testState.vector, dim);  // search unitaries
+                    cplx_t* tmpBra = cmatVecMul(srchOpsMat[k], testState.vec, dim);  // search unitaries
                     for (depth_t l = 0; l < obsc; ++l) {                                    // Iterate moment matrices;
                         cplx_t* refBra = cmatVecMul(obsMat[l], tmpBra, dim);        // compute entries
                         reference[l][j * obsc + k] = cinnerProduct(refBra, refKet, dim);
@@ -949,8 +949,8 @@ void testMomMatPQC(void) {
         pauliObs_t* obsPauli[obsc];
         for (int i = 0; i < obsc - 1; ++i) {
             obsPauli[i] = malloc(sizeof(*(obsPauli[i])));
-            obsPauli[i]->components = comps_pauli;                      // Initialize 4 Pauli observables with all
-            obsPauli[i]->coefficients = coeffs + (i * length_pauli);    // possible Pauli strings and the 4 sets of
+            obsPauli[i]->comps = comps_pauli;                      // Initialize 4 Pauli observables with all
+            obsPauli[i]->coeffs = coeffs + (i * length_pauli);    // possible Pauli strings and the 4 sets of
             obsPauli[i]->length = length_pauli;                         // coefficients
             obsPauli[i]->qubits = qubits;
 
@@ -994,7 +994,7 @@ void testMomMatPQC(void) {
 
             /* Compute the reference moment matrices in column major form using matrix multiplication */
             for (depth_t j = 0; j < obsc + 1; ++j) {                                       // Iterate columns; apply
-                cplx_t* refKet = cmatVecMul(srchOpsMat[j], testState.vector, dim);  // search unitary
+                cplx_t* refKet = cmatVecMul(srchOpsMat[j], testState.vec, dim);  // search unitary
 
                 for (depth_t k = 0; k < obsc; ++k) {                                        // Iterate moment matrices;
                     cplx_t* refBra = cmatVecMul(obsMat[k], refKet, dim);            // compute diagonals
@@ -1003,7 +1003,7 @@ void testMomMatPQC(void) {
                 }
 
                 for (depth_t k = 0; k < obsc + 1; ++k) {                                        // Iterate rows; apply
-                    cplx_t* tmpBra = cmatVecMul(srchOpsMat[k], testState.vector, dim);  // search unitaries
+                    cplx_t* tmpBra = cmatVecMul(srchOpsMat[k], testState.vec, dim);  // search unitaries
                     for (depth_t l = 0; l < obsc; ++l) {                                    // Iterate moment matrices;
                         cplx_t* refBra = cmatVecMul(obsMat[l], tmpBra, dim);        // compute entries
                         reference[l][j * (obsc + 1) + k] = cinnerProduct(refBra, refKet, dim);

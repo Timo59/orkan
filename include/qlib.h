@@ -413,9 +413,9 @@ void applyToffoli(state_t* state, qubit_t control1, qubit_t control2, qubit_t ta
  * =================================================================================================
  */
 
-void applyPauliString(state_t* state, const pauli_t paulistr[]);
+void applyPauliStr(state_t* state, const pauli_t paulistr[]);
 
-void evolveWithPauliString(state_t* state, const pauli_t paulistr[], double angle);
+void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle);
 
 /*
  * =================================================================================================
