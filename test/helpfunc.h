@@ -279,77 +279,43 @@ pauli_t* allPauliStringsY(qubit_t qubits) {
 }
 
 /*
-This function computes the matrix of applying one single qubit gate to the qubit at position in a
-system of qubits qubits.
-
-Input:
-    const cplex_t mat[]: matrix representation of the gate applied as complex double read-only
-    1d array
-    qubit_t qubits: the number of qubits involved in a state
-    qubit_t position: the position of the qubit the gate acts on from the right in a qubit string
-
-Output:
-    Complex double pointer to the array holding the kronecker product of qubits - 1 identity matrix
-    with one single qubit gate at the position specified by position.
-
-*/
+ * This function returns the matrix representation of single qubit gate applied at pos in a system of qubits.
+ *
+ * Input:
+ *      cplx_t mat[]:       Array representing the single qubit gate
+ *      qubit_t qubits:     Number of qubits in the system
+ *      qubit_t pos:        Position of qubit the gate is applied to
+ *
+ * Output:
+ *      Kronecker product of identity matrices and the single qubit matrix at the specified position.
+ */
 cplx_t* singleQubitGateMat(const cplx_t mat[], qubit_t qubits, qubit_t pos) {
     /*
-    If either no qubits are involved or the position of the affected qubit lies outside the range of
-    available qubits, the function terminates with an error message.
+     * If either no qubits are involved or the position of the affected qubit lies outside the range of available
+     * qubits, the function terminates with an error message.
     */
     if (qubits == 0 || pos >= qubits) {
         printf("Couldn't create tensorized single qubit gate!\n");
         return NULL;
     }
 
-    cplx_t* result = ONE;                                       // double complex pointer holding
-                                                                // the resulting state vector
-                                                                // initialized as a double complex
-                                                                // array holding only a 1
+    cplx_t* result = ONE;       // Array to hold the resulting matrix initialized to 1.0+0.0i
+    cplx_t* tmp;                // Temporary array holding all intermediate Kronecker products
 
-    cplx_t* tmp;                                                // double complex pointer holding
-                                                                // a temporary state vector
+    for (qubit_t i = 0; i < qubits; ++i) {                                              // Iterate qubits from the left:
+        if (i == qubits - pos - 1) {                                                    // If current is the targeted
+                                                                                        // position seen from the right:
+            tmp = ckronecker(result, mat, POW2(i, dim_t), 2);           // Kronecker product of
+        }                                                                               // current matrix with single
+                                                                                        // qubit matrix
 
-    /*
-    Starting a the leftmost position, the kronecker with the next matrix depending on the position
-    of the single qubit gate is computed until all qubits have contributed.
-    */
-    for (qubit_t i = 0; i < qubits; ++i) {
-        /*
-        If the current integer corresponds to the position of the single qubit gate from the left,
-        the kronecker product of the matrix stored in result with the single qubit gate is computed.
-        The output, a pointer to the resulting array, is stored in tmp. 
-        */
-        if (i == qubits - pos - 1) {
-            tmp = ckronecker(result, mat, POW2(i, dim_t), 2);   // kronecker product of the current
-                                                                // result with 2^{i} rows and
-                                                                // columns with the single qubit
-                                                                // gate in matrix representation
-                                                                // Output is a pointer to the array
-                                                                // which is stored in tmp 
-        }
-        /*
-        Otherwise, the kronecker product of the matrix stored in result with the identity is computed.
-        The output, a pointer to the resulting array, is stored in tmp. 
-        */
-        else {
-            tmp = ckronecker(result, IDMAT, POW2(i, dim_t), 2); // kronecker product of the current
-                                                                // result with 2^{i} rows and
-                                                                // columns with the identity matrix
-                                                                // Output is a pointer to the array
-                                                                // which is stored in tmp
-        }
-        /*
-        Except for the first iteration step, result is freed.
-        */
-        if (i != 0) {
+        else {                                                                          // Otherwise: Kronecker product
+            tmp = ckronecker(result, IDMAT, POW2(i, dim_t), 2);         // of the current matrix with
+        }                                                                               // with another identity
+        if (i != 0) {           // Free current result pointer except for in the first iteration(not dynamically alloc.)
             free(result);
         }
-        /*
-        result is now pointing to the same adress tmp is pointing to.
-        */
-        result = tmp;
+        result = tmp;           // Identify result with tmp's pointer address
     }
     return result;
 }
@@ -382,158 +348,70 @@ cplx_t* RZGateMat(qubit_t qubits, qubit_t pos, double angle) {
 }
 
 /*
-This function computes the matrix representation of any single qubit gate with conditional execution
-depending on the state of another qubit.
-
-Input:
-    const cplx_t math[]: read only complex double of the gate applied conditioned on control in
-    matrix representation
-    qubit_t qubits: the number of qubits involved in a state
-    qubit_t control: unsigned integer holding the position of the control qubit from the right
-    qubit_t target: unsigned integer holding the position of the target qubit from the right
-
-Output:
-    Complex double pointer to the array holding the sum of two kronecker products corresponding to
-    the cases where the control qubit is active and inactive, respectively. 
+ * This function computes the matrix representation of a single qubit gate with conditional execution depending on the
+ * state of control.
+ *
+ * Input:
+ *      const cplx_t mat[]:     Array representing the single qubit gate
+ *      qubit_t qubits:         Number of qubits involved in a state
+ *      qubit_t control:        Position of the control qubit
+ *      qubit_t target:         Position of the target qubit
+ * Output:
+ *      The matrix representation of a controlled single qubit gate built up by a sum of Kronecker products
 */
 cplx_t* controlledGateMat(const cplx_t mat[], qubit_t qubits, qubit_t control, qubit_t target) {
     /*
-    If either no qubits are involved or the position of the affected qubit lies outside the range of
-    available qubits, the function terminates with an error message.
-    */
+     * If either no qubits are involved or the position of the affected qubit lies outside the range of available
+     * qubits, the function terminates with an error message.
+     */
     if (qubits == 0 || control >= qubits || target >= qubits || control == target) {
         printf("Couldn't create controlled single qubit gate!\n");
         return NULL;
     }
 
-    cplx_t* inactiveControl = ONE;      // Array holding the matrix for control qubit equals 1
-    cplx_t* activeControl = ONE;        // Array holding the matrix for control qubit equals 1
-    cplx_t* tmpInactive;                // Temporary
-    cplx_t* tmpActive;                  // Temporary
+    cplx_t* active = ONE;        // Array holding the matrix for control qubit equals 1
+    cplx_t* inactive = ONE;      // Array holding the matrix for control qubit equals 0
+    cplx_t* tmpActive;           // Temporary holding each intermediate Kronecker product of active control
+    cplx_t* tmpInactive;         // Temporary holding each intermediate Kronecker product of inactive control
 
-    /*
-    Starting at the leftmost position, identity matrices are appended to Kronecker product of the
-    active as well as the inactive intermediate matrices until the index reaches either the control
-    or the target qubit. In that case the projector onto the second and first computational basis
-    states, respectively are appended or the specified matrix and the identity, respectively are
-    appended. After that identity matrices keep being added until the number of constituents equals 
-    the number qubits. 
-    */
-    for (qubit_t i = 0; i < qubits; ++i) {
-        /*
-        If the current integer corresponds to the position of the targeted qubit from the left, the
-        kronecker product with the single qubit gate is computed and its output pointer is
-        identified with tmpActive. Moreover, the kronecker product with the identity matrix is
-        computed and its output pointer is identified with tmpInactive.
-        */
-        if (i == qubits - target - 1) {
-            tmpInactive = ckronecker(inactiveControl, IDMAT, POW2(i, dim_t), 2);// kronecker product
-                                                                                // of the current
-                                                                                // inactive control
-                                                                                // with 2^{i} rows
-                                                                                // and columns with
-                                                                                // the identity
-                                                                                // matrix.
-                                                                                // Output is pointer
-                                                                                // to the array
-                                                                                // which is stored
-                                                                                // in tmpInactive
-            
-            tmpActive = ckronecker(activeControl, mat, POW2(i, dim_t), 2);      // kronecker product
-                                                                                // of the current
-                                                                                // result with 2^{i}
-                                                                                // rows and columns
-                                                                                // with the single
-                                                                                // qubit gate.
-                                                                                // Output is pointer
-                                                                                // to the array
-                                                                                // which is stored
-                                                                                // in tmpActive
+    for (qubit_t i = 0; i < qubits; ++i) {      // Iterate qubits from the left:
+        if (i == qubits - target - 1) {         // If current is the target (counted from the right)
+            tmpActive = ckronecker(active, mat, POW2(i, dim_t), 2);         // Kronecker product of
+                                                                                            // the active control matrix
+                                                                                            // with the single qubit
+                                                                                            // gate
+            tmpInactive = ckronecker(inactive, IDMAT, POW2(i, dim_t), 2);   // Kronecker product of
+                                                                                            // the inactive control
+                                                                                            // matrix with identity
         }
-        /*
-        If otherwise, the current integer corresponds to the position of the control qubit from the
-        left, the kronecker product with either the projector on the first and second computational
-        eigenstate is computed. 
-        */
-        else if (i == qubits - control - 1) {
-            tmpInactive = ckronecker(inactiveControl, P0MAT, POW2(i, dim_t), 2);// kronecker product
-                                                                                // of the current
-                                                                                // inactive control
-                                                                                // with 2^{i} rows
-                                                                                // and columns with
-                                                                                // the projector
-                                                                                // onto the first
-                                                                                // computational
-                                                                                // basis state.
-                                                                                // Output is pointer
-                                                                                // to the array
-                                                                                // which is stored
-                                                                                // in tmpInactive
-            
-            tmpActive = ckronecker(activeControl, P1MAT, POW2(i, dim_t), 2);    // kronecker product
-                                                                                // of the current
-                                                                                // active control
-                                                                                // with 2^{i} rows
-                                                                                // and columns with
-                                                                                // the projector
-                                                                                // onto the second
-                                                                                // computational
-                                                                                // basis state.
-                                                                                // Output is pointer
-                                                                                // to the array
-                                                                                // which is stored
-                                                                                // in tmpActive
+
+        else if (i == qubits - control - 1) {   // If else the current is the control (counted from the right)
+            tmpActive = ckronecker(active, P1MAT, POW2(i, dim_t), 2);       // Kronecker product of
+                                                                                            // the active control matrix
+                                                                                            // with the projector onto
+                                                                                            // the one state
+            tmpInactive = ckronecker(inactive, P0MAT, POW2(i, dim_t), 2);   // Kronecker product of
+                                                                                            // the inactive control
+                                                                                            // matrix with the projector
+                                                                                            // onto the zero state
         }
-        /*
-        If the current integer neither corresponds the position of the control nor the target qubit
-        from the left both, the inactive and the active control matrices, are kronecker multiplied
-        with the identity matrix.
-        */
-        else {
-            tmpInactive = ckronecker(inactiveControl, IDMAT, POW2(i, dim_t), 2);// kronecker product
-                                                                                // of the current
-                                                                                // inactive control
-                                                                                // with 2^{i} rows
-                                                                                // and columns with
-                                                                                // the identity
-                                                                                // matrix.
-                                                                                // Output is pointer
-                                                                                // to the array
-                                                                                // which is stored
-                                                                                // in tmpInactive
-            
-            tmpActive = ckronecker(activeControl, IDMAT, POW2(i, dim_t), 2);    // kronecker product
-                                                                                // of the current
-                                                                                // active control
-                                                                                // with 2^{i} rows
-                                                                                // and columns with
-                                                                                // the identity
-                                                                                // matrix.
-                                                                                // Output is pointer
-                                                                                // to the array
-                                                                                // which is stored
-                                                                                // in tmpActive
+
+        else {                                                                                  // If it corresponds to
+            tmpActive = ckronecker(active, IDMAT, POW2(i, dim_t), 2);       // neither, Kronecker
+            tmpInactive = ckronecker(inactive, IDMAT, POW2(i, dim_t), 2);   // product with identity
         }
-        /*
-        Except for the first iterational step, the pointers to both current result matrices, active
-        and inactive control qubit are freed.
-        */
-        if (i != 0) {
-            free(inactiveControl);
-            free(activeControl);
+
+        if (i != 0) {       // Free current result pointers except for in the first iteration(not dynamically alloc.)
+            free(active);
+            free(inactive);
         }
-        inactiveControl = tmpInactive;      // inactiveControl is now pointing to the outcome of the
-                                            // Kronecker product in tmpInactive
-        activeControl = tmpActive;          // activeControl is now pointing to the outcome of the
-                                            // Kronecker product in tmpActive
+        active = tmpActive;          // active is now pointing to the outcome of the Kronecker product in tmpActive
+        inactive = tmpInactive;      // inactive is now pointing to the outcome of the Kronecker product in tmpInactive
     }
-    /*
-    When all position are executed the matrices in inactiveControl and activeControl are merged via
-    an in place addition to inactiveControl.
-    */
-    cmatAddInPlace(inactiveControl, activeControl, POW2(qubits, dim_t));
-    free(activeControl);
-    return inactiveControl;
+
+    cmatAddInPlace(inactive, active, POW2(qubits, dim_t));  // Add the two matrices (they are projectors)
+    free(active);
+    return inactive;
 }
 
 /*

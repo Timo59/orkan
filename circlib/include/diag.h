@@ -36,7 +36,9 @@ void applyOpDiag(state_t* state, const cplx_t op[]);
  * =====================================================================================================================
  */
 
-void applyObservableDiag(state_t* state, const double observable[]);
+void applyObsDiag(state_t* state, const double obs[]);
+
+void applyObsDiagOmp(state_t* state, const double obs[]);
 
 /*
  * =====================================================================================================================
@@ -44,7 +46,9 @@ void applyObservableDiag(state_t* state, const double observable[]);
  * =====================================================================================================================
  */
 
-void evolveWithObservableDiag(state_t* state, const double observable[], double angle);
+void evolveObsDiag(state_t* state, const double obs[], double angle);
+
+void evolveObsDiagOmp(state_t* state, const double obs[], double angle);
 
 #ifdef __cplusplus
 }

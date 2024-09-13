@@ -19,7 +19,7 @@ void applyOperator(state_t* state, const op_t* op) {
             break;
         }
         case PAULI: {
-            applyOperatorPauli(state, op->pauliOp);
+            applyOpPauli(state, op->pauliOp);
             break;
         }
         default: {
@@ -38,11 +38,11 @@ void applyOperator(state_t* state, const op_t* op) {
 void applyObservable(state_t* state, const obs_t* observable) {
     switch(observable->type) {
         case DIAG: {
-            applyObservableDiag(state, observable->diagObs);
+            applyObsDiag(state, observable->diagObs);
             break;
         }
         case PAULI: {
-            applyObservablePauli(state, observable->pauliObs);
+            applyObsPauli(state, observable->pauliObs);
             break;
         }
         default: {
@@ -61,11 +61,11 @@ void applyObservable(state_t* state, const obs_t* observable) {
 void evolveWithTrotterizedObservable(state_t* state, const obs_t* observable, double angle) {
     switch(observable->type) {
         case DIAG: {
-            evolveWithObservableDiag(state, observable->diagObs, angle);
+            evolveObsDiag(state, observable->diagObs, angle);
             break;
         }
         case PAULI: {
-            evolveWithTrotterizedObservablePauli(state, observable->pauliObs, angle);
+            evolveObsPauliTrotter(state, observable->pauliObs, angle);
             break;
         }
         default: {
@@ -110,13 +110,13 @@ void applyPQC(state_t* state, const double par[], const obs_t* evoOps[], depth_t
  */
 
 void lcupqg(state_t* state, const cplx_t coeff[], const double angles[], const obs_t* evoOps[], depth_t anglesc) {
-    cplx_t* stateVec = (cplx_t*) calloc(state->dimension, sizeof(cplx_t));
+    cplx_t* stateVec = (cplx_t*) calloc(state->dim, sizeof(cplx_t));
     state_t tmp;
     stateInitEmpty(&tmp, state->qubits);
 
-    cblas_zaxpy((__LAPACK_int) state->dimension,
+    cblas_zaxpy((__LAPACK_int) state->dim,
                 (__LAPACK_double_complex*) coeff,
-                (__LAPACK_double_complex*) state->vector,
+                (__LAPACK_double_complex*) state->vec,
                 (__LAPACK_int) 1,
                 (__LAPACK_double_complex*) stateVec,
                 (__LAPACK_int) 1);
@@ -124,17 +124,17 @@ void lcupqg(state_t* state, const cplx_t coeff[], const double angles[], const o
     /* For each evolution operator, evolve the input state and store the resulting state vector multiplied with the
      * coefficient of the LCU to stateVec */
     for (depth_t i = 0; i < anglesc; ++i) {
-        stateCopyVector(&tmp, state->vector);
+        stateCopyVector(&tmp, state->vec);
         evolveWithTrotterizedObservable(&tmp, evoOps[i], angles[i]);
 
-        cblas_zaxpy((__LAPACK_int) state->dimension,
+        cblas_zaxpy((__LAPACK_int) state->dim,
                     (__LAPACK_double_complex*) coeff + (i + 1),
-                    (__LAPACK_double_complex*) tmp.vector,
+                    (__LAPACK_double_complex*) tmp.vec,
                     (__LAPACK_int) 1,
                     (__LAPACK_double_complex*) stateVec,
                     (__LAPACK_int) 1);
     }
     stateFreeVector(&tmp);
 
-    state->vector = stateVec;
+    state->vec = stateVec;
 }

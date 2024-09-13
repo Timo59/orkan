@@ -89,8 +89,8 @@ void testApplyObservablePauli(void) {
                                                                 // (reference)
 
         pauli_t* comps = allPauliStrings(qubits);               // Concatenation of all Pauli strings
-        obs.components = comps;
-        obs.coefficients = coeffs;
+        obs.comps = comps;
+        obs.coeffs = coeffs;
         complength_t length = (1 << (2 * qubits));
         obs.length = length;
         obs.qubits = qubits;
@@ -100,11 +100,11 @@ void testApplyObservablePauli(void) {
 
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
-            applyObservablePauliOmp_blas(&testState, &obs);                 // Apply test function
+            applyObsPauliBlas_omp_new(&testState, &obs);                 // Apply test function
 
             cmatVecMulInPlace(obsMatrix, refVectors[i],dim);        // Multiply reference vector with matrix in
                                                                         // place
-            TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
 
             stateFreeVector(&testState);
         }
@@ -154,16 +154,16 @@ void testEvolveWithPauliString(void) {
 
             for (dim_t j = 0; j < dim + 1; ++j) {
                 stateInitVector(&testState, testVectors[j], qubits);        // Initialize test state
-                evolveWithPauliString(&testState, strings + i, coeffs[i]);  // Apply test function
+                evolvePauliStrOmp(&testState, strings + i, coeffs[i]);  // Apply test function
 
                 /* Multiply evoMatrix and reference statevector */
                 cplx_t* reference = cmatVecMul(evoMatrix, refVectors[j], dim);
 
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
 
-                evolveWithPauliString(&testState, strings + i, -coeffs[i]); // Reverse test function
+                evolvePauliStrOmp(&testState, strings + i, -coeffs[i]); // Reverse test function
 
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[j], testState.vector, dim, PRECISION));
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[j], testState.vec, dim, PRECISION));
 
                 stateFreeVector(&testState);
             }
@@ -207,8 +207,8 @@ void testEvolveWithTrotterizedObservablePauli(void) {
                                                                 // (reference)
         pauliObs_t obs;                                         // Declare the observable
         pauli_t* comps = allPauliStrings(qubits);               // Concatenation of all Pauli strings
-        obs.components = comps;
-        obs.coefficients = coeffs;
+        obs.comps = comps;
+        obs.coeffs = coeffs;
         complength_t length = (1 << (2 * qubits));
         obs.length = length;
         obs.qubits = qubits;
@@ -219,17 +219,17 @@ void testEvolveWithTrotterizedObservablePauli(void) {
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
             /* Apply test function */
-            evolveWithTrotterizedObservablePauli(&testState, &obs, angle[0]);   // Apply test function
+            evolveObsPauliTrotter(&testState, &obs, angle[0]);   // Apply test function
 
             /* Multiply evoMatrix and reference statevector */
             cplx_t* reference = cmatVecMul(evoMatrix, refVectors[i], dim);
 
-            TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vector, dim, PRECISION));
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
 
             /* Reverse test function */
-            evolveWithTrotterizedObservablePauliDagger(&testState, &obs, angle[0]);
+            evolveObsPauliTrotterDagger(&testState, &obs, angle[0]);
 
-            TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vector, dim, PRECISION));
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
 
             stateFreeVector(&testState);
         }
