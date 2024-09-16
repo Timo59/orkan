@@ -77,7 +77,7 @@ void tearDown(void) {}
  *      vector are equal to some precision after an evolution and when reversing the evolution.
  */
 
-void testApplyObservablePauli(void) {
+void testApplyObsPauli(void) {
     state_t testState;          // State equipped with the test statevectors
     pauliObs_t obs;
 
@@ -96,7 +96,7 @@ void testApplyObservablePauli(void) {
         obs.qubits = qubits;
 
         /* Compute the observable's matrix representation */
-        cplx_t* obsMatrix = pauliObservableMat(comps, coeffs, length, qubits);
+        cplx_t* obsMatrix = pauliObsMat(comps, coeffs, length, qubits);
 
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
@@ -110,12 +110,9 @@ void testApplyObservablePauli(void) {
         }
 
         freeTestVectors(refVectors, qubits);
-        refVectors = NULL;
         free(testVectors);
-
-        free(comps);
-        comps = NULL;
         free(obsMatrix);
+        free(comps);
     }
 }
 
@@ -136,7 +133,7 @@ void testApplyObservablePauli(void) {
  *      to some precision after an evolution and when reversing the evolution.
  */
 
-void testEvolveWithPauliString(void) {
+void testEvolvePauliStr(void) {
     state_t testState;          // State equipped with the test statevectors
 
     for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
@@ -150,7 +147,7 @@ void testEvolveWithPauliString(void) {
             cplx_t** refVectors = generateTestVectors(qubits);      // Statevectors altered by matrix multiplication
                                                                     // (reference)
             /* Compute the observable's matrix representation */
-            cplx_t* evoMatrix = expPauliStringMat(strings + i, coeffs[i], qubits);
+            cplx_t* evoMatrix = expPauliStrMat(strings + i, coeffs[i], qubits);
 
             for (dim_t j = 0; j < dim + 1; ++j) {
                 stateInitVector(&testState, testVectors[j], qubits);        // Initialize test state
@@ -196,7 +193,7 @@ void testEvolveWithPauliString(void) {
  *      to some precision after an evolution and when reversing the evolution.
  */
 
-void testEvolveWithTrotterizedObservablePauli(void) {
+void testEvolveObsPauliTrotter(void) {
     state_t testState;          // State equipped with the test statevectors
 
     for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
@@ -214,7 +211,7 @@ void testEvolveWithTrotterizedObservablePauli(void) {
         obs.qubits = qubits;
 
         /* Compute the observable's matrix representation */
-        cplx_t* evoMatrix = expTrotterizedPauliObservableMat(comps, coeffs, length, angle[0], qubits);
+        cplx_t* evoMatrix = expPauliObsMatTrotter(comps, coeffs, length, angle[0], qubits);
 
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
@@ -251,11 +248,11 @@ void testEvolveWithTrotterizedObservablePauli(void) {
  * =====================================================================================================================
  */
 
-int main(void) {
-
-    UNITY_BEGIN();
-    RUN_TEST(testApplyObservablePauli);
-    RUN_TEST(testEvolveWithPauliString);
-    RUN_TEST(testEvolveWithTrotterizedObservablePauli);
-    return UNITY_END();
-}
+//int main(void) {
+//
+//    UNITY_BEGIN();
+//    RUN_TEST(testApplyObservablePauli);
+//    RUN_TEST(testEvolveWithPauliString);
+//    RUN_TEST(testEvolveWithTrotterizedObservablePauli);
+//    return UNITY_END();
+//}

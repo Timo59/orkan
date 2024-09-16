@@ -70,7 +70,7 @@ target_link_libraries(${gatelibTest} PRIVATE
 
 set(circlibTest circlibTest)
 add_executable(${circlibTest}
-        circlib/test/testPauli.c
+        circlib/test/testCirclib.c
         ${QLIBSRC}
         ${STATELIBSRC}
         ${GATELIBSRC}
@@ -161,7 +161,7 @@ target_link_libraries(q
 
 add_dependencies(q gatelibTest)
 add_dependencies(q circlibTest)
-# add_dependencies(q measlibTest)
+add_dependencies(q measlibTest)
 
 add_custom_command(
         TARGET q
