@@ -70,6 +70,118 @@ void testApplyX(void) {
     }
 }
 
+void testApplyXblas(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(XMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);       // attach vector to test state
+                applyXblas(&testState, pos);                                // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyXomp(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(XMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);       // attach vector to test state
+                applyXomp(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyXomp_blas(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(XMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);       // attach vector to test state
+                applyXomp_blas(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyXgcd(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(XMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);       // attach vector to test state
+                applyXgcd(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
 /*
  * =====================================================================================================================
  *                                              test applyY
@@ -112,6 +224,118 @@ void testApplyY(void) {
     }
 }
 
+void testApplyYblas(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(YMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);       // attach vector to test state
+                applyYblas(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);   // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyYomp(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(YMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);       // attach vector to test state
+                applyYomp(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);   // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyYomp_blas(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(YMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);       // attach vector to test state
+                applyYomp_blas(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);   // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyYgcd(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(YMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);       // attach vector to test state
+                applyYgcd(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);   // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
 /*
  * =====================================================================================================================
  *                                              test applyZ
@@ -144,6 +368,118 @@ void testApplyZ(void) {
                 applyZ(&testState, pos);                                    // apply test function
                 cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
                                                                                         // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyZblas(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(ZMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);        // attach vector to test state
+                applyZblas(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyZomp(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(ZMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);        // attach vector to test state
+                applyZomp(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyZomp_blas(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(ZMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);        // attach vector to test state
+                applyZomp_blas(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
+                // reference
+                TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
+            }
+            freeTestVectors(testVectors, qubits);
+            free(gateMat);
+        }
+        freeTestVectors(refVectors, qubits);
+    }
+}
+
+void testApplyZgcd(void) {
+    state_t testState;
+
+    for (qubit_t qubits = 1; qubits <= MAXQUBITS; ++qubits) {
+
+        dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+        cplx_t** refVectors = generateTestVectors(qubits);                  // State vectors for matrix multiplication
+
+        for (qubit_t pos = 0; pos < qubits; ++pos) {                        // For each target qubit from the right
+            cplx_t** testVectors = generateTestVectors(qubits);             // generate state vector to test on
+            cplx_t* gateMat = singleQubitGateMat(ZMAT, qubits, pos);   // generate the matrix representation from
+            // the Kronecker product
+
+            for (dim_t i = 0; i < dim + 1; ++i) {                                       // For each state vector
+                stateInitVector(&testState, testVectors[i], qubits);        // attach vector to test state
+                applyZgcd(&testState, pos);                                    // apply test function
+                cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);    // Matrix multiplication as
+                // reference
                 TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
             }
@@ -317,10 +653,10 @@ void testApplyCX(void) {
 
         for (qubit_t control = 0; control < qubits; ++control) {                // For each qubit as a control qubit
             for (qubit_t target = 0; target < qubits; ++target) {               // For each qubit as a target qubit
-                cplx_t** testVectors = generateTestVectors(qubits);             // Do nothing if control and target
                 if (control == target) {                                        // qubits coincide
                     continue;
                 }
+                cplx_t** testVectors = generateTestVectors(qubits);             // Do nothing if control and target
                 cplx_t* gateMat = controlledGateMat(XMAT, qubits, control, target); // Controlled operation's matrix
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                                   // For each state vector
@@ -364,10 +700,10 @@ void testApplyCY(void) {
 
         for (qubit_t control = 0; control < qubits; ++control) {                // For each qubit as a control qubit
             for (qubit_t target = 0; target < qubits; ++target) {               // For each qubit as a target qubit
-                cplx_t** testVectors = generateTestVectors(qubits);             // Do nothing if control and target
-                if (control == target) {                                        // qubits coincide
-                    continue;
+                if (control == target) {                                        // Do nothing if control and target
+                    continue;                                                   // qubits coincide
                 }
+                cplx_t** testVectors = generateTestVectors(qubits);
                 cplx_t* gateMat = controlledGateMat(YMAT, qubits, control, target); // Controlled operation's matrix
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                                   // For each state vector
@@ -411,12 +747,12 @@ void testApplyCZ(void) {
 
         for (qubit_t control = 0; control < qubits; ++control) {                // For each qubit as a control qubit
             for (qubit_t target = 0; target < qubits; ++target) {               // For each qubit as a target qubit
-                cplx_t** testVectors = generateTestVectors(qubits);             // Do nothing if control and target
-                if (control == target) {                                        // qubits coincide
-                    continue;
+                if (control == target) {                                        // Do nothing if control and target
+                    continue;                                                   // qubits coincide
                 }
+                cplx_t** testVectors = generateTestVectors(qubits);
                 cplx_t* gateMat = controlledGateMat(ZMAT, qubits, control, target); // Controlled operation's matrix
-                // representation
+                                                                                        // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                                   // For each state vector
                     stateInitVector(&testState, testVectors[i], qubits);    // attach vector to test state
                     applyCZ(&testState, control, target);                           // apply test function
@@ -459,10 +795,10 @@ void testApplyCS(void) {
 
         for (qubit_t control = 0; control < qubits; ++control) {                // For each qubit as a control qubit
             for (qubit_t target = 0; target < qubits; ++target) {               // For each qubit as a target qubit
-                cplx_t** testVectors = generateTestVectors(qubits);             // Do nothing if control and target
-                if (control == target) {                                        // qubits coincide
-                    continue;
+                if (control == target) {                                        // Do nothing if control and target
+                    continue;                                                   // qubits coincide
                 }
+                cplx_t** testVectors = generateTestVectors(qubits);
                 cplx_t* gateMat = controlledGateMat(SMAT, qubits, control, target); // Controlled operation's matrix
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                                   // For each state vector
@@ -509,12 +845,12 @@ void testApplyCH(void) {
 
         for (qubit_t control = 0; control < qubits; ++control) {                // For each qubit as a control qubit
             for (qubit_t target = 0; target < qubits; ++target) {               // For each qubit as a target qubit
-                cplx_t** testVectors = generateTestVectors(qubits);             // Do nothing if control and target
-                if (control == target) {                                        // qubits coincide
-                    continue;
+                if (control == target) {                                        // Do nothing if control and target
+                    continue;                                                   // qubits coincide
                 }
+                cplx_t** testVectors = generateTestVectors(qubits);
                 cplx_t* gateMat = controlledGateMat(HMAT, qubits, control, target); // Controlled operation's matrix
-                // representation
+                                                                                        // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                                   // For each state vector
                     stateInitVector(&testState, testVectors[i], qubits);    // attach vector to test state
                     applyCH(&testState, control, target);                           // apply test function
@@ -557,10 +893,10 @@ void testApplyCT(void) {
 
         for (qubit_t control = 0; control < qubits; ++control) {                // For each qubit as a control qubit
             for (qubit_t target = 0; target < qubits; ++target) {               // For each qubit as a target qubit
-                cplx_t** testVectors = generateTestVectors(qubits);             // Do nothing if control and target
-                if (control == target) {                                        // qubits coincide
-                    continue;
+                if (control == target) {                                        // Do nothing if control and target
+                    continue;                                                   // qubits coincide
                 }
+                cplx_t** testVectors = generateTestVectors(qubits);
                 cplx_t* gateMat = controlledGateMat(TMAT, qubits, control, target); // Controlled operation's matrix
                 // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                                   // For each state vector
@@ -746,24 +1082,22 @@ void testApplyRZ(void) {
 void testApplySWAP(void) {
     state_t testState;
 
-    for (squbit_t qubits = 2; qubits <= MAXQUBITS; ++qubits) {
+    for (qubit_t qubits = 2; qubits <= MAXQUBITS; ++qubits) {
 
         dim_t dim = POW2(qubits, dim_t);                        // Hilbert space dimension
         cplx_t** refVectors = generateTestVectors(qubits);      // State vectors for matrix multiplication
 
-        for (squbit_t right_qubit = 0; right_qubit < qubits - 1 ; ++right_qubit) {  // For each constituent in the swap
+        for (qubit_t right_qubit = 0; right_qubit < qubits - 1 ; ++right_qubit) {  // For each constituent in the swap
                                                                                     // up to second to last qubit
 
-            for (squbit_t left_qubit = right_qubit + 1; left_qubit < qubits; ++left_qubit) {    // For each qubit at
+            for (qubit_t left_qubit = right_qubit + 1; left_qubit < qubits; ++left_qubit) {    // For each qubit at
                                                                                                 // least one qubit away
                 cplx_t** testVectors = generateTestVectors(qubits);
                 cplx_t* gateMat = swapGateMat(qubits, right_qubit, left_qubit);
-
                 for (dim_t i = 0; i < dim + 1; ++i) {
                     stateInitVector(&testState, testVectors[i], qubits);
                     applySWAP(&testState, right_qubit, left_qubit);
                     cplx_t* reference = cmatVecMul(gateMat, refVectors[i], dim);
-
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
 
                     free(reference);
@@ -802,7 +1136,6 @@ void testApplyToffoli(void) {
         for (qubit_t control1 = 0; control1 < qubits; ++control1) {
             for (qubit_t control2 = 0; control2 < qubits; ++control2) {
                 for(qubit_t target = 0; target < qubits; ++target) {
-                    cplx_t** testVectors = generateTestVectors(qubits);
                     /*
                     When only one of the three positions coincide continue with the next triple
                     without executing the test.
@@ -810,6 +1143,7 @@ void testApplyToffoli(void) {
                     if (control1 == target || control2 == target || control1 == control2) {
                         continue;
                     }
+                    cplx_t** testVectors = generateTestVectors(qubits);
                     cplx_t* gateMat = doublyControlledGateMat(XMAT, qubits, control1, control2, target);
                     /*
                     Starting at the first test and reference vector, respectively, check whether the
@@ -841,23 +1175,35 @@ void testApplyToffoli(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testApplyX);
+    RUN_TEST(testApplyXblas);
+    RUN_TEST(testApplyXomp);
+    RUN_TEST(testApplyXomp_blas);
+    RUN_TEST(testApplyXgcd);
     RUN_TEST(testApplyY);
+    RUN_TEST(testApplyYblas);
+    RUN_TEST(testApplyYomp);
+    RUN_TEST(testApplyYomp_blas);
+    RUN_TEST(testApplyYgcd);
     RUN_TEST(testApplyZ);
+    RUN_TEST(testApplyZblas);
+    RUN_TEST(testApplyZomp);
+    RUN_TEST(testApplyZomp_blas);
+    RUN_TEST(testApplyZgcd);
     RUN_TEST(testApplyS);
     RUN_TEST(testApplyH);
     RUN_TEST(testApplyT);
     // RUN_TEST(testApplyP);
     RUN_TEST(testApplyCX);
-//    RUN_TEST(testApplyCY);
-//    RUN_TEST(testApplyCZ);
-//    RUN_TEST(testApplyCS);
-//    RUN_TEST(testApplyCH);
-//    RUN_TEST(testApplyCT);
+    RUN_TEST(testApplyCY);
+    RUN_TEST(testApplyCZ);
+    RUN_TEST(testApplyCS);
+    RUN_TEST(testApplyCH);
+    RUN_TEST(testApplyCT);
     // RUN_TEST(testApplyCP);
-//    RUN_TEST(testApplyRX);
-//    RUN_TEST(testApplyRY);
-//    RUN_TEST(testApplyRZ);
-//    RUN_TEST(testApplySWAP);
-//    RUN_TEST(testApplyToffoli);
+    RUN_TEST(testApplyRX);
+    RUN_TEST(testApplyRY);
+    RUN_TEST(testApplyRZ);
+    RUN_TEST(testApplySWAP);
+    RUN_TEST(testApplyToffoli);
     return UNITY_END();
 }

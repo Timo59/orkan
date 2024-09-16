@@ -183,7 +183,7 @@ void testExpValObs(void) {
         pauli_t* comps = allPauliStringsDiag(qubits);           // Concatenation of all diagonal Pauli strings
         complength_t length = (1 << qubits);                    // Number of components, i.e., number of Pauli strings
 
-        double* diagObs = pauliObservableDiag(comps, coeffs, length, qubits);
+        double* diagObs = pauliObsMatDiag(comps, coeffs, length, qubits);
         obsDiag.type = DIAG;
         obsDiag.diagObs = diagObs;
 
@@ -195,7 +195,7 @@ void testExpValObs(void) {
         obsPauli.pauliObs = &pauliObs;
 
         /* Compute the observable's matrix representation */
-        cplx_t* obsMatrix = pauliObservableMat(comps, coeffs, length, qubits);
+        cplx_t* obsMatrix = pauliObsMat(comps, coeffs, length, qubits);
 
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
@@ -222,7 +222,7 @@ void testExpValObs(void) {
         pauliObs.length = length;
 
         free(obsMatrix);
-        obsMatrix = pauliObservableMat(comps, coeffs, length, qubits);
+        obsMatrix = pauliObsMat(comps, coeffs, length, qubits);
 
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
@@ -277,7 +277,7 @@ void testExpValObsPQC(void) {
         pauli_t* comps_pauli = allPauliStrings(qubits);         // Concatenation of all diagonal Pauli strings
         complength_t length_pauli = (1 << (2 * qubits));        // Number of Pauli components
 
-        double* diagObs = pauliObservableDiag(comps_diag, coeffs, length_diag, qubits);
+        double* diagObs = pauliObsMatDiag(comps_diag, coeffs, length_diag, qubits);
         obsDiag.type = DIAG;                                    // Initialize the diagonal observable with all possible
         obsDiag.diagObs = diagObs;                              // diagonal Pauli strings and random coefficients
 
@@ -294,7 +294,7 @@ void testExpValObsPQC(void) {
             /* Initialize the evolution operators to diagonal operators */
             for (depth_t i = 0; i < circdepth; ++i) {
                 evoOps[i] = malloc(sizeof(*(evoOps[i])));
-                double* evoOpsDiag = pauliObservableDiag(comps_diag, coeffs + (i * length_diag), length_diag, qubits);
+                double* evoOpsDiag = pauliObsMatDiag(comps_diag, coeffs + (i * length_diag), length_diag, qubits);
                 evoOps[i]->type = DIAG;
                 evoOps[i]->diagObs = evoOpsDiag;
             }
@@ -430,7 +430,7 @@ void testGradientPQC(void) {
         complength_t length_pauli = (1 << (2 * qubits));        // Number of Pauli components
         pauli_t* compsY = allPauliStringsY(qubits);
 
-        double* diagObs = pauliObservableDiag(comps_diag, coeffs, length_diag, qubits);
+        double* diagObs = pauliObsMatDiag(comps_diag, coeffs, length_diag, qubits);
         obsDiag.type = DIAG;                                    // Initialize the diagonal observable with all possible
         obsDiag.diagObs = diagObs;                              // diagonal Pauli strings and random coefficients
 
@@ -448,7 +448,7 @@ void testGradientPQC(void) {
             /* Initialize the evolution operators to diagonal operators */
             for (depth_t i = 0; i < circdepth; ++i) {
                 evoOps[i] = malloc(sizeof(*(evoOps[i])));
-                evoOpsDiag[i] = pauliObservableDiag(comps_diag, coeffs + (i * length_diag), length_diag, qubits);
+                evoOpsDiag[i] = pauliObsMatDiag(comps_diag, coeffs + (i * length_diag), length_diag, qubits);
                 evoOps[i]->type = DIAG;
                 evoOps[i]->diagObs = evoOpsDiag[i];
             }
@@ -638,7 +638,7 @@ void testHessianPQC(void) {
         complength_t length_pauli = (1 << (2 * qubits));        // Number of Pauli components
         pauli_t* compsY = allPauliStringsY(qubits);
 
-        double* diagObs = pauliObservableDiag(comps_diag, coeffs, length_diag, qubits);
+        double* diagObs = pauliObsMatDiag(comps_diag, coeffs, length_diag, qubits);
         obsDiag.type = DIAG;                                    // Initialize the diagonal observable with all possible
         obsDiag.diagObs = diagObs;                              // diagonal Pauli strings and random coefficients
 
@@ -656,7 +656,7 @@ void testHessianPQC(void) {
             /* Initialize the evolution operators to diagonal operators */
             for (depth_t i = 0; i < circdepth; ++i) {
                 evoOps[i] = malloc(sizeof(*(evoOps[i])));
-                evoOpsDiag[i] = pauliObservableDiag(comps_diag, coeffs + (i * length_diag), length_diag, qubits);
+                evoOpsDiag[i] = pauliObsMatDiag(comps_diag, coeffs + (i * length_diag), length_diag, qubits);
                 evoOps[i]->type = DIAG;
                 evoOps[i]->diagObs = evoOpsDiag[i];
             }
@@ -829,7 +829,7 @@ void testMomMat(void) {
         pauli_t* comps_pauli = allPauliStrings(qubits);         // Concatenation of all diagonal Pauli strings
         complength_t length_pauli = (1 << (2 * qubits));        // Number of Pauli components
 
-        double* diagObs = pauliObservableDiag(comps_diag, coeffs, length_diag, qubits);
+        double* diagObs = pauliObsMatDiag(comps_diag, coeffs, length_diag, qubits);
         obs[0] = malloc(sizeof(*(obs[0])));
         obs[0]->type = DIAG;                                    // Initialize the diagonal observable with all possible
         obs[0]->diagObs = diagObs;                              // diagonal Pauli strings and random coefficients
@@ -849,23 +849,23 @@ void testMomMat(void) {
 
         cplx_t* obsMat[obsc];                                                   // Array of observable's matrix
                                                                                 // representation
-        obsMat[0] = pauliObservableMat(comps_diag, coeffs, length_diag, qubits);
+        obsMat[0] = pauliObsMat(comps_diag, coeffs, length_diag, qubits);
         for (depth_t i = 0; i < obsc - 1; ++i) {
-            obsMat[i + 1] = pauliObservableMat(comps_pauli,
-                                               coeffs + (i * length_pauli),
-                                               length_pauli,
-                                               qubits);
+            obsMat[i + 1] = pauliObsMat(comps_pauli,
+                                        coeffs + (i * length_pauli),
+                                        length_pauli,
+                                        qubits);
         }
 
         cplx_t* srchOpsMat[obsc];                                               // Array of search operator's matrix
                                                                                 // representation
-        srchOpsMat[0] = expTrotterizedPauliObservableMat(comps_diag, coeffs, length_diag, 0.05, qubits);
+        srchOpsMat[0] = expPauliObsMatTrotter(comps_diag, coeffs, length_diag, 0.05, qubits);
         for (depth_t i = 0; i < obsc - 1; ++i) {
-            srchOpsMat[i + 1] = expTrotterizedPauliObservableMat(comps_pauli,
-                                                                 coeffs + (i * length_pauli),
-                                                                 length_pauli,
-                                                                 0.05,
-                                                                 qubits);
+            srchOpsMat[i + 1] = expPauliObsMatTrotter(comps_pauli,
+                                                      coeffs + (i * length_pauli),
+                                                      length_pauli,
+                                                      0.05,
+                                                      qubits);
         }
 
         for (dim_t i = 0; i < dim + 1; ++i) {
@@ -941,7 +941,7 @@ void testMomMatPQC(void) {
         pauli_t* comps_pauli = allPauliStrings(qubits);         // Concatenation of all diagonal Pauli strings
         complength_t length_pauli = (1 << (2 * qubits));        // Number of Pauli components
 
-        double* diagObs = pauliObservableDiag(comps_diag, coeffs, length_diag, qubits);
+        double* diagObs = pauliObsMatDiag(comps_diag, coeffs, length_diag, qubits);
         obs[0] = malloc(sizeof(*(obs[0])));
         obs[0]->type = DIAG;                                    // Initialize the diagonal observable with all possible
         obs[0]->diagObs = diagObs;                              // diagonal Pauli strings and random coefficients
@@ -961,24 +961,24 @@ void testMomMatPQC(void) {
 
         cplx_t* obsMat[obsc];                                                       // Array of observable's matrix
                                                                                     // representation
-        obsMat[0] = pauliObservableMat(comps_diag, coeffs, length_diag, qubits);
+        obsMat[0] = pauliObsMat(comps_diag, coeffs, length_diag, qubits);
         for (depth_t i = 0; i < obsc - 1; ++i) {
-            obsMat[i + 1] = pauliObservableMat(comps_pauli,
-                                               coeffs + (i * length_pauli),
-                                               length_pauli,
-                                               qubits);
+            obsMat[i + 1] = pauliObsMat(comps_pauli,
+                                        coeffs + (i * length_pauli),
+                                        length_pauli,
+                                        qubits);
         }
 
         cplx_t* srchOpsMat[obsc + 1];                                           // Array of search operator's matrix
                                                                                 // representation preceded by id
         srchOpsMat[0] = identityMat(qubits);
-        srchOpsMat[1] = expTrotterizedPauliObservableMat(comps_diag, coeffs, length_diag, coeffs[0], qubits);
+        srchOpsMat[1] = expPauliObsMatTrotter(comps_diag, coeffs, length_diag, coeffs[0], qubits);
         for (depth_t i = 0; i < obsc - 1; ++i) {
-            srchOpsMat[i + 2] = expTrotterizedPauliObservableMat(comps_pauli,
-                                                                 coeffs + (i * length_pauli),
-                                                                 length_pauli,
-                                                                 coeffs[i + 1],
-                                                                 qubits);
+            srchOpsMat[i + 2] = expPauliObsMatTrotter(comps_pauli,
+                                                      coeffs + (i * length_pauli),
+                                                      length_pauli,
+                                                      coeffs[i + 1],
+                                                      qubits);
         }
 
         for (dim_t i = 0; i < dim + 1; ++i) {

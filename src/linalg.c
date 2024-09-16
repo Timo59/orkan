@@ -350,56 +350,13 @@ Output:
 */
 cplx_t* ckronecker(const cplx_t a[], const cplx_t b[], dim_t dimA, dim_t dimB)
 {
-    mat_t rowIndex, colIndex, entry;                    // unsigned integers holding the indices
-                                                        // of row and column of the kronecker
-                                                        // product's entry
-
-    cplx_t* result = malloc(dimA * dimA * dimB * dimB * sizeof(cplx_t));
-                                                        // Complex double pointer to a 1d array
-                                                        // of the size dimA * dimB * dimA * dimB
-                                                        // holding the entries of the kronecker
-                                                        // product as a concatenation of its rows
-
-    /*
-    Starting in the first row, this loop iterates through A's rows.
-    */
+    cplx_t* result = malloc(dimA * dimA * dimB * dimB * sizeof(cplx_t ));
+    mat_t dim = dimA * dimB;
     for (mat_t i = 0; i < dimA; ++i) {
-        /*
-        Starting in the first column, this loop iterates through A's columns.
-        */
         for (mat_t j = 0; j < dimA; ++j) {
-            /*
-            Starting in the first row, this loop iterates through B's rows.
-            */
             for (mat_t k = 0; k < dimB; ++k) {
-                /*
-                Starting in the first column, this loop iterates through B's columns.
-                */
-                for (mat_t l = 0; l < dimB; ++l) 
-                {
-                    rowIndex = ((mat_t) dimB) * i + k;          // The kronecker product's current
-                                                                // row is A's current row times the
-                                                                // number of rows in B plus B's
-                                                                // current row
-
-                    colIndex = ((mat_t) dimB) * j + l;          // The kronecker product's current
-                                                                // column is is A's current column
-                                                                // times the number of columns in B
-                                                                // plus B's current column
-
-                    entry = rowIndex * dimA * dimB + colIndex;  // Each row of the kronecker product
-                                                                // has dimA * dimB entries, so its
-                                                                // concatenated form's entry in row
-                                                                // x and column y is x * dimA * dimB
-                                                                // blocks away from the first block
-                                                                // and y cells away from the
-                                                                // beginning of a block
-
-                    result[entry] = a[((mat_t) i) * dimA + j] * b[((mat_t) k) * dimB + l];
-                                                                // The kronecker product's entry at
-                                                                // at position at the current row
-                                                                // and column is the product of the
-                                                                // the A's and B's entries
+                for (mat_t l = 0; l < dimB; ++l) {
+                    result[i * dimB * dim + k * dim + j * dimB + l] = a[i * dimA + j] * b[k * dimB + l];
                 }
             }
         }

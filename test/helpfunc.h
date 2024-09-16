@@ -11,14 +11,6 @@
 
 /*
  * =================================================================================================
- *                                              type definitions
- * =================================================================================================
- */
-
-typedef long                 squbit_t;
-
-/*
- * =================================================================================================
  *                                              static variables
  * =================================================================================================
  */
@@ -415,157 +407,82 @@ cplx_t* controlledGateMat(const cplx_t mat[], qubit_t qubits, qubit_t control, q
 }
 
 /*
-This function computes the matrix corresponding to the swap of the specified qubit with its
-neighbor to the left.
+ * This function computes the matrix corresponding to the swap of the specified qubit with its neighbor to the left
+ *
+ * Input:
+ *      qubit_t qubits:     Number of qubits
+ *      qubit_t target:     Index of the qubit that is to be swapped with its neighbor to the right
+ *
+ * Output:
+ *      The Kronecker product of identity matrices with a swap matrix at the position of target and qubit to its left
+ *      counted from the right.
+ */
 
-Input:
-    qubit_t qubits: the number of qubits involved in a state
-    qubit_t qubit1: unsigned integer corresponding to the one qubit to be swapped with its left
-    neighbor
-
-Output:
-    Double complex pointer to the matrix representing the swap of the specified qubit with its
-    neighbor to the left.
-*/
-cplx_t* neighboringSwapGateMat(squbit_t qubits, squbit_t qubit) {
+cplx_t* neighboringSwapGateMat(qubit_t qubits, qubit_t target) {
     /*
-    If either there are no qubits at all, the qubit to be swapped is the outmost qubit to the left
-    (the last in qhipster notation) or even outside the rage of qubits, return an error.
+    If either there are no qubits at all or one of the qubits to be swapped is out of range, return an error.
     */
-    if (qubits == 0 || qubit >= qubits - 1) {
-        printf("Couldn't create a neighboring swap gate for qubit %ld!\n", qubit);
+    if (qubits < 2 || target >= qubits - 1) {
+        printf("Couldn't create a neighboring swap gate for qubit %d!\n", target);
         return NULL;
     }
-    cplx_t* result = ONE;       // double complex pointer to the 1d array representing the 
-                                // all intermediate steps of the Kronecker product matrix;
-                                // initialised as complex 1
-    cplx_t* tmp;                // double complex pointer used for temporarily holding the adress
-                                // for the intermediate Kronecker products
-    /*
-    Starting at the leftmost position, identity matrices are appended to the Kronecker product until
-    the index reaches the position ahead of the the specified. Then, the 4x4 SWAP matrix is appended
-    while the index is shifted by to steps instead of one. After that identity matrices keep being
-    added until the number of constituents equals the number qubits.
-    */
-    for (squbit_t i = 0; i < qubits; ++i){
-        /*
-        If the index matches the position of the qubit that is to be swapped with the specified,
-        i.e. the one right to it (the one of smaller index in qhipster notation) one appends the 4x4
-        SWAP gate to the Kronecker product. In this case the index needs to be incremented by one
-        manually to skip the qubit that took part in the SWAP.
-        */
-        if (i + 1 == qubits - qubit - 1) {
-            tmp = ckronecker(result, SWAPMAT, POW2(i, dim_t), 4);   // the output pointer to the
-                                                                    // intermediate Kronecker
-                                                                    // product is stored to tmp
-
-            ++i;                                                    // index is raised by one since
-                                                                    // the SWAP operates also on the
-                                                                    // next qubit
-
-            /*
-            Except for the first iterational step, i.e., the index is one since it was incremented
-            after appending the SWAP gate, free the pointer to result.
-            */
-            if (i != 1) {
+    cplx_t* result = ONE;               // Array to hold the resulting matrix initialized to 1.0+0.0i
+    cplx_t* tmp;                        // double complex pointer used for temporarily holding the adress
+                                        // for the intermediate Kronecker products
+    for (qubit_t i = 0; i < qubits; ++i){       // Iterate all qubits:
+        if (i == target) {                          // If the current qubit is targeted
+            tmp = ckronecker(SWAPMAT, result, 4, POW2(i, dim_t));   // Kronecker product with the SWAP
+                                                                                    // matrix from the left (qubits are
+                                                                                    // counted from the right)
+            if (i != 0) {
                 free(result);
             }
+            ++i;
         }
-        /*
-        Otherwise, another identity matrix is appended to the Kronecker product.
-        */
-        else {
-            tmp = ckronecker(result, IDMAT, POW2(i, dim_t), 2);     // the output pointer to the
-                                                                    // intermediate Kronecker
-                                                                    // product is stored to tmp
-
-            /*
-            Except for the first iterational step, free the pointer to result.
-            */
+        else {                                      // Otherwise
+            tmp = ckronecker(IDMAT, result, 2, POW2(i, dim_t));     // Kronecker product with ID
+                                                                                    // matrix from the left
             if (i != 0) {
                 free(result);
             }
         }
 
-        result = tmp;       // result is now pointing to the outcome of the intermediate Kronecker
-                            // product matrix
-
+        result = tmp;
     }
     return result;
 }
 
 /*
-This function computes the matrix for the swap of two arbitrary qubits by concatenating swaps of 
-neighboring qubits.
-
-Input:
-    qubit_t qubits: the number of qubits involved in a state
-    qubit_t qubit1: unsigned integer corresponding to the one qubit to be swapped
-    qubit_t qubit2: unsigned integer corresponding to the other qubit to be swapped
-
-Output:
-    Double complex pointer to the matrix product of neighboring swaps representing the matrix of
-    swapping two arbitrary qubits.
-*/
-cplx_t* swapGateMat(squbit_t qubits, squbit_t qubit1, squbit_t qubit2) {
-    dim_t dimension = POW2(qubits, dim_t);                                  // unsigned integer
-                                                                            // holding the dimension
-    squbit_t left_qubit = MAX(qubit1, qubit2);                              // unsigned integer 
-                                                                            // representing the
-                                                                            // leftmost (lower index
-                                                                            // in qhipster) qubit in
-                                                                            // the SWAP
-
-    squbit_t right_qubit = MIN(qubit1, qubit2);                             // unsigned integer
-                                                                            // representing the
-                                                                            // rightmost (larger
-                                                                            // index in qhipster)
-                                                                            // qubit in the SWAP
-
-    cplx_t* result = neighboringSwapGateMat(qubits, left_qubit - 1);        // double complex
-                                                                            // pointer to the
-                                                                            // intermediate product
-                                                                            // matrix; initialised
-                                                                            // as the leftmost (last
-                                                                            // in qhipster) swap
-
-    cplx_t* tmp;                                                            // double complex
-                                                                            // pointer to the
-                                                                            // temporary 
-                                                                            // intermediate product
-                                                                            // matrices
-
-    cplx_t* neighborSwap;                                                  // double complex
-                                                                            // pointer to the
-                                                                            // neighboring swap
-                                                                            // matrices
-    /*
-    Starting at the position right to the left qubit (larger index in qhipster), multiply the swap
-    between the next neighbors to the right from the left and the right to the intermediate matrix
-    until arriving at the righmost qubit.
-    */
-    for (squbit_t i = left_qubit - 2; i >= right_qubit; --i) {
-
-        neighborSwap = neighboringSwapGateMat(qubits, i);       // compute the matrix for the next
-                                                                // neighboring swap
-
-        tmp = cmatMul(neighborSwap, result, dimension);         // multiply the next neighboring
-                                                                // swap to the current permutation
-                                                                // matrix from the left and store 
-                                                                // the result in the double complex
-                                                                // pointer tmp
-
-        tmp = cmatMul(tmp, neighborSwap, dimension);           // multiply the next neighboring
-                                                                // swap from the right to previously
-                                                                // stored double complex pointer tmp
-
-        free(result);                                           // free the allocated memory for
-                                                                // result
-
-        result = tmp;                                           // attach the pointer to the
-                                                                // inermediate permutation matrix
-                                                                // to result 
+ * This function computes the matrix for the swap of two arbitrary qubits by concatenating swaps of neighboring qubits.
+ */
+cplx_t* swapGateMat(qubit_t qubits, qubit_t qubit1, qubit_t qubit2) {
+    dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
+    qubit_t left_qubit = MAX(qubit1, qubit2);                           // index of the qubit to the left to be swapped
+    qubit_t right_qubit = MIN(qubit1, qubit2);                          // index of the qubit to the right to be swapped
+    cplx_t* result = neighboringSwapGateMat(qubits, right_qubit);   // Array to later hold the swap gate
+                                                                        // initialized to swap the right qubit with its
+                                                                        // left neighbor
+                                                                        // To swap right qubit to the left position:
+    for (qubit_t i = right_qubit + 1; i < left_qubit; ++i) {            // Iterate qubits between left and right qubit
+        cplx_t* neighborSwap = neighboringSwapGateMat(qubits, i);       // Calculate the matrix for swapping with
+                                                                                // the next left neighbor
+        cplx_t* tmp = cmatMul(neighborSwap, result, dim);               // Multiply the neighbor swap matrix from
+                                                                                // the left
+        free(result);
+        free(neighborSwap);
+        result = tmp;
     }
+                                                                        // To swap the left qubit to the right position
+    for (qubit_t i = left_qubit - 1; i > right_qubit; --i) {            // Iterate qubits from left to right
+        cplx_t* neighborSwap = neighboringSwapGateMat(qubits, i - 1);       // Calculate the matrix for swapping with
+                                                                                    // the next left neighbor
+        cplx_t* tmp = cmatMul(neighborSwap, result, dim);         // Multiply the neighbor swap matrix from
+                                                                        // the left
+        free(result);
+        free(neighborSwap);
+        result = tmp;
+    }
+
     return result;
 }
 
@@ -808,7 +725,7 @@ cplx_t* doublyControlledGateMat(const cplx_t mat[], qubit_t qubits, qubit_t cont
  * Output:
  *      The Kronecker product of qubit Pauli matrices stored in a dynamical memory block in row major form
  */
-cplx_t* pauliStringMat(const pauli_t paulistr[], qubit_t qubits) {
+cplx_t* pauliStrMat(const pauli_t paulistr[], qubit_t qubits) {
     cplx_t* result = ONE;       // Output initialized to the array {1.0+0.0I}
     cplx_t* tmp;                // Temporary array holding each intermediate Kronecker product
 
@@ -862,7 +779,7 @@ cplx_t* pauliStringMat(const pauli_t paulistr[], qubit_t qubits) {
  *      The sum of Kronecker products of qubit Pauli matrices weighted with their respective coefficients stored in a
  *      dynamical memory block in row major form
  */
-cplx_t* pauliObservableMat(const pauli_t comps[], const double coeffs[], complength_t length, qubit_t qubits) {
+cplx_t* pauliObsMat(const pauli_t comps[], const double coeffs[], complength_t length, qubit_t qubits) {
     dim_t dim = POW2(qubits, dim_t);                                            // Hilbert space dimension
     cplx_t* result = (cplx_t*) calloc(dim*dim, sizeof(cplx_t));     // The resulting square matrix
     cplx_t* tmp;                                                                // Temporary holding each intermediate
@@ -871,7 +788,7 @@ cplx_t* pauliObservableMat(const pauli_t comps[], const double coeffs[], complen
      * Iterate the Pauli strings, create their matrices and add them times the coefficient to the resulting matrix
      */
     for(complength_t i = 0; i < length; ++i) {
-        tmp = pauliStringMat(comps + (i * qubits), qubits);
+        tmp = pauliStrMat(comps + (i * qubits), qubits);
         cscalarMatMulInPlace(coeffs[i], tmp, dim);
         cmatAddInPlace(result, tmp, dim);
     }
@@ -894,10 +811,10 @@ cplx_t* pauliObservableMat(const pauli_t comps[], const double coeffs[], complen
  *      The diagonal entries of the observable matrix generated by pauliObservableMat stored in a
  *      dynamical memory block
  */
-double* pauliObservableDiag(const pauli_t comps[], const double coeffs[], complength_t length, qubit_t qubits) {
+double* pauliObsMatDiag(const pauli_t comps[], const double coeffs[], complength_t length, qubit_t qubits) {
     dim_t dim = POW2(qubits, dim_t);                                    // Hilbert space dimension
     double* result = (double*) malloc(dim * sizeof(double));        // The resulting array of diagonal entries
-    cplx_t* tmp = pauliObservableMat(comps, coeffs, length, qubits);    // Temporary holding the observable matrix
+    cplx_t* tmp = pauliObsMat(comps, coeffs, length, qubits);    // Temporary holding the observable matrix
 
     for (dim_t i = 0; i <dim; ++i) {                                    // Iterate through diagonal entries and store
         result[i] = creal(tmp[i*dim + i]);                              // them to result
@@ -919,13 +836,13 @@ double* pauliObservableDiag(const pauli_t comps[], const double coeffs[], comple
  *      since any Pauli string is involutive, stored in a dynamical memory block in row major form
  */
 
-cplx_t* expPauliStringMat(const pauli_t paulistr[], double angle, qubit_t qubits) {
+cplx_t* expPauliStrMat(const pauli_t paulistr[], double angle, qubit_t qubits) {
     dim_t dim = POW2(qubits, dim_t);                            // Hilbert space dimension
     cplx_t* result = identityMat(qubits);                       // The resulting matrix initialized to the all identity
                                                                 // matrix
 
     cscalarMatMulInPlace(cos(angle), result, dim);      // Multiply the all identity matrix with cos(angle)
-    cplx_t* tmp = pauliStringMat(paulistr, qubits);             // tmp holds the Pauli string matrix
+    cplx_t* tmp = pauliStrMat(paulistr, qubits);             // tmp holds the Pauli string matrix
     cscalarMatMulInPlace(-I * sin(angle), tmp, dim);    // Multiply the Pauli string matrix by -I * sin(angle)
     cmatAddInPlace(result, tmp, dim);                   // Add tmp entry-wise to result
 
@@ -950,11 +867,11 @@ cplx_t* expPauliStringMat(const pauli_t paulistr[], double angle, qubit_t qubits
  *      memory block in row major form
  */
 
-cplx_t* expTrotterizedPauliObservableMat(const pauli_t comps[],
-                                         const double coeffs[],
-                                         complength_t length,
-                                         double angle,
-                                         qubit_t qubits)
+cplx_t* expPauliObsMatTrotter(const pauli_t comps[],
+                              const double coeffs[],
+                              complength_t length,
+                              double angle,
+                              qubit_t qubits)
 {
     dim_t dim = POW2(qubits, dim_t);            // Hilbert space dimension
     cplx_t* result = identityMat(qubits);       // The resulting matrix
@@ -965,9 +882,9 @@ cplx_t* expTrotterizedPauliObservableMat(const pauli_t comps[],
      * it to the resulting matrix
      */
     for (complength_t i = 0; i < length; ++i) {
-        tmp = expPauliStringMat(comps + ((length - i - 1) * qubits),
-                                coeffs[length - i - 1] * angle,
-                                qubits);
+        tmp = expPauliStrMat(comps + ((length - i - 1) * qubits),
+                             coeffs[length - i - 1] * angle,
+                             qubits);
         cmatMulInPlace(result, tmp, dim);
         free(tmp);
     }
@@ -996,18 +913,18 @@ double finiteExpValPQC(cplx_t* statevector,
     /*
      * 1. Calculate the observable's matrix
      */
-    cplx_t* observableMat = pauliObservableMat(compObs, coeffObs, lengthObs, qubits);
+    cplx_t* observableMat = pauliObsMat(compObs, coeffObs, lengthObs, qubits);
 
     /*
      * 2. Initialize the matrices for the evolution operators
      */
     cplx_t** evoOpsMat = (cplx_t**) malloc(circdepth * sizeof(cplx_t*));
     for (depth_t i = 0; i < circdepth; ++i) {
-        evoOpsMat[i] = expTrotterizedPauliObservableMat(compEvoOps,
-                                                        coeffEvoOps + (i * lengthEvoOps),
-                                                        lengthEvoOps,
-                                                        par[i],
-                                                        qubits);
+        evoOpsMat[i] = expPauliObsMatTrotter(compEvoOps,
+                                             coeffEvoOps + (i * lengthEvoOps),
+                                             lengthEvoOps,
+                                             par[i],
+                                             qubits);
     }
 
     /*

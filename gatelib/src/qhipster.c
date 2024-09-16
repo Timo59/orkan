@@ -601,110 +601,44 @@ void applyCPdagger(state_t* state, qubit_t control, qubit_t target, double angle
  */
 
 /*
-This function swaps two qubits in the system resulting in a rearrangement of the amplitudes in the
-state vector, where all entries whose index's binary representation differs at the two specified
-positions are exchanged.
+ * This function executes a SWAP of qubit1 and qubit2
+ *
+ * Input:
+ *      state_t* state:     State of qubit system
+ *      qubit_t qubit1:     Position of one qubit to swap
+ *      qubit_t qubit2:     Position of the other qubit to swap
+ *
+ */
+void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2) {
 
-Input:
-    state_t state: a user defined structure holding the pointer to a double complex valued array
-    corresponding to the state vector, the number of qubits as an unisgned integer of type qubits_t
-    and the Hilbert space dimension aka the number of entries in the state vector as an unsigned
-    integer of type dim_t
-    qubit_t qubit1: unsigned integer holding the position of the qubit from the right that is to be
-    swapped with qubit2
-    qubit_t qubit2: unsigned integer holding the position of the qubit from the right that is to be
-    swapped with qubit1
-    ASSUME qubit1 < qubit2
-Output:
-    There is no output value, but the array's elements the pointer in state refers to are exchanged.
-    Each entry whose index in binary representation at position qubit1 differs from that at position
-    qubit2 is exchanged with the entry whose index in binary representation differs at position
-    qubit1 and qubit2 from the earlier.
-    
-*/
-void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2)
-{
-    dim_t i;                                                        // index that determines the
-                                                                    // starting point of the inner
-                                                                    // loop, only changing the bits
-                                                                    // in the index's binary
-                                                                    // representation left to the
-                                                                    // left qubit
-
-    dim_t j;                                                        // index for the inner loop,
-                                                                    // running over all values that
-                                                                    // only differ in the bits right
-                                                                    // to the left qubit in the
-                                                                    // index's binary representation
-
-    qubit_t left_qubit = MAX(qubit1, qubit2);                       // index of the left qubit that
-                                                                    // is to be swapped
-
-    qubit_t right_qubit = MIN(qubit1, qubit2);                      // index of the right qubit that
-                                                                    // that is to be swapped
-
-    dim_t majorBlockDistance = POW2(left_qubit + 1, dim_t);         // distance of two indices whose
-                                                                    // values differ only by one in 
-                                                                    // the bits left to the position
-                                                                    // of the left qubit
-
-    dim_t minorBlockDistance = POW2(left_qubit, dim_t);             // distance of two indices whose
-                                                                    // values differ only in the bit
-                                                                    // at the position of the left
-                                                                    // qubit
-
-    dim_t offsetDistance = POW2(right_qubit, dim_t);                // distance of two indices whose
-                                                                    // values differ only in the bit
-                                                                    // at the position of the right
-                                                                    // qubit
-                                                                                                      
-    dim_t flipDistance = POW2(left_qubit, dim_t) - POW2(right_qubit, dim_t); 
-                                                                    // distance of the index whose
-                                                                    // bit at the position of the
-                                                                    // left and right qubit is 1
-                                                                    // and 0, respectively, to the
-                                                                    // index whose bit at the
-                                                                    // position of the left and
-                                                                    // right position is 0 and 1,
-                                                                    // respectively
-    /*
-    Starting with indices whose bits left to the one specified by the left qubit set to zero in the
-    index's binary representation, the integer i marks the starting point of the inner loop. After
-    each iteration, taking 2^{qubit2} executions of the inner loop, the bits left to the one 
-    specified by
-    qubit2 are gradually increased by one, which corresponds to an increment of 2^{qubit2 + 1}.
-    The loop terminates, when all bits left to the one specified by qubit2 in the index's binary
-    representation are set to one.
-    */
-    for (i = 0; i < state->dim; i += majorBlockDistance) {
-        /*
-        The inner loop always starts with all bits right to the one specified by the left qubit in
-        the index's binary representation initialised to zero except for the one at the position
-        of the right qubit, since it is the first that meets the subsequent condition. After each
-        iteration j is increased by one, thereby going through all possible bit strings of the bits
-        right to the left qubit. The loop terminates when all bits right to the one specified by the
-        left qubit in the index's binary representation are set to one. The bit at the position of
-        the left qubit in the index's binary representation remains set to zero.
-        */
-        for (j = i + offsetDistance; j < i + minorBlockDistance; ++j) {
-            /*
-            For all indices where the bit at the position of the right qubit in the index's binary
-            representation is set to one, a swap is executed. Since the bit at the position of the
-            left qubit in the index's binary representation remains set to zero throughout the
-            entire loop, the indices that meet the condition have a zero at the left qubit's
-            position and a one at the right qubit's position in the index's binary representation.
-            Its entry is exchanged with the entry whose index has a one at the left qubit's position
-            and a zero at right qubit's position in the index's binary representation. 
-            */
-            if (j & POW2(right_qubit, dim_t)) {
-                /*
-                Meeting the condition, the value of the j-th entry originating from the pointer
-                stored in state is stored to a temporary double complex variable. Subsequently, one
-                sets the value the j-th entry's pointer holds to be the value of the entry whose
-                index's binary representation only differs in the left and the right qubit. Finally,
-                the latter pointer is set to the value stored under the temporary and j.
-                */
-                SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
+    qubit_t left_qubit = MAX(qubit1, qubit2);                       // index of the qubit to the left to be swapped
+    qubit_t right_qubit = MIN(qubit1, qubit2);                      // index of the qubit to the right to be swapped
+    dim_t majorBlockDistance = POW2(left_qubit + 1, dim_t);         // Range of indices whose state vector entries after
+                                                                    // execution of the two qubit gate will be linear
+                                                                    // combinations of entries with indices only within
+                                                                    // the range
+    dim_t minorBlockDistance = POW2(right_qubit + 1, dim_t);        //
+    dim_t leftOffset = POW2(left_qubit, dim_t);                     // Range of computational basis states that leave
+                                                                    // the left qubit at zero when started from all
+                                                                    // qubits left to it set to zero
+    dim_t rightOffset = POW2(right_qubit, dim_t);                // Distance of computational basis states with zero
+                                                                    // and one at the right qubit, respectively
+    dim_t flipDistance = POW2(left_qubit, dim_t) - POW2(right_qubit, dim_t);    // Distance of two computational basis
+                                                                                // with zero at the left and one at the
+                                                                                // right qubit and with one at the left
+                                                                                // and zero at the right qubit
+    for (dim_t i = rightOffset; i < state->dim; i += majorBlockDistance) {        // Iterate the computational basis states with
+                                                                        // all zeros to the right of and including the
+                                                                        // left qubit and a one at the right qubit
+        for (dim_t j = i ; j < i + leftOffset; j += minorBlockDistance) {   // Iterate the computational basis
+                                                                                // states with constant qubits to the
+                                                                                // left and including the left qubit
+                                                                                // starting at the state where the right
+                                                                                // qubit is one
+            for (dim_t k = j ; k < j + rightOffset; ++k) {                                     // If the right qubit is one:
+                SWAP(state->vec + k, state->vec + (k + flipDistance), cplx_t);      // Swap entry with the one
+                                                                                    // corresponding to zero at the
+                                                                                    // right and one at the left qubit
             }
         }
     }
