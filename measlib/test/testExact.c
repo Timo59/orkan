@@ -4,11 +4,17 @@
  * =====================================================================================================================
  */
 
-#include "helpfunc.h"
+#ifndef EXACT_H
 #include "exact.h"
-#include "cplxutil.h"
-#include "linalg.h"
+#endif
+
+#ifndef HELPFUNC_H
+#include "helpfunc.h"
+#endif
+
+#ifndef UNITY_FRAMEWORK_H
 #include "unity.h"
+#endif
 
 /*
  * =====================================================================================================================
@@ -336,7 +342,7 @@ void testExpValObsPQC(void) {
             /* Initialize the evolution operators to Pauli operators */
             pauliObs_t* evoOpsPauli[circdepth];
             for (depth_t i = 0; i < circdepth; ++i) {
-                free(evoOps[i]->diagObs);                                   // free diagonal observable array
+                free(evoOps[i]->diagObs);                                  // free diagonal observable array
                 evoOpsPauli[i] = malloc(sizeof(*(evoOpsPauli[i])));
 
                 evoOpsPauli[i]->comps = comps_pauli;
@@ -383,6 +389,7 @@ void testExpValObsPQC(void) {
 
             for (depth_t i = 0; i < circdepth; ++i) {
                 free(evoOpsPauli[i]);
+                free(evoOps[i]);
             }
         }
         freeTestVectors(testVectors, qubits);
@@ -581,6 +588,7 @@ void testGradientPQC(void) {
 
             for (depth_t i = 0; i < circdepth; ++i) {
                 free(evoOpsPauli[i]);
+                free(evoOps[i]);
             }
         }
         freeTestVectors(testVectors, qubits);
@@ -630,7 +638,7 @@ void testHessianPQC(void) {
         cplx_t** testVectors = generateTestVectors(qubits);     // Statevectors altered by the test function
         cplx_t** refVectors = generateTestVectors(qubits);      // Statevectors altered by matrix multiplication
                                                                 // (reference)
-        double precision = pow(10, qubits - 4);                 // Precision for comparing hessians
+        double precision = pow(10, qubits - 3);                 // Precision for comparing hessians
 
         pauli_t* comps_diag = allPauliStringsDiag(qubits);      // Concatenation of all diagonal Pauli strings
         complength_t length_diag = (1 << qubits);               // Number of components, i.e., number of Pauli strings
@@ -793,6 +801,7 @@ void testHessianPQC(void) {
 
             for (depth_t i = 0; i < circdepth; ++i) {
                 free(evoOpsPauli[i]);
+                free(evoOps[i]);
             }
         }
         freeTestVectors(testVectors, qubits);

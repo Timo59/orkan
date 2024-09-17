@@ -4,10 +4,19 @@
  * =====================================================================================================================
  */
 
-#include "helpfunc.h"
+#ifndef GATELIB_H
 #include "gatelib.h"
+#endif
+
+#ifndef HELPFUNC_H
+#include "helpfunc.h"
+#endif
+
 #include "cplxutil.h"
+
+#ifndef UNITY_FRAMEWORK_H
 #include "unity.h"
+#endif
 
 /*
  * =====================================================================================================================

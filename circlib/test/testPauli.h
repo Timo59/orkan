@@ -4,9 +4,17 @@
  * =====================================================================================================================
  */
 
+#ifndef HELPFUNC_H
 #include "helpfunc.h"
+#endif
+
+#ifndef PAULI_H
 #include "pauli.h"
+#endif
+
+#ifndef UNITY_FRAMEWORK_H
 #include "unity.h"
+#endif
 
 
 /*
@@ -99,7 +107,7 @@ void testApplyObsPauli(void) {
         cplx_t* obsMatrix = pauliObsMat(comps, coeffs, length, qubits);
 
         for (dim_t i = 0; i < dim + 1; ++i) {
-            stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
+            stateInitVector(&testState, testVectors[i], qubits);            // Initialize test state
             applyObsPauliBlas_omp_new(&testState, &obs);                 // Apply test function
 
             cmatVecMulInPlace(obsMatrix, refVectors[i],dim);        // Multiply reference vector with matrix in
@@ -155,13 +163,11 @@ void testEvolvePauliStr(void) {
 
                 /* Multiply evoMatrix and reference statevector */
                 cplx_t* reference = cmatVecMul(evoMatrix, refVectors[j], dim);
-
                 TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+                free(reference);
 
                 evolvePauliStrOmp(&testState, strings + i, -coeffs[i]); // Reverse test function
-
                 TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[j], testState.vec, dim, PRECISION));
-
                 stateFreeVector(&testState);
             }
             freeTestVectors(refVectors, qubits);
@@ -220,14 +226,12 @@ void testEvolveObsPauliTrotter(void) {
 
             /* Multiply evoMatrix and reference statevector */
             cplx_t* reference = cmatVecMul(evoMatrix, refVectors[i], dim);
-
             TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
+            free(reference);
 
             /* Reverse test function */
             evolveObsPauliTrotterDagger(&testState, &obs, angle[0]);
-
             TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[i], testState.vec, dim, PRECISION));
-
             stateFreeVector(&testState);
         }
 
@@ -240,19 +244,3 @@ void testEvolveObsPauliTrotter(void) {
         free(evoMatrix);
     }
 }
-
-
-/*
- * =====================================================================================================================
- *                                                      main
- * =====================================================================================================================
- */
-
-//int main(void) {
-//
-//    UNITY_BEGIN();
-//    RUN_TEST(testApplyObservablePauli);
-//    RUN_TEST(testEvolveWithPauliString);
-//    RUN_TEST(testEvolveWithTrotterizedObservablePauli);
-//    return UNITY_END();
-//}
