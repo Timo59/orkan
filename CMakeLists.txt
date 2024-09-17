@@ -27,7 +27,7 @@ set(GATELIBSRC gatelib/src/qhipster.c)
 set(GATELIBINC gatelib/include /opt/homebrew/opt/libomp/include)
 set(GATELIBLINK /opt/homebrew/opt/libomp/lib)
 
-set(CIRCLIBSRC circlib/src/diag.c circlib/src/operator.c circlib/src/pauli.c)
+set(CIRCLIBSRC circlib/src/diag.c circlib/src/circlib.c circlib/src/pauli.c)
 set(CIRCLIBINC circlib/include)
 
 set(MEASLIBSRC measlib/src/exact.c)
@@ -144,7 +144,7 @@ target_compile_options(q PRIVATE
         -fopenmp
         -O2)
 
-target_include_directories(q PRIVATE
+target_include_directories(q INTERFACE
         ${QLIBINC}
         ${STATELIBINC}
         ${GATELIBINC}

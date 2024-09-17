@@ -1,5 +1,5 @@
-#ifndef DIAG_H
-#define DIAG_H
+#ifndef QTYPES_H
+#define QTYPES_H
 
 /*
  * =====================================================================================================================
@@ -7,8 +7,8 @@
  * =====================================================================================================================
  */
 
-#ifndef STATELIB_H
-#include "statelib.h"
+#ifndef __COMPLEX_H__
+#include <complex.h>
 #endif
 
 /*
@@ -23,34 +23,41 @@ extern "C" {
 
 /*
  * =====================================================================================================================
- *                                              apply diagonal operator
+ *                                                  type definitions
  * =====================================================================================================================
  */
-    
-void applyOpDiag(state_t* state, const cplx_t op[]);
+
+typedef unsigned long long      complength_t;
+typedef double complex          cplx_t;
+typedef unsigned short          depth_t;
+typedef unsigned long long      dim_t;
+typedef enum pauli {
+    ID,
+    X,
+    Y,
+    Z
+} pauli_t;
+typedef unsigned char           qubit_t;
 
 /*
  * =====================================================================================================================
- *                                              apply diagonal observable
+ *                                                      macros
  * =====================================================================================================================
  */
 
-void applyObsDiag(state_t* state, const double obs[]);
+#define INVSQRT2                0.7071067811865475
+#define PI                      3.1415926535897932
 
-void applyObsDiagOmp(state_t* state, const double obs[]);
+#define MIN(a,b)                ((a) < (b) ? (a) : (b))
+#define MAX(a,b)                ((a) > (b) ? (a) : (b))
+#define SWAP(a, b, T)           do { register T q; q = *(a); *(a) = *(b); *(b) = q; } while(0)
+#define POW2(a, T)              (1 << (T) (a))
 
-/*
- * =====================================================================================================================
- *                                              evolve with diagonal observable
- * =====================================================================================================================
- */
-
-void evolveObsDiag(state_t* state, const double obs[], double angle);
-
-void evolveObsDiagOmp(state_t* state, const double obs[], double angle);
+#define SETREAL(a, b)           (*((double*) &(a)) = (b))
+#define SETIMAG(a, b)           (*(((double*) &(a)) + 1) = (b))
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* DIAG_H */
+#endif /* QTYPES_H */

@@ -7,10 +7,13 @@
  * =====================================================================================================================
  */
 
+#ifndef GATELIB_H
 #include "gatelib.h"
-#include "cplxutil.h"
+#endif
+
+#ifndef LINALG_H
 #include "linalg.h"
-#include <stdio.h>
+#endif
 
 /*
  * =====================================================================================================================
@@ -76,4 +79,4 @@ void evolveObsPauliTrotterDagger(state_t* state, const pauliObs_t* obs, double a
 }
 #endif
 
-#endif
+#endif /* PAULI_H */

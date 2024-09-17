@@ -2,22 +2,25 @@
 #define LINALG_H
 
 /*
- * =================================================================================================
- *                                              includes
- * =================================================================================================
+ * =====================================================================================================================
+ *                                                      includes
+ * =====================================================================================================================
  */
 
-#include "owntypes.h"
+#ifndef __COMPLEX_H__
 #include <complex.h>
-#include <math.h>
-#include <vecLib/vecLib.h>
+#endif
+
+#ifndef _STDLIB_H_
 #include <stdlib.h>
+#endif
 
 /*
  * =================================================================================================
  *                                              C++ check
  * =================================================================================================
  */
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,31 +32,31 @@ extern "C" {
  * =================================================================================================
  */
 
-double* matAdd(const double a[], const double b[], dim_t dim);
+double* matAdd(const double a[], const double b[], unsigned long long dim);
 
-void matAddInPlace(double a[], const double b[], dim_t dim);
+void matAddInPlace(double a[], const double b[], unsigned long long dim);
 
-double* vecAdd(const double a[], const double b[], dim_t dim);
+double* vecAdd(const double a[], const double b[], unsigned long long dim);
 
-void vecAddInPlace(double a[], const double b[], dim_t dim);
+void vecAddInPlace(double a[], const double b[], unsigned long long dim);
 
-double vecProduct(const double a[], const double b[], dim_t dim);
+double vecProduct(const double a[], const double b[], unsigned long long dim);
 
-double* scalarMatMul(double a, const double b[], dim_t dim);
+double* scalarMatMul(double a, const double b[], unsigned long long dim);
 
-void scalarMatMulInPlace(double a, double b[], dim_t dim);
+void scalarMatMulInPlace(double a, double b[], unsigned long long dim);
 
-double* scalarVecMul(double a, const double b[], dim_t dim);
+double* scalarVecMul(double a, const double b[], unsigned long long dim);
 
-void scalarVecMulInPlace(double a, double b[], dim_t dim);
+void scalarVecMulInPlace(double a, double b[], unsigned long long dim);
 
-double* matMul(const double a[], const double b[], dim_t dim);
+double* matMul(const double a[], const double b[], unsigned long long dim);
 
-void matMulInPlace(double a[], const double b[], dim_t dim);
+void matMulInPlace(double a[], const double b[], unsigned long long dim);
 
-double* matVecMul(const double a[], const double b[], dim_t dim);
+double* matVecMul(const double a[], const double b[], unsigned long long dim);
 
-double* kronecker(const double a[], const double b[], dim_t dimA, dim_t dimB);
+double* kronecker(const double a[], const double b[], unsigned long long dimA, unsigned long long dimB);
 
 /* 
  * =================================================================================================
@@ -61,35 +64,38 @@ double* kronecker(const double a[], const double b[], dim_t dimA, dim_t dimB);
  * =================================================================================================
  */
 
-cplx_t* cmatAdd(const cplx_t a[], const cplx_t b[], dim_t dim);
+complex double* cmatAdd(const complex double a[], const complex double b[], unsigned long long dim);
 
-void cmatAddInPlace(cplx_t a[], const cplx_t b[], dim_t dim);
+void cmatAddInPlace(complex double a[], const complex double b[], unsigned long long dim);
 
-cplx_t* cvecAdd(const cplx_t a[], const cplx_t b[], dim_t dim);
+complex double * cvecAdd(const complex double a[], const complex double b[], unsigned long long dim);
 
-void cvecAddInPlace(cplx_t a[], const cplx_t b[], dim_t dim);
+void cvecAddInPlace(complex double a[], const complex double b[], unsigned long long dim);
 
-cplx_t cvecProduct(const cplx_t a[], const cplx_t b[], dim_t dim);
+complex double cvecProduct(const complex double a[], const complex double b[], unsigned long long dim);
 
-cplx_t cinnerProduct(const cplx_t a[], const cplx_t b[], dim_t dim);
+complex double cinnerProduct(const complex double a[], const complex double b[], unsigned long long dim);
 
-cplx_t* cscalarMatMul(cplx_t a, const cplx_t b[], dim_t dim);
+complex double* cscalarMatMul(complex double a, const complex double b[], unsigned long long dim);
 
-void cscalarMatMulInPlace(cplx_t a, cplx_t b[], dim_t dim);
+void cscalarMatMulInPlace(complex double a, complex double b[], unsigned long long dim);
 
-cplx_t* cscalarVecMul(cplx_t a, const cplx_t b[], dim_t dim);
+complex double* cscalarVecMul(complex double a, const complex double b[], unsigned long long dim);
 
-void cscalarVecMulInPlace(cplx_t a, cplx_t b[], dim_t dim);
+void cscalarVecMulInPlace(complex double a, complex double b[], unsigned long long dim);
 
-cplx_t* cmatMul(const cplx_t a[], const cplx_t b[], dim_t dim);
+complex double* cmatMul(const complex double a[], const complex double b[], unsigned long long dim);
 
-void cmatMulInPlace(cplx_t a[], const cplx_t b[], dim_t dim);
+void cmatMulInPlace(complex double a[], const complex double b[], unsigned long long dim);
 
-cplx_t* cmatVecMul(const cplx_t a[], const cplx_t b[], dim_t dim);
+complex double* cmatVecMul(const complex double a[], const complex double b[], unsigned long long dim);
 
-void cmatVecMulInPlace(const cplx_t a[], cplx_t v[], dim_t dim);
+void cmatVecMulInPlace(const complex double a[], complex double v[], unsigned long long dim);
 
-cplx_t* ckronecker(const cplx_t a[], const cplx_t b[], dim_t dimA, dim_t dimB);
+complex double* ckronecker(const complex double a[],
+                           const complex double b[],
+                           unsigned long long dimA,
+                           unsigned long long dimB);
 
 #ifdef __cplusplus
 }

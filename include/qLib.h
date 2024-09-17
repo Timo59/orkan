@@ -1,6 +1,5 @@
-//
-// Created by Timo Ziegler on 16.09.24.
-//
+#ifndef QLIB_H
+#define QLIB_H
 
 /*
  * =====================================================================================================================
@@ -8,21 +7,42 @@
  * =====================================================================================================================
  */
 
-#include "testPauli.h"
-#include "testDiag.h"
+#ifndef QTYPES_H
+#include "qTypes.h"
+#endif
+
+#ifndef LINALG_H
+#include "linalg.h"
+#endif
+
+#ifndef STATELIB_H
+#include "statelib.h"
+#endif
+
+#ifndef GATELIB_H
+#include "gatelib.h"
+#endif
+
+#ifndef CIRCLIB_H
+#include "circlib.h"
+#endif
+
+#ifndef EXACT_H
+#include "exact.h"
+#endif
 
 /*
  * =====================================================================================================================
- *                                                      main
+ *                                                      C++ check
  * =====================================================================================================================
  */
 
-int main(void) {
-    UNITY_BEGIN();
-    RUN_TEST(testApplyObsPauli);
-    RUN_TEST(testEvolvePauliStr);
-    RUN_TEST(testEvolveObsPauliTrotter);
-    RUN_TEST(testApplyObsDiag);
-    RUN_TEST(testEvolveObsDiag);
-    return UNITY_END();
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif /* QLIB_H */
