@@ -16,11 +16,11 @@
 #endif
 
 #ifndef STATELIB_H
-#include "statelib.h"
+#include "../statelib/statelib.h"
 #endif
 
 #ifndef GATELIB_H
-#include "gatelib.h"
+#include "../gatelib/gatelib.h"
 #endif
 
 #ifndef CIRCLIB_H
