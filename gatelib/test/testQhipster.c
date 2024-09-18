@@ -5,7 +5,7 @@
  */
 
 #ifndef GATELIB_H
-#include "gatelib.h"
+#include "../gatelib.h"
 #endif
 
 #ifndef HELPFUNC_H

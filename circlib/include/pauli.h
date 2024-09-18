@@ -8,7 +8,7 @@
  */
 
 #ifndef GATELIB_H
-#include "gatelib.h"
+#include "../../gatelib/gatelib.h"
 #endif
 
 #ifndef LINALG_H
