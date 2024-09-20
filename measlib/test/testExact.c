@@ -9,7 +9,7 @@
 #endif
 
 #ifndef HELPFUNC_H
-#include "helpfunc.h"
+#include "utils.h"
 #endif
 
 #ifndef UNITY_FRAMEWORK_H

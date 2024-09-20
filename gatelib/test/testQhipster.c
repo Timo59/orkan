@@ -9,10 +9,12 @@
 #endif
 
 #ifndef HELPFUNC_H
-#include "helpfunc.h"
+#include "utils.h"
 #endif
 
-#include "cplxutil.h"
+#ifndef GATEMAT_H
+#include "gateMat.h"
+#endif
 
 #ifndef UNITY_FRAMEWORK_H
 #include "unity.h"
