@@ -1,4 +1,4 @@
-add_library(Gate STATIC qhipster.c)
+add_library(Gate OBJECT qhipster.c $<TARGET_OBJECTS:State>)
 
 target_include_directories(Gate
         PRIVATE "${CMAKE_SOURCE_DIR}/include"
@@ -7,5 +7,7 @@ target_include_directories(Gate
 
 target_link_libraries(Gate
         PRIVATE Q_compiler_flags
-                State
+        State
 )
+
+install(FILES gatelib.h DESTINATION include)
