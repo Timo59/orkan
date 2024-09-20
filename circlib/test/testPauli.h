@@ -12,8 +12,16 @@
 #include "pauli.h"
 #endif
 
+#ifndef PAULIMAT_H
+#include "pauliMat.h"
+#endif
+
 #ifndef UNITY_FRAMEWORK_H
 #include "unity.h"
+#endif
+
+#ifndef UTILS_H
+#include "utils.h"
 #endif
 
 

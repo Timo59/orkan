@@ -8,7 +8,7 @@
  */
 
 #ifndef STATELIB_H
-#include "../../statelib/statelib.h"
+#include "../statelib/statelib.h"
 #endif
 
 /*

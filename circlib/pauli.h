@@ -8,11 +8,11 @@
  */
 
 #ifndef GATELIB_H
-#include "../../gatelib/gatelib.h"
+#include "gatelib.h"
 #endif
 
 #ifndef LINALG_H
-#include "../../mathlib/linalg.h"
+#include "linalg.h"
 #endif
 
 /*

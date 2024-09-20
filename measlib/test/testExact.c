@@ -8,6 +8,10 @@
 #include "exact.h"
 #endif
 
+#ifndef FINDIFF_H
+#include "finDiff.h"
+#endif
+
 #ifndef HELPFUNC_H
 #include "utils.h"
 #endif
@@ -15,6 +19,7 @@
 #ifndef UNITY_FRAMEWORK_H
 #include "unity.h"
 #endif
+
 
 /*
  * =====================================================================================================================
