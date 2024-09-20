@@ -1,4 +1,10 @@
-add_library(Meas STATIC exact.c)
+add_library(Meas OBJECT
+        exact.c
+        $<TARGET_OBJECTS:Math>
+        $<TARGET_OBJECTS:State>
+        $<TARGET_OBJECTS:Gate>
+        $<TARGET_OBJECTS:Circ>
+)
 
 target_include_directories(Meas
         PRIVATE   "${CMAKE_SOURCE_DIR}/include"
@@ -12,3 +18,5 @@ target_link_libraries(Meas PRIVATE
         Gate
         Circ
 )
+
+install(FILES "exact.h" DESTINATION include)
