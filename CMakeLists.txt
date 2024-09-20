@@ -60,16 +60,15 @@ target_link_libraries(gatelibTest
         Gate
 )
 
+add_test(gateTest COMMAND gatelibTest)
+
 add_library(Q SHARED qlib.c)
-
 target_link_libraries(Q PRIVATE Math)
-
-add_test(Gate COMMAND gatelibTest)
 
 add_dependencies(Q gatelibTest)
 
 add_custom_command(
-        TARGET gatelibTest
+        TARGET Q
         COMMENT "Run tests on gatelib"
         DEPENDS
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
