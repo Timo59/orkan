@@ -54,18 +54,57 @@ add_executable(gatelibTest gatelib/test/testQhipster.c)
 
 target_include_directories(gatelibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
-target_link_libraries(gatelibTest
-        PRIVATE Test_flags
+target_link_libraries(gatelibTest PRIVATE
+        Q_compiler_flags
+        Test_flags
         State
         Gate
 )
 
-add_test(gateTest COMMAND gatelibTest)
+add_subdirectory(circlib)
+
+add_executable(circlibTest circlib/test/testCirclib.c)
+
+target_include_directories(circlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
+
+target_link_libraries(circlibTest PRIVATE
+        Q_compiler_flags
+        Test_flags
+        State
+        Gate
+        Circ
+)
+
+add_subdirectory(measlib)
+
+add_executable(measlibTest measlib/test/testExact.c)
+
+target_include_directories(measlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
+
+target_link_libraries(measlibTest PRIVATE
+        Q_compiler_flags
+        Test_flags
+        State
+        Gate
+        Circ
+        Meas
+)
+
+add_test(NAME gateTest COMMAND gatelibTest)
+add_test(NAME circTest COMMAND circlibTest)
+add_test(NAME measTest COMMAND measlibTest)
 
 add_library(Q SHARED qlib.c)
-target_link_libraries(Q PRIVATE Math)
+target_link_libraries(Q
+        PRIVATE Q_compiler_flags
+                Math
+                State
+                Gate
+                Circ
+                Meas
+)
 
-add_dependencies(Q gatelibTest)
+add_dependencies(Q gatelibTest circlibTest measlibTest)
 
 add_custom_command(
         TARGET Q
