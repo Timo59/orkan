@@ -12,7 +12,7 @@
 #endif
 
 #ifndef LINALG_H
-#include "linalg.h"
+#include "../../mathlib/linalg.h"
 #endif
 
 /*

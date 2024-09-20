@@ -5,7 +5,7 @@
  */
 
 #ifndef HELPFUNC_H
-#include "helpfunc.h"
+#include "utils.h"
 #endif
 
 #ifndef PAULI_H
