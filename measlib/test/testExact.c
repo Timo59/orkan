@@ -434,7 +434,7 @@ void testGradientPQC(void) {
         dim_t dim = POW2(qubits, dim_t);                        // Hilbert space dimension
         cplx_t** testVectors = generateTestVectors(qubits);     // Statevectors altered by the test function
         cplx_t** refVectors = generateTestVectors(qubits);      // Statevectors altered by matrix multiplication
-        // (reference)
+                                                                // (reference)
 
         pauli_t* comps_diag = allPauliStringsDiag(qubits);      // Concatenation of all diagonal Pauli strings
         complength_t length_diag = (1 << qubits);               // Number of components, i.e., number of Pauli strings
@@ -469,7 +469,7 @@ void testGradientPQC(void) {
                 stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
 
                 /* Test diagonal observable and diagonal evolution operators */
-                double* result = gradientPQC(&testState, par, &obsDiag, (const obs_t**) evoOps, circdepth);
+                double* result = gradientPQCblas_omp(&testState, par, &obsDiag, (const obs_t**) evoOps, circdepth);
                 double* result2 = approxGradientPQC(&testState,     // Test gradient using finite difference
                                                     par,
                                                     &obsDiag,
@@ -488,6 +488,11 @@ void testGradientPQC(void) {
                                                       length_diag,
                                                       par,
                                                       EPSILON);
+//                printf("Diag-diag\n");
+//                printf("Result: ");
+//                vectorPrint(result, circdepth);
+//                printf("Reference: ");
+//                vectorPrint(reference, circdepth);
                 TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
                 TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, APPROXPRECISION));
                 free(result);
@@ -495,7 +500,7 @@ void testGradientPQC(void) {
                 free(reference);
 
                 /* Test Pauli observable and diagonal evolution operators */
-                result = gradientPQC(&testState, par, &obsPauli, (const obs_t**) evoOps, circdepth);
+                result = gradientPQCblas_omp(&testState, par, &obsPauli, (const obs_t**) evoOps, circdepth);
                 result2 = approxGradientPQC(&testState,     // Test gradient using finite difference
                                                     par,
                                                     &obsPauli,
@@ -514,6 +519,11 @@ void testGradientPQC(void) {
                                                       length_diag,
                                                       par,
                                                       EPSILON);
+//                printf("Diag-pauli\n");
+//                printf("Result: ");
+//                vectorPrint(result, circdepth);
+//                printf("Reference: ");
+//                vectorPrint(reference, circdepth);
                 TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
                 TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, APPROXPRECISION));
                 free(result);
@@ -539,7 +549,7 @@ void testGradientPQC(void) {
             for (dim_t i = 0; i < dim + 1; ++i) {
                 stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
                 /* Test diagonal observable and Pauli evolution operators */
-                double* result = gradientPQC(&testState, par, &obsDiag, (const obs_t**) evoOps, circdepth);
+                double* result = gradientPQCblas_omp(&testState, par, &obsDiag, (const obs_t**) evoOps, circdepth);
                 double* result2 = approxGradientPQC(&testState,     // Test gradient using finite difference
                                             par,
                                             &obsDiag,
@@ -558,6 +568,11 @@ void testGradientPQC(void) {
                                                       length_diag,
                                                       par,
                                                       EPSILON);
+//                printf("Pauli-diag\n");
+//                printf("Result: ");
+//                vectorPrint(result, circdepth);
+//                printf("Reference: ");
+//                vectorPrint(reference, circdepth);
                 TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
                 TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, APPROXPRECISION));
                 free(result);
@@ -565,7 +580,7 @@ void testGradientPQC(void) {
                 free(reference);
 
                 /* Test Pauli observable and diagonal Pauli operators */
-                result = gradientPQC(&testState, par, &obsPauli, (const obs_t**) evoOps, circdepth);
+                result = gradientPQCblas_omp(&testState, par, &obsPauli, (const obs_t**) evoOps, circdepth);
                 result2 = approxGradientPQC(&testState,     // Test gradient using finite difference
                                             par,
                                             &obsPauli,
@@ -584,6 +599,11 @@ void testGradientPQC(void) {
                                               length_diag,
                                               par,
                                               EPSILON);
+//                printf("Pauli-pauli\n");
+//                printf("Result: ");
+//                vectorPrint(result, circdepth);
+//                printf("Reference: ");
+//                vectorPrint(reference, circdepth);
                 TEST_ASSERT_TRUE(rvectorAlmostEqual(result, reference, circdepth, APPROXPRECISION));
                 TEST_ASSERT_TRUE(rvectorAlmostEqual(result2, reference, circdepth, APPROXPRECISION));
                 free(result);
@@ -825,7 +845,7 @@ void testHessianPQC(void) {
  */
 
 void applyU(state_t* state, const obs_t* srchOp) {
-    return (evolveWithTrotterizedObservable(state, srchOp, 0.05));
+    return (evolveObsTrotter(state, srchOp, 0.05));
 }
 
 void testMomMat(void) {

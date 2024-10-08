@@ -14,7 +14,7 @@
  * =====================================================================================================================
  */
 
-void applyOperator(state_t* state, const op_t* op) {
+void applyOp(state_t* state, const op_t* op) {
     switch(op->type) {
         case DIAG: {
             applyOpDiag(state, op->diagOp);
@@ -25,7 +25,7 @@ void applyOperator(state_t* state, const op_t* op) {
             break;
         }
         default: {
-            perror("Error in applyOperator: Invalid operator type");
+            perror("Error in applyOp: Invalid operator type");
             exit(1);
         }
     }
@@ -37,18 +37,18 @@ void applyOperator(state_t* state, const op_t* op) {
  * =====================================================================================================================
  */
 
-void applyObservable(state_t* state, const obs_t* observable) {
-    switch(observable->type) {
+void applyObs(state_t* state, const obs_t* obs) {
+    switch(obs->type) {
         case DIAG: {
-            applyObsDiag(state, observable->diagObs);
+            applyObsDiag(state, obs->diagObs);
             break;
         }
         case PAULI: {
-            applyObsPauli(state, observable->pauliObs);
+            applyObsPauli(state, obs->pauliObs);
             break;
         }
         default: {
-            printf("Error in applyObservable: Invalid observable type.\n");
+            printf("Error in applyObs: Invalid observable type.\n");
             exit(1);
         }
     }
@@ -60,18 +60,18 @@ void applyObservable(state_t* state, const obs_t* observable) {
  * =====================================================================================================================
  */
 
-void evolveWithTrotterizedObservable(state_t* state, const obs_t* observable, double angle) {
-    switch(observable->type) {
+void evolveObsTrotter(state_t* state, const obs_t* obs, double angle) {
+    switch(obs->type) {
         case DIAG: {
-            evolveObsDiag(state, observable->diagObs, angle);
+            evolveObsDiag(state, obs->diagObs, angle);
             break;
         }
         case PAULI: {
-            evolveObsPauliTrotter(state, observable->pauliObs, angle);
+            evolveObsPauliTrotter(state, obs->pauliObs, angle);
             break;
         }
         default: {
-            printf("Error in evolveWithTrotterizedObservable: Invalid observable type.\n");
+            printf("Error in evolveObsTrotter: Invalid observable type.\n");
             exit(1);
         }
     }
@@ -85,7 +85,7 @@ void evolveWithTrotterizedObservable(state_t* state, const obs_t* observable, do
 
 void applyPQC(state_t* state, const double par[], const obs_t* evoOps[], depth_t circdepth) {
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(state, evoOps[i], par[i]);
+        evolveObsTrotter(state, evoOps[i], par[i]);
     }
 }
 
@@ -127,7 +127,7 @@ void lcupqg(state_t* state, const cplx_t coeff[], const double angles[], const o
      * coefficient of the LCU to stateVec */
     for (depth_t i = 0; i < anglesc; ++i) {
         stateCopyVector(&tmp, state->vec);
-        evolveWithTrotterizedObservable(&tmp, evoOps[i], angles[i]);
+        evolveObsTrotter(&tmp, evoOps[i], angles[i]);
 
         cblas_zaxpy((__LAPACK_int) state->dim,
                     (__LAPACK_double_complex*) coeff + (i + 1),

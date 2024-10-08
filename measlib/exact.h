@@ -41,18 +41,24 @@ cplx_t expValPauli(const state_t* state, const pauliOp_t* op);
 
 cplx_t expValDiag(const state_t* state, const cplx_t op[]);
 
-cplx_t expVal(const state_t* state, const op_t* operator);
+cplx_t expVal(const state_t* state, const op_t* op);
 
 /*
  * =====================================================================================================================
  *                                                  Mean value observable
  * =====================================================================================================================
  */
-double expValObsPauli(const state_t* state, const pauliObs_t* observable);
+double expValObsPauli(const state_t* state, const pauliObs_t* obs);
+
+double expValObsPauliBlas(const state_t* state, const pauliObs_t* obs);
+
+double expValObsPauliOmp(const state_t* state, const pauliObs_t* obs);
+
+double expValObsPauliBlas_omp(const state_t* state, const pauliObs_t* obs);
 
 double expValObsDiag(const state_t* state, const double observable[]);
 
-double expValObs(const state_t* state, const obs_t* observable);
+double expValObs(const state_t* state, const obs_t* obs);
 
 /*
  * =====================================================================================================================
@@ -60,13 +66,13 @@ double expValObs(const state_t* state, const obs_t* observable);
  * =====================================================================================================================
  */
 
-double expValObsPqcPauli(const state_t* state, const double par[], const pauliObs_t* observable, \
+double expValObsPqcPauli(const state_t* state, const double par[], const pauliObs_t* obs, \
                          const obs_t *evoOps[], depth_t circdepth);
 
-double expValObsPqcDiag(const state_t* state, const double par[], const double observable[], \
+double expValObsPqcDiag(const state_t* state, const double par[], const double obs[], \
                         const obs_t *evoOps[], depth_t circdepth);
 
-double expValObsPQC(const state_t* state, const double params[], const obs_t* observable, \
+double expValObsPQC(const state_t* state, const double params[], const obs_t* obs, \
                     const obs_t* evoOps[], depth_t circdepth);
 /*
  * =====================================================================================================================
@@ -74,10 +80,19 @@ double expValObsPQC(const state_t* state, const double params[], const obs_t* ob
  * =====================================================================================================================
  */
 
-double* gradientPQC(const state_t* state, const double params[], const obs_t* observable, \
-                   const obs_t* evoOps[], depth_t circdepth);
+double* gradientPQC(const state_t* state, const double params[], const obs_t* obs, const obs_t* evoOps[],
+                    depth_t circdepth);
 
-double* approxGradientPQC(const state_t* state, const double par[], const obs_t* observable, \
+double* gradientPQCblas(const state_t* state, const double par[], const obs_t* obs, const obs_t* evoOps[],
+                        depth_t circdepth);
+
+double* gradientPQComp(const state_t* state, const double par[], const obs_t* obs, const obs_t* evoOps[],
+                        depth_t circdepth);
+
+double* gradientPQCblas_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t* evoOps[],
+                            depth_t circdepth);
+
+double* approxGradientPQC(const state_t* state, const double par[], const obs_t* observable,
                                const obs_t* evoOps[], depth_t circdepth, double epsilon);
 
 /*
