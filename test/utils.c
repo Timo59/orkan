@@ -64,7 +64,7 @@ void rvectorPrint(double vector[], dim_t dim) {
     rnumberPrint(vector[0]);
     for (dim_t i = 1; i < dim; ++i) {
         printf(", ");
-        numberPrint(vector[i]);
+        rnumberPrint(vector[i]);
     }
     printf("]\n");
 }
@@ -74,16 +74,16 @@ void cvectorPrint(cplx_t vector[], dim_t dim) {
     cnumberPrint(vector[0]);
     for (dim_t i = 1; i < dim; ++i) {
         printf(", ");
-        numberPrint(vector[i]);
+        cnumberPrint(vector[i]);
     }
     printf("]\n");
 }
 
 void rmatrixPrint(double matrix[], dim_t dim) {
     printf("[");
-    vectorPrint(matrix, dim);
+    rvectorPrint(matrix, dim);
     for (dim_t i = 1; i < dim; ++i) {
-        vectorPrint(matrix + (i * dim), dim);
+        rvectorPrint(matrix + (i * dim), dim);
     }
     printf("]\n");
 }
@@ -92,7 +92,7 @@ void cmatrixPrint(cplx_t matrix[], dim_t dim) {
     printf("[");
     cvectorPrint(matrix, dim);
     for (dim_t i = 1; i < dim; ++i) {
-        vectorPrint(matrix + (i * dim), dim);
+        cvectorPrint(matrix + (i * dim), dim);
     }
     printf("]\n");
 }

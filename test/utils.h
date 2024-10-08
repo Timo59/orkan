@@ -43,7 +43,7 @@
 #define vectorPrint(X, Y) _Generic((X), \
     double*: rvectorPrint, \
     cplx_t*: cvectorPrint \
-) ((X), (Y))
+) (X, Y)
 
 #define matrixPrint(X, Y) _Generic((X), \
     double*: rmatrixPrint, \

@@ -335,9 +335,9 @@ void applyObsPauliBlas_omp_new(state_t* state, const pauliObs_t* observable) {
             applyPauliStr(&tmp, observable->comps + (i * observable->qubits));
             __LAPACK_double_complex alpha = observable->coeffs[i];
             cblas_zaxpy(N, &alpha, tmp.vec, 1, tmpSum, 1);
-
         }
         stateFreeVector(&tmp);
+
 #pragma omp critical(sum)
         {
             cblas_zaxpy(N, &one, tmpSum, 1, result, 1);

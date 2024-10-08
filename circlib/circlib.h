@@ -62,7 +62,7 @@ typedef struct obs {
  * =====================================================================================================================
  */
 
-void applyOperator(state_t* state, const op_t* op);
+void applyOp(state_t* state, const op_t* op);
 
 /*
  * =====================================================================================================================
@@ -70,7 +70,7 @@ void applyOperator(state_t* state, const op_t* op);
  * =====================================================================================================================
  */
 
-void applyObservable(state_t* state, const obs_t* observable);
+void applyObs(state_t* state, const obs_t* obs);
 
 /*
  * =====================================================================================================================
@@ -78,7 +78,7 @@ void applyObservable(state_t* state, const obs_t* observable);
  * =====================================================================================================================
  */
 
-void evolveWithTrotterizedObservable(state_t* state, const obs_t* observable, double angle);
+void evolveObsTrotter(state_t* state, const obs_t* obs, double angle);
 
 /*
  * =====================================================================================================================

@@ -22,46 +22,46 @@
  * Output:
  *      The mean value of a Pauli operator without affecting the state itself.
 */
-cplx_t expValPauli(const state_t* state, const pauliOp_t* operator) {
+cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
     register cplx_t result = 0;     // Complex double holding the mean value at the end of the scope
     state_t tmp;                    // Temporary state the Pauli strings are applied to, inheriting state vector from
                                     // input state
 
     stateInitEmpty(&tmp, state->qubits);
-    for (complength_t i = 0; i < operator->length; ++i) {                               // Iterate the operator's term:
-        stateCopyVector(&tmp, state->vec);                                   // Copy the input state's vector
+    for (complength_t i = 0; i < op->length; ++i) {                               // Iterate the operator's term:
+        stateCopyVector(&tmp, state->vec);                                  // Copy the input state's vector
                                                                                         // to tmp
-        applyPauliStr(&tmp, operator->comps + (i * operator->qubits));  // Apply the Pauli string
+        applyPauliStr(&tmp, op->comps + (i * op->qubits));              // Apply the Pauli string
         cplx_t term = stateOverlap(state, &tmp);                        // Calculate the state's overlap
                                                                                         // with itself altered by the
                                                                                         // current Pauli string
-        result += (operator->coeffs[i] * term);                                   // Add the term times the term's
+        result += (op->coeffs[i] * term);                                   // Add the term times the term's
     }                                                                                   // coefficient to the result
     stateFreeVector(&tmp);
 
     return result;
 }
 
-cplx_t expValDiag(const state_t* state, const cplx_t operator[]) {
+cplx_t expValDiag(const state_t* state, const cplx_t op[]) {
     register cplx_t result = 0;
 
     for (dim_t i = 0; i < state->dim; ++i) {
-        result += conj(state->vec[i]) * state->vec[i] * operator[i];
+        result += conj(state->vec[i]) * state->vec[i] * op[i];
     }
 
     return result;
 }
 
-cplx_t expVal(const state_t* state, const op_t* operator) {
-    switch(operator->type) {
+cplx_t expVal(const state_t* state, const op_t* op) {
+    switch(op->type) {
         case DIAG: {
-            return expValDiag(state, operator->diagOp);
+            return expValDiag(state, op->diagOp);
         }
         case PAULI: {
-            return expValPauli(state, operator->pauliOp);
+            return expValPauli(state, op->pauliOp);
         }
         default: {
-            perror("Error in applyOperator: Invalid operator type");
+            perror("Error in applyOp: Invalid operator type");
             exit(1);
         }
     }
@@ -83,7 +83,7 @@ cplx_t expVal(const state_t* state, const op_t* operator) {
  * Output:
  *      Expected value of the observable on the state.
  */
-double expValObsPauli(const state_t* state, const pauliObs_t* observable) {
+double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
     state_t ket;            // state, initialized to the input state, the observable's components acts on
 
     cplx_t tmp;             // complex double holding the mean value of each observable's component
@@ -96,11 +96,11 @@ double expValObsPauli(const state_t* state, const pauliObs_t* observable) {
     /* For each component of the observable: Copy input state's vector to ket, apply component to ket, store the inner
      * product of the input state and ket to tmp and add the real part of this mean value weighted by the corresponding
      * coefficient to the result. */
-    for (complength_t i = 0; i < observable->length; ++i) {
+    for (complength_t i = 0; i < obs->length; ++i) {
         stateCopyVector(&ket, state->vec);
-        applyPauliStr(&ket, observable->comps + (i * observable->qubits));
+        applyPauliStr(&ket, obs->comps + (i * obs->qubits));
         tmp = cinnerProduct(state->vec, ket.vec, state->dim);
-        result += (observable->coeffs[i] * creal(tmp));
+        result += (obs->coeffs[i] * creal(tmp));
     }
 
     /* Free the memory allocated for ket's state vector */
@@ -109,6 +109,77 @@ double expValObsPauli(const state_t* state, const pauliObs_t* observable) {
     return result;
 }
 
+double expValObsPauliBlas(const state_t* state, const pauliObs_t* obs) {
+    state_t ket;
+    cplx_t tmp;
+    double result = 0;
+
+    __LAPACK_int N = (__LAPACK_int) state->dim;
+
+    stateInitEmpty(&ket, state->qubits);
+
+    for (complength_t i = 0; i < obs->length; ++i) {
+        cblas_zcopy(N, state->vec, 1, ket.vec, 1);
+        applyPauliStr(&ket, obs->comps + (i * obs->qubits));
+        cblas_zdotc_sub(N, state->vec, 1, ket.vec, 1, &tmp);
+        result += (obs->coeffs[i] * creal(tmp));
+    }
+    stateFreeVector(&ket);
+
+    return result;
+}
+
+double expValObsPauliOmp(const state_t* state, const pauliObs_t* obs) {
+    double result = 0;
+
+#pragma omp parallel default(none) shared(obs, result, state)
+    {
+        state_t ket;
+        cplx_t tmp;
+        stateInitEmpty(&ket, state->qubits);
+
+#pragma omp for
+        for (complength_t i = 0; i < obs->length; ++i) {
+            stateCopyVector(&ket, state->vec);
+            applyPauliStr(&ket, obs->comps + (i * obs->qubits));
+            tmp = cinnerProduct(state->vec, ket.vec, state->dim);
+
+#pragma omp critical(sum)
+            {
+                result += (obs->coeffs[i] * creal(tmp));
+            }
+        }
+        stateFreeVector(&ket);
+    }
+    return result;
+}
+
+double expValObsPauliBlas_omp(const state_t* state, const pauliObs_t* obs) {
+    double result = 0;
+    __LAPACK_int N = (__LAPACK_int) state->dim;
+    __LAPACK_int one = (__LAPACK_int) 1;
+
+#pragma omp parallel default(none) shared(N, obs, one, result, state)
+    {
+        state_t ket;
+        cplx_t tmp;
+        stateInitEmpty(&ket, state->qubits);
+
+#pragma omp for
+        for (complength_t i = 0; i < obs->length; ++i) {
+            cblas_zcopy(N, state->vec, 1, ket.vec, 1);
+            applyPauliStr(&ket, obs->comps + (i * obs->qubits));
+            cblas_zdotc_sub(N, state->vec, 1, ket.vec, 1, &tmp);
+
+#pragma omp critical(sum)
+            {
+                result += (obs->coeffs[i] * creal(tmp));
+            }
+        }
+        stateFreeVector(&ket);
+    }
+    return result;
+}
 /*
  * This function returns the expected value of a diagonal observable on a quantum state.
  *
@@ -142,17 +213,17 @@ double expValObsDiag(const state_t* state, const double observable[]) {
  * Output:
  *      Expected value of the observable on the state.
  */
-double expValObs(const state_t* state, const obs_t* observable) {
+double expValObs(const state_t* state, const obs_t* obs) {
     /* Depending on the type of the observable, calls either function returning the expected value */
-    switch(observable->type) {
+    switch(obs->type) {
         case DIAG: {
-            return expValObsDiag(state, observable->diagObs);
+            return expValObsDiag(state, obs->diagObs);
         }
         case PAULI: {
-            return expValObsPauli(state, observable->pauliObs);
+            return expValObsPauli(state, obs->pauliObs);
         }
         default: {
-            perror("Error in applyOperator: Invalid operator type");
+            perror("Error in applyOp: Invalid operator type");
             exit(1);
         }
     }
@@ -179,39 +250,22 @@ double expValObs(const state_t* state, const obs_t* observable) {
  */
 double expValObsPqcPauli(const state_t* state,
                          const double par[],
-                         const pauliObs_t* observable,
+                         const pauliObs_t* obs,
                          const obs_t *evoOps[],
                          depth_t circdepth)
 {
     state_t bra;                    // state, initialized to the input state and evolved with the PQC
-    state_t ket;                    // state, initialized to the input state and evolved with the PQC, the observable's
-                                    // components acts on
-
-    register cplx_t tmp;            // complex double holding the mean value of each observable's component
-
-    register double result = 0;     // double holding the sum of the weighted mean values of observable's components
 
     /* Initialize the temporary states and copy the input state's vector to the designated bra */
     stateInitEmpty(&bra, state->qubits);
-    stateInitEmpty(&ket, state->qubits);
     stateCopyVector(&bra, state->vec);
 
     /* Evolve the designated bra with the PQC */
     applyPQC(&bra, par, evoOps, circdepth);
+    double result = expValObsPauli(&bra, obs);
 
-    /* For each component of the observable: Copy evolved input state's vector (stored in bra) to ket, apply component
-     * to ket, store the inner product of bra and ket to tmp and add real part of this mean value weighted by the
-     * corresponding coefficient to the result. */
-    for (complength_t i = 0; i < observable->length; ++i) {
-        stateCopyVector(&ket, bra.vec);
-        applyPauliStr(&ket, observable->comps + (i * observable->qubits));
-        tmp = cinnerProduct(bra.vec, ket.vec, bra.dim);
-        result += (observable->coeffs[i] * creal(tmp));
-    }
-
-    /* Free the memory allocated for bra's and ket's state vector */
+    /* Free the memory allocated for bra's state vector */
     stateFreeVector(&bra);
-    stateFreeVector(&ket);
 
     return result;
 }
@@ -231,7 +285,7 @@ double expValObsPqcPauli(const state_t* state,
  */
 double expValObsPqcDiag(const state_t* state,
                         const double par[],
-                        const double observable[],
+                        const double obs[],
                         const obs_t *evoOps[],
                         depth_t circdepth)
 {
@@ -249,7 +303,7 @@ double expValObsPqcDiag(const state_t* state,
     /* For each of the evolved state vector's entries: Multiply its absolute square with the corresponding observable's
      * diagonal entry and add this to the result. */
     for (dim_t i = 0; i < tmp.dim; ++i) {
-        result += pow(cabs(tmp.vec[i]), 2) * observable[i];
+        result += pow(cabs(tmp.vec[i]), 2) * obs[i];
     }
 
     /* Free the memory allocated for tmp's state vector */
@@ -274,20 +328,20 @@ double expValObsPqcDiag(const state_t* state,
  */
 double expValObsPQC(const state_t* state,
                     const double par[],
-                    const obs_t* observable,
+                    const obs_t* obs,
                     const obs_t* evoOps[],
                     depth_t circdepth)
 {
     /* Depending on the type of the observable, calls either function returning the expected value */
-    switch(observable->type) {
+    switch(obs->type) {
         case DIAG: {
-            return expValObsPqcDiag(state, par, observable->diagObs, evoOps, circdepth);
+            return expValObsPqcDiag(state, par, obs->diagObs, evoOps, circdepth);
         }
         case PAULI: {
-            return expValObsPqcPauli(state, par, observable->pauliObs, evoOps, circdepth);
+            return expValObsPqcPauli(state, par, obs->pauliObs, evoOps, circdepth);
         }
         default: {
-            perror("Error in applyOperator: Invalid operator type");
+            perror("Error in applyOp: Invalid operator type");
             exit(1);
         }
     }
@@ -305,7 +359,7 @@ double expValObsPQC(const state_t* state,
  * Input:
  *      state_t* state:         Initial state of a qubit system
  *      double par[]:           Array of evolution parameters for the PQC
- *      obs_t* observable:      Observable with a type union
+ *      obs_t* obs:             Observable with a type union
  *      obs_t* evoOps[]:        Array of hermitian evolution operators
  *      depth_t circdepth:      Number of evolution operators in the PQC
  *
@@ -315,7 +369,7 @@ double expValObsPQC(const state_t* state,
  */
 double* gradientPQC(const state_t* state,
                     const double par[],
-                    const obs_t* observable,
+                    const obs_t* obs,
                     const obs_t* evoOps[],
                     depth_t circdepth)
 {
@@ -340,22 +394,22 @@ double* gradientPQC(const state_t* state,
 
     /* Evolve bra with all evolutional operators and apply the observable to it */
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(&bra, evoOps[i], par[i]);
+        evolveObsTrotter(&bra, evoOps[i], par[i]);
     }
-    applyObservable(&bra, observable);
+    applyObs(&bra, obs);
 
     /* k is an integer corresponding to the index of an evolution operator: Evolve tmp with all evolution operators up
      * to and including the k-th, copy the resulting state vector to ket and apply the current evolution operator to
      * ket. Evolve ket with all remaining evolution operators and store the imaginary part of its overlap with bra to
      * the k-th entry of the gradient array. */
     for (depth_t k = 0; k < circdepth; ++k) {
-        evolveWithTrotterizedObservable(&tmp, evoOps[k], par[k]);
+        evolveObsTrotter(&tmp, evoOps[k], par[k]);
 
         stateCopyVector(&ket, tmp.vec);
-        applyObservable(&ket, evoOps[k]);
+        applyObs(&ket, evoOps[k]);
 
         for (depth_t l = k + 1; l < circdepth; ++l) {
-            evolveWithTrotterizedObservable(&ket, evoOps[l], par[l]);
+            evolveObsTrotter(&ket, evoOps[l], par[l]);
         }
 
         result[k] = 2 * cimag(stateOverlap(&bra, &ket));
@@ -365,6 +419,145 @@ double* gradientPQC(const state_t* state,
     stateFreeVector(&bra);
     stateFreeVector(&ket);
     stateFreeVector(&tmp);
+    return result;
+}
+
+double* gradientPQCblas(const state_t* state,
+                        const double par[],
+                        const obs_t* obs,
+                        const obs_t* evoOps[],
+                        depth_t circdepth)
+{
+    __LAPACK_int N = (__LAPACK_int) state->dim;
+    state_t bra;
+    state_t tmp;
+    state_t ket;
+
+    double* result = malloc(circdepth * sizeof(double));
+
+    /* Initialize all temporary states and copy the input state's vector to bra and tmp */
+    stateInitEmpty(&bra, state->qubits);
+    cblas_zcopy(N, state->vec, 1, bra.vec, 1);
+
+    stateInitEmpty(&tmp, state->qubits);
+    cblas_zcopy(N, state->vec, 1, tmp.vec, 1);
+
+    stateInitEmpty(&ket, state->qubits);
+
+    /* Evolve bra with all evolutional operators and apply the observable to it */
+    for (depth_t i = 0; i < circdepth; ++i) {
+        evolveObsTrotter(&bra, evoOps[i], par[i]);
+    }
+    applyObs(&bra, obs);
+
+    /* k is an integer corresponding to the index of an evolution operator: Evolve tmp with all evolution operators up
+     * to and including the k-th, copy the resulting state vector to ket and apply the current evolution operator to
+     * ket. Evolve ket with all remaining evolution operators and store the imaginary part of its overlap with bra to
+     * the k-th entry of the gradient array. */
+    for (depth_t k = 0; k < circdepth; ++k) {
+        evolveObsTrotter(&tmp, evoOps[k], par[k]);
+
+        cblas_zcopy(N, tmp.vec, 1, ket.vec, 1);
+        applyObs(&ket, evoOps[k]);
+
+        for (depth_t l = k + 1; l < circdepth; ++l) {
+            evolveObsTrotter(&ket, evoOps[l], par[l]);
+        }
+
+        cplx_t dotc;
+        cblas_zdotc_sub(N, bra.vec, 1, ket.vec, 1, &dotc);
+        result[k] = 2 * cimag(dotc);
+    }
+
+    /* Free the memory allocated to the temporary state's vectors */
+    stateFreeVector(&bra);
+    stateFreeVector(&ket);
+    stateFreeVector(&tmp);
+    return result;
+}
+
+double* gradientPQComp(const state_t* state,
+                       const double par[],
+                       const obs_t* obs,
+                       const obs_t* evoOps[],
+                       depth_t circdepth)
+{
+    state_t bra;
+    double* result = malloc(circdepth * sizeof(double));
+
+    /* Initialize all temporary states and copy the input state's vector to bra and tmp */
+    stateInitEmpty(&bra, state->qubits);
+    stateCopyVector(&bra, state->vec);
+
+    /* Evolve bra with all evolutional operators and apply the observable to it */
+    for (depth_t i = 0; i < circdepth; ++i) {
+        evolveObsTrotter(&bra, evoOps[i], par[i]);
+    }
+    applyObs(&bra, obs);
+
+#pragma omp parallel for default(none) shared(bra, circdepth, evoOps, par, result, state) num_threads(circdepth)
+        for (depth_t i = 0; i < circdepth; ++i) {
+            state_t ket;
+            stateInitEmpty(&ket, state->qubits);
+            stateCopyVector(&ket, state->vec);
+
+            for (depth_t j = 0; j <= i; ++j) {
+                evolveObsTrotter(&ket, evoOps[j], par[j]);
+            }
+            applyObs(&ket, evoOps[i]);
+
+            for (depth_t j = i + 1; j < circdepth; ++j) {
+                evolveObsTrotter(&ket, evoOps[j], par[j]);
+            }
+
+            result[i] = 2 * cimag(stateOverlap(&bra, &ket));
+            stateFreeVector(&ket);
+        }
+    stateFreeVector(&bra);
+    return result;
+}
+
+double* gradientPQCblas_omp(const state_t* state,
+                       const double par[],
+                       const obs_t* obs,
+                       const obs_t* evoOps[],
+                       depth_t circdepth)
+{
+    state_t bra;
+    double* result = malloc(circdepth * sizeof(double));
+    __LAPACK_int N = (__LAPACK_int) state->dim;
+
+    /* Initialize all temporary states and copy the input state's vector to bra and tmp */
+    stateInitEmpty(&bra, state->qubits);
+    cblas_zcopy(N, state->vec, 1, bra.vec, 1);
+
+    /* Evolve bra with all evolutional operators and apply the observable to it */
+    for (depth_t i = 0; i < circdepth; ++i) {
+        evolveObsTrotter(&bra, evoOps[i], par[i]);
+    }
+    applyObs(&bra, obs);
+
+#pragma omp parallel for default(none) shared(bra, circdepth, evoOps, N, par, result, state) num_threads(circdepth)
+    for (depth_t i = 0; i < circdepth; ++i) {
+        state_t ket;
+        stateInitEmpty(&ket, state->qubits);
+        cblas_zcopy(N, state->vec, 1, ket.vec, 1);
+
+        for (depth_t j = 0; j <= i; ++j) {
+            evolveObsTrotter(&ket, evoOps[j], par[j]);
+        }
+        applyObs(&ket, evoOps[i]);
+
+        for (depth_t j = i + 1; j < circdepth; ++j) {
+            evolveObsTrotter(&ket, evoOps[j], par[j]);
+        }
+
+        cplx_t dotc;
+        cblas_zdotc_sub(N, bra.vec, 1, ket.vec, 1, &dotc);
+        result[i] = 2 * cimag(dotc);
+        stateFreeVector(&ket);
+    }
+    stateFreeVector(&bra);
     return result;
 }
 
@@ -477,17 +670,17 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
     /* 1a) Evolve the bra vector of the second stateOverlap with all evolution operators and corresponding parameters */
     stateCopyVector(&bra2, state->vec);
     for (depth_t i = 0; i < circdepth; ++i) {
-        evolveWithTrotterizedObservable(&bra2, evoOps[i], params[i]);
+        evolveObsTrotter(&bra2, evoOps[i], params[i]);
     }
 
     /* 1b) The unsigned integer k iterates through all row indices of the hessian's upper triangle. In each iteration
      * tmp is evolved with the k-th evolution operator */
     for (depth_t k = 0; k < circdepth; ++k) {
-        evolveWithTrotterizedObservable(&tmp, evoOps[k], params[k]);
+        evolveObsTrotter(&tmp, evoOps[k], params[k]);
 
         /* 2a) tmpKet inherits its state vector from tmp and applies the k-th evolution operator to it */
         stateCopyVector(&tmpKet, tmp.vec);
-        applyObservable(&tmpKet, evoOps[k]);
+        applyObs(&tmpKet, evoOps[k]);
 
         /* 2b) tmpBra inherits its state vector from tmp */
         stateCopyVector(&tmpBra, tmp.vec);
@@ -497,18 +690,18 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
         stateCopyVector(&bra1, tmpKet.vec);
         stateCopyVector(&ket1, tmpKet.vec);
         stateCopyVector(&ket2, tmpKet.vec);
-        applyObservable(&ket2, evoOps[k]);
+        applyObs(&ket2, evoOps[k]);
 
         /* 3b) bra1, ket1 and ket2 are all evolved with the remaining evolution operators */
         for (depth_t kk = k + 1; kk < circdepth; ++kk) {
-            evolveWithTrotterizedObservable(&bra1, evoOps[kk], params[kk]);
-            evolveWithTrotterizedObservable(&ket1, evoOps[kk], params[kk]);
-            evolveWithTrotterizedObservable(&ket2, evoOps[kk], params[kk]);
+            evolveObsTrotter(&bra1, evoOps[kk], params[kk]);
+            evolveObsTrotter(&ket1, evoOps[kk], params[kk]);
+            evolveObsTrotter(&ket2, evoOps[kk], params[kk]);
         }
 
         /* 3d) The observable is applied to ket1 and ket2 */
-        applyObservable(&ket1, observable);
-        applyObservable(&ket2, observable);
+        applyObs(&ket1, observable);
+        applyObs(&ket2, observable);
 
         /* 3e) The diagonal entries are added once to the array */
         result[k * circdepth + k] = 2 * creal(stateOverlap(&bra1, &ket1));
@@ -517,33 +710,33 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
         /* 4) The unsigned integer l iterates through all column indices of the hessian's upper triangle without the
          * diagonal, i.e., l > k. In each iteration tmpBra and tmpKet are evolved with the l-th evolution operator */
         for (depth_t l = k + 1; l < circdepth; ++l) {
-            evolveWithTrotterizedObservable(&tmpBra, evoOps[l], params[l]);
-            evolveWithTrotterizedObservable(&tmpKet, evoOps[l], params[l]);
+            evolveObsTrotter(&tmpBra, evoOps[l], params[l]);
+            evolveObsTrotter(&tmpKet, evoOps[l], params[l]);
 
             /* 4a) bra1 is a descendant of tmpBra, it is applied the l-th evolution operator and evolved with the
              * remaining evolution operators */
             stateCopyVector(&bra1, tmpBra.vec);
-            applyObservable(&bra1, evoOps[l]);
+            applyObs(&bra1, evoOps[l]);
             for (depth_t ll = l + 1; ll < circdepth; ++ll) {
-                evolveWithTrotterizedObservable(&bra1, evoOps[ll], params[ll]);
+                evolveObsTrotter(&bra1, evoOps[ll], params[ll]);
             }
 
             /* 4b) ket1 is a descendant of tmpKet, is evolved with the remaining evolution operators and the observable
              * is applied to it */
             stateCopyVector(&ket1, tmpKet.vec);
             for (depth_t kk = l + 1; kk < circdepth; ++kk) {
-                evolveWithTrotterizedObservable(&ket1, evoOps[kk], params[kk]);
+                evolveObsTrotter(&ket1, evoOps[kk], params[kk]);
             }
-            applyObservable(&ket1, observable);
+            applyObs(&ket1, observable);
 
             /* 4c) ket2 is a descendant of tmpKet and the l-th evolution operator is applied to it. It is evolved with
              * the remaining evolution operators and the observable is applied to it */
             stateCopyVector(&ket2, tmpKet.vec);
-            applyObservable(&ket2, evoOps[l]);
+            applyObs(&ket2, evoOps[l]);
             for (depth_t ll = l + 1; ll < circdepth; ++ll) {
-                evolveWithTrotterizedObservable(&ket2, evoOps[ll], params[ll]);
+                evolveObsTrotter(&ket2, evoOps[ll], params[ll]);
             }
-            applyObservable(&ket2, observable);
+            applyObs(&ket2, observable);
 
             /* 4d) The difference of the two overlap's real part are added to the positions corresponding to the l-th
              * entry of the k-th row and vice versa of the array */
@@ -680,7 +873,7 @@ cplx_t** momMat(const state_t* state,
              * to it. */
             for (depth_t k = 0; k < obsc; ++k) {
                 stateCopyVector(&ket, tmpKet.vec);
-                applyObservable(&ket, obs[k]);
+                applyObs(&ket, obs[k]);
                 result[k][i * matDim + j] = stateOverlap(&bra, &ket);
                 result[k][j * matDim + i] = conj(result[k][i * matDim + j]);
             }
@@ -740,13 +933,13 @@ cplx_t** momMatPQC(const state_t* state,
      * unitary to it */
     for (depth_t i = 0; i < circdepth; ++i) {
         stateCopyVector(&tmpKet, state->vec);
-        evolveWithTrotterizedObservable(&tmpKet, evoOps[i], angles[i]);
+        evolveObsTrotter(&tmpKet, evoOps[i], angles[i]);
 
         /* Iterate the moment matrices; copy tmpKet to bra and apply the corresponding observable to compute the first
          * column/row of each moment matrix */
         for (depth_t j = 0; j < obsc; ++j) {
             stateCopyVector(&bra, tmpKet.vec);
-            applyObservable(&bra, obs[j]);
+            applyObs(&bra, obs[j]);
             result[j][i + 1] = stateOverlap(&bra, state);
             result[j][(i + 1) * (circdepth + 1)] = conj(result[j][i + 1]);
         }
@@ -761,13 +954,13 @@ cplx_t** momMatPQC(const state_t* state,
          * state's vector to tmpBra and apply the row's search unitary to it */
         for (depth_t j = i + 1; j < circdepth; ++j) {
             stateCopyVector(&bra, state->vec);
-            evolveWithTrotterizedObservable(&bra, evoOps[j], angles[j]);
+            evolveObsTrotter(&bra, evoOps[j], angles[j]);
 
             /* Iterate the moment matrices; copy tmpBra's vector to tmpTmpBra and apply the moment matrix's observable
              * to it. */
             for (depth_t k = 0; k < obsc; ++k) {
                 stateCopyVector(&ket, tmpKet.vec);
-                applyObservable(&ket, obs[k]);
+                applyObs(&ket, obs[k]);
                 result[k][(i + 1) * (circdepth + 1) + (j + 1)] = stateOverlap(&bra, &ket);
                 result[k][(j + 1) * (circdepth + 1) + (i + 1)] = conj(result[k][(i + 1) * (circdepth + 1) + (j + 1)]);
             }
