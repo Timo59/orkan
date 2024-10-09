@@ -27,8 +27,8 @@ extern "C" {
  * =====================================================================================================================
  */
 
-typedef double* (*gradPQC)(const state_t* state, const double params[], const obs_t* observable, \
-                    const obs_t* evoOps[], depth_t circdepth);
+typedef double* (*gradientPQC)(const state_t* state, const double par[], const obs_t* obs, const obs_t* evoOps[],
+                               depth_t circdepth);
 
 typedef void (*srchU)(state_t* state, const obs_t* srchOp);
 
@@ -80,17 +80,17 @@ double expValObsPQC(const state_t* state, const double params[], const obs_t* ob
  * =====================================================================================================================
  */
 
-double* gradientPQC(const state_t* state, const double params[], const obs_t* obs, const obs_t* evoOps[],
+double* gradPQC(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+                depth_t circdepth);
+
+double* gradPQCblas(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
                     depth_t circdepth);
 
-double* gradientPQCblas(const state_t* state, const double par[], const obs_t* obs, const obs_t* evoOps[],
-                        depth_t circdepth);
+double* gradPQComp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+                   depth_t circdepth);
 
-double* gradientPQComp(const state_t* state, const double par[], const obs_t* obs, const obs_t* evoOps[],
+double* gradPQCblas_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
                         depth_t circdepth);
-
-double* gradientPQCblas_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t* evoOps[],
-                            depth_t circdepth);
 
 double* approxGradientPQC(const state_t* state, const double par[], const obs_t* observable,
                                const obs_t* evoOps[], depth_t circdepth, double epsilon);
@@ -105,7 +105,7 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
                    const obs_t* evoOps[], depth_t circdepth);
 
 double* approxHessianPQC(const state_t* state, const double params[], const obs_t* observable, \
-                         const obs_t* evoOps[], depth_t circdepth, gradPQC grad, double epsilon);
+                         const obs_t* evoOps[], depth_t circdepth, gradientPQC grad, double epsilon);
 
 /*
  * =====================================================================================================================
