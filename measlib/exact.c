@@ -254,18 +254,18 @@ double expValObsPqcPauli(const state_t* state,
                          const obs_t *evoOps[],
                          depth_t circdepth)
 {
-    state_t bra;                    // state, initialized to the input state and evolved with the PQC
+    state_t tmp;                    // state, initialized to the input state and evolved with the PQC
 
     /* Initialize the temporary states and copy the input state's vector to the designated bra */
-    stateInitEmpty(&bra, state->qubits);
-    stateCopyVector(&bra, state->vec);
+    stateInitEmpty(&tmp, state->qubits);
+    stateCopyVector(&tmp, state->vec);
 
     /* Evolve the designated bra with the PQC */
-    applyPQC(&bra, par, evoOps, circdepth);
-    double result = expValObsPauli(&bra, obs);
+    applyPQC(&tmp, par, evoOps, circdepth);
+    double result = expValObsPauliBlas_omp(&tmp, obs);
 
     /* Free the memory allocated for bra's state vector */
-    stateFreeVector(&bra);
+    stateFreeVector(&tmp);
 
     return result;
 }
@@ -367,11 +367,11 @@ double expValObsPQC(const state_t* state,
  *      Gradient of the observable's expected value on the parametrized quantum circuit wrt the evolution parameters at
  *      the current point in parameter space.
  */
-double* gradientPQC(const state_t* state,
-                    const double par[],
-                    const obs_t* obs,
-                    const obs_t* evoOps[],
-                    depth_t circdepth)
+double* gradPQC(const state_t* state,
+                const double par[],
+                const obs_t* obs,
+                const obs_t *evoOps[],
+                depth_t circdepth)
 {
     state_t bra;        // state, initialized to the input state, evolved with all evolution operators and acted on with
                         // the observable
@@ -422,11 +422,11 @@ double* gradientPQC(const state_t* state,
     return result;
 }
 
-double* gradientPQCblas(const state_t* state,
-                        const double par[],
-                        const obs_t* obs,
-                        const obs_t* evoOps[],
-                        depth_t circdepth)
+double* gradPQCblas(const state_t* state,
+                    const double par[],
+                    const obs_t* obs,
+                    const obs_t *evoOps[],
+                    depth_t circdepth)
 {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     state_t bra;
@@ -476,11 +476,11 @@ double* gradientPQCblas(const state_t* state,
     return result;
 }
 
-double* gradientPQComp(const state_t* state,
-                       const double par[],
-                       const obs_t* obs,
-                       const obs_t* evoOps[],
-                       depth_t circdepth)
+double* gradPQComp(const state_t* state,
+                   const double par[],
+                   const obs_t* obs,
+                   const obs_t *evoOps[],
+                   depth_t circdepth)
 {
     state_t bra;
     double* result = malloc(circdepth * sizeof(double));
@@ -517,11 +517,11 @@ double* gradientPQComp(const state_t* state,
     return result;
 }
 
-double* gradientPQCblas_omp(const state_t* state,
-                       const double par[],
-                       const obs_t* obs,
-                       const obs_t* evoOps[],
-                       depth_t circdepth)
+double* gradPQCblas_omp(const state_t* state,
+                        const double par[],
+                        const obs_t* obs,
+                        const obs_t *evoOps[],
+                        depth_t circdepth)
 {
     state_t bra;
     double* result = malloc(circdepth * sizeof(double));
@@ -777,7 +777,7 @@ double* hessianPQC(const state_t* state, const double params[], const obs_t* obs
  *      parameters at the current point in parameter space using a finite difference method on the gradient.
  */
 double* approxHessianPQC(const state_t* state, const double params[], const obs_t* observable, \
-                         const obs_t* evoOps[], depth_t circdepth, gradPQC grad, double epsilon) {
+                         const obs_t* evoOps[], depth_t circdepth, gradientPQC grad, double epsilon) {
 
     double* result = malloc(circdepth * circdepth * sizeof(double));
 

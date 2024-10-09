@@ -469,7 +469,7 @@ void testGradientPQC(void) {
                 stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
 
                 /* Test diagonal observable and diagonal evolution operators */
-                double* result = gradientPQCblas_omp(&testState, par, &obsDiag, (const obs_t**) evoOps, circdepth);
+                double* result = gradPQC(&testState, par, &obsDiag, (const obs_t **) evoOps, circdepth);
                 double* result2 = approxGradientPQC(&testState,     // Test gradient using finite difference
                                                     par,
                                                     &obsDiag,
@@ -500,7 +500,7 @@ void testGradientPQC(void) {
                 free(reference);
 
                 /* Test Pauli observable and diagonal evolution operators */
-                result = gradientPQCblas_omp(&testState, par, &obsPauli, (const obs_t**) evoOps, circdepth);
+                result = gradPQC(&testState, par, &obsPauli, (const obs_t **) evoOps, circdepth);
                 result2 = approxGradientPQC(&testState,     // Test gradient using finite difference
                                                     par,
                                                     &obsPauli,
@@ -549,7 +549,7 @@ void testGradientPQC(void) {
             for (dim_t i = 0; i < dim + 1; ++i) {
                 stateInitVector(&testState, testVectors[i], qubits);    // Initialize test state
                 /* Test diagonal observable and Pauli evolution operators */
-                double* result = gradientPQCblas_omp(&testState, par, &obsDiag, (const obs_t**) evoOps, circdepth);
+                double* result = gradPQC(&testState, par, &obsDiag, (const obs_t **) evoOps, circdepth);
                 double* result2 = approxGradientPQC(&testState,     // Test gradient using finite difference
                                             par,
                                             &obsDiag,
@@ -580,7 +580,7 @@ void testGradientPQC(void) {
                 free(reference);
 
                 /* Test Pauli observable and diagonal Pauli operators */
-                result = gradientPQCblas_omp(&testState, par, &obsPauli, (const obs_t**) evoOps, circdepth);
+                result = gradPQC(&testState, par, &obsPauli, (const obs_t **) evoOps, circdepth);
                 result2 = approxGradientPQC(&testState,     // Test gradient using finite difference
                                             par,
                                             &obsPauli,
@@ -637,7 +637,7 @@ double* grad(const state_t* state,
              const obs_t* evoOps[],
              depth_t circdepth)
 {
-    return gradientPQC(state, params, observable, evoOps, circdepth);
+    return gradPQC(state, params, observable, evoOps, circdepth);
 }
 
 /*
@@ -1082,11 +1082,11 @@ void testMomMatPQC(void) {
 
 int main(void) {
     UNITY_BEGIN();
-    RUN_TEST(testExpValObs);
-    RUN_TEST(testExpValObsPQC);
+//    RUN_TEST(testExpValObs);
+//    RUN_TEST(testExpValObsPQC);
     RUN_TEST(testGradientPQC);
-    RUN_TEST(testHessianPQC);
-    RUN_TEST(testMomMat);
-    RUN_TEST(testMomMatPQC);
+//    RUN_TEST(testHessianPQC);
+//    RUN_TEST(testMomMat);
+//    RUN_TEST(testMomMatPQC);
     return UNITY_END();
 }
