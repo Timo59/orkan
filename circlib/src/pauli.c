@@ -140,7 +140,7 @@
 
 /*
  * =====================================================================================================================
- *                                              component applications
+ *                                              Apply Pauli structs
  * =====================================================================================================================
  */
 
@@ -156,29 +156,7 @@
  */
 
 void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
-    for (qubit_t qubit = 0; qubit < state->qubits; ++qubit) {
-        switch (paulistr[qubit]) {
-            case ID: {
-                break;
-            }
-            case Z: {
-                applyZ(state, qubit);
-                break;
-            }
-            case X: {
-                applyX(state, qubit);
-                break;
-            }
-            case Y: {
-                applyY(state, qubit);
-                break;
-            }
-            default: {
-                printf("Error in applyPauliStr: Invalid value for Pauli.\n");
-                exit(1);
-            }
-        }
-    }
+    return applyPauliStr(state, paulistr);
 }
 
 
@@ -194,158 +172,38 @@ void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
  *      coefficients in place.
  */
 void applyOpPauli(state_t* state, const pauliOp_t* op) {
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-    state_t tmp;                                                        // Temporary state to apply each Pauli string to
-    stateInitEmpty(&tmp, state->qubits);
-    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));    // Temporary vector holding the intermediate sum
-                                                                        // of state vectors
-    for (complength_t i = 0; i < op->length; ++i) {                         // Iterate the operator's terms
-        stateCopyVector(&tmp, state->vec);                      // Copy input's state vector to tmp
-        applyPauliStr(&tmp, op->comps + (i * op->qubits));     // Apply the Pauli string to it
-        __LAPACK_double_complex alpha = op->coeffs[i];
-        cblas_zaxpy(N, &alpha, tmp.vec, 1, tmpSum, 1);  // Multiply the terms' coefficient and add the
-    }                                                                       // result to the intermediate sum
-
-    stateFreeVector(&tmp);
-    stateFreeVector(state);
-    state->vec = tmpSum;
+#if defined(PAULI_BLAS)
+    return applyOpPauli_blas(state, op);
+#elif defined(PAULI_OMP)
+    return applyOpPauli_omp(state, op);
+#elif defined(PAULI_BLAS_OMP)
+    return applyOpPauli_blas_omp(state, op);
+#else
+    return applyOpPauli_old(state, op);
+#endif
 }
-
-/*
- * =====================================================================================================================
- *                                              Apply Pauli observable
- * =====================================================================================================================
- */
 
 /*
  * This function applies a Pauli observable to a quantum state.
  *
  * Input:
  *      state_t* state:         State of the qubit system
- *      pauliOp_t* op:          Pauli observable, i.e., a real linear combination of Pauli strings
+ *      pauliObs_t* obs:        Pauli observable, i.e., a real linear combination of Pauli strings
  *
-Output:
+ * Output:
  *      This function has no return value, but sums the outcome of single Pauli string applications weighted by the
  *      coefficients in place.
  */
 void applyObsPauli(state_t* state, const pauliObs_t* obs) {
-    state_t tmp;                                                        // Temporary state to apply each Pauli string to
-    stateInitEmpty(&tmp, state->qubits);
-    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));    // Temporary vector holding the intermediate sum
-                                                                        // of state vectors
-    for (complength_t i = 0; i < obs->length; ++i) {                                // Iterate the observable's terms
-        stateCopyVector(&tmp, state->vec);                              // Copy input's state vector to tmp
-        applyPauliStr(&tmp, obs->comps + (i * obs->qubits));            // Apply the Pauli string to it
-        cscalarVecMulInPlace((cplx_t) obs->coeffs[i], tmp.vec, state->dim);     // Multiply the terms' coefficient
-        cvecAddInPlace(tmpSum, tmp.vec, state->dim);                            // and add the result to the
-                                                                                        // intermediate sum
-    }
-    stateFreeVector(&tmp);
-    stateFreeVector(state);
-    state->vec = tmpSum;
-}
-
-void applyObsPauliBlas(state_t* state, const pauliObs_t* observable) {
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-    state_t tmp;                                        // temporary vector to apply each Pauli string to
-    stateInitEmpty(&tmp, state->qubits);        // initialize tmp's statevector to all zeros
-    /* temporary vector holding each intermediate sum of altered input vectors */
-    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));
-
-
-    for (complength_t i = 0; i < observable->length; ++i) {
-        /* For each term, copy the input statevector, apply the Pauli string and multiply the resulting vector with the
-         * Pauli string's coefficient. Add the result to the temporary sum vector.
-         */
-        cblas_zcopy(N, state->vec, 1, tmp.vec, 1);
-        applyPauliStr(&tmp, observable->comps + (i * observable->qubits));
-        __LAPACK_double_complex alpha = observable->coeffs[i];
-        cblas_zaxpy(N, &alpha, tmp.vec, 1, tmpSum, 1);
-    }
-    stateFreeVector(&tmp);
-    stateFreeVector(state);
-    state->vec = tmpSum;
-}
-
-void applyObsPauliOmp(state_t* state, const pauliObs_t* observable) {
-    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));
-
-# pragma omp parallel default(none) shared(observable, state, tmpSum)
-    {
-        state_t tmp;
-        stateInitEmpty(&tmp, state->qubits);
-
-#pragma omp for
-        for (complength_t i = 0; i < observable->length; ++i) {
-            stateCopyVector(&tmp, state->vec);
-            applyPauliStr(&tmp, observable->comps + (i * observable->qubits));
-            cscalarVecMulInPlace((cplx_t) observable->coeffs[i], tmp.vec, state->dim);
-
-#pragma omp critical(sum)
-            {
-                cvecAddInPlace(tmpSum, tmp.vec, state->dim);
-            }
-        }
-        stateFreeVector(&tmp);
-    }
-    stateFreeVector(state);
-    state->vec = tmpSum;
-}
-
-void applyObsPauliBlas_omp(state_t* state, const pauliObs_t* observable) {
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));
-
-# pragma omp parallel default(none) shared(N, observable, state, tmpSum)
-    {
-        state_t tmp;
-        stateInitEmpty(&tmp, state->qubits);
-
-#pragma omp for
-        for (complength_t i = 0; i < observable->length; ++i) {
-            cblas_zcopy(N, state->vec, 1, tmp.vec, 1);
-            applyPauliStr(&tmp, observable->comps + (i * observable->qubits));
-            __LAPACK_double_complex alpha = observable->coeffs[i];
-
-#pragma omp critical(sum)
-            {
-                cblas_zaxpy(N, &alpha, tmp.vec, 1, tmpSum, 1);
-            }
-        }
-        stateFreeVector(&tmp);
-
-    }
-    cblas_zcopy(N, tmpSum, 1, state->vec, 1);
-}
-
-void applyObsPauliBlas_omp_new(state_t* state, const pauliObs_t* observable) {
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-    __LAPACK_double_complex one = 1;
-    cplx_t* result = calloc(state->dim, sizeof(cplx_t));
-
-# pragma omp parallel default(none) shared(N, observable, one, state, result)
-    {
-        state_t tmp;
-        stateInitEmpty(&tmp, state->qubits);
-        cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));
-
-#pragma omp for
-        for (complength_t i = 0; i < observable->length; ++i) {
-            cblas_zcopy(N, state->vec, 1, tmp.vec, 1);
-            applyPauliStr(&tmp, observable->comps + (i * observable->qubits));
-            __LAPACK_double_complex alpha = observable->coeffs[i];
-            cblas_zaxpy(N, &alpha, tmp.vec, 1, tmpSum, 1);
-        }
-        stateFreeVector(&tmp);
-
-#pragma omp critical(sum)
-        {
-            cblas_zaxpy(N, &one, tmpSum, 1, result, 1);
-        }
-        free(tmpSum);
-    }
-    stateFreeVector(state);
-    stateInitVector(state, result, state->qubits);
+#if defined(PAULI_BLAS)
+    return applyObsPauli_blas(state, obs);
+#elif defined(PAULI_OMP)
+    return applyObsPauli_omp(state, obs);
+#elif defined(PAULI_BLAS_OMP)
+    return applyObsPauli_blas_omp(state, obs);
+#else
+    return applyObsPauli_old(state, obs);
+#endif
 }
 
 /*
@@ -364,56 +222,15 @@ void applyObsPauliBlas_omp_new(state_t* state, const pauliObs_t* observable) {
  *      This function has no return value, but changes the state vector in place.
  */
 void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle) {
-    cplx_t* tmp = malloc(sizeof(cplx_t) * state->dim);      // Temporary vector holding state vector multiplicated
-                                                                // with cos(angle)
-    for (dim_t entry = 0; entry < state->dim; ++entry) {        // Iterate entries of the input's state vector
-        tmp[entry] = cos(angle) * state->vec[entry];            // Store it time cos(angle) in tmp
-        state->vec[entry] *= -I * sin(angle);                   // Multiply it with -i * sin(angle)
-    }
-    applyPauliStr(state, paulistr);                             // Apply the Pauli string to the input state
-    for (dim_t entry = 0; entry < state->dim; ++entry) {        // Iterate the entries of the input's state vector
-        state->vec[entry] += tmp[entry];                        // Add the tmp's entry to it
-    }
-    free(tmp);
-}
-
-void evolvePauliStrBlas(state_t* state,
-                        const pauli_t paulistr[],
-                        double angle)
-{
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-    __LAPACK_double_complex alpha = cos(angle);
-    cplx_t* tmp = calloc(sizeof(cplx_t), state->dim);
-
-    cblas_zaxpy(N, &alpha, state->vec, 1, tmp, 1);
-    applyPauliStr(state, paulistr);
-    alpha = -I * sin(angle);
-    cblas_zaxpy(N, &alpha, state->vec, 1, tmp, 1);
-
-    free(state->vec);
-    state->vec = tmp;
-}
-
-void evolvePauliStrOmp(state_t* state,
-                       const pauli_t paulistr[],
-                       double angle)
-{
-    cplx_t* tmp = malloc(sizeof(cplx_t) * state->dim);
-
-#pragma omp parallel for default(none) shared(angle, state, tmp)
-    for (dim_t entry = 0; entry < state->dim; ++entry) {
-        tmp[entry] = state->vec[entry];
-        tmp[entry] *= cos(angle);
-        state->vec[entry] *= -I * sin(angle);
-    }
-    applyPauliStr(state, paulistr);
-
-#pragma omp parallel for default(none) shared(state, tmp)
-    for (dim_t entry = 0; entry < state->dim; ++entry) {
-        state->vec[entry] += tmp[entry];
-    }
-
-    free(tmp);
+#if defined(PAULI_BLAS)
+    return evolvePauliStr_blas(state, paulistr, angle);
+#elif defined(PAULI_OMP)
+    return evolvePauliStr_omp(state, paulistr, angle);
+#elif defined(PAULI_BLAS_OMP)
+    return evolvePauliStr_blas_omp(state, paulistr, angle);
+#else
+    return evolvePauliStr_old(state, paulistr, angle);
+#endif
 }
 
 /*

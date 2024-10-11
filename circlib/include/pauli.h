@@ -7,13 +7,21 @@
  * =====================================================================================================================
  */
 
-#ifndef GATELIB_H
-#include "gatelib.h"
+#if defined(PAULI_BLAS)
+#include "pauliBlas.h"
+#elif defined(PAULI_OMP)
+#include "pauliOmp.h"
+#elif defined(PAULI_BLAS_OMP)
+#include "pauliBlMp.h"
+#elif defined(TEST)
+#include "pauliBlas.h"
+#include "pauliOmp.h"
+#include "pauliBlMp.h"
+#include "pauliOld.h"
+#else
+#include "pauliOld.h"
 #endif
 
-#ifndef LINALG_H
-#include "linalg.h"
-#endif
 
 /*
  * =====================================================================================================================
@@ -24,26 +32,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
-/*
- * =====================================================================================================================
- *                                                  type definitions
- * =====================================================================================================================
- */
-
-typedef struct pauliOp {
-    pauli_t* comps;
-    cplx_t* coeffs;
-    complength_t length;
-    qubit_t qubits;
-} pauliOp_t;
-
-typedef struct pauliObs {
-    pauli_t* comps;
-    double* coeffs;
-    complength_t length;
-    qubit_t qubits;
-} pauliObs_t;
 
 /*
  * =====================================================================================================================
@@ -57,19 +45,7 @@ void applyOpPauli(state_t* state, const pauliOp_t* op);
 
 void applyObsPauli(state_t* state, const pauliObs_t* obs);
 
-void applyObsPauliBlas(state_t* state, const pauliObs_t* observable);
-
-void applyObsPauliOmp(state_t* state, const pauliObs_t* observable);
-
-void applyObsPauliBlas_omp(state_t* state, const pauliObs_t* observable);
-
-void applyObsPauliBlas_omp_new(state_t* state, const pauliObs_t* observable);
-
 void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle);
-
-void evolvePauliStrBlas(state_t* state, const pauli_t paulistr[], double angle);
-
-void evolvePauliStrOmp(state_t* state, const pauli_t paulistr[], double angle);
 
 void evolveObsPauliTrotter(state_t* state, const pauliObs_t* obs, double angle);
 

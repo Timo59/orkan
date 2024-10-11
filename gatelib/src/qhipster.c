@@ -4,8 +4,8 @@
  * =====================================================================================================================
  */
 
-#ifndef GATELIB_H
-#include "gatelib.h"
+#ifndef QHIPSTER_H
+#include "qhipster.h"
 #endif
 
 /*
@@ -25,7 +25,7 @@
  *      There is no return value; the state vector is changed in place.
  */
 
-void applyX(state_t* state, qubit_t qubit) {
+void applyX_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);       // Range of indices whose state vector entries after the
                                                         // execution of the single qubit gate will be linear
                                                         // combinations of entries with indices only within the range
@@ -43,63 +43,7 @@ void applyX(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyXblas(state_t* state, qubit_t qubit) {
-    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
-    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
-
-    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vec + i, 1, state->vec + (i + flipDistance), 1);
-    }
-}
-
-void applyXomp(state_t* state, qubit_t qubit) {
-    dim_t flipDistance = POW2(qubit, dim_t);
-    dim_t indices = POW2(state->qubits - 1, dim_t);
-
-#pragma omp parallel for default(none) shared(flipDistance, indices, qubit, state)
-    for (dim_t i = 0; i < indices; ++i) {
-        dim_t left = (i & (~0U << qubit)) << 1;
-        dim_t right = i & ~(~0U << qubit);
-        dim_t j = (left | right);
-        SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
-    }
-}
-
-void applyXomp_blas(state_t* state, qubit_t qubit) {
-    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
-    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
-
-#pragma omp parallel for default(none) shared(blockDistance, flipDistance, qubit, state)
-    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vec + i, 1, state->vec + (i + flipDistance), 1);
-    }
-}
-
-void applyXgcd(state_t* state, qubit_t qubit) {
-    dim_t flipDistance = POW2(qubit, dim_t);
-    dim_t indices = POW2(state->qubits - 1, dim_t);
-    dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;
-
-    /* Get a concurrent dispatch queue */
-    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-
-    dispatch_apply(indices / stride, queue, ^(size_t i) {
-        size_t j = i * stride;
-        size_t j_stop = j + stride;
-
-        do {
-            dim_t left = (j & (~0U << qubit)) << 1;
-            dim_t right = j & ~(~0U << qubit);
-            dim_t k = (left | right);
-            SWAP(state->vec + k, state->vec + (k + flipDistance), cplx_t);
-            ++j;
-        }while (j < j_stop);
-    });
-}
-
-/**********************************************************************************************************************/
-
-void applyY(state_t* state, qubit_t qubit) {
+void applyY_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -111,75 +55,7 @@ void applyY(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyYblas(state_t* state, qubit_t qubit) {
-    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
-    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
-    __LAPACK_double_complex plus = I;
-    __LAPACK_double_complex minus = -I;
-
-    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vec + i, 1, state->vec + (i + flipDistance), 1);
-        cblas_zscal(flipDistance, &minus, state->vec + i, 1);
-        cblas_zscal(flipDistance, &plus, state->vec + (i + flipDistance), 1);
-    }
-}
-
-void applyYomp(state_t* state, qubit_t qubit) {
-    dim_t flipDistance = POW2(qubit, dim_t);
-    dim_t indices = POW2(state->qubits - 1, dim_t);
-
-#pragma omp parallel for default(none) shared(flipDistance, indices, qubit, state)
-    for (dim_t i = 0; i < indices; ++i) {
-        dim_t left = (i & (~0U << qubit)) << 1;
-        dim_t right = i & ~(~0U << qubit);
-        dim_t j = (left | right);
-        SWAP(state->vec + j, state->vec + (j + flipDistance), cplx_t);
-        state->vec[j] *= -I;
-        state->vec[j + flipDistance] *= I;
-    }
-}
-
-void applyYomp_blas(state_t* state, qubit_t qubit) {
-    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
-    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
-    __LAPACK_double_complex plus = I;
-    __LAPACK_double_complex minus = -I;
-
-#pragma omp parallel for default(none) shared(blockDistance, flipDistance, minus, plus, qubit, state)
-    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
-        cblas_zswap(flipDistance, state->vec + i, 1, state->vec + (i + flipDistance), 1);
-        cblas_zscal(flipDistance, &minus, state->vec + i, 1);
-        cblas_zscal(flipDistance, &plus, state->vec + (i + flipDistance), 1);
-    }
-}
-
-void applyYgcd(state_t* state, qubit_t qubit) {
-    dim_t flipDistance = POW2(qubit, dim_t);
-    dim_t indices = POW2(state->qubits - 1, dim_t);
-    dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;
-
-    /* Get a concurrent dispatch queue */
-    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-
-    dispatch_apply(indices / stride, queue, ^(size_t i) {
-        size_t j = i * stride;
-        size_t j_stop = j + stride;
-
-        do {
-            dim_t left = (j & (~0U << qubit)) << 1;
-            dim_t right = j & ~(~0U << qubit);
-            dim_t k = (left | right);
-            SWAP(state->vec + k, state->vec + (k + flipDistance), cplx_t);
-            state->vec[k] *= -I;
-            state->vec[k + flipDistance] *= I;
-            ++j;
-        }while (j < j_stop);
-    });
-}
-
-/**********************************************************************************************************************/
-
-void applyZ(state_t* state, qubit_t qubit) {
+void applyZ_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -189,71 +65,13 @@ void applyZ(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyZblas(state_t* state, qubit_t qubit) {
-    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
-    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
-    __LAPACK_double_complex minus = -1;
-
-    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
-        cblas_zscal(flipDistance, &minus, state->vec + (i + flipDistance), 1);
-    }
-}
-
-void applyZomp(state_t* state, qubit_t qubit) {
-    dim_t flipDistance = POW2(qubit, dim_t);
-    dim_t indices = POW2(state->qubits - 1, dim_t);
-
-#pragma omp parallel for default(none) shared(flipDistance, indices, qubit, state)
-    for (dim_t i = 0; i < indices; ++i) {
-        dim_t left = (i & (~0U << qubit)) << 1;
-        left |= (1 << qubit);
-        dim_t right = i & ~(~0U << qubit);
-        dim_t j = (left | right);
-        state->vec[j] *= -1;
-    }
-}
-
-void applyZomp_blas(state_t* state, qubit_t qubit) {
-    __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
-    __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
-    __LAPACK_double_complex minus = -1;
-
-#pragma omp parallel for default(none) shared(blockDistance, flipDistance, minus, qubit, state)
-    for (__LAPACK_int i = 0; i < state->dim; i += blockDistance) {
-        cblas_zscal(flipDistance, &minus, state->vec + (i + flipDistance), 1);
-    }
-}
-
-void applyZgcd(state_t* state, qubit_t qubit) {
-    dim_t flipDistance = POW2(qubit, dim_t);
-    dim_t indices = POW2(state->qubits - 1, dim_t);
-    dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;
-
-    /* Get a concurrent dispatch queue */
-    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-
-    dispatch_apply(indices / stride, queue, ^(size_t i) {
-        size_t j = i * stride;
-        size_t j_stop = j + stride;
-
-        do {
-            dim_t left = (j & (~0U << qubit)) << 1;
-            left |= (1 << qubit);
-            dim_t right = j & ~(~0U << qubit);
-            dim_t k = (left | right);
-            state->vec[k] *= -1;
-            ++j;
-        }while (j < j_stop);
-    });
-}
-
 /*
  * =====================================================================================================================
  *                                                  Clifford gates
  * =====================================================================================================================
  */
 
-void applyS(state_t* state, qubit_t qubit) {
+void applyS_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -263,7 +81,7 @@ void applyS(state_t* state, qubit_t qubit) {
     }
 }
 
-void applySdagger(state_t* state, qubit_t qubit) {
+void applySdagger_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -273,7 +91,7 @@ void applySdagger(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyH(state_t* state, qubit_t qubit) {
+void applyH_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     cplx_t tmp;
@@ -292,7 +110,7 @@ void applyH(state_t* state, qubit_t qubit) {
  * =====================================================================================================================
  */
 
-void applyHy(state_t* state, qubit_t qubit) {
+void applyHy_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     cplx_t tmp;
@@ -311,7 +129,7 @@ void applyHy(state_t* state, qubit_t qubit) {
  * =====================================================================================================================
  */
 
-void applyT(state_t* state, qubit_t qubit) {
+void applyT_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -321,7 +139,7 @@ void applyT(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyTdagger(state_t* state, qubit_t qubit) {
+void applyTdagger_old(state_t* state, qubit_t qubit) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -337,7 +155,7 @@ void applyTdagger(state_t* state, qubit_t qubit) {
  * =====================================================================================================================
  */
 
-void applyP(state_t* state, qubit_t qubit, double angle) {
+void applyP_old(state_t* state, qubit_t qubit, double angle) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -347,8 +165,8 @@ void applyP(state_t* state, qubit_t qubit, double angle) {
     }
 }
 
-void applyPdagger(state_t* state, qubit_t qubit, double angle) {
-    applyP(state, qubit, -angle);
+void applyPdagger_old(state_t* state, qubit_t qubit, double angle) {
+    applyP_old(state, qubit, -angle);
 }
 
 /*
@@ -357,7 +175,7 @@ void applyPdagger(state_t* state, qubit_t qubit, double angle) {
  * =====================================================================================================================
  */
 
-void applyRX(state_t* state, qubit_t qubit, double angle) {
+void applyRX_old(state_t* state, qubit_t qubit, double angle) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     angle /= 2.;
@@ -366,17 +184,16 @@ void applyRX(state_t* state, qubit_t qubit, double angle) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             tmp = state->vec[j];
             state->vec[j] = cos(angle) * tmp - I * sin(angle) * state->vec[j + flipDistance];
-            state->vec[j + flipDistance] = -I * sin(angle) * tmp + cos(angle) \
- * state->vec[j + flipDistance];
+            state->vec[j + flipDistance] = -I * sin(angle) * tmp + cos(angle) * state->vec[j + flipDistance];
         }
     }
 }
 
-void applyRXdagger(state_t* state, qubit_t qubit, double angle) {
-    applyRX(state, qubit, -angle);
+void applyRXdagger_old(state_t* state, qubit_t qubit, double angle) {
+    applyRX_old(state, qubit, -angle);
 }
 
-void applyRY(state_t* state, qubit_t qubit, double angle) {
+void applyRY_old(state_t* state, qubit_t qubit, double angle) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     angle /= 2.;
@@ -391,11 +208,11 @@ void applyRY(state_t* state, qubit_t qubit, double angle) {
     }
 }
 
-void applyRYdagger(state_t* state, qubit_t qubit, double angle) {
-    applyRY(state, qubit, -angle);
+void applyRYdagger_old(state_t* state, qubit_t qubit, double angle) {
+    applyRY_old(state, qubit, -angle);
 }
 
-void applyRZ(state_t* state, qubit_t qubit, double angle) {
+void applyRZ_old(state_t* state, qubit_t qubit, double angle) {
     dim_t blockDistance = POW2(qubit + 1, dim_t);
     dim_t flipDistance = POW2(qubit, dim_t);
     angle /= 2.;
@@ -407,8 +224,8 @@ void applyRZ(state_t* state, qubit_t qubit, double angle) {
     }
 }
 
-void applyRZdagger(state_t* state, qubit_t qubit, double angle) {
-    applyRZ(state, qubit, -angle);
+void applyRZdagger_old(state_t* state, qubit_t qubit, double angle) {
+    applyRZ_old(state, qubit, -angle);
 }
 
 /*
@@ -428,7 +245,7 @@ void applyRZdagger(state_t* state, qubit_t qubit, double angle) {
  * Output:
  *      The function has no output, but alters the state vector of state according to the execution of the gate.
  */
-void applyCX(state_t* state, qubit_t control, qubit_t target) {
+void applyCX_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);      // Range of indices whose state vector entries after the
                                                         // execution of the single qubit gate will be linear
                                                         // combinations of entries with indices only within the range
@@ -452,7 +269,7 @@ void applyCX(state_t* state, qubit_t control, qubit_t target) {
     }
 }
 
-void applyCY(state_t* state, qubit_t control, qubit_t target) {
+void applyCY_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -466,7 +283,7 @@ void applyCY(state_t* state, qubit_t control, qubit_t target) {
     }
 }
 
-void applyCZ(state_t* state, qubit_t control, qubit_t target) {
+void applyCZ_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -484,7 +301,7 @@ void applyCZ(state_t* state, qubit_t control, qubit_t target) {
  * =====================================================================================================================
  */
 
-void applyCS(state_t* state, qubit_t control, qubit_t target) {
+void applyCS_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -496,7 +313,7 @@ void applyCS(state_t* state, qubit_t control, qubit_t target) {
     }
 }
 
-void applyCSdagger(state_t* state, qubit_t control, qubit_t target) {
+void applyCSdagger_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -508,7 +325,7 @@ void applyCSdagger(state_t* state, qubit_t control, qubit_t target) {
     }
 }
 
-void applyCH(state_t* state, qubit_t control, qubit_t target) {
+void applyCH_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     cplx_t tmp;
@@ -529,7 +346,7 @@ void applyCH(state_t* state, qubit_t control, qubit_t target) {
  * =====================================================================================================================
  */
 
-void applyCHy(state_t* state, qubit_t control, qubit_t target) {
+void applyCHy_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     cplx_t tmp;
@@ -550,7 +367,7 @@ void applyCHy(state_t* state, qubit_t control, qubit_t target) {
  * =====================================================================================================================
  */
 
-void applyCT(state_t* state, qubit_t control, qubit_t target) {
+void applyCT_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -562,7 +379,7 @@ void applyCT(state_t* state, qubit_t control, qubit_t target) {
     }
 }
 
-void applyCTdagger(state_t* state, qubit_t control, qubit_t target) {
+void applyCTdagger_old(state_t* state, qubit_t control, qubit_t target) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -580,7 +397,7 @@ void applyCTdagger(state_t* state, qubit_t control, qubit_t target) {
  * =====================================================================================================================
  */
 
-void applyCP(state_t* state, qubit_t control, qubit_t target, double angle) {
+void applyCP_old(state_t* state, qubit_t control, qubit_t target, double angle) {
     dim_t blockDistance = POW2(target + 1, dim_t);
     dim_t flipDistance = POW2(target, dim_t);
     for (dim_t i = 0; i < state->dim; i += blockDistance) {
@@ -592,8 +409,8 @@ void applyCP(state_t* state, qubit_t control, qubit_t target, double angle) {
     }
 }
 
-void applyCPdagger(state_t* state, qubit_t control, qubit_t target, double angle) {
-    applyCP(state, control, target, -angle);
+void applyCPdagger_old(state_t* state, qubit_t control, qubit_t target, double angle) {
+    applyCP_old(state, control, target, -angle);
 }
 
 /*
@@ -611,7 +428,7 @@ void applyCPdagger(state_t* state, qubit_t control, qubit_t target, double angle
  *      qubit_t qubit2:     Position of the other qubit to swap
  *
  */
-void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2) {
+void applySWAP_old(state_t* state, qubit_t qubit1, qubit_t qubit2) {
 
     qubit_t left_qubit = MAX(qubit1, qubit2);                       // index of the qubit to the left to be swapped
     qubit_t right_qubit = MIN(qubit1, qubit2);                      // index of the qubit to the right to be swapped
@@ -669,7 +486,7 @@ Input
  * =====================================================================================================================
  */
 
-void applyToffoli(state_t* state, qubit_t control1, qubit_t control2, qubit_t target)
+void applyToffoli_old(state_t* state, qubit_t control1, qubit_t control2, qubit_t target)
 {
     dim_t i;                                            // index for the outer loop which runs
                                                         // through the blocks, i.e., increseases

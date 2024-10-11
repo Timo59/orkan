@@ -21,31 +21,31 @@ endif()
 add_subdirectory(mathlib)
 add_subdirectory(test)
 add_subdirectory(extern/Unity)
-# include double has to be called manually when building unity library
-target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)
-
-# create an interface library to propagate linking libraries for all tests
-add_library(Test_flags INTERFACE)
-target_link_libraries(Test_flags INTERFACE Test unity)
-
-# create an interface library to propagate compiler flags as well as include and link directories and link libraries to
-# all subdirectories using LAPACK and/or omp
-add_library(Q_compiler_flags INTERFACE)
-target_compile_definitions(Q_compiler_flags INTERFACE ACCELERATE_NEW_LAPACK)
-target_compile_options(Q_compiler_flags INTERFACE
-        -Xpreprocessor
-        -fopenmp
-        -O2
-)
-
-target_include_directories(Q_compiler_flags INTERFACE "/opt/homebrew/opt/libomp/include")
-target_link_libraries(Q_compiler_flags INTERFACE
+target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                       # include double has to be called
+                                                                                    # manually when building unity lib
+add_library(BLAS_compiler_flags INTERFACE)                                          # Interface library specifying usage
+                                                                                    # requirements for dependents of
+target_compile_definitions(BLAS_compiler_flags INTERFACE ACCELERATE_NEW_LAPACK)     # BLAS specs
+target_link_libraries(BLAS_compiler_flags INTERFACE
         -lblas
         -llapack
-        -lomp
 )
 
-target_link_directories(Q_compiler_flags INTERFACE "/opt/homebrew/opt/libomp/lib")
+add_library(OMP_compiler_flags INTERFACE)                                           # Interface library specifying usage
+                                                                                    # requirements for dependents of
+target_compile_options(OMP_compiler_flags INTERFACE                                 # the OpenMP API
+        -Xpreprocessor
+        -fopenmp
+)
+target_include_directories(OMP_compiler_flags INTERFACE "/opt/homebrew/opt/libomp/include")
+target_link_libraries(OMP_compiler_flags INTERFACE -lomp)
+target_link_directories(OMP_compiler_flags INTERFACE "/opt/homebrew/opt/libomp/lib")
+
+add_library(Q_compiler_flags INTERFACE)                                             # Interface library specifying usage
+target_compile_options(Q_compiler_flags INTERFACE -O2)                              # requirements for all Q dependents
+
+add_library(Test_flags INTERFACE)                                                   # Interface library specifying usage
+target_link_libraries(Test_flags INTERFACE Test unity)                              # requirements for unit tests
 
 add_subdirectory(statelib)
 add_subdirectory(gatelib)
@@ -58,13 +58,14 @@ add_executable(gatelibTest
 
 target_include_directories(gatelibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
-target_link_libraries(gatelibTest PRIVATE
-        Q_compiler_flags
-        Test_flags
-        Math
-        State
-        Gate
+target_link_libraries(gatelibTest
+        PRIVATE Gate
+                Math
+                OMP_compiler_flags
+                State
+                Test_flags
 )
+
 
 add_subdirectory(circlib)
 

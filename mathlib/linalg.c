@@ -92,7 +92,7 @@ complex double cvecProduct(const complex double a[], const complex double b[], u
     return result;
 }
 
-complex double cinnerProduct(const complex double a[], const complex double b[], unsigned long long dim) {
+complex double cInner(const complex double a[], const complex double b[], unsigned long long dim) {
     complex double result = 0;
     for (unsigned long long i = 0; i < dim; ++i) {
         result += conj(a[i]) * b[i];

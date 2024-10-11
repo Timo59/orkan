@@ -7,20 +7,24 @@
  * =====================================================================================================================
  */
 
-#ifndef __DISPATCH_PUBLIC__
-#include <dispatch/dispatch.h>
+#ifndef QHIPSTER_H
+#include "qhipster.h"
 #endif
 
-#ifndef STATELIB_H
-#include "statelib.h"
-#endif
-
-#ifndef __OMP_H
-#include <omp.h>
-#endif
-
-#ifndef __VECLIB__
-#include <vecLib/vecLib.h>
+#if defined(GATE_BLAS)
+#include "qhipBlas.h"
+#elif defined(GATE_OMP)
+#include "qhipOmp.h"
+#elif defined(GATE_GCD)
+#include "qhipGcd.h"
+#elif defined(GATE_BLAS_OMP)
+#include "qhipBlMp.h"
+#elif defined(TEST)
+#include "qhipBlas.h"
+#include "qhipOmp.h"
+#include "qhipGcd.h"
+#include "qhipBlMp.h"
+#else
 #endif
 
 /*
@@ -41,37 +45,9 @@ extern "C" {
 
 void applyX(state_t* state, qubit_t qubit);
 
-void applyXblas(state_t* state, qubit_t qubit);
-
-void applyXomp(state_t* state, qubit_t qubit);
-
-void applyXomp_blas(state_t* state, qubit_t qubit);
-
-void applyXgcd(state_t* state, qubit_t qubit);
-
-/**********************************************************************************************************************/
-
 void applyY(state_t* state, qubit_t qubit);
 
-void applyYblas(state_t* state, qubit_t qubit);
-
-void applyYomp(state_t* state, qubit_t qubit);
-
-void applyYomp_blas(state_t* state, qubit_t qubit);
-
-void applyYgcd(state_t* state, qubit_t qubit);
-
-/**********************************************************************************************************************/
-
 void applyZ(state_t* state, qubit_t qubit);
-
-void applyZblas(state_t* state, qubit_t qubit);
-
-void applyZomp(state_t* state, qubit_t qubit);
-
-void applyZomp_blas(state_t* state, qubit_t qubit);
-
-void applyZgcd(state_t* state, qubit_t qubit);
 
 /*
  * =====================================================================================================================

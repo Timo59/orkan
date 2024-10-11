@@ -214,7 +214,7 @@ void testExpValObs(void) {
             double result_pauli = expValObs(&testState, &obsPauli);
 
             cplx_t* refKet = cmatVecMul(obsMatrix, refVectors[i], dim);
-            double reference = creal(cinnerProduct(refVectors[i], refKet, dim));
+            double reference = creal(cInner(refVectors[i], refKet, dim));
 
             TEST_ASSERT_TRUE(ralmostEqual(result_diag, reference, PRECISION));
             TEST_ASSERT_TRUE(ralmostEqual(result_pauli, reference, PRECISION));
@@ -227,7 +227,7 @@ void testExpValObs(void) {
         comps = allPauliStrings(qubits);
         length = 1 << (2 * qubits);
 
-        free(obsDiag.diagObs);
+        free(diagObs);
 
         pauliObs.comps = comps;
         pauliObs.length = length;
@@ -240,7 +240,7 @@ void testExpValObs(void) {
             double result = expValObs(&testState, &obsPauli);   // Apply test function
 
             cplx_t* refKet = cmatVecMul(obsMatrix, refVectors[i], dim);
-            double reference = creal(cinnerProduct(refVectors[i], refKet, dim));
+            double reference = creal(cInner(refVectors[i], refKet, dim));
 
             TEST_ASSERT_TRUE(ralmostEqual(result, reference, PRECISION));
 
@@ -919,7 +919,7 @@ void testMomMat(void) {
 
                 for (depth_t k = 0; k < obsc; ++k) {                                        // Iterate moment matrices;
                     cplx_t* refBra = cmatVecMul(obsMat[k], refKet, dim);            // compute diagonals
-                    reference[k][j * obsc + j] = creal(cinnerProduct(refBra, refKet, dim));
+                    reference[k][j * obsc + j] = creal(cInner(refBra, refKet, dim));
                     free(refBra);
                 }
 
@@ -927,7 +927,7 @@ void testMomMat(void) {
                     cplx_t* tmpBra = cmatVecMul(srchOpsMat[k], testState.vec, dim);  // search unitaries
                     for (depth_t l = 0; l < obsc; ++l) {                                    // Iterate moment matrices;
                         cplx_t* refBra = cmatVecMul(obsMat[l], tmpBra, dim);        // compute entries
-                        reference[l][j * obsc + k] = cinnerProduct(refBra, refKet, dim);
+                        reference[l][j * obsc + k] = cInner(refBra, refKet, dim);
                         reference[l][k * obsc + j] = conj(reference[l][j * obsc + k]);
                         free(refBra);
                     }
@@ -1032,7 +1032,7 @@ void testMomMatPQC(void) {
 
                 for (depth_t k = 0; k < obsc; ++k) {                                        // Iterate moment matrices;
                     cplx_t* refBra = cmatVecMul(obsMat[k], refKet, dim);            // compute diagonals
-                    reference[k][j * (obsc + 1) + j] = creal(cinnerProduct(refBra, refKet, dim));
+                    reference[k][j * (obsc + 1) + j] = creal(cInner(refBra, refKet, dim));
                     free(refBra);
                 }
 
@@ -1040,7 +1040,7 @@ void testMomMatPQC(void) {
                     cplx_t* tmpBra = cmatVecMul(srchOpsMat[k], testState.vec, dim);  // search unitaries
                     for (depth_t l = 0; l < obsc; ++l) {                                    // Iterate moment matrices;
                         cplx_t* refBra = cmatVecMul(obsMat[l], tmpBra, dim);        // compute entries
-                        reference[l][j * (obsc + 1) + k] = cinnerProduct(refBra, refKet, dim);
+                        reference[l][j * (obsc + 1) + k] = cInner(refBra, refKet, dim);
                         reference[l][k * (obsc + 1) + j] = conj(reference[l][j * (obsc + 1) + k]);
                         free(refBra);
                     }
@@ -1082,11 +1082,11 @@ void testMomMatPQC(void) {
 
 int main(void) {
     UNITY_BEGIN();
-//    RUN_TEST(testExpValObs);
-//    RUN_TEST(testExpValObsPQC);
+    RUN_TEST(testExpValObs);
+    RUN_TEST(testExpValObsPQC);
     RUN_TEST(testGradientPQC);
-//    RUN_TEST(testHessianPQC);
-//    RUN_TEST(testMomMat);
-//    RUN_TEST(testMomMatPQC);
+    RUN_TEST(testHessianPQC);
+    RUN_TEST(testMomMat);
+    RUN_TEST(testMomMatPQC);
     return UNITY_END();
 }

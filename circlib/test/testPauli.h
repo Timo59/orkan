@@ -116,7 +116,7 @@ void testApplyObsPauli(void) {
 
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, testVectors[i], qubits);            // Initialize test state
-            applyObsPauliBlas_omp_new(&testState, &obs);                 // Apply test function
+            applyObsPauli(&testState, &obs);                                        // Apply test function
 
             cmatVecMulInPlace(obsMatrix, refVectors[i],dim);        // Multiply reference vector with matrix in
                                                                         // place
@@ -167,14 +167,14 @@ void testEvolvePauliStr(void) {
 
             for (dim_t j = 0; j < dim + 1; ++j) {
                 stateInitVector(&testState, testVectors[j], qubits);        // Initialize test state
-                evolvePauliStrOmp(&testState, strings + i, coeffs[i]);  // Apply test function
+                evolvePauliStr(&testState, strings + i, coeffs[i]);  // Apply test function
 
                 /* Multiply evoMatrix and reference statevector */
                 cplx_t* reference = cmatVecMul(evoMatrix, refVectors[j], dim);
                 TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                 free(reference);
 
-                evolvePauliStrOmp(&testState, strings + i, -coeffs[i]); // Reverse test function
+                evolvePauliStr(&testState, strings + i, -coeffs[i]); // Reverse test function
                 TEST_ASSERT_TRUE(cvectorAlmostEqual(refVectors[j], testState.vec, dim, PRECISION));
                 stateFreeVector(&testState);
             }
