@@ -63,7 +63,7 @@ double finiteExpValPQC(cplx_t* statevector,
      */
     cmatVecMulInPlace(observableMat, ket, dim);
 
-    double result = creal(cinnerProduct(bra, ket, dim));
+    double result = creal(cInner(bra, ket, dim));
 
     free(bra);
     free(ket);

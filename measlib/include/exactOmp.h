@@ -1,14 +1,21 @@
-#ifndef DIAG_H
-#define DIAG_H
+//
+// Created by Timo Ziegler on 11.10.24.
+//
+
+#ifndef EXACTOMP_H
+#define EXACTOMP_H
 
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
+#ifndef CIRCLIB_H
+#include "circlib.h"
+#endif
 
-#ifndef STATELIB_H
-#include "../statelib/statelib.h"
+#ifndef __OMP_H
+#include <omp.h>
 #endif
 
 /*
@@ -22,35 +29,29 @@ extern "C" {
 #endif
 
 /*
- * =====================================================================================================================
- *                                              apply diagonal operator
- * =====================================================================================================================
- */
-    
-void applyOpDiag(state_t* state, const cplx_t op[]);
+* =====================================================================================================================
+*                                                  Mean value operator
+* =====================================================================================================================
+*/
+cplx_t expValOpPauli_omp(const state_t* state, const pauliOp_t* op);
 
 /*
  * =====================================================================================================================
- *                                              apply diagonal observable
+ *                                                  Mean value observable
  * =====================================================================================================================
  */
-
-void applyObsDiag(state_t* state, const double obs[]);
-
-void applyObsDiagOmp(state_t* state, const double obs[]);
+double expValObsPauli_omp(const state_t* state, const pauliObs_t* obs);
 
 /*
  * =====================================================================================================================
- *                                              evolve with diagonal observable
+ *                                                      gradient PQC
  * =====================================================================================================================
  */
-
-void evolveObsDiag(state_t* state, const double obs[], double angle);
-
-void evolveObsDiagOmp(state_t* state, const double obs[], double angle);
+double* gradPQC_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+                    depth_t circdepth);
 
 #ifdef __cplusplus
-}
+extern "C" {
 #endif
 
-#endif /* DIAG_H */
+#endif /* EXACTOMP_H */

@@ -7,8 +7,19 @@
  * =====================================================================================================================
  */
 
-#ifndef CIRCLIB_H
-#include "circlib.h"
+#if defined(EXACT_BLAS)
+#include "exactBlas.h"
+#elif defined(EXACT_OMP)
+#include "exactOmp.h"
+#elif defined(EXACT_BLAS_OMP)
+#include "exactBlMp.h"
+#elif defined(TEST)
+#include "exactBlas.h"
+#include "exactOmp.h"
+#include "exactBlMp.h"
+#include "exactOld.h"
+#else
+#include "exactOld.h"
 #endif
 
 /*
@@ -21,6 +32,16 @@
 extern "C" {
 #endif
 
+/*
+* =====================================================================================================================
+*                                                      Macros
+* =====================================================================================================================
+*/
+
+/*#define expValObs(X, Y) _Generic((Y), \
+                        double*:        expValObsDiag, \
+                        pauliObs_t*:    expValObsPauli \
+                        ) (X, Y)*/
 /*
  * =====================================================================================================================
  *                                                  type definitions
@@ -50,12 +71,6 @@ cplx_t expVal(const state_t* state, const op_t* op);
  */
 double expValObsPauli(const state_t* state, const pauliObs_t* obs);
 
-double expValObsPauliBlas(const state_t* state, const pauliObs_t* obs);
-
-double expValObsPauliOmp(const state_t* state, const pauliObs_t* obs);
-
-double expValObsPauliBlas_omp(const state_t* state, const pauliObs_t* obs);
-
 double expValObsDiag(const state_t* state, const double observable[]);
 
 double expValObs(const state_t* state, const obs_t* obs);
@@ -82,15 +97,6 @@ double expValObsPQC(const state_t* state, const double params[], const obs_t* ob
 
 double* gradPQC(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
                 depth_t circdepth);
-
-double* gradPQCblas(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
-                    depth_t circdepth);
-
-double* gradPQComp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
-                   depth_t circdepth);
-
-double* gradPQCblas_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
-                        depth_t circdepth);
 
 double* approxGradientPQC(const state_t* state, const double par[], const obs_t* observable,
                                const obs_t* evoOps[], depth_t circdepth, double epsilon);

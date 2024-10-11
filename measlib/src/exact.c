@@ -22,24 +22,16 @@
  * Output:
  *      The mean value of a Pauli operator without affecting the state itself.
 */
-cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
-    register cplx_t result = 0;     // Complex double holding the mean value at the end of the scope
-    state_t tmp;                    // Temporary state the Pauli strings are applied to, inheriting state vector from
-                                    // input state
-
-    stateInitEmpty(&tmp, state->qubits);
-    for (complength_t i = 0; i < op->length; ++i) {                               // Iterate the operator's term:
-        stateCopyVector(&tmp, state->vec);                                  // Copy the input state's vector
-                                                                                        // to tmp
-        applyPauliStr(&tmp, op->comps + (i * op->qubits));              // Apply the Pauli string
-        cplx_t term = stateOverlap(state, &tmp);                        // Calculate the state's overlap
-                                                                                        // with itself altered by the
-                                                                                        // current Pauli string
-        result += (op->coeffs[i] * term);                                   // Add the term times the term's
-    }                                                                                   // coefficient to the result
-    stateFreeVector(&tmp);
-
-    return result;
+cplx_t expValOpPauli(const state_t* state, const pauliOp_t* op) {
+#if defined(EXACT_BLAS)
+    return expValOpPauli_blas(state, op);
+#elif defined(EXACT_OMP)
+    return expValOpPauli_omp(state, op);
+#elif defined(EXACT_BLAS_OMP)
+    return expValOpPauli_blas_omp(state, op);
+#else
+    return expValOpPauli_old(state, op);
+#endif
 }
 
 cplx_t expValDiag(const state_t* state, const cplx_t op[]) {
@@ -72,7 +64,6 @@ cplx_t expVal(const state_t* state, const op_t* op) {
  *                                                  Mean value observable
  * =====================================================================================================================
  */
-
 /*
  * This function returns the expected value of a Pauli observable on a quantum state.
  *
@@ -84,102 +75,17 @@ cplx_t expVal(const state_t* state, const op_t* op) {
  *      Expected value of the observable on the state.
  */
 double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
-    state_t ket;            // state, initialized to the input state, the observable's components acts on
-
-    cplx_t tmp;             // complex double holding the mean value of each observable's component
-
-    double result = 0;      // double holding the sum of the weighted mean values of observable's components
-
-    /* Initialize ket to an all zero state vector */
-    stateInitEmpty(&ket, state->qubits);
-
-    /* For each component of the observable: Copy input state's vector to ket, apply component to ket, store the inner
-     * product of the input state and ket to tmp and add the real part of this mean value weighted by the corresponding
-     * coefficient to the result. */
-    for (complength_t i = 0; i < obs->length; ++i) {
-        stateCopyVector(&ket, state->vec);
-        applyPauliStr(&ket, obs->comps + (i * obs->qubits));
-        tmp = cinnerProduct(state->vec, ket.vec, state->dim);
-        result += (obs->coeffs[i] * creal(tmp));
-    }
-
-    /* Free the memory allocated for ket's state vector */
-    stateFreeVector(&ket);
-    
-    return result;
+#if defined(EXACT_BLAS)
+    return expValObsPauli_blas(state, obs);
+#elif defined(EXACT_OMP)
+    return expValObsPauli_omp(state, obs);
+#elif defined(EXACT_BLAS_OMP)
+    return expValObsPauli_blas_omp(state, obs);
+#else
+    return expValObsPauli_old(state, obs);
+#endif
 }
 
-double expValObsPauliBlas(const state_t* state, const pauliObs_t* obs) {
-    state_t ket;
-    cplx_t tmp;
-    double result = 0;
-
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-
-    stateInitEmpty(&ket, state->qubits);
-
-    for (complength_t i = 0; i < obs->length; ++i) {
-        cblas_zcopy(N, state->vec, 1, ket.vec, 1);
-        applyPauliStr(&ket, obs->comps + (i * obs->qubits));
-        cblas_zdotc_sub(N, state->vec, 1, ket.vec, 1, &tmp);
-        result += (obs->coeffs[i] * creal(tmp));
-    }
-    stateFreeVector(&ket);
-
-    return result;
-}
-
-double expValObsPauliOmp(const state_t* state, const pauliObs_t* obs) {
-    double result = 0;
-
-#pragma omp parallel default(none) shared(obs, result, state)
-    {
-        state_t ket;
-        cplx_t tmp;
-        stateInitEmpty(&ket, state->qubits);
-
-#pragma omp for
-        for (complength_t i = 0; i < obs->length; ++i) {
-            stateCopyVector(&ket, state->vec);
-            applyPauliStr(&ket, obs->comps + (i * obs->qubits));
-            tmp = cinnerProduct(state->vec, ket.vec, state->dim);
-
-#pragma omp critical(sum)
-            {
-                result += (obs->coeffs[i] * creal(tmp));
-            }
-        }
-        stateFreeVector(&ket);
-    }
-    return result;
-}
-
-double expValObsPauliBlas_omp(const state_t* state, const pauliObs_t* obs) {
-    double result = 0;
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-    __LAPACK_int one = (__LAPACK_int) 1;
-
-#pragma omp parallel default(none) shared(N, obs, one, result, state)
-    {
-        state_t ket;
-        cplx_t tmp;
-        stateInitEmpty(&ket, state->qubits);
-
-#pragma omp for
-        for (complength_t i = 0; i < obs->length; ++i) {
-            cblas_zcopy(N, state->vec, 1, ket.vec, 1);
-            applyPauliStr(&ket, obs->comps + (i * obs->qubits));
-            cblas_zdotc_sub(N, state->vec, 1, ket.vec, 1, &tmp);
-
-#pragma omp critical(sum)
-            {
-                result += (obs->coeffs[i] * creal(tmp));
-            }
-        }
-        stateFreeVector(&ket);
-    }
-    return result;
-}
 /*
  * This function returns the expected value of a diagonal observable on a quantum state.
  *
@@ -254,17 +160,13 @@ double expValObsPqcPauli(const state_t* state,
                          const obs_t *evoOps[],
                          depth_t circdepth)
 {
-    state_t tmp;                    // state, initialized to the input state and evolved with the PQC
-
-    /* Initialize the temporary states and copy the input state's vector to the designated bra */
-    stateInitEmpty(&tmp, state->qubits);
+    state_t tmp;                                    // Temporary state, initialized to the input state and evolved with
+                                                    // the PQC
+    stateInitEmpty(&tmp, state->qubits);            // Initialize temporary state with the input state's vector
     stateCopyVector(&tmp, state->vec);
 
-    /* Evolve the designated bra with the PQC */
-    applyPQC(&tmp, par, evoOps, circdepth);
-    double result = expValObsPauliBlas_omp(&tmp, obs);
-
-    /* Free the memory allocated for bra's state vector */
+    applyPQC(&tmp, par, evoOps, circdepth);         // Apply the PQC to the temporary state
+    double result = expValObsPauli(&tmp, obs);
     stateFreeVector(&tmp);
 
     return result;
@@ -373,192 +275,15 @@ double* gradPQC(const state_t* state,
                 const obs_t *evoOps[],
                 depth_t circdepth)
 {
-    state_t bra;        // state, initialized to the input state, evolved with all evolution operators and acted on with
-                        // the observable
-
-    state_t tmp;        // state, initialized to the input state, holding each intermediate evolution
-                                                                        
-    state_t ket;        // state, that inherits each intermediate evolution from tmp is acted on with the respective
-                        // evolution operator and finally evolved with the remaining evolution operators
-
-    double* result = malloc(circdepth * sizeof(double));
-
-    /* Initialize all temporary states and copy the input state's vector to bra and tmp */
-    stateInitEmpty(&bra, state->qubits);
-    stateCopyVector(&bra, state->vec);
-
-    stateInitEmpty(&tmp, state->qubits);
-    stateCopyVector(&tmp, state->vec);
-
-    stateInitEmpty(&ket, state->qubits);
-
-    /* Evolve bra with all evolutional operators and apply the observable to it */
-    for (depth_t i = 0; i < circdepth; ++i) {
-        evolveObsTrotter(&bra, evoOps[i], par[i]);
-    }
-    applyObs(&bra, obs);
-
-    /* k is an integer corresponding to the index of an evolution operator: Evolve tmp with all evolution operators up
-     * to and including the k-th, copy the resulting state vector to ket and apply the current evolution operator to
-     * ket. Evolve ket with all remaining evolution operators and store the imaginary part of its overlap with bra to
-     * the k-th entry of the gradient array. */
-    for (depth_t k = 0; k < circdepth; ++k) {
-        evolveObsTrotter(&tmp, evoOps[k], par[k]);
-
-        stateCopyVector(&ket, tmp.vec);
-        applyObs(&ket, evoOps[k]);
-
-        for (depth_t l = k + 1; l < circdepth; ++l) {
-            evolveObsTrotter(&ket, evoOps[l], par[l]);
-        }
-
-        result[k] = 2 * cimag(stateOverlap(&bra, &ket));
-    }
-
-    /* Free the memory allocated to the temporary state's vectors */
-    stateFreeVector(&bra);
-    stateFreeVector(&ket);
-    stateFreeVector(&tmp);
-    return result;
-}
-
-double* gradPQCblas(const state_t* state,
-                    const double par[],
-                    const obs_t* obs,
-                    const obs_t *evoOps[],
-                    depth_t circdepth)
-{
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-    state_t bra;
-    state_t tmp;
-    state_t ket;
-
-    double* result = malloc(circdepth * sizeof(double));
-
-    /* Initialize all temporary states and copy the input state's vector to bra and tmp */
-    stateInitEmpty(&bra, state->qubits);
-    cblas_zcopy(N, state->vec, 1, bra.vec, 1);
-
-    stateInitEmpty(&tmp, state->qubits);
-    cblas_zcopy(N, state->vec, 1, tmp.vec, 1);
-
-    stateInitEmpty(&ket, state->qubits);
-
-    /* Evolve bra with all evolutional operators and apply the observable to it */
-    for (depth_t i = 0; i < circdepth; ++i) {
-        evolveObsTrotter(&bra, evoOps[i], par[i]);
-    }
-    applyObs(&bra, obs);
-
-    /* k is an integer corresponding to the index of an evolution operator: Evolve tmp with all evolution operators up
-     * to and including the k-th, copy the resulting state vector to ket and apply the current evolution operator to
-     * ket. Evolve ket with all remaining evolution operators and store the imaginary part of its overlap with bra to
-     * the k-th entry of the gradient array. */
-    for (depth_t k = 0; k < circdepth; ++k) {
-        evolveObsTrotter(&tmp, evoOps[k], par[k]);
-
-        cblas_zcopy(N, tmp.vec, 1, ket.vec, 1);
-        applyObs(&ket, evoOps[k]);
-
-        for (depth_t l = k + 1; l < circdepth; ++l) {
-            evolveObsTrotter(&ket, evoOps[l], par[l]);
-        }
-
-        cplx_t dotc;
-        cblas_zdotc_sub(N, bra.vec, 1, ket.vec, 1, &dotc);
-        result[k] = 2 * cimag(dotc);
-    }
-
-    /* Free the memory allocated to the temporary state's vectors */
-    stateFreeVector(&bra);
-    stateFreeVector(&ket);
-    stateFreeVector(&tmp);
-    return result;
-}
-
-double* gradPQComp(const state_t* state,
-                   const double par[],
-                   const obs_t* obs,
-                   const obs_t *evoOps[],
-                   depth_t circdepth)
-{
-    state_t bra;
-    double* result = malloc(circdepth * sizeof(double));
-
-    /* Initialize all temporary states and copy the input state's vector to bra and tmp */
-    stateInitEmpty(&bra, state->qubits);
-    stateCopyVector(&bra, state->vec);
-
-    /* Evolve bra with all evolutional operators and apply the observable to it */
-    for (depth_t i = 0; i < circdepth; ++i) {
-        evolveObsTrotter(&bra, evoOps[i], par[i]);
-    }
-    applyObs(&bra, obs);
-
-#pragma omp parallel for default(none) shared(bra, circdepth, evoOps, par, result, state) num_threads(circdepth)
-        for (depth_t i = 0; i < circdepth; ++i) {
-            state_t ket;
-            stateInitEmpty(&ket, state->qubits);
-            stateCopyVector(&ket, state->vec);
-
-            for (depth_t j = 0; j <= i; ++j) {
-                evolveObsTrotter(&ket, evoOps[j], par[j]);
-            }
-            applyObs(&ket, evoOps[i]);
-
-            for (depth_t j = i + 1; j < circdepth; ++j) {
-                evolveObsTrotter(&ket, evoOps[j], par[j]);
-            }
-
-            result[i] = 2 * cimag(stateOverlap(&bra, &ket));
-            stateFreeVector(&ket);
-        }
-    stateFreeVector(&bra);
-    return result;
-}
-
-double* gradPQCblas_omp(const state_t* state,
-                        const double par[],
-                        const obs_t* obs,
-                        const obs_t *evoOps[],
-                        depth_t circdepth)
-{
-    state_t bra;
-    double* result = malloc(circdepth * sizeof(double));
-    __LAPACK_int N = (__LAPACK_int) state->dim;
-
-    /* Initialize all temporary states and copy the input state's vector to bra and tmp */
-    stateInitEmpty(&bra, state->qubits);
-    cblas_zcopy(N, state->vec, 1, bra.vec, 1);
-
-    /* Evolve bra with all evolutional operators and apply the observable to it */
-    for (depth_t i = 0; i < circdepth; ++i) {
-        evolveObsTrotter(&bra, evoOps[i], par[i]);
-    }
-    applyObs(&bra, obs);
-
-#pragma omp parallel for default(none) shared(bra, circdepth, evoOps, N, par, result, state) num_threads(circdepth)
-    for (depth_t i = 0; i < circdepth; ++i) {
-        state_t ket;
-        stateInitEmpty(&ket, state->qubits);
-        cblas_zcopy(N, state->vec, 1, ket.vec, 1);
-
-        for (depth_t j = 0; j <= i; ++j) {
-            evolveObsTrotter(&ket, evoOps[j], par[j]);
-        }
-        applyObs(&ket, evoOps[i]);
-
-        for (depth_t j = i + 1; j < circdepth; ++j) {
-            evolveObsTrotter(&ket, evoOps[j], par[j]);
-        }
-
-        cplx_t dotc;
-        cblas_zdotc_sub(N, bra.vec, 1, ket.vec, 1, &dotc);
-        result[i] = 2 * cimag(dotc);
-        stateFreeVector(&ket);
-    }
-    stateFreeVector(&bra);
-    return result;
+#if defined(EXACT_BLAS)
+    return gradPQC_blas(state, par, obs, evoOps, circdepth);
+#elif defined(EXACT_OMP)
+    return gradPQC_omp(state, par, obs, evoOps, circdepth);
+#elif defined(EXACT_BLAS_OMP)
+    return gradPQC_blas_omp(state, par, obs, evoOps, circdepth);
+#else
+    return gradPQC_old(state, par, obs, evoOps, circdepth);
+#endif
 }
 
 /*

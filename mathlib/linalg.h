@@ -58,7 +58,7 @@ void cvecAddInPlace(complex double a[], const complex double b[], unsigned long 
 
 complex double cvecProduct(const complex double a[], const complex double b[], unsigned long long dim);
 
-complex double cinnerProduct(const complex double a[], const complex double b[], unsigned long long dim);
+complex double cInner(const complex double a[], const complex double b[], unsigned long long dim);
 
 /*
  * =====================================================================================================================
