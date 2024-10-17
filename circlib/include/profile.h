@@ -1,18 +1,16 @@
 //
-// Created by Timo Ziegler on 10.10.24.
+// Created by Timo Ziegler on 17.10.24.
 //
-
-#ifndef PAULIBLMP_H
-#define PAULIBLMP_H
+#ifndef CIRC_PROFILE_H
+#define CIRC_PROFILE_H
 
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef GATELIB_H
-#include "gatelib.h"
+#ifndef LINALG_H
+#include "linalg.h"
 #endif
 
 #ifndef __OMP_H
@@ -38,8 +36,8 @@ extern "C" {
 *                                                  type definitions
 * =====================================================================================================================
 */
-#ifndef PAULI_STRUCT
-#define PAULI_STRUCT
+#ifndef PAULI_STRUCTS
+#define PAULI_STRUCTS
 typedef struct pauliOp {
     pauli_t* comps;
     cplx_t* coeffs;
@@ -56,26 +54,40 @@ typedef struct pauliObs {
 #endif
 
 /*
-* ======================================================================================================================
-*                                                   Apply Pauli structs
-* ======================================================================================================================
-*/
-void applyPauliStr_blas_omp(state_t* state, const pauli_t paulistr[]);
+ * =====================================================================================================================
+ *                                                  Apply Pauli operator
+ * =====================================================================================================================
+ */
+void applyOpPauli_blas(state_t* state, const pauliOp_t* op);
 
 void applyOpPauli_blas_omp(state_t* state, const pauliOp_t* op);
 
+void applyOpPauli_omp(state_t* state, const pauliOp_t* op);
+
+/*
+ * =====================================================================================================================
+ *                                                  Apply Pauli observable
+ * =====================================================================================================================
+ */
+void applyObsPauli_blas(state_t* state, const pauliObs_t* obs);
+
 void applyObsPauli_blas_omp(state_t* state, const pauliObs_t* obs);
+
+void applyObsPauli_omp(state_t* state, const pauliObs_t* obs);
 
 /*
  * =====================================================================================================================
  *                                              Evolve with Pauli string
  * =====================================================================================================================
  */
+void evolvePauliStr_blas(state_t* state, const pauli_t paulistr[], double angle);
 
 void evolvePauliStr_blas_omp(state_t* state, const pauli_t paulistr[], double angle);
+
+void evolvePauliStr_omp(state_t* state, const pauli_t paulistr[], double angle);
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#endif /* PAULIBLMP_H */
+#endif /* CIRC_PROFILE_H */

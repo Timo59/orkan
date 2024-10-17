@@ -1,21 +1,24 @@
 //
-// Created by Timo Ziegler on 11.10.24.
+// Created by Timo Ziegler on 17.10.24.
 //
-
-#ifndef EXACTOMP_H
-#define EXACTOMP_H
+#ifndef EXACT_PROFILE_H
+#define EXACT_PROFILE_H
 
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
-#ifndef CIRCLIB_H
-#include "circlib.h"
+#ifndef LINALG_H
+#include "linalg.h"
 #endif
 
 #ifndef __OMP_H
 #include <omp.h>
+#endif
+
+#ifndef __VECLIB__
+#include <vecLib/vecLib.h>
 #endif
 
 /*
@@ -33,13 +36,21 @@ extern "C" {
 *                                                  Mean value operator
 * =====================================================================================================================
 */
-cplx_t expValOpPauli_omp(const state_t* state, const pauliOp_t* op);
+cplx_t expValPauli_blas(const state_t* state, const pauliOp_t* op);
+
+cplx_t expValPauli_blas_omp(const state_t* state, const pauliOp_t* op);
+
+cplx_t expValPauli_omp(const state_t* state, const pauliOp_t* op);
 
 /*
  * =====================================================================================================================
  *                                                  Mean value observable
  * =====================================================================================================================
  */
+double expValObsPauli_blas(const state_t* state, const pauliObs_t* obs);
+
+double expValObsPauli_blas_omp(const state_t* state, const pauliObs_t* obs);
+
 double expValObsPauli_omp(const state_t* state, const pauliObs_t* obs);
 
 /*
@@ -47,6 +58,12 @@ double expValObsPauli_omp(const state_t* state, const pauliObs_t* obs);
  *                                                      gradient PQC
  * =====================================================================================================================
  */
+double* gradPQC_blas(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+                     depth_t circdepth);
+
+double* gradPQC_blas_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+                         depth_t circdepth);
+
 double* gradPQC_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
                     depth_t circdepth);
 
@@ -54,4 +71,4 @@ double* gradPQC_omp(const state_t* state, const double par[], const obs_t* obs, 
 extern "C" {
 #endif
 
-#endif /* EXACTOMP_H */
+#endif /* eXACT_PROFILE_H */

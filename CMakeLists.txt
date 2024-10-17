@@ -50,65 +50,41 @@ target_link_libraries(Test_flags INTERFACE Test unity)                          
 add_subdirectory(statelib)
 add_subdirectory(gatelib)
 
-add_executable(gatelibTest
-        gatelib/test/testQhipster.c
-        $<TARGET_OBJECTS:State>
-        $<TARGET_OBJECTS:Gate>
-)
-
+add_executable(gatelibTest gatelib/test/testQhipster.c)
 target_include_directories(gatelibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
-
 target_link_libraries(gatelibTest
         PRIVATE Gate
                 Math
-                OMP_compiler_flags
                 State
                 Test_flags
 )
 
-
 add_subdirectory(circlib)
-
-add_executable(circlibTest
-        circlib/test/testCirclib.c
-        $<TARGET_OBJECTS:Math>
-        $<TARGET_OBJECTS:State>
-        $<TARGET_OBJECTS:Gate>
-        $<TARGET_OBJECTS:Circ>
-)
-
+add_executable(circlibTest circlib/test/testCirclib.c)
 target_include_directories(circlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
-target_link_libraries(circlibTest PRIVATE
-        Q_compiler_flags
-        Test_flags
-        Math
-        State
-        Gate
-        Circ
+target_link_libraries(circlibTest
+        PRIVATE Test_flags
+                Math
+                State
+                Gate
+                Circ
 )
 
 add_subdirectory(measlib)
 
-add_executable(measlibTest
-        measlib/test/testExact.c
-        $<TARGET_OBJECTS:Math>
-        $<TARGET_OBJECTS:State>
-        $<TARGET_OBJECTS:Gate>
-        $<TARGET_OBJECTS:Circ>
-        $<TARGET_OBJECTS:Meas>
-)
+add_executable(measlibTest measlib/test/testExact.c)
 
 target_include_directories(measlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
-target_link_libraries(measlibTest PRIVATE
-        Q_compiler_flags
-        Test_flags
-        Math
-        State
-        Gate
-        Circ
-        Meas
+target_link_libraries(measlibTest
+        PRIVATE
+            Test_flags
+            Math
+            State
+            Gate
+            Circ
+            Meas
 )
 
 add_test(NAME gateTest COMMAND gatelibTest)
@@ -117,14 +93,20 @@ add_test(NAME measTest COMMAND measlibTest)
 
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl")
 add_library(${PROJECT_NAME} SHARED
-        $<TARGET_OBJECTS:Math>
+        $<$<IN_LIST:${CIRCMETH},OLD;OMP;PROFILE>:$<TARGET_OBJECTS:Math>>
+        $<$<IN_LIST:${MEASMETH},OLD;OMP;PROFILE>:$<TARGET_OBJECTS:Math>>
         $<TARGET_OBJECTS:State>
         $<TARGET_OBJECTS:Gate>
         $<TARGET_OBJECTS:Circ>
         $<TARGET_OBJECTS:Meas>
 )
 target_link_libraries(${PROJECT_NAME}
-        PUBLIC  Q_compiler_flags
+        PUBLIC  State
+                Gate
+                Circ
+                Meas
+                $<$<IN_LIST:${CIRCMETH},OLD;OMP;PROFILE>:Math>
+                $<$<IN_LIST:${MEASMETH},OLD;OMP;PROFILE>:Math>
 )
 
 install(TARGETS Q
@@ -133,7 +115,8 @@ install(TARGETS Q
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include
 )
-install(FILES "include/qLib.h" "include/qTypes.h" DESTINATION include)
+install(FILES       "include/qLib.h" "include/qTypes.h"
+        DESTINATION include)
 
 add_dependencies(Q gatelibTest circlibTest measlibTest)
 

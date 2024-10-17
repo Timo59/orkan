@@ -6,20 +6,41 @@
  *                                                      includes
  * =====================================================================================================================
  */
+#ifndef CIRCLIB_H
+#include "circlib.h"
+#endif
 
 #if defined(EXACT_BLAS)
-#include "exactBlas.h"
-#elif defined(EXACT_OMP)
-#include "exactOmp.h"
+#ifndef __VECLIB__
+#include <vecLib/vecLib.h>
+#endif
+
 #elif defined(EXACT_BLAS_OMP)
-#include "exactBlMp.h"
-#elif defined(TEST)
-#include "exactBlas.h"
-#include "exactOmp.h"
-#include "exactBlMp.h"
-#include "exactOld.h"
+#ifndef __OMP_H
+#include <omp.h>
+#endif
+
+#ifndef __VECLIB__
+#include <vecLib/vecLib.h>
+#endif
+
+#elif defined(EXACT_OMP)
+#ifndef LINALG_H
+#include "linalg.h"
+#endif
+
+#ifndef __OMP_H
+#include <omp.h>
+#endif
+
+#elif defined(EXACT_PROFILE)
+#include "profile.h"
+
 #else
-#include "exactOld.h"
+#ifndef LINALG_H
+#include "linalg.h"
+#endif
+
 #endif
 
 /*
@@ -47,7 +68,6 @@ extern "C" {
  *                                                  type definitions
  * =====================================================================================================================
  */
-
 typedef double* (*gradientPQC)(const state_t* state, const double par[], const obs_t* obs, const obs_t* evoOps[],
                                depth_t circdepth);
 
@@ -94,8 +114,10 @@ double expValObsPQC(const state_t* state, const double params[], const obs_t* ob
  *                                                      gradient PQC
  * =====================================================================================================================
  */
-
-double* gradPQC(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+double* gradPQC(const state_t* state,
+                const double par[],
+                const obs_t* obs,
+                const obs_t *evoOps[],
                 depth_t circdepth);
 
 double* approxGradientPQC(const state_t* state, const double par[], const obs_t* observable,

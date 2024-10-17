@@ -6,9 +6,8 @@
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef PAULIBLMP_H
-#include "pauliBlMp.h"
+#ifndef PAULI_H
+#include "pauli.h"
 #endif
 
 /*
@@ -16,7 +15,7 @@
  *                                              Apply Pauli structs
  * =====================================================================================================================
  */
-void applyPauliStr_blas_omp(state_t* state, const pauli_t paulistr[]) {
+void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
     for (qubit_t qubit = 0; qubit < state->qubits; ++qubit) {
         switch (paulistr[qubit]) {
             case ID: {
@@ -41,6 +40,7 @@ void applyPauliStr_blas_omp(state_t* state, const pauli_t paulistr[]) {
         }
     }
 }
+
 /*
  * This function applies a Pauli operator to a quantum state.
  *
@@ -52,7 +52,7 @@ void applyPauliStr_blas_omp(state_t* state, const pauli_t paulistr[]) {
  *      This function has no return value, but sums the outcome of single Pauli string applications weighted by the
  *      coefficients in place.
  */
-void applyOpPauli_blas_omp(state_t* state, const pauliOp_t* op) {
+void applyOpPauli(state_t* state, const pauliOp_t* op) {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));                // Temporary vector holding the intermediate sum
 # pragma omp parallel default(none) shared(N, op, state, tmpSum)
@@ -63,7 +63,7 @@ void applyOpPauli_blas_omp(state_t* state, const pauliOp_t* op) {
 #pragma omp for
         for (complength_t i = 0; i < op->length; ++i) {                             // Iterate the observable's terms
             cblas_zcopy(N, state->vec, 1, tmp.vec, 1);                              // Copy input's state vector to tmp
-            applyPauliStr_blas_omp(&tmp, op->comps + (i * op->qubits));                      // Apply the Pauli string to it
+            applyPauliStr(&tmp, op->comps + (i * op->qubits));                      // Apply the Pauli string to it
             __LAPACK_double_complex alpha = op->coeffs[i];
 
 #pragma omp critical(sum)
@@ -88,10 +88,10 @@ void applyOpPauli_blas_omp(state_t* state, const pauliOp_t* op) {
  *      This function has no return value, but sums the outcome of single Pauli string applications weighted by the
  *      coefficients in place.
  */
-void applyObsPauli_blas_omp(state_t* state, const pauliObs_t* obs) {
+void applyObsPauli(state_t* state, const pauliObs_t* obs) {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));                // Temporary vector holding the intermediate sum
-    printf("Hello from Pauli BLAS OMP!\n");
+
 # pragma omp parallel default(none) shared(N, obs, state, tmpSum)
     {
         state_t tmp;
@@ -100,7 +100,7 @@ void applyObsPauli_blas_omp(state_t* state, const pauliObs_t* obs) {
 #pragma omp for
         for (complength_t i = 0; i < obs->length; ++i) {                            // Iterate the observable's terms
             cblas_zcopy(N, state->vec, 1, tmp.vec, 1);                              // Copy input's state vector to tmp
-            applyPauliStr_blas_omp(&tmp, obs->comps + (i * obs->qubits));                    // Apply the Pauli string to it
+            applyPauliStr(&tmp, obs->comps + (i * obs->qubits));                    // Apply the Pauli string to it
             __LAPACK_double_complex alpha = obs->coeffs[i];
 
 #pragma omp critical(sum)
@@ -130,7 +130,7 @@ void applyObsPauli_blas_omp(state_t* state, const pauliObs_t* obs) {
  *      This function has no return value, but changes the state vector in place.
  */
 
-void evolvePauliStr_blas_omp(state_t* state, const pauli_t paulistr[], double angle) {
+void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle) {
     cplx_t* tmp = malloc(sizeof(cplx_t) * state->dim);              // Temporary vector holding state vector multiplied
     // with cos(angle)
 #pragma omp parallel for default(none) shared(angle, state, tmp)
@@ -139,7 +139,7 @@ void evolvePauliStr_blas_omp(state_t* state, const pauli_t paulistr[], double an
         tmp[entry] *= cos(angle);                                   // Store it times cos(angle) in tmp
         state->vec[entry] *= -I * sin(angle);                       // Multiply it with -i * sin(angle)
     }
-    applyPauliStr_blas_omp(state, paulistr);                                 // Apply the Pauli string to the input state
+    applyPauliStr(state, paulistr);                                 // Apply the Pauli string to the input state
 
 #pragma omp parallel for default(none) shared(state, tmp)
     for (dim_t entry = 0; entry < state->dim; ++entry) {            // Iterate the entries of the input's state vector

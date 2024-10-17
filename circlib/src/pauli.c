@@ -155,9 +155,17 @@
  *      This function has no return value, but changes the statevector in place.
  */
 
-void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
-    return applyPauliStr(state, paulistr);
-}
+//void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
+//#if defined(PAULI_BLAS)
+//    return applyPauliStr_blas(state, paulistr);
+//#elif defined(PAULI_OMP)
+//    return applpPauliStr_omp(state, paulistr);
+//#elif defined(PAULI_BLAS_OMP)
+//    return applyPauliStr_blas_omp(state, paulistr);
+//#else
+//    return applyPauliStr_old(state, op);
+//#endif
+//}
 
 
 /*
@@ -171,17 +179,17 @@ void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
  *      This function has no return value, but sums the outcome of single Pauli string applications weighted by the
  *      coefficients in place.
  */
-void applyOpPauli(state_t* state, const pauliOp_t* op) {
-#if defined(PAULI_BLAS)
-    return applyOpPauli_blas(state, op);
-#elif defined(PAULI_OMP)
-    return applyOpPauli_omp(state, op);
-#elif defined(PAULI_BLAS_OMP)
-    return applyOpPauli_blas_omp(state, op);
-#else
-    return applyOpPauli_old(state, op);
-#endif
-}
+//void applyOpPauli(state_t* state, const pauliOp_t* op) {
+//#if defined(PAULI_BLAS)
+//    return applyOpPauli_blas(state, op);
+//#elif defined(PAULI_OMP)
+//    return applyOpPauli_omp(state, op);
+//#elif defined(PAULI_BLAS_OMP)
+//    return applyOpPauli_blas_omp(state, op);
+//#else
+//    return applyOpPauli_old(state, op);
+//#endif
+//}
 
 /*
  * This function applies a Pauli observable to a quantum state.
@@ -194,17 +202,17 @@ void applyOpPauli(state_t* state, const pauliOp_t* op) {
  *      This function has no return value, but sums the outcome of single Pauli string applications weighted by the
  *      coefficients in place.
  */
-void applyObsPauli(state_t* state, const pauliObs_t* obs) {
-#if defined(PAULI_BLAS)
-    return applyObsPauli_blas(state, obs);
-#elif defined(PAULI_OMP)
-    return applyObsPauli_omp(state, obs);
-#elif defined(PAULI_BLAS_OMP)
-    return applyObsPauli_blas_omp(state, obs);
-#else
-    return applyObsPauli_old(state, obs);
-#endif
-}
+//void applyObsPauli(state_t* state, const pauliObs_t* obs) {
+//#if defined(PAULI_BLAS)
+//    return applyObsPauli_blas(state, obs);
+//#elif defined(PAULI_OMP)
+//    return applyObsPauli_omp(state, obs);
+//#elif defined(PAULI_BLAS_OMP)
+//    return applyObsPauli_blas_omp(state, obs);
+//#else
+//    return applyObsPauli_old(state, obs);
+//#endif
+//}
 
 /*
  * =====================================================================================================================
@@ -221,17 +229,17 @@ void applyObsPauli(state_t* state, const pauliObs_t* obs) {
  * Output:
  *      This function has no return value, but changes the state vector in place.
  */
-void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle) {
-#if defined(PAULI_BLAS)
-    return evolvePauliStr_blas(state, paulistr, angle);
-#elif defined(PAULI_OMP)
-    return evolvePauliStr_omp(state, paulistr, angle);
-#elif defined(PAULI_BLAS_OMP)
-    return evolvePauliStr_blas_omp(state, paulistr, angle);
-#else
-    return evolvePauliStr_old(state, paulistr, angle);
-#endif
-}
+//void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle) {
+//#if defined(PAULI_BLAS)
+//    return evolvePauliStr_blas(state, paulistr, angle);
+//#elif defined(PAULI_OMP)
+//    return evolvePauliStr_omp(state, paulistr, angle);
+//#elif defined(PAULI_BLAS_OMP)
+//    return evolvePauliStr_blas_omp(state, paulistr, angle);
+//#else
+//    return evolvePauliStr_old(state, paulistr, angle);
+//#endif
+//}
 
 /*
  * =====================================================================================================================

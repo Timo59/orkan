@@ -22,17 +22,17 @@
  * Output:
  *      The mean value of a Pauli operator without affecting the state itself.
 */
-cplx_t expValOpPauli(const state_t* state, const pauliOp_t* op) {
-#if defined(EXACT_BLAS)
-    return expValOpPauli_blas(state, op);
-#elif defined(EXACT_OMP)
-    return expValOpPauli_omp(state, op);
-#elif defined(EXACT_BLAS_OMP)
-    return expValOpPauli_blas_omp(state, op);
-#else
-    return expValOpPauli_old(state, op);
-#endif
-}
+//cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
+//#if defined(EXACT_BLAS)
+//    return expValPauli_blas(state, op);
+//#elif defined(EXACT_OMP)
+//    return expValPauli_omp(state, op);
+//#elif defined(EXACT_BLAS_OMP)
+//    return expValPauli_blas_omp(state, op);
+//#else
+//    return expValPauli_old(state, op);
+//#endif
+//}
 
 cplx_t expValDiag(const state_t* state, const cplx_t op[]) {
     register cplx_t result = 0;
@@ -74,17 +74,17 @@ cplx_t expVal(const state_t* state, const op_t* op) {
  * Output:
  *      Expected value of the observable on the state.
  */
-double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
-#if defined(EXACT_BLAS)
-    return expValObsPauli_blas(state, obs);
-#elif defined(EXACT_OMP)
-    return expValObsPauli_omp(state, obs);
-#elif defined(EXACT_BLAS_OMP)
-    return expValObsPauli_blas_omp(state, obs);
-#else
-    return expValObsPauli_old(state, obs);
-#endif
-}
+//double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
+//#if defined(EXACT_BLAS)
+//    return expValObsPauli_blas(state, obs);
+//#elif defined(EXACT_OMP)
+//    return expValObsPauli_omp(state, obs);
+//#elif defined(EXACT_BLAS_OMP)
+//    return expValObsPauli_blas_omp(state, obs);
+//#else
+//    return expValObsPauli_old(state, obs);
+//#endif
+//}
 
 /*
  * This function returns the expected value of a diagonal observable on a quantum state.
@@ -269,22 +269,22 @@ double expValObsPQC(const state_t* state,
  *      Gradient of the observable's expected value on the parametrized quantum circuit wrt the evolution parameters at
  *      the current point in parameter space.
  */
-double* gradPQC(const state_t* state,
-                const double par[],
-                const obs_t* obs,
-                const obs_t *evoOps[],
-                depth_t circdepth)
-{
-#if defined(EXACT_BLAS)
-    return gradPQC_blas(state, par, obs, evoOps, circdepth);
-#elif defined(EXACT_OMP)
-    return gradPQC_omp(state, par, obs, evoOps, circdepth);
-#elif defined(EXACT_BLAS_OMP)
-    return gradPQC_blas_omp(state, par, obs, evoOps, circdepth);
-#else
-    return gradPQC_old(state, par, obs, evoOps, circdepth);
-#endif
-}
+//double* gradPQC(const state_t* state,
+//                const double par[],
+//                const obs_t* obs,
+//                const obs_t *evoOps[],
+//                depth_t circdepth)
+//{
+//#if defined(EXACT_BLAS)
+//    return gradPQC_blas(state, par, obs, evoOps, circdepth);
+//#elif defined(EXACT_OMP)
+//    return gradPQC_omp(state, par, obs, evoOps, circdepth);
+//#elif defined(EXACT_BLAS_OMP)
+//    return gradPQC_blas_omp(state, par, obs, evoOps, circdepth);
+//#else
+//    return gradPQC_old(state, par, obs, evoOps, circdepth);
+//#endif
+//}
 
 /*
  * This function returns the approximate gradient of an observable's expected value on a parametrized quantum circuit
@@ -619,7 +619,7 @@ cplx_t** momMat(const state_t* state,
  *      state_t* state:         Initial state of a qubit system
  *      obs_t* obs[]:           Array of observables constituting the moment matrices
  *      depth_t obsc:           Number of observables to calculate the moment matrix of
- *      obs_t* evoOps[]:       Set of observables generating the search unitaries
+ *      obs_t* evoOps[]:        Set of observables generating the search unitaries
  *      depth_t circdepth:      Dimension of the moment matrices; i.e., number of evolution operators in the PQC
  *      double angles[]:        Array of fixed angles in the evolution
  *
@@ -637,7 +637,7 @@ cplx_t** momMatPQC(const state_t* state,
     /* Set up the array of moment matrices */
     register cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));
     for (depth_t i = 0; i < obsc; ++i) {
-        result[i] = (cplx_t*) malloc((circdepth + 1) * (circdepth + 1) * sizeof(*(result[i])));
+        result[i] = malloc((circdepth + 1) * (circdepth + 1) * sizeof(*(result[i])));
     }
 
     /* Initialize the temporary states altered by the unitaries */

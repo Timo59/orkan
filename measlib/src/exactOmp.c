@@ -7,8 +7,8 @@
  * =====================================================================================================================
  */
 
-#ifndef EXACTOMP_H
-#include "exactOmp.h"
+#ifndef EXACT_H
+#include "exact.h"
 #endif
 
 /*
@@ -16,7 +16,7 @@
  *                                                  Mean value operator
  * =====================================================================================================================
  */
-cplx_t expValOpPauli_omp(const state_t* state, const pauliOp_t* op) {
+cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
     cplx_t result = 0;                          // Output variable
 
 #pragma omp parallel default(none) shared(op, result, state)
@@ -45,7 +45,7 @@ cplx_t expValOpPauli_omp(const state_t* state, const pauliOp_t* op) {
  *                                                  Mean value observable
  * =====================================================================================================================
  */
-double expValObsPauli_omp(const state_t* state, const pauliObs_t* obs) {
+double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
     double result = 0;                          // Output variable
 
 #pragma omp parallel default(none) shared(obs, result, state)
@@ -74,11 +74,11 @@ double expValObsPauli_omp(const state_t* state, const pauliObs_t* obs) {
  *                                                      gradient PQC
  * =====================================================================================================================
  */
-double* gradPQC_omp(const state_t* state,
-                   const double par[],
-                   const obs_t* obs,
-                   const obs_t *evoOps[],
-                   depth_t circdepth)
+double* gradPQC(const state_t* state,
+                const double par[],
+                const obs_t* obs,
+                const obs_t *evoOps[],
+                depth_t circdepth)
 {
     state_t bra;                            // state, initialized to the input state, evolved with all evolution
     stateInitEmpty(&bra, state->qubits);    // operators and acted on with the observable

@@ -221,7 +221,6 @@ void testExpValObs(void) {
 
             free(refKet);
         }
-
         /* Pauli observable */
         free(comps);
         comps = allPauliStrings(qubits);
@@ -972,7 +971,7 @@ void testMomMatPQC(void) {
 
         pauli_t* comps_diag = allPauliStringsDiag(qubits);      // Concatenation of all diagonal Pauli strings
         complength_t length_diag = (1 << qubits);               // Number of components, i.e., number of Pauli strings
-        pauli_t* comps_pauli = allPauliStrings(qubits);         // Concatenation of all diagonal Pauli strings
+        pauli_t* comps_pauli = allPauliStrings(qubits);         // Concatenation of all Pauli strings
         complength_t length_pauli = (1 << (2 * qubits));        // Number of Pauli components
 
         double* diagObs = pauliObsMatDiag(comps_diag, coeffs, length_diag, qubits);

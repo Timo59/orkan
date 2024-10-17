@@ -7,8 +7,8 @@
  * =====================================================================================================================
  */
 
-#ifndef EXACTOMP_H
-#include "exactBlMp.h"
+#ifndef EXACT_H
+#include "exact.h"
 #endif
 
 /*
@@ -16,7 +16,7 @@
  *                                                  Mean value operator
  * =====================================================================================================================
  */
-cplx_t expValOpPauli_blas_omp(const state_t* state, const pauliOp_t* op) {
+cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
     cplx_t result = 0;                              // Output variable
     __LAPACK_int N = (__LAPACK_int) state->dim;
     __LAPACK_int one = (__LAPACK_int) 1;
@@ -42,12 +42,13 @@ cplx_t expValOpPauli_blas_omp(const state_t* state, const pauliOp_t* op) {
     }
     return result;
 }
+
 /*
  * =====================================================================================================================
  *                                                  Mean value observable
  * =====================================================================================================================
  */
-double expValObsPauli_blas_omp(const state_t* state, const pauliObs_t* obs) {
+double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
     double result = 0;                              // Output variable
     __LAPACK_int N = (__LAPACK_int) state->dim;
     __LAPACK_int one = (__LAPACK_int) 1;
@@ -79,11 +80,11 @@ double expValObsPauli_blas_omp(const state_t* state, const pauliObs_t* obs) {
  *                                                      gradient PQC
  * =====================================================================================================================
  */
-double* gradPQC_blas_omp(const state_t* state,
-                         const double par[],
-                         const obs_t* obs,
-                         const obs_t *evoOps[],
-                         depth_t circdepth)
+double* gradPQC(const state_t* state,
+                const double par[],
+                const obs_t* obs,
+                const obs_t *evoOps[],
+                depth_t circdepth)
 {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     state_t bra;                                // state, initialized to the input state, evolved with all evolution

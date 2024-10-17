@@ -11,10 +11,6 @@
 #include "qTypes.h"
 #endif
 
-#ifndef LINALG_H
-#include "linalg.h"
-#endif
-
 #ifndef STATELIB_H
 #include "statelib.h"
 #endif

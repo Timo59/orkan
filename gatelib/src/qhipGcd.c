@@ -1,15 +1,13 @@
 //
 // Created by Timo Ziegler on 09.10.24.
 //
-
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef QHIPGCD_H
-#include "qhipGcd.h"
+#ifndef GATELIB_H
+#include "gatelib.h"
 #endif
 
 /*
@@ -18,7 +16,7 @@
  * =====================================================================================================================
  */
 
-void applyX_gcd(state_t* state, qubit_t qubit) {
+void applyX(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
     dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;
@@ -40,7 +38,7 @@ void applyX_gcd(state_t* state, qubit_t qubit) {
     });
 }
 
-void applyY_gcd(state_t* state, qubit_t qubit) {
+void applyY(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
     dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;
@@ -64,7 +62,7 @@ void applyY_gcd(state_t* state, qubit_t qubit) {
     });
 }
 
-void applyZ_gcd(state_t* state, qubit_t qubit) {
+void applyZ(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
     dim_t stride = (state->qubits > 6) ? POW2(state->qubits - 5, dim_t) : indices;

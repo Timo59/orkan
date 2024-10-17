@@ -6,9 +6,8 @@
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef PAULIOLD_H
-#include "pauliOld.h"
+#ifndef PAULI_H
+#include "pauli.h"
 #endif
 
 /*
@@ -17,7 +16,7 @@
  * =====================================================================================================================
  */
 
-void applyPauliStr_old(state_t* state, const pauli_t paulistr[]) {
+void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
     for (qubit_t qubit = 0; qubit < state->qubits; ++qubit) {
         switch (paulistr[qubit]) {
             case ID: {
@@ -54,14 +53,14 @@ void applyPauliStr_old(state_t* state, const pauli_t paulistr[]) {
  *      This function has no return value, but sums the outcome of single Pauli string applications weighted by the
  *      coefficients in place.
  */
-void applyOpPauli_old(state_t* state, const pauliOp_t* op) {
+void applyOpPauli(state_t* state, const pauliOp_t* op) {
     state_t tmp;                                                        // Temporary state to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);
     cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));     // Temporary vector holding the intermediate sum
                                                                         // of state vectors
     for (complength_t i = 0; i < op->length; ++i) {                     // Iterate the operator's terms
         stateCopyVector(&tmp, state->vec);                              // Copy input's state vector to tmp
-        applyPauliStr_old(&tmp, op->comps + (i * op->qubits));              // Apply the Pauli string to it
+        applyPauliStr(&tmp, op->comps + (i * op->qubits));              // Apply the Pauli string to it
         cscalarVecMulInPlace(op->coeffs[i], tmp.vec, state->dim);       // Multiply the terms' coefficient
         cvecAddInPlace(tmpSum, tmp.vec, state->dim);                            // and add the result to the
                                                                                 // intermediate sum
@@ -82,15 +81,14 @@ Output:
  *      This function has no return value, but sums the outcome of single Pauli string applications weighted by the
  *      coefficients in place.
  */
-void applyObsPauli_old(state_t* state, const pauliObs_t* obs) {
+void applyObsPauli(state_t* state, const pauliObs_t* obs) {
     state_t tmp;                                                        // Temporary state to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);
-    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));     // Temporary vector holding the intermediate sum
+    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));                // Temporary vector holding the intermediate sum
                                                                         // of state vectors
-    printf("Hello from Pauli OLD\n");
     for (complength_t i = 0; i < obs->length; ++i) {                    // Iterate the observable's terms
         stateCopyVector(&tmp, state->vec);                              // Copy input's state vector to tmp
-        applyPauliStr_old(&tmp, obs->comps + (i * obs->qubits));            // Apply the Pauli string to it
+        applyPauliStr(&tmp, obs->comps + (i * obs->qubits));            // Apply the Pauli string to it
         cscalarVecMulInPlace((cplx_t) obs->coeffs[i], tmp.vec, state->dim);     // Multiply the terms' coefficient
         cvecAddInPlace(tmpSum, tmp.vec, state->dim);                            // and add the result to the
                                                                                 // intermediate sum
@@ -115,14 +113,14 @@ void applyObsPauli_old(state_t* state, const pauliObs_t* obs) {
  * Output:
  *      This function has no return value, but changes the state vector in place.
  */
-void evolvePauliStr_old(state_t* state, const pauli_t paulistr[], double angle) {
+void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle) {
     cplx_t* tmp = malloc(sizeof(cplx_t) * state->dim);          // Temporary vector holding state vector multiplied
                                                                 // with cos(angle)
     for (dim_t entry = 0; entry < state->dim; ++entry) {        // Iterate entries of the input's state vector
         tmp[entry] = cos(angle) * state->vec[entry];            // Store it times cos(angle) in tmp
         state->vec[entry] *= -I * sin(angle);                   // Multiply it with -i * sin(angle)
     }
-    applyPauliStr_old(state, paulistr);                             // Apply the Pauli string to the input state
+    applyPauliStr(state, paulistr);                             // Apply the Pauli string to the input state
     for (dim_t entry = 0; entry < state->dim; ++entry) {        // Iterate the entries of the input's state vector
         state->vec[entry] += tmp[entry];                        // Add the tmp's entry to it
     }
