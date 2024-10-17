@@ -7,8 +7,8 @@
  * =====================================================================================================================
  */
 
-#ifndef EXACTBLAS_H
-#include "exactBlas.h"
+#ifndef EXACT_H
+#include "exact.h"
 #endif
 
 /*
@@ -16,7 +16,7 @@
  *                                                  Mean value operator
  * =====================================================================================================================
  */
-double expValOpPauli_blas(const state_t* state, const pauliOp_t* op) {
+cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
     state_t tmp;                                                // Temporary state, initialized with the input state
                                                                 // vector, the operator's terms are applied to
     cplx_t term;                                                // Temporary var holding the mean value of each term of
@@ -35,19 +35,19 @@ double expValOpPauli_blas(const state_t* state, const pauliOp_t* op) {
 
     return result;
 }
+
 /*
  * =====================================================================================================================
  *                                                  Mean value observable
  * =====================================================================================================================
  */
-double expValObsPauli_blas(const state_t* state, const pauliObs_t* obs) {
+double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
     state_t tmp;                                                // Temporary state, initialized with the input state
                                                                 // vector, the observable's terms are applied to
     cplx_t term;                                                // Temporary var holding the mean value of each term of
                                                                 // the observable
     register double result = 0;                                 // Output variable
     __LAPACK_int N = (__LAPACK_int) state->dim;
-
     stateInitEmpty(&tmp, state->qubits);                        // Initialize the temporary state
     for (complength_t i = 0; i < obs->length; ++i) {            // Iterate the observable's terms
         cblas_zcopy(N, state->vec, 1, tmp.vec, 1);              // Copy the input state's vector to the temporary state
@@ -65,12 +65,11 @@ double expValObsPauli_blas(const state_t* state, const pauliObs_t* obs) {
  *                                                      gradient PQC
  * =====================================================================================================================
  */
-
-double* gradPQC_blas(const state_t* state,
-                     const double par[],
-                     const obs_t* obs,
-                     const obs_t *evoOps[],
-                     depth_t circdepth)
+double* gradPQC(const state_t* state,
+                const double par[],
+                const obs_t* obs,
+                const obs_t *evoOps[],
+                depth_t circdepth)
 {
     __LAPACK_int N = (__LAPACK_int) state->dim;
 

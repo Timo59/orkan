@@ -1,7 +1,6 @@
 //
 // Created by Timo Ziegler on 11.10.24.
 //
-
 /*
  * =====================================================================================================================
  *                                                      includes
@@ -17,7 +16,7 @@
  *                                                  Mean value operator
  * =====================================================================================================================
  */
-cplx_t expValOpPauli_old(const state_t* state, const pauliOp_t* op) {
+cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
     state_t tmp;                                                // Temporary state, initialized with the input state
                                                                 // vector, the operator's terms are applied to
     register cplx_t result = 0;                                 // Output variable
@@ -39,9 +38,9 @@ cplx_t expValOpPauli_old(const state_t* state, const pauliOp_t* op) {
  *                                                  Mean value observable
  * =====================================================================================================================
  */
-double expValObsPauli_old(const state_t* state, const pauliObs_t* obs) {
+double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
     state_t tmp;                                                // Temporary state, initialized with the input state
-    // vector, the observable's terms are applied to
+                                                                // vector, the observable's terms are applied to
     double result = 0;                                          // Output variable
 
     stateInitEmpty(&tmp, state->qubits);                        // Initialize the temporary state
@@ -61,11 +60,11 @@ double expValObsPauli_old(const state_t* state, const pauliObs_t* obs) {
  *                                                      gradient PQC
  * =====================================================================================================================
  */
-double* gradPQC_old(const state_t* state,
-                    const double par[],
-                    const obs_t* obs,
-                    const obs_t *evoOps[],
-                    depth_t circdepth)
+double* gradPQC(const state_t* state,
+                const double par[],
+                const obs_t* obs,
+                const obs_t *evoOps[],
+                depth_t circdepth)
 {
     state_t bra;                            // state, initialized to the input state, evolved with all evolution
     stateInitEmpty(&bra, state->qubits);    // operators and acted on with the observable

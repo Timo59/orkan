@@ -1,15 +1,13 @@
 //
 // Created by Timo Ziegler on 09.10.24.
 //
-
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef QHIPOMP_H
-#include "qhipOmp.h"
+#ifndef GATELIB_H
+#include "gatelib.h"
 #endif
 
 /*
@@ -18,7 +16,7 @@
  * =====================================================================================================================
  */
 
-void applyX_omp(state_t* state, qubit_t qubit) {
+void applyX(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
 
@@ -31,7 +29,7 @@ void applyX_omp(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyY_omp(state_t* state, qubit_t qubit) {
+void applyY(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
 
@@ -46,7 +44,7 @@ void applyY_omp(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyZ_omp(state_t* state, qubit_t qubit) {
+void applyZ(state_t* state, qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
 

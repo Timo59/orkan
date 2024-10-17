@@ -6,25 +6,40 @@
  *                                                      Includes
  * =====================================================================================================================
  */
+#ifndef STATELIB_H
+#include "statelib.h"
+#endif
 
-#ifndef QHIPSTER_H
-#include "qhipster.h"
+#ifndef _STDIO_H_
+#include <stdio.h>
 #endif
 
 #if defined(GATE_BLAS)
-#include "qhipBlas.h"
-#elif defined(GATE_OMP)
-#include "qhipOmp.h"
-#elif defined(GATE_GCD)
-#include "qhipGcd.h"
+#ifndef __VECLIB__
+#include <vecLib/vecLib.h>
+#endif
+
 #elif defined(GATE_BLAS_OMP)
-#include "qhipBlMp.h"
-#elif defined(TEST)
-#include "qhipBlas.h"
-#include "qhipOmp.h"
-#include "qhipGcd.h"
-#include "qhipBlMp.h"
-#else
+#ifndef __OMP_H
+#include <omp.h>
+#endif
+
+#ifndef __VECLIB__
+#include <vecLib/vecLib.h>
+#endif
+
+#elif defined(GATE_GCD)
+#ifndef __DISPATCH_PUBLIC__
+#include <dispatch/dispatch.h>
+#endif
+
+#elif defined(GATE_OMP)
+#ifndef __OMP_H
+#include <omp.h>
+#endif
+
+#elif defined(GATE_PROFILE)
+#include "profile.h"
 #endif
 
 /*

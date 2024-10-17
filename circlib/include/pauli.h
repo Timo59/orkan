@@ -6,20 +6,43 @@
  *                                                      includes
  * =====================================================================================================================
  */
+#ifndef GATELIB_H
+#include "gatelib.h"
+#endif
 
 #if defined(PAULI_BLAS)
-#include "pauliBlas.h"
-#elif defined(PAULI_OMP)
-#include "pauliOmp.h"
+#ifndef __VECLIB__
+#include <vecLib/vecLib.h>
+#endif
+
 #elif defined(PAULI_BLAS_OMP)
-#include "pauliBlMp.h"
-#elif defined(TEST)
-#include "pauliBlas.h"
-#include "pauliOmp.h"
-#include "pauliBlMp.h"
-#include "pauliOld.h"
+#ifndef __OMP_H
+#include <omp.h>
+#endif
+
+#ifndef __VECLIB__
+#include <vecLib/vecLib.h>
+#endif
+
+#elif defined(PAULI_OMP)
+#ifndef LINALG_H
+#include "linalg.h"
+#endif
+
+#ifndef __OMP_H
+#include <omp.h>
+#endif
+
+#elif defined(PAULI_PROFILE)
+#ifndef CIRC_PROFILE_H
+#include "profile.h"
+#endif
+
 #else
-#include "pauliOld.h"
+#ifndef LINALG_H
+#include "linalg.h"
+#endif
+
 #endif
 
 
@@ -31,6 +54,28 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+/*
+* =====================================================================================================================
+*                                                  type definitions
+* =====================================================================================================================
+*/
+#ifndef PAULI_STRUCTS
+#define PAULI_STRUCTS
+typedef struct pauliOp {
+    pauli_t* comps;
+    cplx_t* coeffs;
+    complength_t length;
+    qubit_t qubits;
+} pauliOp_t;
+
+typedef struct pauliObs {
+    pauli_t* comps;
+    double* coeffs;
+    complength_t length;
+    qubit_t qubits;
+} pauliObs_t;
 #endif
 
 /*

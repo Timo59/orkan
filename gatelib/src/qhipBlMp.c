@@ -1,15 +1,13 @@
 //
 // Created by Timo Ziegler on 09.10.24.
 //
-
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef QHIPBLMP_H
-#include "qhipBlMp.h"
+#ifndef GATELIB_H
+#include "gatelib.h"
 #endif
 
 /*
@@ -18,7 +16,7 @@
  * =====================================================================================================================
  */
 
-void applyX_blas_omp(state_t* state, qubit_t qubit) {
+void applyX(state_t* state, qubit_t qubit) {
     __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
     __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
 
@@ -28,7 +26,7 @@ void applyX_blas_omp(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyY_blas_omp(state_t* state, qubit_t qubit) {
+void applyY(state_t* state, qubit_t qubit) {
     __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
     __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
     __LAPACK_double_complex plus = I;
@@ -42,7 +40,7 @@ void applyY_blas_omp(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyZ_blas_omp(state_t* state, qubit_t qubit) {
+void applyZ(state_t* state, qubit_t qubit) {
     __LAPACK_int flipDistance = POW2(qubit, __LAPACK_int);
     __LAPACK_int blockDistance = POW2(qubit + 1, __LAPACK_int);
     __LAPACK_double_complex minus = -1;

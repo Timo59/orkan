@@ -6,9 +6,8 @@
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef PAULIBLAS_H
-#include "pauliBlas.h"
+#ifndef PAULI_H
+#include "pauli.h"
 #endif
 
 /*
@@ -16,7 +15,7 @@
  *                                              Apply Pauli structs
  * =====================================================================================================================
  */
-void applyPauliStr_blas(state_t* state, const pauli_t paulistr[]) {
+void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
     for (qubit_t qubit = 0; qubit < state->qubits; ++qubit) {
         switch (paulistr[qubit]) {
             case ID: {
@@ -53,7 +52,7 @@ void applyPauliStr_blas(state_t* state, const pauli_t paulistr[]) {
  *      coefficients in place.
  */
 
-void applyOpPauli_blas(state_t* state, const pauliOp_t* op) {
+void applyOpPauli(state_t* state, const pauliOp_t* op) {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     state_t tmp;                                                        // Temporary state to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);
@@ -61,7 +60,7 @@ void applyOpPauli_blas(state_t* state, const pauliOp_t* op) {
                                                                         // of state vectors
     for (complength_t i = 0; i < op->length; ++i) {                     // Iterate the observable's terms
         cblas_zcopy(N, state->vec, 1, tmp.vec, 1);                      // Copy input's state vector to tmp
-        applyPauliStr_blas(&tmp, op->comps + (i * op->qubits));              // Apply the Pauli string to it
+        applyPauliStr(&tmp, op->comps + (i * op->qubits));              // Apply the Pauli string to it
         __LAPACK_double_complex alpha = op->coeffs[i];                  // Multiply the terms' coefficient
         cblas_zaxpy(N, &alpha, tmp.vec, 1, tmpSum, 1);                  // and add the result to the
         // intermediate sum
@@ -82,16 +81,15 @@ Output:
  *      This function has no return value, but sums the outcome of single Pauli string applications weighted by the
  *      coefficients in place.
  */
-void applyObsPauli_blas(state_t* state, const pauliObs_t* obs) {
+void applyObsPauli(state_t* state, const pauliObs_t* obs) {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     state_t tmp;                                                        // Temporary state to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);
     cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));                // Temporary vector holding the intermediate sum
                                                                         // of state vectors
-    printf("Hello from Pauli BLAS\n");
     for (complength_t i = 0; i < obs->length; ++i) {                    // Iterate the observable's terms
         cblas_zcopy(N, state->vec, 1, tmp.vec, 1);                      // Copy input's state vector to tmp
-        applyPauliStr_blas(&tmp, obs->comps + (i * obs->qubits));            // Apply the Pauli string to it
+        applyPauliStr(&tmp, obs->comps + (i * obs->qubits));            // Apply the Pauli string to it
         __LAPACK_double_complex alpha = obs->coeffs[i];                 // Multiply the terms' coefficient
         cblas_zaxpy(N, &alpha, tmp.vec, 1, tmpSum, 1);                  // and add the result to the
                                                                         // intermediate sum
@@ -117,13 +115,13 @@ void applyObsPauli_blas(state_t* state, const pauliObs_t* obs) {
  *      This function has no return value, but changes the state vector in place.
  */
 
-void evolvePauliStr_blas(state_t* state, const pauli_t paulistr[], double angle) {
+void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle) {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     __LAPACK_double_complex alpha = cos(angle);
     cplx_t* tmp = calloc(sizeof(cplx_t), state->dim);               // Temporary vector holding state vector multiplied
                                                                     // by cos(angle)
     cblas_zaxpy(N, &alpha, state->vec, 1, tmp, 1);                  // tmp is input state's vector time cos(alpha)
-    applyPauliStr_blas(state, paulistr);                                 // Apply the Pauli string to the input state
+    applyPauliStr(state, paulistr);                                 // Apply the Pauli string to the input state
     alpha = -I * sin(angle);
     cblas_zaxpy(N, &alpha, state->vec, 1, tmp, 1);                  // Multiply the state's vector by -I * sin(alpha)
                                                                     // and add it to tmp

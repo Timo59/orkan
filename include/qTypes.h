@@ -48,8 +48,11 @@ typedef unsigned char           qubit_t;
 #define INVSQRT2                0.7071067811865475
 #define PI                      3.1415926535897932
 
+#ifndef _SYS_PARAM_H_
 #define MIN(a,b)                ((a) < (b) ? (a) : (b))
 #define MAX(a,b)                ((a) > (b) ? (a) : (b))
+#endif
+
 #define SWAP(a, b, T)           do { register T q; q = *(a); *(a) = *(b); *(b) = q; } while(0)
 #define POW2(a, T)              (1 << (T) (a))
 

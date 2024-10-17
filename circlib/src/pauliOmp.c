@@ -1,15 +1,13 @@
 //
 // Created by Timo Ziegler on 10.10.24.
 //
-
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef PAULIOMP_H
-#include "pauliOmp.h"
+#ifndef PAULI_H
+#include "pauli.h"
 #endif
 
 /*
@@ -17,7 +15,7 @@
  *                                              Apply Pauli structs
  * =====================================================================================================================
  */
-void applyPauliStr_omp(state_t* state, const pauli_t paulistr[]) {
+void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
     for (qubit_t qubit = 0; qubit < state->qubits; ++qubit) {
         switch (paulistr[qubit]) {
             case ID: {
@@ -54,7 +52,7 @@ void applyPauliStr_omp(state_t* state, const pauli_t paulistr[]) {
  *      coefficients in place.
  */
 
-void applyOpPauli_omp(state_t* state, const pauliOp_t* op) {
+void applyOpPauli(state_t* state, const pauliOp_t* op) {
     cplx_t *tmpSum = calloc(state->dim, sizeof(cplx_t));                // Temporary vector holding the intermediate sum
 
 # pragma omp parallel default(none) shared(op, state, tmpSum)
@@ -65,7 +63,7 @@ void applyOpPauli_omp(state_t* state, const pauliOp_t* op) {
 #pragma omp for
         for (complength_t i = 0; i < op->length; ++i) {                             // Iterate the observable's terms
             stateCopyVector(&tmp, state->vec);                                      // Copy input's state vector to tmp
-            applyPauliStr_omp(&tmp, op->comps + (i * op->qubits));                      // Apply the Pauli string to it
+            applyPauliStr(&tmp, op->comps + (i * op->qubits));                      // Apply the Pauli string to it
             cscalarVecMulInPlace(op->coeffs[i], tmp.vec, state->dim);               // Multiply the terms' coefficient
 
 #pragma omp critical(sum)
@@ -91,9 +89,9 @@ void applyOpPauli_omp(state_t* state, const pauliOp_t* op) {
  *      coefficients in place.
  */
 
-void applyObsPauli_omp(state_t* state, const pauliObs_t* obs) {
+void applyObsPauli(state_t* state, const pauliObs_t* obs) {
     cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));                // Temporary vector holding the intermediate sum
-    printf("Hello from Pauli OMP!\n");
+
 # pragma omp parallel default(none) shared(obs, state, tmpSum)
     {
         state_t tmp;                                                    // Temporary state to apply each Pauli string to
@@ -102,7 +100,7 @@ void applyObsPauli_omp(state_t* state, const pauliObs_t* obs) {
 #pragma omp for
         for (complength_t i = 0; i < obs->length; ++i) {                            // Iterate the observable's terms
             stateCopyVector(&tmp, state->vec);                                      // Copy input's state vector to tmp
-            applyPauliStr_omp(&tmp, obs->comps + (i * obs->qubits));                    // Apply the Pauli string to it
+            applyPauliStr(&tmp, obs->comps + (i * obs->qubits));                    // Apply the Pauli string to it
             cscalarVecMulInPlace((cplx_t) obs->coeffs[i], tmp.vec, state->dim);     // Multiply the terms' coefficient
 
 #pragma omp critical(sum)
@@ -132,7 +130,7 @@ void applyObsPauli_omp(state_t* state, const pauliObs_t* obs) {
  *      This function has no return value, but changes the state vector in place.
  */
 
-void evolvePauliStr_omp(state_t* state, const pauli_t paulistr[], double angle) {
+void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle) {
     cplx_t* tmp = malloc(sizeof(cplx_t) * state->dim);              // Temporary vector holding state vector multiplied
                                                                     // with cos(angle)
 #pragma omp parallel for default(none) shared(angle, state, tmp)
@@ -141,7 +139,7 @@ void evolvePauliStr_omp(state_t* state, const pauli_t paulistr[], double angle) 
         tmp[entry] *= cos(angle);                                   // Store it times cos(angle) in tmp
         state->vec[entry] *= -I * sin(angle);                       // Multiply it with -i * sin(angle)
     }
-    applyPauliStr_omp(state, paulistr);                                 // Apply the Pauli string to the input state
+    applyPauliStr(state, paulistr);                                 // Apply the Pauli string to the input state
 
 #pragma omp parallel for default(none) shared(state, tmp)
     for (dim_t entry = 0; entry < state->dim; ++entry) {            // Iterate the entries of the input's state vector
