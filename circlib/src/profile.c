@@ -22,15 +22,39 @@ void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
                 break;
             }
             case Z: {
+#if defined(BLAS_GATES)
+                applyZ_blas(state, qubit);
+#elif defined(BLAS_OMP_GATES)
+                applyZ_blas_omp(state, qubit);
+#elif defined(OMP_GATES)
+                applyZ_omp(state, qubit);
+#else
                 applyZ(state, qubit);
+#endif
                 break;
             }
             case X: {
+#if defined(BLAS_GATES)
+                applyX_blas(state, qubit);
+#elif defined(BLAS_OMP_GATES)
+                applyX_blas_omp(state, qubit);
+#elif defined(OMP_GATES)
+                applyX_omp(state, qubit);
+#else
                 applyX(state, qubit);
+#endif
                 break;
             }
             case Y: {
+#if defined(BLAS_GATES)
+                applyY_blas(state, qubit);
+#elif defined(BLAS_OMP_GATES)
+                applyY_blas_omp(state, qubit);
+#elif defined(OMP_GATES)
+                applyY_omp(state, qubit);
+#else
                 applyY(state, qubit);
+#endif
                 break;
             }
             default: {
@@ -50,13 +74,13 @@ void applyOpPauli(state_t* state, const pauliOp_t* op) {
     state_t tmp;                                                        // Temporary state to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);
     cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));     // Temporary vector holding the intermediate sum
-    // of state vectors
+                                                                        // of state vectors
     for (complength_t i = 0; i < op->length; ++i) {                     // Iterate the operator's terms
         stateCopyVector(&tmp, state->vec);                              // Copy input's state vector to tmp
         applyPauliStr(&tmp, op->comps + (i * op->qubits));              // Apply the Pauli string to it
         cscalarVecMulInPlace(op->coeffs[i], tmp.vec, state->dim);       // Multiply the terms' coefficient
         cvecAddInPlace(tmpSum, tmp.vec, state->dim);                            // and add the result to the
-        // intermediate sum
+                                                                                        // intermediate sum
     }
     stateFreeVector(&tmp);
     stateFreeVector(state);
@@ -146,7 +170,7 @@ void applyObsPauli(state_t* state, const pauliObs_t* obs) {
         applyPauliStr(&tmp, obs->comps + (i * obs->qubits));            // Apply the Pauli string to it
         cscalarVecMulInPlace((cplx_t) obs->coeffs[i], tmp.vec, state->dim);     // Multiply the terms' coefficient
         cvecAddInPlace(tmpSum, tmp.vec, state->dim);                            // and add the result to the
-        // intermediate sum
+                                                                                        // intermediate sum
     }
     stateFreeVector(&tmp);
     stateFreeVector(state);
@@ -229,7 +253,7 @@ void applyObsPauli_omp(state_t* state, const pauliObs_t* obs) {
  */
 void evolvePauliStr(state_t* state, const pauli_t paulistr[], double angle) {
     cplx_t* tmp = malloc(sizeof(cplx_t) * state->dim);          // Temporary vector holding state vector multiplied
-    // with cos(angle)
+                                                                    // with cos(angle)
     for (dim_t entry = 0; entry < state->dim; ++entry) {        // Iterate entries of the input's state vector
         tmp[entry] = cos(angle) * state->vec[entry];            // Store it times cos(angle) in tmp
         state->vec[entry] *= -I * sin(angle);                   // Multiply it with -i * sin(angle)

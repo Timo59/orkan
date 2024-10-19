@@ -15,15 +15,10 @@ add_library(Circ OBJECT                                                 # Build 
         $<$<STREQUAL:${CIRCMETH},OMP>:${SOURCE_DIR}/pauliOmp.c>         # If OMP, operations optimized with OpenMP
         $<$<STREQUAL:${CIRCMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, source file, merging all ops
 )
-target_compile_definitions(Circ
-        PUBLIC  $<$<STREQUAL:${CIRCMETH},BLAS>:PAULI_BLAS>              # Add the compile definition depending on Cache
-                $<$<STREQUAL:${CIRCMETH},BLAS_OMP>:PAULI_BLAS_OMP>      # string
-                $<$<STREQUAL:${CIRCMETH},OMP>:PAULI_OMP>
-                $<$<STREQUAL:${CIRCMETH},PROFILE>:PAULI_PROFILE>
-)
 target_include_directories(Circ                                         # Include directories for the object library
-        PRIVATE "${CMAKE_SOURCE_DIR}/include"                           # qTypes only populates this include directories
-        PUBLIC  ${INCLUDE_DIR}                                          # Include files from circlib are propagated
+        PRIVATE ${CMAKE_SOURCE_DIR}/include                             # qTypes only populates this include directories
+        PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include                     # Include files from circlib are propagated
+                ${CMAKE_CURRENT_BINARY_DIR}
 )
 target_link_libraries(Circ                                              # Link libraries depending on the Cache string
         PRIVATE State
@@ -34,12 +29,37 @@ target_link_libraries(Circ                                              # Link l
                 $<$<IN_LIST:${CIRCMETH},BLAS_OMP;OMP;PROFILE>:OMP_compiler_flags>
 )
 
+if (${CIRCMETH} STREQUAL BLAS)
+    set(INCLUDE_LINALG "")
+    set(INCLUDE_OMP "")
+    set(INCLUDE_VECLIB "#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
+elseif (${CIRCMETH} STREQUAL BLAS_OMP)
+    set(INCLUDE_LINALG "")
+    set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
+    set(INCLUDE_VECLIB "\n#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
+elseif (${CIRCMETH} STREQUAL OMP)
+    set(INCLUDE_LINALG "#ifndef LINALG_H\n#include \"linalg.h\"\n#endif\n")
+    set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif")
+    set(INCLUDE_VECLIB "")
+elseif (${CIRCMETH} STREQUAL PROFILE)
+    set(INCLUDE_LINALG "#ifndef LINALG_H\n#include \"linalg.h\"\n#endif\n")
+    set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
+    set(INCLUDE_VECLIB "\n#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
+
+    set(PAULI_OP_PROFILE "\nvoid applyOpPauli_blas(state_t* state, const pauliOp_t* op);
+                          \nvoid applyOpPauli_blas_omp(state_t* state, const pauliOp_t* op);
+                          \nvoid applyOpPauli_omp(state_t* state, const pauliOp_t* op);")
+    set(PAULI_OBS_PROFILE "\nvoid applyObsPauli_blas(state_t* state, const pauliObs_t* obs);
+                           \nvoid applyObsPauli_blas_omp(state_t* state, const pauliObs_t* obs);
+                           \nvoid applyObsPauli_omp(state_t* state, const pauliObs_t* obs);")
+    set(PAULI_EVO_PROFILE "\nvoid evolvePauliStr_blas(state_t* state, const pauli_t paulistr[], double angle);
+                           \nvoid evolvePauliStr_blas_omp(state_t* state, const pauli_t paulistr[], double angle);
+                           \nvoid evolvePauliStr_omp(state_t* state, const pauli_t paulistr[], double angle);")
+endif ()
+
+configure_file(${INCLUDE_DIR}/pauli.h.in pauli.h @ONLY)
 install(FILES       ${INCLUDE_DIR}/circlib.h
                     ${INCLUDE_DIR}/diag.h
-                    ${INCLUDE_DIR}/pauli.h
+                    ${CMAKE_CURRENT_BINARY_DIR}/pauli.h
         DESTINATION include
-)
-install(FILES $<$<STREQUAL:${CIRCMETH},PROFILE>:${INCLUDE_DIR}/profile.h>   # Install file depending on the Cache string
-        DESTINATION include
-        RENAME      profile_pauli.h
 )
