@@ -14,56 +14,19 @@
 #include <stdio.h>
 #endif
 
-#if defined(GATE_BLAS)
-#ifndef __VECLIB__
-#include <vecLib/vecLib.h>
-#endif
-
-#elif defined(GATE_BLAS_OMP)
-#ifndef __OMP_H
-#include <omp.h>
-#endif
-
-#ifndef __VECLIB__
-#include <vecLib/vecLib.h>
-#endif
-
-#elif defined(GATE_GCD)
-#ifndef __DISPATCH_PUBLIC__
-#include <dispatch/dispatch.h>
-#endif
-
-#elif defined(GATE_OMP)
-#ifndef __OMP_H
-#include <omp.h>
-#endif
-
-#elif defined(GATE_PROFILE)
-#include "profile.h"
-#endif
-
-/*
- * =====================================================================================================================
- *                                                      C++ check
- * =====================================================================================================================
- */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+@INCLUDE_GCD@@INCLUDE_OMP@@INCLUDE_VECLIB@
 
 /*
  * =====================================================================================================================
  *                                                  Pauli gates
  * =====================================================================================================================
  */
-
 void applyX(state_t* state, qubit_t qubit);
-
+@PAULI_X_PROFILE@
 void applyY(state_t* state, qubit_t qubit);
-
+@PAULI_Y_PROFILE@
 void applyZ(state_t* state, qubit_t qubit);
-
+@PAULI_Z_PROFILE@
 /*
  * =====================================================================================================================
  *                                                  Clifford gates
@@ -189,7 +152,6 @@ void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2);
  */
 
 void applyToffoli(state_t* state, qubit_t control1, qubit_t control2, qubit_t target);
-
 #ifdef __cplusplus
 }
 #endif
