@@ -2,7 +2,7 @@ set(INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # Introduce compile time option of API/specification improved gate operations
-set(CIRCMETH BLAS_OMP CACHE STRING "Select the method to apply quantum gates")
+set(CIRCMETH BLAS_OMP CACHE STRING "Select the method to simulate quantum circuits")
 set_property(CACHE CIRCMETH PROPERTY STRINGS BLAS OMP BLAS_OMP TEST OFF)
 
 add_library(Circ OBJECT                                                 # Build the object library contributing to qlib
@@ -29,35 +29,55 @@ target_link_libraries(Circ                                              # Link l
                 $<$<IN_LIST:${CIRCMETH},BLAS_OMP;OMP;PROFILE>:OMP_compiler_flags>
 )
 
+# Depending on the cmake option, set the content that is replaced in the pauli.in.h file to constitute the header file
 if (${CIRCMETH} STREQUAL BLAS)
-    set(INCLUDE_LINALG "")
-    set(INCLUDE_OMP "")
     set(INCLUDE_VECLIB "#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
 elseif (${CIRCMETH} STREQUAL BLAS_OMP)
-    set(INCLUDE_LINALG "")
     set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
     set(INCLUDE_VECLIB "\n#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
 elseif (${CIRCMETH} STREQUAL OMP)
     set(INCLUDE_LINALG "#ifndef LINALG_H\n#include \"linalg.h\"\n#endif\n")
-    set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif")
-    set(INCLUDE_VECLIB "")
+    set(INCLUDE_OMP "\n#ifndef __OMP_H\n#include <omp.h>\n#endif")
+
 elseif (${CIRCMETH} STREQUAL PROFILE)
     set(INCLUDE_LINALG "#ifndef LINALG_H\n#include \"linalg.h\"\n#endif\n")
-    set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
+    set(INCLUDE_OMP "\n#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
     set(INCLUDE_VECLIB "\n#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
 
-    set(PAULI_OP_PROFILE "\nvoid applyOpPauli_blas(state_t* state, const pauliOp_t* op);
-                          \nvoid applyOpPauli_blas_omp(state_t* state, const pauliOp_t* op);
-                          \nvoid applyOpPauli_omp(state_t* state, const pauliOp_t* op);")
-    set(PAULI_OBS_PROFILE "\nvoid applyObsPauli_blas(state_t* state, const pauliObs_t* obs);
-                           \nvoid applyObsPauli_blas_omp(state_t* state, const pauliObs_t* obs);
-                           \nvoid applyObsPauli_omp(state_t* state, const pauliObs_t* obs);")
-    set(PAULI_EVO_PROFILE "\nvoid evolvePauliStr_blas(state_t* state, const pauli_t paulistr[], double angle);
-                           \nvoid evolvePauliStr_blas_omp(state_t* state, const pauli_t paulistr[], double angle);
-                           \nvoid evolvePauliStr_omp(state_t* state, const pauli_t paulistr[], double angle);")
+    set(TYPEDEF_PROFILE
+            "\ntypedef void (*ptrStr)(state_t* state, const pauli_t paulistr[]);\n"
+    )
+
+    set(PAULI_STR_PROFILE
+            "\nvoid applyPauliStr_blas(state_t* state, const pauli_t paulistr[]);
+            \nvoid applyPauliStr_blas_omp(state_t* state, const pauli_t paulistr[]);
+            \nvoid applyPauliStr_old(state_t* state, const pauli_t paulistr[]);
+            \nvoid applyPauliStr_omp(state_t* state, const pauli_t paulistr[]);"
+    )
+    set(PAULI_OP_PROFILE
+            "\nvoid applyOpPauli_blas(state_t* state, const pauliOp_t* op, ptrStr applyPauli);
+            \nvoid applyOpPauli_blas_omp(state_t* state, const pauliOp_t* op, ptrStr applyPauli);
+            \nvoid applyOpPauli_old(state_t* state, const pauliOp_t* op, ptrStr applyPauli);
+            \nvoid applyOpPauli_omp(state_t* state, const pauliOp_t* op, ptrStr applyPauli);"
+    )
+    set(PAULI_OBS_PROFILE
+            "\nvoid applyObsPauli_blas(state_t* state, const pauliObs_t* obs, ptrStr applyPauli);
+            \nvoid applyObsPauli_blas_omp(state_t* state, const pauliObs_t* obs, ptrStr applyPauli);
+            \nvoid applyObsPauli_omp(state_t* state, const pauliObs_t* obs, ptrStr applyPauli);
+            \nvoid applyObsPauli_old(state_t* state, const pauliObs_t* obs, ptrStr applyPauli);"
+    )
+    set(PAULI_EVO_PROFILE
+            "\nvoid evolvePauliStr_blas(state_t* state, const pauli_t paulistr[], double angle, ptrStr applyPauli);
+            \nvoid evolvePauliStr_blas_omp(state_t* state, const pauli_t paulistr[], double angle, ptrStr applyPauli);
+            \nvoid evolvePauliStr_omp(state_t* state, const pauli_t paulistr[], double angle, ptrStr applyPauli);
+            \nvoid evolvePauliStr_old(state_t* state, const pauli_t paulistr[], double angle, ptrStr applyPauli);"
+    )
+else ()
+    set(INCLUDE_LINALG "#ifndef LINALG_H\n#include \"linalg.h\"\n#endif")
 endif ()
 
 configure_file(${INCLUDE_DIR}/pauli.h.in pauli.h @ONLY)
+
 install(FILES       ${INCLUDE_DIR}/circlib.h
                     ${INCLUDE_DIR}/diag.h
                     ${CMAKE_CURRENT_BINARY_DIR}/pauli.h
