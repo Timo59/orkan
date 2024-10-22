@@ -13,15 +13,9 @@ add_library(Meas OBJECT                                                 # Build 
         $<$<STREQUAL:${MEASMETH},OMP>:${SOURCE_DIR}/exactOmp.c>         # If OMP, measurements optimized with OpenMP
         $<$<STREQUAL:${MEASMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, source file, merging all meas
 )
-target_compile_definitions(Meas                                         # Add the compile definition depending on Cache
-        PUBLIC  $<$<STREQUAL:${MEASMETH},BLAS>:EXACT_BLAS>              # string
-                $<$<STREQUAL:${MEASMETH},BLAS_OMP>:EXACT_BLAS_OMP>
-                $<$<STREQUAL:${MEASMETH},OMP>:EXACT_OMP>
-                $<$<STREQUAL:${MEASMETH},PROFILE>:EXACT_PROFILE>
-)
 target_include_directories(Meas                                         # Include directories for the object library
         PRIVATE "${CMAKE_SOURCE_DIR}/include"                           # qTypes only populates this include directories
-        PUBLIC  ${INCLUDE_DIR}                                          # Include files from measlib are propagated
+        PUBLIC  ${CMAKE_CURRENT_BINARY_DIR}                             # Include files from measlib are propagated
 )
 target_link_libraries(Meas                                              # Link libraries depending on the Cache string
         PRIVATE State
@@ -33,9 +27,43 @@ target_link_libraries(Meas                                              # Link l
                 $<$<IN_LIST:${MEASMETH},OMP;BLAS_OMP;PROFILE>:OMP_compiler_flags>
 )
 
-install(FILES       ${INCLUDE_DIR}/exact.h
+if (${MEASMETH} STREQUAL BLAS)
+    set(INCLUDE_VECLIB "#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
+elseif (${MEASMETH} STREQUAL BLAS_OMP)
+    set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
+    set(INCLUDE_VECLIB "\n#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
+elseif (${MEASMETH} STREQUAL OMP)
+    set(INCLUDE_LINALG "#ifndef LINALG_H\n#include \"linalg.h\"\n#endif\n")
+    set(INCLUDE_OMP "\n#ifndef __OMP_H\n#include <omp.h>\n#endif")
+elseif (${MEASMETH} STREQUAL PROFILE)
+    set(INCLUDE_LINALG "#ifndef LINALG_H\n#include \"linalg.h\"\n#endif\n")
+    set(INCLUDE_OMP "\n#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
+    set(INCLUDE_VECLIB "\n#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif\n")
+    set(PAULI_EXPVAL_PROFILE
+            "\ncplx_t expValPauli_blas(const state_t* state, const pauliOp_t* op, ptrStr applyStr);
+             \ncplx_t expValPauli_blas_omp(const state_t* state, const pauliOp_t* op, ptrStr applyStr);
+             \ncplx_t expValPauli_old(const state_t* state, const pauliOp_t* op, ptrStr applyStr);
+             \ncplx_t expValPauli_omp(const state_t* state, const pauliOp_t* op, ptrStr applyStr);\n"
+    )
+    set(PAULI_EXPVALOBS_PROFILE
+            "\ndouble expValObsPauli_blas(const state_t* state, const pauliObs_t* obs, ptrStr applyStr);
+             \ndouble expValObsPauli_blas_omp(const state_t* state, const pauliObs_t* obs, ptrStr applyStr);
+             \ndouble expValObsPauli_old(const state_t* state, const pauliObs_t* obs, ptrStr applyStr);
+             \ndouble expValObsPauli_omp(const state_t* state, const pauliObs_t* obs, ptrStr applyStr);\n"
+    )
+    set(PAULI_GRAD_PROFILE
+            "\ndouble* gradPQC_blas(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+                     depth_t circdepth);
+             \ndouble* gradPQC_blas_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+                         depth_t circdepth);
+             \ndouble* gradPQC_omp(const state_t* state, const double par[], const obs_t* obs, const obs_t *evoOps[],
+                    depth_t circdepth);\n"
+    )
+else ()
+    set(INCLUDE_LINALG "#ifndef LINALG_H\n#include \"linalg.h\"\n#endif")
+endif ()
+
+configure_file(${INCLUDE_DIR}/exact.h.in exact.h @ONLY)
+
+install(FILES       ${CMAKE_CURRENT_BINARY_DIR}/exact.h
         DESTINATION include)
-install(FILES $<$<STREQUAL:${MEASMETH},PROFILE>:${INCLUDE_DIR}/profile.h> # Install file depending on the Cache string
-        DESTINATION include
-        RENAME      profile_exact.h
-)

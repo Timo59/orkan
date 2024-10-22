@@ -32,7 +32,7 @@ cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
     return result;
 }
 
-cplx_t expValPauli_blas(const state_t* state, const pauliOp_t* op) {
+cplx_t expValPauli_blas(const state_t* state, const pauliOp_t* op, ptrStr applyStr) {
     state_t tmp;                                                // Temporary state, initialized with the input state
                                                                 // vector, the operator's terms are applied to
     cplx_t term;                                                // Temporary var holding the mean value of each term of
@@ -43,7 +43,7 @@ cplx_t expValPauli_blas(const state_t* state, const pauliOp_t* op) {
     stateInitEmpty(&tmp, state->qubits);                        // Initialize the temporary state
     for (complength_t i = 0; i < op->length; ++i) {             // Iterate the obperator's terms
         cblas_zcopy(N, state->vec, 1, tmp.vec, 1);              // Copy the input state's vector to the temporary state
-        applyPauliStr(&tmp, op->comps + (i * op->qubits));      // Apply the current Pauli string to the temporary state
+        applyStr(&tmp, op->comps + (i * op->qubits));      // Apply the current Pauli string to the temporary state
         cblas_zdotc_sub(N, state->vec, 1, tmp.vec, 1, &term);   // Store inner product of state and ket to tmp
         result += (op->coeffs[i] * term);                       // Add tmp times the current coefficient to result
     }
@@ -52,12 +52,12 @@ cplx_t expValPauli_blas(const state_t* state, const pauliOp_t* op) {
     return result;
 }
 
-cplx_t expValPauli_blas_omp(const state_t* state, const pauliOp_t* op) {
+cplx_t expValPauli_blas_omp(const state_t* state, const pauliOp_t* op, ptrStr applyStr) {
     cplx_t result = 0;                              // Output variable
     __LAPACK_int N = (__LAPACK_int) state->dim;
     __LAPACK_int one = (__LAPACK_int) 1;
 
-#pragma omp parallel default(none) shared(N, op, one, result, state)
+#pragma omp parallel default(none) shared(applyStr, N, op, one, result, state)
     {
         state_t tmp;                            // Temporary state, initialized with the input state
         stateInitEmpty(&tmp, state->qubits);    // vector, the operator's terms are applied to
@@ -66,7 +66,7 @@ cplx_t expValPauli_blas_omp(const state_t* state, const pauliOp_t* op) {
 #pragma omp for
         for (complength_t i = 0; i < op->length; ++i) {             // Iterate the operator's terms
             cblas_zcopy(N, state->vec, 1, tmp.vec, 1);              // Copy the input state's vector to tmp
-            applyPauliStr(&tmp, op->comps + (i * op->qubits));      // Apply the current Pauli string to tmp
+            applyStr(&tmp, op->comps + (i * op->qubits));      // Apply the current Pauli string to tmp
             cblas_zdotc_sub(N, state->vec, 1, tmp.vec, 1, &term);   // Store inner product of state and ket to tmp
 
 #pragma omp critical(sum)
@@ -79,10 +79,27 @@ cplx_t expValPauli_blas_omp(const state_t* state, const pauliOp_t* op) {
     return result;
 }
 
-cplx_t expValPauli_omp(const state_t* state, const pauliOp_t* op) {
+cplx_t expValPauli_old(const state_t* state, const pauliOp_t* op, ptrStr applyStr) {
+    state_t tmp;                                                // Temporary state, initialized with the input state
+    // vector, the operator's terms are applied to
+    register cplx_t result = 0;                                 // Output variable
+
+    stateInitEmpty(&tmp, state->qubits);                        // Initialize the temporary state
+    for (complength_t i = 0; i < op->length; ++i) {             // Iterate the operator's terms
+        stateCopyVector(&tmp, state->vec);                      // Copy the input state's vector to the temporary state
+        applyStr(&tmp, op->comps + (i * op->qubits));      // Apply the current Pauli string to the temporary state
+        cplx_t term = cInner(state->vec, tmp.vec, state->dim);  // Store inner product of state and ket to tmp
+        result += (op->coeffs[i] * term);                       // Add tmp times the current coefficient to result
+    }
+    stateFreeVector(&tmp);
+
+    return result;
+}
+
+cplx_t expValPauli_omp(const state_t* state, const pauliOp_t* op, ptrStr applyStr) {
     cplx_t result = 0;                          // Output variable
 
-#pragma omp parallel default(none) shared(op, result, state)
+#pragma omp parallel default(none) shared(applyStr, op, result, state)
     {
         state_t tmp;                            // Temporary state, initialized with the input state
         stateInitEmpty(&tmp, state->qubits);    // vector, the obperator's terms are applied to
@@ -90,7 +107,7 @@ cplx_t expValPauli_omp(const state_t* state, const pauliOp_t* op) {
 #pragma omp for
         for (complength_t i = 0; i < op->length; ++i) {                 // Iterate the operator's terms
             stateCopyVector(&tmp, state->vec);                          // Copy the input state's vector to tmp
-            applyPauliStr(&tmp, op->comps + (i * op->qubits));          // Apply the current Pauli string to tmp
+            applyStr(&tmp, op->comps + (i * op->qubits));          // Apply the current Pauli string to tmp
             cplx_t term = cInner(state->vec, tmp.vec, state->dim);      // Store inner product of state and ket to tmp
 
 #pragma omp critical(sum)
@@ -125,7 +142,7 @@ double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
     return result;
 }
 
-double expValObsPauli_blas(const state_t* state, const pauliObs_t* obs) {
+double expValObsPauli_blas(const state_t* state, const pauliObs_t* obs, ptrStr applyStr) {
     state_t tmp;                                                // Temporary state, initialized with the input state
                                                                 // vector, the observable's terms are applied to
     cplx_t term;                                                // Temporary var holding the mean value of each term of
@@ -145,12 +162,12 @@ double expValObsPauli_blas(const state_t* state, const pauliObs_t* obs) {
     return result;
 }
 
-double expValObsPauli_blas_omp(const state_t* state, const pauliObs_t* obs) {
+double expValObsPauli_blas_omp(const state_t* state, const pauliObs_t* obs, ptrStr applyStr) {
     double result = 0;                              // Output variable
     __LAPACK_int N = (__LAPACK_int) state->dim;
     __LAPACK_int one = (__LAPACK_int) 1;
 
-#pragma omp parallel default(none) shared(N, obs, one, result, state)
+#pragma omp parallel default(none) shared(applyStr, N, obs, one, result, state)
     {
         state_t tmp;                            // Temporary state, initialized with the input state
         stateInitEmpty(&tmp, state->qubits);    // vector, the observable's terms are applied to
@@ -159,7 +176,7 @@ double expValObsPauli_blas_omp(const state_t* state, const pauliObs_t* obs) {
 #pragma omp for
         for (complength_t i = 0; i < obs->length; ++i) {            // Iterate the observable's terms
             cblas_zcopy(N, state->vec, 1, tmp.vec, 1);              // Copy the input state's vector to tmp
-            applyPauliStr(&tmp, obs->comps + (i * obs->qubits));    // Apply the current Pauli string to tmp
+            applyStr(&tmp, obs->comps + (i * obs->qubits));    // Apply the current Pauli string to tmp
             cblas_zdotc_sub(N, state->vec, 1, tmp.vec, 1, &term);   // Store inner product of state and ket to tmp
 
 #pragma omp critical(sum)
@@ -171,10 +188,28 @@ double expValObsPauli_blas_omp(const state_t* state, const pauliObs_t* obs) {
     }
     return result;
 }
-double expValObsPauli_omp(const state_t* state, const pauliObs_t* obs) {
+
+double expValObsPauli_old(const state_t* state, const pauliObs_t* obs, ptrStr applyStr) {
+    state_t tmp;                                                // Temporary state, initialized with the input state
+    // vector, the observable's terms are applied to
+    double result = 0;                                          // Output variable
+
+    stateInitEmpty(&tmp, state->qubits);                        // Initialize the temporary state
+    for (complength_t i = 0; i < obs->length; ++i) {            // Iterate the observable's terms
+        stateCopyVector(&tmp, state->vec);                      // Copy the input state's vector to the temporary state
+        applyStr(&tmp, obs->comps + (i * obs->qubits));    // Apply the current Pauli string to the temporary state
+        cplx_t term = cInner(state->vec, tmp.vec, state->dim);  // Store inner product of state and ket to tmp
+        result += (obs->coeffs[i] * creal(term));               // Add tmp times the current coefficient to result
+    }
+    stateFreeVector(&tmp);
+
+    return result;
+}
+
+double expValObsPauli_omp(const state_t* state, const pauliObs_t* obs, ptrStr applyStr) {
     double result = 0;                          // Output variable
 
-#pragma omp parallel default(none) shared(obs, result, state)
+#pragma omp parallel default(none) shared(applyStr, obs, result, state)
     {
         state_t tmp;                            // Temporary state, initialized with the input state
         stateInitEmpty(&tmp, state->qubits);    // vector, the observable's terms are applied to
@@ -182,7 +217,7 @@ double expValObsPauli_omp(const state_t* state, const pauliObs_t* obs) {
 #pragma omp for
         for (complength_t i = 0; i < obs->length; ++i) {                // Iterate the observable's terms
             stateCopyVector(&tmp, state->vec);                          // Copy the input state's vector to tmp
-            applyPauliStr(&tmp, obs->comps + (i * obs->qubits));        // Apply the current Pauli string to tmp
+            applyStr(&tmp, obs->comps + (i * obs->qubits));        // Apply the current Pauli string to tmp
             cplx_t term = cInner(state->vec, tmp.vec, state->dim);      // Store inner product of state and ket to tmp
 
 #pragma omp critical(sum)
@@ -216,7 +251,7 @@ double* gradPQC(const state_t* state,
 
     state_t ket;                            // state, inheriting each intermediate evolution from tmp, acted on with the
     stateInitEmpty(&ket, state->qubits);    // respective evolution operator and finally evolved with the remaining
-    // evolution operators
+                                                    // evolution operators
     double* result = malloc(circdepth * sizeof(double));
 
     for (depth_t i = 0; i < circdepth; ++i) {           // Evolve bra with all evolutional operators
