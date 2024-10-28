@@ -137,6 +137,6 @@ void lcupqg(state_t* state, const cplx_t coeff[], const double angles[], const o
                     (__LAPACK_int) 1);
     }
     stateFreeVector(&tmp);
-
+    stateFreeVector(state);
     state->vec = stateVec;
 }
