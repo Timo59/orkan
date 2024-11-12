@@ -42,7 +42,7 @@ target_link_libraries(OMP_compiler_flags INTERFACE -lomp)
 target_link_directories(OMP_compiler_flags INTERFACE "/opt/homebrew/opt/libomp/lib")
 
 add_library(Q_compiler_flags INTERFACE)                                             # Interface library specifying usage
-target_compile_options(Q_compiler_flags INTERFACE -O2)                              # requirements for all Q dependents
+target_compile_options(Q_compiler_flags INTERFACE -O0)                              # requirements for all Q dependents
 
 add_library(Test_flags INTERFACE)                                                   # Interface library specifying usage
 target_link_libraries(Test_flags INTERFACE Test unity)                              # requirements for unit tests

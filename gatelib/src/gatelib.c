@@ -377,9 +377,8 @@ void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2) {
                                                                     // execution of the two qubit gate will be linear
                                                                     // combinations of entries with indices only within
                                                                     // the range
-    dim_t minorBlockDistance = POW2(right_qubit + 1, dim_t);        //
-    dim_t leftOffset = POW2(left_qubit, dim_t);                     // Range of computational basis states that leave
-                                                                    // the left qubit at zero when started from all
+    dim_t minorBlockDistance = POW2(right_qubit + 1, dim_t);        // Range of computational basis states that leave
+    dim_t leftOffset = POW2(left_qubit, dim_t);                     // the left qubit at zero when started from all
                                                                     // qubits left to it set to zero
     dim_t rightOffset = POW2(right_qubit, dim_t);                   // Distance of computational basis states with zero
                                                                     // and one at the right qubit, respectively

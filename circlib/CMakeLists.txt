@@ -9,6 +9,7 @@ add_library(Circ OBJECT                                                 # Build 
         ${SOURCE_DIR}/circlib.c                                         # Source files with operations not yet optimized
         ${SOURCE_DIR}/diag.c                                            # and
         ${SOURCE_DIR}/pauli.c
+        ${SOURCE_DIR}/misc.c
         $<$<STREQUAL:${CIRCMETH},BLAS>:${SOURCE_DIR}/pauliBlas.c>       # If BLAS, operations optimized with BLAS
         $<$<STREQUAL:${CIRCMETH},BLAS_OMP>:${SOURCE_DIR}/pauliBlMp.c>   # If BLAS_OMP, ops optimized with BLAS & OMP
         $<$<STREQUAL:${CIRCMETH},OLD>:${SOURCE_DIR}/pauliOld.c>         # If OLD, unoptimized operations
@@ -80,6 +81,7 @@ configure_file(${INCLUDE_DIR}/pauli.h.in pauli.h @ONLY)
 
 install(FILES       ${INCLUDE_DIR}/circlib.h
                     ${INCLUDE_DIR}/diag.h
+                    ${INCLUDE_DIR}/misc.h
                     ${CMAKE_CURRENT_BINARY_DIR}/pauli.h
         DESTINATION include
 )

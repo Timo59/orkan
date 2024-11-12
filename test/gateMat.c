@@ -173,7 +173,7 @@ cplx_t* neighboringSwapGateMat(qubit_t qubits, qubit_t target) {
     If either there are no qubits at all or one of the qubits to be swapped is out of range, return an error.
     */
     if (qubits < 2 || target >= qubits - 1) {
-        printf("Couldn't create a neighboring swap gate for qubit %d!\n", target);
+        fprintf(stderr, "Couldn't create a neighboring swap gate for qubit %d!\n", target);
         return NULL;
     }
     cplx_t* result = ONE;               // Array to hold the resulting matrix initialized to 1.0+0.0i

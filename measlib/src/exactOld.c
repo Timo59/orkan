@@ -44,6 +44,7 @@ double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
     double result = 0;                                          // Output variable
 
     stateInitEmpty(&tmp, state->qubits);                        // Initialize the temporary state
+
     for (complength_t i = 0; i < obs->length; ++i) {            // Iterate the observable's terms
         stateCopyVector(&tmp, state->vec);                      // Copy the input state's vector to the temporary state
         applyPauliStr(&tmp, obs->comps + (i * obs->qubits));    // Apply the current Pauli string to the temporary state

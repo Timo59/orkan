@@ -14,7 +14,7 @@ add_library(Meas OBJECT                                                 # Build 
         $<$<STREQUAL:${MEASMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, source file, merging all meas
 )
 target_include_directories(Meas                                         # Include directories for the object library
-        PRIVATE "${CMAKE_SOURCE_DIR}/include"                           # qTypes only populates this include directories
+        PRIVATE ${CMAKE_SOURCE_DIR}/include                             # qTypes only populates this include directories
         PUBLIC  ${CMAKE_CURRENT_BINARY_DIR}                             # Include files from measlib are propagated
 )
 target_link_libraries(Meas                                              # Link libraries depending on the Cache string

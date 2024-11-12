@@ -542,74 +542,70 @@ double* approxHessianPQC(const state_t* state, const double params[], const obs_
  */
 
 /*
- * This function calculates the moment matrices of a set of observables.
+ * This function calculates the moment matrices of a set of observables wrt to a set of unitaries.
  *
  * Input:
  *      state_t* state:     Initial state of a qubit system
  *      obs_t* obs[]:       Array of observables constituting the moment matrices
- *      depth_t obsc:       Number of observables to calculate the moment matrix of
- *      obs_t* srchOps[]:   Set of observables generating the search unitaries
- *      depth_t matDim:     Dimension of the moment matrices; i.e., number of operators generating the search unitaries
- *      srchU applyU:       Rule to transform search operators to search unitaries
+ *      depth_t obsc:       Number of observables constituting the moment matrix of
+ *      srchU srchOps[]:    Set of search unitaries
+ *      depth_t srchc:      Number of search unitaries; i.e. dimension - 1 of the latter moment matrices
  *
  * Output:
- *  Array of moment matrices with respect to search unitaries generated from a set of hermitian operators in column
- *  major form in order corresponding to the input array of observables.
+ *  Array of the observables' moment matrices with respect to the state after applying the search unitaries in column
+ *  major form.
+ *  An additional row and column is prepended to each moment matrix accounting for the identity used in QCP to avoid
+ *  worsening of the result.
  */
 
-cplx_t** momMat(const state_t* state,
-                const obs_t* obs[],
-                depth_t obsc,
-                const obs_t* srchOps[],
-                depth_t matDim,
-                srchU applyU)
-{
-    cplx_t** result = (cplx_t**) malloc(obsc * sizeof(cplx_t*));            // Array holding as many moment
-    for (depth_t i = 0; i < obsc; ++i) {                                        // matrices as there are observables
-        result[i] = (cplx_t*) malloc(matDim * matDim * sizeof(cplx_t));
+cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const unitary srchOps[], depth_t srchc) {
+    cplx_t** out;                                                           // Array holding as many moment
+    if ((out = malloc(obsc * sizeof(cplx_t*))) == NULL) {                   // matrices as there are observables
+        fprintf(stderr, "Out allocation in momMat failed\n");
+        return NULL;
+    }
+    for (depth_t i = 0; i < obsc; ++i) {
+        if ((out[i] = malloc((srchc + 1) * (srchc + 1) * sizeof(*(out[i])))) == NULL) {
+            fprintf(stderr, "Out allocation in momMat failed\n");
+            return NULL;
+        }
     }
 
-    state_t bra;
-    stateInitEmpty(&bra, state->qubits);
-    state_t ket;
-    stateInitEmpty(&ket, state->qubits);
-    state_t tmpKet;
-    stateInitEmpty(&tmpKet, state->qubits);
+    for (depth_t i = 0; i < obsc; ++i) {                                    // Iterate the observables
+        out[i][0] = expValObs(state, obs[i]);                               // Add the mean wrt to the input state
+    }                                                                       // to the moment matrices' first entries
 
-    /* Iterate the columns of all moment matrices; copy the input state's vector to tmpKet and apply the column's search
-     * unitary to it */
-    for (depth_t i = 0; i < matDim; ++i) {
-        stateCopyVector(&tmpKet, state->vec);
-        applyU(&tmpKet, srchOps[i]);
+    state_t bra;                                                            // Input state after the application of the
+    stateInitEmpty(&bra, state->qubits);                                    // row's search unitary
+    state_t ket;                                                            // Input state after the application of the
+    stateInitEmpty(&ket, state->qubits);                                    // observable to tmpKet
+    state_t tmpKet;                                                         // Input state after the application of the
+    stateInitEmpty(&tmpKet, state->qubits);                                 // column's search unitary
 
-        /* Iterate the moment matrices; copy tmpKet's vector to ket, apply the moment matrix's observable to it and
-         * store the real part of the overlap with tmpKet to the moment matrix's diagonal entry */
-        for (depth_t j = 0; j < obsc; ++j) {
-            expValObs(&tmpKet, obs[j]);
-        }
+    for (depth_t i = 0; i < srchc; ++i) {                                   // Iterate the set of search unitaries
+        stateCopyVector(&tmpKet, state->vec);                                  // Initialize tmpKet to the input state
+        srchOps[i](&tmpKet);                                               // Apply the i-th search unitary to it
 
-        /* Iterate the columns' entries of all moment matrices starting at the current column's index; copy the input
-         * state's vector to tmpBra and apply the row's search unitary to it */
-        for (depth_t j = i; j < matDim; ++j) {
-            stateCopyVector(&bra, state->vec);
-            applyU(&bra, srchOps[j]);
+        for (depth_t j = 0; j < obsc; ++j) {                                // Iterate the set of observables
+            stateCopyVector(&ket, tmpKet.vec);                              // Initialize ket to tmpKet
+            applyObs(&ket, obs[j]);                                         // Apply the observable to tmp
 
-            /* Iterate the moment matrices; copy tmpBra's vector to tmpTmpBra and apply the moment matrix's observable
-             * to it. */
-            for (depth_t k = 0; k < obsc; ++k) {
-                stateCopyVector(&ket, tmpKet.vec);
-                applyObs(&ket, obs[k]);
-                result[k][i * matDim + j] = stateOverlap(&bra, &ket);
-                result[k][j * matDim + i] = conj(result[k][i * matDim + j]);
+            out[j][(i + 1) * (srchc + 1)] = stateOverlap(state, &ket);      // Set the zeroth entry in the i-th column/
+            out[j][i + 1] = conj(out[j][(i + 1) * (srchc + 1)]);            // row to the overlap of bra and the input
+
+            for (depth_t k = i; k < srchc; ++k) {                           // Iterate the set of search unitaries
+                stateCopyVector(&bra, state->vec);                          // Initialize ket to the input state
+                srchOps[k](&bra);                                           // Apply the k-th search unitary to it
+                out[j][(i + 1) * (srchc + 1) + (k + 1)] = stateOverlap(&bra, &ket);
+                out[j][(k + 1) * (srchc + 1) + (i + 1)] = conj(out[j][(i + 1) * (srchc + 1) + (k + 1)]);
             }
         }
     }
 
-    /* Free all the memory allocated for the temporary state's vectors */
-    stateFreeVector(&bra);
+    stateFreeVector(&bra);                                                  // Free all the memory allocated for
+    stateFreeVector(&tmpKet);                                               // for the temporary states
     stateFreeVector(&ket);
-    stateFreeVector(&tmpKet);
-    return result;
+    return out;
 }
 
 /*
@@ -697,4 +693,103 @@ cplx_t** momMatPQC(const state_t* state,
     stateFreeVector(&ket);
     stateFreeVector(&tmpKet);
     return result;
+}
+
+/*
+ * This function calculates the moment matrices of a set of observables wrt to a sequence of LCU.
+ *
+ * Input:
+ *      state_t* state:     State of a qubit system (CAUTION: Is changed within this function)
+ *      depth_t obsc:       Number of moment matrices
+ *      obs_t* obs[]:       Set of observables constituting the moment matrices
+ *      depth_t circdepth:  Number of LCU channels
+ *      double coeffs[]:    Coefficients for LCU; concatenation for all LCU (CAUTION: Coefficient for id is prepended to
+ *                          each set of coefficients)
+ *      depth_t uc:         Number of unitary operators in each LCU
+ *      unitary u[]:        Set of unitary operators; concatenation for all LCU
+ *      depth_t link:       Element of the LCU sequence constituting the basis for the moment matrices
+ *
+ * Output:
+ *  An array of moment matrices, whose entries are the overlaps of two quantum states with the corresponding observable
+ *  applied. In particular, all LCU preceding the one specified by link are applied with their coefficients setting on
+ *  input. Then, the set of unitary operators at link are applied one by one to the quantum state to give the states for
+ *  each column and row, respectively. The remaining LCU are also applied with their coefficients determined on inpt.
+ */
+
+cplx_t** mmseq(state_t* state,
+               const depth_t obsc,
+               const obs_t* obs[],
+               depth_t circdepth,
+               cplx_t coeff[],
+               const depth_t uc,
+               const unitary u[],
+               depth_t link)
+{
+    cplx_t** out;                                                           // Array holding as many moment
+    if ((out = malloc(obsc * sizeof(cplx_t*))) == NULL) {                   // matrices as there are observables
+        fprintf(stderr, "Out allocation in momMat failed\n");
+        return NULL;
+    }
+    for (depth_t i = 0; i < obsc; ++i) {
+        if ((out[i] = malloc((uc + 1) * (uc+ 1) * sizeof(*(out[i])))) == NULL) {
+            fprintf(stderr, "Out allocation in momMat failed\n");
+            return NULL;
+        }
+    }
+
+    for (depth_t i = 0; i < link; ++i) {                                    // Apply all LCU channel prior to 'link'
+        lcu(state, uc, u + i * uc, coeff + i * (uc + 1));                   // CAUTION: Coefficient for id is prepended
+    }                                                                       // to each set of coefficients
+
+    state_t bra;                                                            // Input state after the application of the
+    stateInitEmpty(&bra, state->qubits);                                    // row's unitary
+    state_t ket;                                                            // Input state after the application of the
+    stateInitEmpty(&ket, state->qubits);                                    // observable to tmpKet
+    state_t tmpKet;                                                         // Input state after the application of the
+    stateInitEmpty(&tmpKet, state->qubits);                                 // column's unitary
+
+    stateCopyVector(&ket, state->vec);
+    for (depth_t j = link + 1; j < circdepth; ++j) {                        // Apply all LCU channel after 'link'
+        lcu(&ket, uc, u + j * uc, coeff + j + (uc + 1));                    // CAUTION: Coefficient for id is prepended
+    }                                                                       // to each set of coefficients
+    for (depth_t i = 0; i < obsc; ++i) {                                    // Iterate the observables
+        out[i][0] = expValObs(&ket, obs[i]);                                // Add the mean wrt to the input state
+    }                                                                       // to the moment matrices' first entries
+
+    for (depth_t i = 0; i < uc; ++i) {                                      // Iterate the set of unitaries
+        stateCopyVector(&tmpKet, state->vec);                                  // Initialize tmpKet to the input state
+        u[i + link](&tmpKet);                                               // Apply the i-th unitary of the link to it
+
+        for (depth_t j = link + 1; j < circdepth; ++j) {                    // Apply all LCU channel after 'link'
+            lcu(&tmpKet, uc, u + j * uc, coeff + j + (uc + 1));             // CAUTION: Coefficient for id is prepended
+        }                                                                   // to each set of coefficients
+
+        for (depth_t j = 0; j < obsc; ++j) {                                // Iterate the set of observables
+            stateCopyVector(&ket, tmpKet.vec);                              // Initialize ket to tmpKet
+            applyObs(&ket, obs[j]);                                         // Apply the observable to tmp
+
+            stateCopyVector(&bra, state->vec);
+            for (depth_t k = link + 1; k < circdepth; ++k) {                // Apply all LCU channel after 'link'
+                lcu(&bra, uc, u + k * uc, coeff + k + (uc + 1));            // CAUTION: Coefficient for id is prepended
+            }                                                               // to each set of coefficients
+
+            out[j][(i + 1) * (uc + 1)] = stateOverlap(&bra, &ket);          // Set the zeroth entry in the i-th column/
+            out[j][i + 1] = conj(out[j][(i + 1) * (uc + 1)]);               // row to the overlap of bra and the input
+
+            for (depth_t k = i; k < uc; ++k) {                              // Iterate the set of search unitaries
+                stateCopyVector(&bra, state->vec);                          // Initialize ket to the input state
+                u[link + k](&bra);                                          // Apply the k-th search unitary to it
+                for (depth_t l = link + 1; l < circdepth; ++l) {            // Apply all LCU channel after 'link'
+                    lcu(&bra, uc, u + l * uc, coeff + l + (uc + 1));        // CAUTION: Coefficient for id is prepended
+                }                                                           // to each set of coefficients
+                out[j][(i + 1) * (uc + 1) + (k + 1)] = stateOverlap(&bra, &ket);
+                out[j][(k + 1) * (uc + 1) + (i + 1)] = conj(out[j][(i + 1) * (uc + 1) + (k + 1)]);
+            }
+        }
+    }
+
+    stateFreeVector(&bra);                                                  // Free all the memory allocated for
+    stateFreeVector(&tmpKet);                                               // for the temporary states
+    stateFreeVector(&ket);
+    return out;
 }
