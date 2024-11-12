@@ -55,13 +55,12 @@ double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
 
 #pragma omp parallel default(none) shared(N, obs, one, result, state)
     {
-        state_t tmp;                            // Temporary state, initialized with the input state
-        stateInitEmpty(&tmp, state->qubits);    // vector, the observable's terms are applied to
+        state_t tmp;                                                // Temporary state, initialized with the input state
+        stateInitEmpty(&tmp, state-> qubits);                       // vector, the observable's terms are applied to
         cplx_t term;
-
 #pragma omp for
         for (complength_t i = 0; i < obs->length; ++i) {            // Iterate the observable's terms
-            cblas_zcopy(N, state->vec, 1, tmp.vec, 1);              // Copy the input state's vector to tmp
+            cblas_zcopy(N, state->vec, 1, tmp.vec, 1);              // Copy the input state's vector to the temporary state
             applyPauliStr(&tmp, obs->comps + (i * obs->qubits));    // Apply the current Pauli string to tmp
             cblas_zdotc_sub(N, state->vec, 1, tmp.vec, 1, &term);   // Store inner product of state and ket to tmp
 

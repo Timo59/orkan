@@ -10,10 +10,6 @@
 #include "statelib.h"
 #endif
 
-#ifndef _STDIO_H_
-#include <stdio.h>
-#endif
-
 @INCLUDE_GCD@@INCLUDE_OMP@@INCLUDE_VECLIB@
 
 /*

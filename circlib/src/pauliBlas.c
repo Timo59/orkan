@@ -55,9 +55,17 @@ void applyPauliStr(state_t* state, const pauli_t paulistr[]) {
 void applyOpPauli(state_t* state, const pauliOp_t* op) {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     state_t tmp;                                                        // Temporary state to apply each Pauli string to
-    stateInitEmpty(&tmp, state->qubits);
-    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));                // Temporary vector holding the intermediate sum
-                                                                        // of state vectors
+//    stateInitEmpty(&tmp, state->qubits);
+    tmp.qubits = state->qubits;
+    tmp.dim = state->dim;
+    cplx_t tmpVec[tmp.dim];
+    tmp.vec = tmpVec;
+
+    cplx_t* tmpSum;                                                     // Temporary vector holding the intermediate sum
+    if ((tmpSum = calloc(state->dim, sizeof(cplx_t))) == NULL) {                // of state vectors
+        fprintf(stderr, "tmpSum allocation in applyObsPauli failed\n");
+        return;
+    }
     for (complength_t i = 0; i < op->length; ++i) {                     // Iterate the observable's terms
         cblas_zcopy(N, state->vec, 1, tmp.vec, 1);                      // Copy input's state vector to tmp
         applyPauliStr(&tmp, op->comps + (i * op->qubits));              // Apply the Pauli string to it
@@ -85,15 +93,18 @@ void applyObsPauli(state_t* state, const pauliObs_t* obs) {
     __LAPACK_int N = (__LAPACK_int) state->dim;
     state_t tmp;                                                        // Temporary state to apply each Pauli string to
     stateInitEmpty(&tmp, state->qubits);
-    cplx_t* tmpSum = calloc(state->dim, sizeof(cplx_t));                // Temporary vector holding the intermediate sum
-                                                                        // of state vectors
+
+    cplx_t* tmpSum;                                                     // Temporary vector holding the intermediate sum
+    if ((tmpSum = calloc(state->dim, sizeof(cplx_t))) == NULL) {                // of state vectors
+        fprintf(stderr, "tmpSum allocation in applyObsPauli failed\n");
+        return;
+    }
     for (complength_t i = 0; i < obs->length; ++i) {                    // Iterate the observable's terms
         cblas_zcopy(N, state->vec, 1, tmp.vec, 1);                      // Copy input's state vector to tmp
         applyPauliStr(&tmp, obs->comps + (i * obs->qubits));            // Apply the Pauli string to it
         __LAPACK_double_complex alpha = obs->coeffs[i];                 // Multiply the terms' coefficient
         cblas_zaxpy(N, &alpha, tmp.vec, 1, tmpSum, 1);                  // and add the result to the
-                                                                        // intermediate sum
-    }
+    }                                                                    // intermediate sum
     stateFreeVector(&tmp);
     stateFreeVector(state);                                             // Free the input's state vector
     state->vec = tmpSum;                                                // and replace it by tmp

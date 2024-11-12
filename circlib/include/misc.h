@@ -1,26 +1,13 @@
-#ifndef STATELIB_H
-#define STATELIB_H
-
+#ifndef MISC_H
+#define MISC_H
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
 
-#ifndef __MATH__
-#include <math.h>
-#endif
-
-#ifndef QTYPES_H
-#include "qTypes.h"
-#endif
-
-#ifndef _STDIO_H_
-#include <stdio.h>
-#endif
-
-#ifndef _STDLIB_H_
-#include <stdlib.h>
+#ifndef STATELIB_H
+#include "statelib.h"
 #endif
 
 /*
@@ -38,58 +25,31 @@ extern "C" {
  *                                                  type definitions
  * =====================================================================================================================
  */
-
-/*
- * Struct:      state_t
- * --------------------
- * Description: This struct represents a multi-qubit pure state.
- * Contents:    
- *      vec:        Vector representation of the state.
- *      qubits:     Number of qubits of the underlying system.
- *      dim:        Length of the state's vector representation.
- */
-typedef struct state {
-    cplx_t* vec;
-    qubit_t qubits;
-    dim_t dim;
-} state_t;
+typedef void (*unitary)(state_t* state);
 
 /*
  * =====================================================================================================================
- *                                                  State preparation
+ *                                              apply miscellaneous operator
  * =====================================================================================================================
  */
-
-void stateInitEmpty(state_t* state, qubit_t qubits);
-
-void stateInitZero(state_t* state, qubit_t qubits);
-
-void stateInitPlus(state_t* state, qubit_t qubits);
-
-void stateInitVector(state_t* state, cplx_t vector[], qubit_t qubits);
-
-void stateCopyVector(state_t* state, const cplx_t vector[]);
+void applyOpMisc(state_t* state, unitary U);
 
 /*
  * =====================================================================================================================
- *                                  		        Free state
+ *                                              apply miscellaneous observable
  * =====================================================================================================================
  */
-
-void stateFreeVector(state_t* state);
-
-void stateFree(state_t* state);
+void applyObsMisc(state_t* state, unitary U);
 
 /*
  * =====================================================================================================================
- *                                              Binary operations
+ *                                              evolve with diagonal observable
  * =====================================================================================================================
  */
-
-cplx_t stateOverlap(const state_t* state1, const state_t* state2);
+void evolveObsMisc(state_t* state, unitary U, double angle);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* STATELIB_H */
+#endif /* MISC_H */

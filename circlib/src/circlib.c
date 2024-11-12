@@ -24,6 +24,10 @@ void applyOp(state_t* state, const op_t* op) {
             applyOpPauli(state, op->pauliOp);
             break;
         }
+        case MISC: {
+            applyOpMisc(state, op->miscOp);
+            break;
+        }
         default: {
             perror("Error in applyOp: Invalid operator type");
             exit(1);
@@ -47,6 +51,10 @@ void applyObs(state_t* state, const obs_t* obs) {
             applyObsPauli(state, obs->pauliObs);
             break;
         }
+        case MISC: {
+            applyObsMisc(state, obs->miscObs);
+            break;
+        }
         default: {
             printf("Error in applyObs: Invalid observable type.\n");
             exit(1);
@@ -68,6 +76,10 @@ void evolveObsTrotter(state_t* state, const obs_t* obs, double angle) {
         }
         case PAULI: {
             evolveObsPauliTrotter(state, obs->pauliObs, angle);
+            break;
+        }
+        case MISC: {
+            evolveObsMisc(state, obs->miscObs, angle);
             break;
         }
         default: {
@@ -94,7 +106,42 @@ void applyPQC(state_t* state, const double par[], const obs_t* evoOps[], depth_t
  *                                      Linear combination of parametrized quantum gates
  * =====================================================================================================================
  */
+/*
+ * This function performs a linear combination of unitaries on a quantum state returning the quantum state conditioned
+ * on the outcome of an ancillary measurement (normalized).
+ *
+ * Input:
+ *      state_t* state:     Input state of a quantum system
+ *      cplx_t coeff[]:     Coefficients of the unitaries in the linear combination; FIRST IS EXPECTED TO BE FOR ID
+ *      unitary u[]:        Array of unitaries
+ *      depth_t uc:         Number of unitaries
+ *
+ * Output:
+ *      The function has no output value, instead it performs the linear combination of unitaries on the state vector of
+ *      the quantum state.
+ */
 
+void lcu(state_t* state, depth_t uc, const unitary u[], cplx_t coeff[]) {
+    cplx_t* vec;
+    if ((vec = calloc(state->dim, sizeof(cplx_t))) == NULL) {
+        fprintf(stdout, "Vec allocation in lcu failed\n");
+        return;
+    }
+
+    cblas_zaxpy((__LAPACK_int) state->dim, coeff, state->vec, 1, vec, 1);
+
+    state_t tmp;
+    stateInitEmpty(&tmp, state->qubits);
+    for (depth_t i = 0; i < uc; ++i) {
+        stateCopyVector(&tmp, state->vec);
+        u[i](&tmp);
+        cblas_zaxpy((__LAPACK_int) state->dim, coeff + (i + 1), tmp.vec, 1, vec, 1);
+    }
+
+    stateFreeVector(&tmp);
+    free(state->vec);
+    state->vec = vec;
+}
 /*
  * This function performs a linear combination of parametrized quantum gates on a quantum state returning the quantum
  * state conditioned on the outcome of an ancillary measurement (normalized).
@@ -112,7 +159,7 @@ void applyPQC(state_t* state, const double par[], const obs_t* evoOps[], depth_t
  */
 
 void lcupqg(state_t* state, const cplx_t coeff[], const double angles[], const obs_t* evoOps[], depth_t anglesc) {
-    cplx_t* stateVec = (cplx_t*) calloc(state->dim, sizeof(cplx_t));
+    cplx_t* stateVec = calloc(state->dim, sizeof(cplx_t));
     state_t tmp;
     stateInitEmpty(&tmp, state->qubits);
 

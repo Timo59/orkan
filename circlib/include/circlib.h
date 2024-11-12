@@ -11,6 +11,10 @@
 #include "diag.h"
 #endif
 
+#ifndef MISC_H
+#include "misc.h"
+#endif
+
 #ifndef PAULI_H
 #include "pauli.h"
 #endif
@@ -34,10 +38,10 @@ extern "C" {
  *                                                  type definitions
  * =====================================================================================================================
  */
-
 typedef enum opType {
     DIAG,
-    PAULI
+    PAULI,
+    MISC
 } opType_t;
 
 typedef struct op {
@@ -45,6 +49,7 @@ typedef struct op {
     union {
         cplx_t* diagOp;
         pauliOp_t* pauliOp;
+        unitary miscOp;
     };
 } op_t;
 
@@ -53,6 +58,7 @@ typedef struct obs {
     union {
         double* diagObs;
         pauliObs_t* pauliObs;
+        unitary miscObs;
     };
 } obs_t;
 
@@ -93,6 +99,7 @@ void applyPQC(state_t* state, const double params[], const obs_t* evoOps[], dept
  *                                      Linear combination of parametrized quantum gates
  * =====================================================================================================================
  */
+void lcu(state_t* state, depth_t uc, const unitary u[], cplx_t coeff[]);
 
 void lcupqg(state_t* state, const cplx_t coeff[], const double angles[], const obs_t* evoOps[], depth_t angelsc);
 
