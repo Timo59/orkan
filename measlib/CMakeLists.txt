@@ -22,6 +22,8 @@ target_link_libraries(Meas                                              # Link l
                 Gate
                 Circ
                 $<$<IN_LIST:${MEASMETH},OLD;OMP;PROFILE>:Math>
+                Math
+                Test
         PUBLIC  Q_compiler_flags
                 $<$<IN_LIST:${MEASMETH},BLAS;BLAS_OMP;PROFILE>:BLAS_compiler_flags>
                 $<$<IN_LIST:${MEASMETH},OMP;BLAS_OMP;PROFILE>:OMP_compiler_flags>

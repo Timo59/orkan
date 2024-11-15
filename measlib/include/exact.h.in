@@ -10,6 +10,10 @@
 #include "circlib.h"
 #endif
 
+#ifndef UTILS_H
+#include "utils.h"
+#endif
+
 @INCLUDE_LINALG@@INCLUDE_OMP@@INCLUDE_VECLIB@
 
 /*

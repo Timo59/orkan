@@ -1167,13 +1167,16 @@ void testmmseq(void) {
             }
         }
 
+        cplx_t* idMat = identityMat(qubits);
+
         cplx_t* uMat[16];
         for (depth_t i = 0; i < circdepth; ++i) {
-            uMat[i * (uc + 1)] = identityMat(qubits);
+            uMat[i * (uc + 1)] = idMat;
             for (depth_t j = 0; j < uc; ++j) {
-                uMat[i * (uc + 1) + j] = swapMat[(i % 2) * uc + j];
+                uMat[i * (uc + 1) + (j + 1)] = swapMat[(i % 2) * uc + j];
             }
         }
+
         for (depth_t link = 0; link < circdepth; ++link) {
             cplx_t** testVectors = generateTestVectors(qubits);             // Statevectors altered by the test function
             cplx_t** refVectors = generateTestVectors(qubits);              // Reference state vectors
@@ -1183,43 +1186,103 @@ void testmmseq(void) {
                 stateInitVector(&testState, testVectors[i], qubits);
                 cplx_t **result = mmseq(&testState, obsc, obs, circdepth, coeffU, uc, u, link);
 
-                for (depth_t j = 0; j < link; ++j) {
-                    cplx_t* tmp;
-                    if ((tmp = calloc(dim, sizeof(cplx_t))) == NULL) {
-                        fprintf(stderr, "Tmp allocation failed\n");
-                        return;
-                    }
-
-                    for (depth_t k = 0; k < uc + 1; ++k) {
-                        cplx_t* ttmp = cmatVecMul(uMat[j * (uc + 1) + k], refVectors[i], dim);
-                        cscalarVecMulInPlace(coeffU[j * (uc + 1) + k], ttmp, dim);
-                        cvecAddInPlace(tmp, ttmp, dim);
-                        free(ttmp);
-                    }
-
-                    free(refVectors[i]);
-                    refVectors[i] = tmp;
-                }
                 cplx_t *ref;                                                    // Reference moment matrices
                 for (depth_t j = 0; j < obsc; ++j) {
-                    if ((ref = calloc((numSWAP + 1) * (numSWAP + 1), sizeof(cplx_t))) == NULL) {
-                        fprintf(stderr, "Ref allocation failed\n");
+                     if ((ref = calloc((uc + 1) * (uc + 1), sizeof(cplx_t))) == NULL) {
+                        fprintf(stderr, "Ref allocation in testmmseq failed\n");
                         return;
                     }
 
-                    for (depth_t k = 0; k < numSWAP + 1; ++k) {                 // Calculate the entries of each moment
-                        for (depth_t l = 0; l < numSWAP + 1; ++l) {             // matrix one by one
-                            cplx_t *refKet = cmatVecMul(srchOpsMat[k], testVectors[i], dim);
+                    for (depth_t k = 0; k < uc + 1; ++k) {                      // Calculate the entries of each moment
+                        for (depth_t l = 0; l < uc + 1; ++l) {                  // matrix one by one
+                            cplx_t* refBra;
+                            if((refBra = malloc(dim * sizeof(cplx_t))) == NULL) {
+                                fprintf(stderr, "RefBra allocation in testmmseq failed\n");
+                                return;
+                            }
+                            cplx_t* refKet;
+                            if((refKet = malloc(dim * sizeof(cplx_t))) == NULL) {
+                                fprintf(stderr, "RefKet allocation in testmmseq failed\n");
+                                return;
+                            }
+
+                            for (dim_t m = 0; m < dim; ++m) {                   // Copy the reference vector to refBra
+                                refBra[m] = *(refVectors[i] + m);
+                            }
+                            for (dim_t m = 0; m < dim; ++m) {                   // and to refKet
+                                refKet[m] = *(refVectors[i] + m);
+                            }
+
+                            for (depth_t m = 0; m < link; ++m) {                // Perform each LCU prior to the link
+                                cplx_t *tmpBra;                                 // on refBra
+                                if ((tmpBra = calloc(dim, sizeof(cplx_t))) == NULL) {
+                                    fprintf(stderr, "TmpBra allocation in testmmseq failed\n");
+                                    return;
+                                }
+                                cplx_t *tmpKet;                                 // and on refKet
+                                if ((tmpKet = calloc(dim, sizeof(cplx_t))) == NULL) {
+                                    fprintf(stderr, "TmpKet allocation in testmmseq failed\n");
+                                    return;
+                                }
+
+                                for (depth_t n = 0; n < uc + 1; ++n) {          // Linear combination of unitaries
+                                    cplx_t *ttmpBra = cmatVecMul(uMat[m * (uc + 1) + n], refBra, dim);
+                                    cplx_t *ttmpKet = cmatVecMul(uMat[m * (uc + 1) + n], refKet, dim);
+                                    cscalarVecMulInPlace(coeffU[m * (uc + 1) + n], ttmpBra, dim);
+                                    cscalarVecMulInPlace(coeffU[m * (uc + 1) + n], ttmpKet, dim);
+                                    cvecAddInPlace(tmpBra, ttmpBra, dim);
+                                    cvecAddInPlace(tmpKet, ttmpKet, dim);
+                                    free(ttmpBra);
+                                    free(ttmpKet);
+                                }
+
+                                free(refBra);
+                                refBra = tmpBra;
+                                free(refKet);
+                                refKet = tmpKet;
+                            }
+
+                            cmatVecMulInPlace(uMat[link * (uc + 1) + l], refBra, dim);
+                            cmatVecMulInPlace(uMat[link * (uc + 1) + k], refKet, dim);
+
+                            for (depth_t m = link + 1; m < circdepth; ++m) {    // Perform each LCU after the link
+                                cplx_t* tmpBra;                                 // on refBra
+                                if((tmpBra = calloc(dim, sizeof(cplx_t))) == NULL) {
+                                    fprintf(stderr, "TmpBra allocation in testmmseq failed\n");
+                                    return;
+                                }
+                                cplx_t* tmpKet;                                 // and on refKet
+                                if((tmpKet = calloc(dim, sizeof(cplx_t))) == NULL) {
+                                    fprintf(stderr, "TmpKet allocation in testmmseq failed\n");
+                                    return;
+                                }
+
+                                for (depth_t n = 0; n < uc + 1; ++n) {          // Linear combination of unitaries
+                                    cplx_t* ttmpBra = cmatVecMul(uMat[m * (uc + 1) + n], refBra, dim);
+                                    cplx_t* ttmpKet = cmatVecMul(uMat[m * (uc + 1) + n], refKet, dim);
+                                    cscalarVecMulInPlace(coeffU[m * (uc + 1) + n], ttmpBra, dim);
+                                    cscalarVecMulInPlace(coeffU[m * (uc + 1) + n], ttmpKet, dim);
+                                    cvecAddInPlace(tmpBra, ttmpBra, dim);
+                                    cvecAddInPlace(tmpKet, ttmpKet, dim);
+                                    free(ttmpBra);
+                                    free(ttmpKet);
+                                }
+
+                                free(refBra);
+                                refBra = tmpBra;
+                                free(refKet);
+                                refKet = tmpKet;
+                            }
+
                             cmatVecMulInPlace(obsMat[j], refKet, dim);
-                            cplx_t *refBra = cmatVecMul(srchOpsMat[l], testVectors[i], dim);
-                            ref[k * (numSWAP + 1) + l] = cInner(refBra, refKet, dim);
+                            ref[k * (uc + 1) + l] = cInner(refBra, refKet, dim);
 
                             free(refBra);
                             free(refKet);
                         }
                     }
 
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(result[j], ref, (numSWAP + 1) + (numSWAP + 1), 1e-6));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(result[j], ref, (uc + 1) + (uc + 1), 1e-6));
                     free(result[j]);
                     free(ref);
                 }
@@ -1227,6 +1290,8 @@ void testmmseq(void) {
                 stateFreeVector(&testState);
                 free(result);
             }
+            free(testVectors);
+            freeTestVectors(refVectors, qubits);
         }
         free(obs[0]->diagObs);
         for (depth_t i = 0; i < obsc - 1; ++i) {
@@ -1236,12 +1301,12 @@ void testmmseq(void) {
             free(obsMat[i]);
             free(obs[i]);
         }
-        for(depth_t i = 0; i < numSWAP + 1; ++i) {
-            free(srchOpsMat[i]);
+        free(idMat);
+        for(depth_t i = 0; i < numSWAP; ++i) {
+            free(swapMat[i]);
         }
         free(comps_diag);
         free(comps_pauli);
-        free(testVectors);
     }
 }
 
@@ -1257,7 +1322,8 @@ int main(void) {
 //    RUN_TEST(testExpValObsPQC);
 //    RUN_TEST(testGradientPQC);
 //    RUN_TEST(testHessianPQC);
-    RUN_TEST(testMomMat);
+//    RUN_TEST(testMomMat);
 //    RUN_TEST(testMomMatPQC);
+    RUN_TEST(testmmseq);
     return UNITY_END();
 }

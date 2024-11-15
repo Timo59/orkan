@@ -750,18 +750,19 @@ cplx_t** mmseq(state_t* state,
 
     stateCopyVector(&ket, state->vec);
     for (depth_t j = link + 1; j < circdepth; ++j) {                        // Apply all LCU channel after 'link'
-        lcu(&ket, uc, u + j * uc, coeff + j + (uc + 1));                    // CAUTION: Coefficient for id is prepended
+        lcu(&ket, uc, u + j * uc, coeff + j * (uc + 1));                    // CAUTION: Coefficient for id is prepended
     }                                                                       // to each set of coefficients
+
     for (depth_t i = 0; i < obsc; ++i) {                                    // Iterate the observables
         out[i][0] = expValObs(&ket, obs[i]);                                // Add the mean wrt to the input state
     }                                                                       // to the moment matrices' first entries
 
     for (depth_t i = 0; i < uc; ++i) {                                      // Iterate the set of unitaries
         stateCopyVector(&tmpKet, state->vec);                                  // Initialize tmpKet to the input state
-        u[i + link](&tmpKet);                                               // Apply the i-th unitary of the link to it
+        u[i + link * uc](&tmpKet);                                          // Apply the i-th unitary of the link to it
 
         for (depth_t j = link + 1; j < circdepth; ++j) {                    // Apply all LCU channel after 'link'
-            lcu(&tmpKet, uc, u + j * uc, coeff + j + (uc + 1));             // CAUTION: Coefficient for id is prepended
+            lcu(&tmpKet, uc, u + j * uc, coeff + j * (uc + 1));             // CAUTION: Coefficient for id is prepended
         }                                                                   // to each set of coefficients
 
         for (depth_t j = 0; j < obsc; ++j) {                                // Iterate the set of observables
@@ -770,7 +771,7 @@ cplx_t** mmseq(state_t* state,
 
             stateCopyVector(&bra, state->vec);
             for (depth_t k = link + 1; k < circdepth; ++k) {                // Apply all LCU channel after 'link'
-                lcu(&bra, uc, u + k * uc, coeff + k + (uc + 1));            // CAUTION: Coefficient for id is prepended
+                lcu(&bra, uc, u + k * uc, coeff + k * (uc + 1));            // CAUTION: Coefficient for id is prepended
             }                                                               // to each set of coefficients
 
             out[j][(i + 1) * (uc + 1)] = stateOverlap(&bra, &ket);          // Set the zeroth entry in the i-th column/
@@ -778,10 +779,11 @@ cplx_t** mmseq(state_t* state,
 
             for (depth_t k = i; k < uc; ++k) {                              // Iterate the set of search unitaries
                 stateCopyVector(&bra, state->vec);                          // Initialize ket to the input state
-                u[link + k](&bra);                                          // Apply the k-th search unitary to it
+                u[link * uc + k](&bra);                                     // Apply the k-th search unitary to it
                 for (depth_t l = link + 1; l < circdepth; ++l) {            // Apply all LCU channel after 'link'
-                    lcu(&bra, uc, u + l * uc, coeff + l + (uc + 1));        // CAUTION: Coefficient for id is prepended
+                    lcu(&bra, uc, u + l * uc, coeff + l * (uc + 1));        // CAUTION: Coefficient for id is prepended
                 }                                                           // to each set of coefficients
+
                 out[j][(i + 1) * (uc + 1) + (k + 1)] = stateOverlap(&bra, &ket);
                 out[j][(k + 1) * (uc + 1) + (i + 1)] = conj(out[j][(i + 1) * (uc + 1) + (k + 1)]);
             }
