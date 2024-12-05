@@ -1318,12 +1318,12 @@ void testmmseq(void) {
 
 int main(void) {
     UNITY_BEGIN();
-//    RUN_TEST(testExpValObs);
-//    RUN_TEST(testExpValObsPQC);
-//    RUN_TEST(testGradientPQC);
-//    RUN_TEST(testHessianPQC);
-//    RUN_TEST(testMomMat);
-//    RUN_TEST(testMomMatPQC);
+    RUN_TEST(testExpValObs);
+    RUN_TEST(testExpValObsPQC);
+    RUN_TEST(testGradientPQC);
+    RUN_TEST(testHessianPQC);
+    RUN_TEST(testMomMat);
+    RUN_TEST(testMomMatPQC);
     RUN_TEST(testmmseq);
     return UNITY_END();
 }

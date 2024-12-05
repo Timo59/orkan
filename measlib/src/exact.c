@@ -22,17 +22,6 @@
  * Output:
  *      The mean value of a Pauli operator without affecting the state itself.
 */
-//cplx_t expValPauli(const state_t* state, const pauliOp_t* op) {
-//#if defined(EXACT_BLAS)
-//    return expValPauli_blas(state, op);
-//#elif defined(EXACT_OMP)
-//    return expValPauli_omp(state, op);
-//#elif defined(EXACT_BLAS_OMP)
-//    return expValPauli_blas_omp(state, op);
-//#else
-//    return expValPauli_old(state, op);
-//#endif
-//}
 
 cplx_t expValDiag(const state_t* state, const cplx_t op[]) {
     register cplx_t result = 0;
@@ -74,17 +63,7 @@ cplx_t expVal(const state_t* state, const op_t* op) {
  * Output:
  *      Expected value of the observable on the state.
  */
-//double expValObsPauli(const state_t* state, const pauliObs_t* obs) {
-//#if defined(EXACT_BLAS)
-//    return expValObsPauli_blas(state, obs);
-//#elif defined(EXACT_OMP)
-//    return expValObsPauli_omp(state, obs);
-//#elif defined(EXACT_BLAS_OMP)
-//    return expValObsPauli_blas_omp(state, obs);
-//#else
-//    return expValObsPauli_old(state, obs);
-//#endif
-//}
+
 
 /*
  * This function returns the expected value of a diagonal observable on a quantum state.
@@ -254,37 +233,6 @@ double expValObsPQC(const state_t* state,
  *                                                      gradient PQC
  * =====================================================================================================================
  */
-
-/*
- * This function returns the gradient of an observable's expected value on a parametrized quantum circuit
- *
- * Input:
- *      state_t* state:         Initial state of a qubit system
- *      double par[]:           Array of evolution parameters for the PQC
- *      obs_t* obs:             Observable with a type union
- *      obs_t* evoOps[]:        Array of hermitian evolution operators
- *      depth_t circdepth:      Number of evolution operators in the PQC
- *
- * Output:
- *      Gradient of the observable's expected value on the parametrized quantum circuit wrt the evolution parameters at
- *      the current point in parameter space.
- */
-//double* gradPQC(const state_t* state,
-//                const double par[],
-//                const obs_t* obs,
-//                const obs_t *evoOps[],
-//                depth_t circdepth)
-//{
-//#if defined(EXACT_BLAS)
-//    return gradPQC_blas(state, par, obs, evoOps, circdepth);
-//#elif defined(EXACT_OMP)
-//    return gradPQC_omp(state, par, obs, evoOps, circdepth);
-//#elif defined(EXACT_BLAS_OMP)
-//    return gradPQC_blas_omp(state, par, obs, evoOps, circdepth);
-//#else
-//    return gradPQC_old(state, par, obs, evoOps, circdepth);
-//#endif
-//}
 
 /*
  * This function returns the approximate gradient of an observable's expected value on a parametrized quantum circuit
@@ -741,6 +689,12 @@ cplx_t** mmseq(state_t* state,
         lcu(state, uc, u + i * uc, coeff + i * (uc + 1));                   // CAUTION: Coefficient for id is prepended
     }                                                                       // to each set of coefficients
 
+//    printf("In %d-th link =\n[", link);
+//    for (dim_t i = 0; i < state->dim; ++i) {
+//        printf("%f + (%f), ", creal(state->vec[i]), cimag(state->vec[i]));
+//    }
+//    printf("]\n");
+
     state_t bra;                                                            // Input state after the application of the
     stateInitEmpty(&bra, state->qubits);                                    // row's unitary
     state_t ket;                                                            // Input state after the application of the
@@ -749,6 +703,7 @@ cplx_t** mmseq(state_t* state,
     stateInitEmpty(&tmpKet, state->qubits);                                 // column's unitary
 
     stateCopyVector(&ket, state->vec);
+
     for (depth_t j = link + 1; j < circdepth; ++j) {                        // Apply all LCU channel after 'link'
         lcu(&ket, uc, u + j * uc, coeff + j * (uc + 1));                    // CAUTION: Coefficient for id is prepended
     }                                                                       // to each set of coefficients
