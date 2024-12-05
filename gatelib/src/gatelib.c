@@ -147,8 +147,7 @@ void applyRY(state_t* state, qubit_t qubit, double angle) {
         for (dim_t j = i; j < i + flipDistance; ++j) {
             tmp = state->vec[j];
             state->vec[j] = cos(angle) * tmp - sin(angle) * state->vec[j + flipDistance];
-            state->vec[j + flipDistance] = sin(angle) * tmp + cos(angle) \
- * state->vec[j + flipDistance];
+            state->vec[j + flipDistance] = sin(angle) * tmp + cos(angle) * state->vec[j + flipDistance];
         }
     }
 }
