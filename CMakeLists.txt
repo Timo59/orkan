@@ -113,10 +113,11 @@ install(TARGETS Q
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin
-        INCLUDES DESTINATION include
+        INCLUDES DESTINATION include/qlib
 )
-install(FILES       "include/qLib.h" "include/qTypes.h"
-        DESTINATION include)
+install(FILES       "include/qLib.h"
+                    "include/qTypes.h"
+        DESTINATION include/qlib)
 
 add_dependencies(Q gatelibTest circlibTest measlibTest)
 

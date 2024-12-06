@@ -66,4 +66,4 @@ endif ()
 configure_file(${INCLUDE_DIR}/exact.h.in exact.h @ONLY)
 
 install(FILES       ${CMAKE_CURRENT_BINARY_DIR}/exact.h
-        DESTINATION include)
+        DESTINATION include/qlib)

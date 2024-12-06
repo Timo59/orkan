@@ -83,5 +83,5 @@ install(FILES       ${INCLUDE_DIR}/circlib.h
                     ${INCLUDE_DIR}/diag.h
                     ${INCLUDE_DIR}/misc.h
                     ${CMAKE_CURRENT_BINARY_DIR}/pauli.h
-        DESTINATION include
+        DESTINATION include/qlib
 )

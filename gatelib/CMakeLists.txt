@@ -62,4 +62,4 @@ endif ()
 
 configure_file(${INCLUDE_DIR}/gatelib.h.in gatelib.h @ONLY)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/gatelib.h DESTINATION include)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/gatelib.h DESTINATION include/qlib)

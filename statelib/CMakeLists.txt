@@ -5,4 +5,4 @@ target_include_directories(State
         INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-install(FILES statelib.h DESTINATION include)
+install(FILES statelib.h DESTINATION include/qlib)
