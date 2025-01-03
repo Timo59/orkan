@@ -18,6 +18,13 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     endif()
 endif()
 
+set(GATEMETH "OMP" CACHE STRING "Choose gate method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
+set(CIRCMETH "BLAS" CACHE STRING "Choose circuit method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
+set(MEASMETH "BLAS_OMP" CACHE STRING "Choose measurement method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
+set_property(CACHE GATEMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
+set_property(CACHE CIRCMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
+set_property(CACHE MEASMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
+
 add_subdirectory(mathlib)
 add_subdirectory(test)
 add_subdirectory(extern/Unity)
@@ -126,5 +133,5 @@ add_custom_command(
         COMMENT "Run tests on gatelib"
         DEPENDS
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failures
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
 )
