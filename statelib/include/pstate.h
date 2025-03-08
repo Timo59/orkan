@@ -1,26 +1,12 @@
-#ifndef STATELIB_H
-#define STATELIB_H
-
+#ifndef PSTATE_H
+#define PSTATE_H
 /*
  * =====================================================================================================================
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef __MATH__
-#include <math.h>
-#endif
-
 #ifndef QTYPES_H
 #include "qTypes.h"
-#endif
-
-#ifndef _STDIO_H_
-#include <stdio.h>
-#endif
-
-#ifndef _STDLIB_H_
-#include <stdlib.h>
 #endif
 
 /*
@@ -28,7 +14,6 @@
  *                                                      C++ check
  * =====================================================================================================================
  */
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,7 +23,6 @@ extern "C" {
  *                                                  type definitions
  * =====================================================================================================================
  */
-
 /*
  * Struct:      state_t
  * --------------------
@@ -59,7 +43,6 @@ typedef struct state {
  *                                                  State preparation
  * =====================================================================================================================
  */
-
 void stateInitEmpty(state_t* state, qubit_t qubits);
 
 void stateInitZero(state_t* state, qubit_t qubits);
@@ -75,7 +58,6 @@ void stateCopyVector(state_t* state, const cplx_t vector[]);
  *                                  		        Free state
  * =====================================================================================================================
  */
-
 void stateFreeVector(state_t* state);
 
 void stateFree(state_t* state);
@@ -85,11 +67,10 @@ void stateFree(state_t* state);
  *                                              Binary operations
  * =====================================================================================================================
  */
-
 cplx_t stateOverlap(const state_t* state1, const state_t* state2);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* STATELIB_H */
+#endif /* PSTATE_H */

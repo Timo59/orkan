@@ -3,17 +3,26 @@
  *                                                      includes
  * =====================================================================================================================
  */
-
-#ifndef STATELIB_H
-#include "statelib.h"
+#ifndef __MATH__
+#include <math.h>
 #endif
 
+#ifndef PSTATE_H
+#include "pstate.h"
+#endif
+
+#ifndef _STDIO_H_
+#include <stdio.h>
+#endif
+
+#ifndef _STDLIB_H_
+#include <stdlib.h>
+#endif
 /*
  * =====================================================================================================================
  *                                                  State preparation
  * =====================================================================================================================
  */
-
 void stateInitEmpty(state_t* state, qubit_t qubits) {
 	state->qubits = qubits;
 	state->dim = POW2(qubits, dim_t);

@@ -25,8 +25,6 @@ set_property(CACHE GATEMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD"
 set_property(CACHE CIRCMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
 set_property(CACHE MEASMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
 
-add_subdirectory(mathlib)
-add_subdirectory(test)
 add_subdirectory(extern/Unity)
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                       # include double has to be called
                                                                                     # manually when building unity lib
@@ -52,16 +50,18 @@ add_library(Q_compiler_flags INTERFACE)                                         
 target_compile_options(Q_compiler_flags INTERFACE -O0)                              # requirements for all Q dependents
 
 add_library(Test_flags INTERFACE)                                                   # Interface library specifying usage
-target_link_libraries(Test_flags INTERFACE Test unity)                              # requirements for unit tests
+target_include_directories(Test_flags                                               # requirements for unit tests
+        INTERFACE   ${CMAKE_SOURCE_DIR}/include
+                    ${CMAKE_SOURCE_DIR}/internal/include
+)
+target_link_libraries(Test_flags INTERFACE Test unity)
 
 add_subdirectory(statelib)
 add_subdirectory(gatelib)
 
 add_executable(gatelibTest gatelib/test/testQhipster.c)
-target_include_directories(gatelibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
 target_link_libraries(gatelibTest
         PRIVATE Gate
-                Math
                 State
                 Test_flags
 )

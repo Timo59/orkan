@@ -11,7 +11,7 @@ add_library(Meas OBJECT                                                 # Build 
         $<$<STREQUAL:${MEASMETH},BLAS_OMP>:${SOURCE_DIR}/exactBlMp.c>   # If BLAS_OMP, meas optimized with BLAS & OMP
         $<$<STREQUAL:${MEASMETH},OLD>:${SOURCE_DIR}/exactOld.c>         # If OLD, unoptimized measurements
         $<$<STREQUAL:${MEASMETH},OMP>:${SOURCE_DIR}/exactOmp.c>         # If OMP, measurements optimized with OpenMP
-        $<$<STREQUAL:${MEASMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, source file, merging all meas
+        $<$<STREQUAL:${MEASMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, src file, merging all meas
 )
 target_include_directories(Meas                                         # Include directories for the object library
         PRIVATE ${CMAKE_SOURCE_DIR}/include                             # qTypes only populates this include directories

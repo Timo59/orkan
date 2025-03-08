@@ -13,7 +13,6 @@
  *                                              Real vector operations
  * =====================================================================================================================
  */
-
 double* vecAdd(const double a[], const double b[], unsigned long long dim) {
     double* result = malloc(dim * sizeof(double));
     for (unsigned long long i = 0; i < dim; ++i) {
