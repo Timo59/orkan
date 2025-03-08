@@ -14,7 +14,7 @@ add_library(Circ OBJECT                                                 # Build 
         $<$<STREQUAL:${CIRCMETH},BLAS_OMP>:${SOURCE_DIR}/pauliBlMp.c>   # If BLAS_OMP, ops optimized with BLAS & OMP
         $<$<STREQUAL:${CIRCMETH},OLD>:${SOURCE_DIR}/pauliOld.c>         # If OLD, unoptimized operations
         $<$<STREQUAL:${CIRCMETH},OMP>:${SOURCE_DIR}/pauliOmp.c>         # If OMP, operations optimized with OpenMP
-        $<$<STREQUAL:${CIRCMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, source file, merging all ops
+        $<$<STREQUAL:${CIRCMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, src file, merging all ops
 )
 target_include_directories(Circ                                         # Include directories for the object library
         PRIVATE ${CMAKE_SOURCE_DIR}/include                             # qTypes only populates this include directories

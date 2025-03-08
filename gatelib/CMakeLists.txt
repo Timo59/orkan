@@ -12,7 +12,7 @@ add_library(Gate OBJECT                                                 # Build 
         $<$<STREQUAL:${GATEMETH},GCD>:${SOURCE_DIR}/qhipGcd.c>          # If GCD, gates optimized with GCD
         $<$<STREQUAL:${GATEMETH},OLD>:${SOURCE_DIR}/qhipster.c>         # If OLD, unoptimized gates
         $<$<STREQUAL:${GATEMETH},OMP>:${SOURCE_DIR}/qhipOmp.c>          # If OMP, gates optimized with OpenMP
-        $<$<STREQUAL:${GATEMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, source file, merging all gates
+        $<$<STREQUAL:${GATEMETH},PROFILE>:${SOURCE_DIR}/profile.c>      # If PROFILE, src file, merging all gates
 )
 target_include_directories(Gate                                 # Include directories for the object library
         PRIVATE "${CMAKE_SOURCE_DIR}/include"                   # qTypes only populates the include directories for Gate

@@ -31,7 +31,6 @@ extern "C" {
  *                                              Real vector operations
  * =====================================================================================================================
  */
-
 double* vecAdd(const double a[], const double b[], unsigned long long dim);
 
 void vecAddInPlace(double a[], const double b[], unsigned long long dim);
@@ -47,7 +46,6 @@ void scalarVecMulInPlace(double a, double b[], unsigned long long dim);
  *                                              Complex vector operations
  * =====================================================================================================================
  */
-
 complex double* cscalarVecMul(complex double a, const complex double b[], unsigned long long dim);
 
 void cscalarVecMulInPlace(complex double a, complex double b[], unsigned long long dim);
@@ -65,7 +63,6 @@ complex double cInner(const complex double a[], const complex double b[], unsign
  *                                              Real matrix operations
  * =====================================================================================================================
  */
-
 void scalarMatMulInPlace(double a, double b[], unsigned long long dim);
 
 double* scalarMatMul(double a, const double b[], unsigned long long dim);
@@ -87,7 +84,6 @@ double* kronecker(const double a[], const double b[], unsigned long long dimA, u
  *                                              Complex matrix operations
  * =====================================================================================================================
  */
-
 complex double* cscalarMatMul(complex double a, const complex double b[], unsigned long long dim);
 
 void cscalarMatMulInPlace(complex double a, complex double b[], unsigned long long dim);
