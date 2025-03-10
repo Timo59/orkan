@@ -45,13 +45,9 @@ typedef struct state {
  */
 void stateInitEmpty(state_t* state, qubit_t qubits);
 
-void stateInitZero(state_t* state, qubit_t qubits);
-
 void stateInitPlus(state_t* state, qubit_t qubits);
 
-void stateInitVector(state_t* state, cplx_t vector[], qubit_t qubits);
-
-void stateCopyVector(state_t* state, const cplx_t vector[]);
+void stateInitVector(state_t* state, const cplx_t vector[]);
 
 /*
  * =====================================================================================================================
@@ -59,8 +55,6 @@ void stateCopyVector(state_t* state, const cplx_t vector[]);
  * =====================================================================================================================
  */
 void stateFreeVector(state_t* state);
-
-void stateFree(state_t* state);
 
 /*
  * =====================================================================================================================

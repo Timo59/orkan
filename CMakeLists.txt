@@ -3,6 +3,16 @@ project(Q C)
 include(CTest)
 set(CMAKE_C_STANDARD 17)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    message(STATUS "Building on macOS")
+    add_definitions(-DMACOS)
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(STATUS "Building on Linux")
+    add_definitions(-DLINUX)
+else()
+    message(FATAL_ERROR "Unknown system: ${CMAKE_SYSTEM_NAME}")
+endif ()
+
 find_package(Git QUIET)
 if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     # Update submodules as needed
@@ -18,7 +28,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     endif()
 endif()
 
-set(GATEMETH "OMP" CACHE STRING "Choose gate method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
+set(GATEMETH "BLAS" CACHE STRING "Choose gate method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
 set(CIRCMETH "BLAS" CACHE STRING "Choose circuit method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
 set(MEASMETH "BLAS_OMP" CACHE STRING "Choose measurement method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
 set_property(CACHE GATEMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
@@ -29,9 +39,7 @@ add_subdirectory(extern/Unity)
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                       # include double has to be called
                                                                                     # manually when building unity lib
 add_library(BLAS_compiler_flags INTERFACE)                                          # Interface library specifying usage
-                                                                                    # requirements for dependents of
-target_compile_definitions(BLAS_compiler_flags INTERFACE ACCELERATE_NEW_LAPACK)     # BLAS specs
-target_link_libraries(BLAS_compiler_flags INTERFACE
+target_link_libraries(BLAS_compiler_flags INTERFACE                                 # requirements for dependents of
         -lblas
         -llapack
 )
@@ -56,10 +64,10 @@ target_include_directories(Test_flags                                           
 )
 target_link_libraries(Test_flags INTERFACE Test unity)
 
-add_subdirectory(statelib)
-add_subdirectory(gatelib)
+add_subdirectory(state)
+add_subdirectory(gate)
 
-add_executable(gatelibTest gatelib/test/testQhipster.c)
+add_executable(gatelibTest gate/test/testQhipster.c)
 target_link_libraries(gatelibTest
         PRIVATE Gate
                 State
