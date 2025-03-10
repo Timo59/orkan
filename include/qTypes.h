@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef QTYPES_H
 #define QTYPES_H
 
@@ -6,7 +8,6 @@
  *                                                      includes
  * =====================================================================================================================
  */
-
 #ifndef __COMPLEX_H__
 #include <complex.h>
 #endif
@@ -26,11 +27,21 @@ extern "C" {
  *                                                  type definitions
  * =====================================================================================================================
  */
-
-typedef unsigned long long      complength_t;
-typedef double complex          cplx_t;
-typedef unsigned short          depth_t;
-typedef unsigned long long      dim_t;
+typedef unsigned long long          complength_t;
+typedef double complex              cplx_t;
+typedef unsigned short              depth_t;
+#ifdef MACOS
+#define ACCELERATE_NEW_LAPACK                                   // Required to use cblas_new
+#define ACCELERATE_LAPACK_ILP64                                 // __LAPACK_int is a 64-bit integer
+#include <vecLib/lapack_types.h>
+    typedef __LAPACK_double_complex cplx_t;
+    typedef __LAPACK_int            dim_t;
+#else
+#define OPENBLAS_USE64BITINT
+#include <openblas_config.h>
+    typedef double complex          cplx_t;
+    typedef blasint                 dim_t;
+#endif
 typedef enum pauli {
     ID,
     X,

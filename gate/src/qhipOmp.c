@@ -10,13 +10,16 @@
 #include "gatelib.h"
 #endif
 
+#ifndef PSTATE_H
+#include "pstate.h"
+#endif
 /*
  * =====================================================================================================================
  *                                                  Pauli gates
  * =====================================================================================================================
  */
 
-void applyX(state_t* state, qubit_t qubit) {
+void applyX(state_t* state, const qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
 
@@ -29,7 +32,7 @@ void applyX(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyY(state_t* state, qubit_t qubit) {
+void applyY(state_t* state, const qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
 
@@ -44,7 +47,7 @@ void applyY(state_t* state, qubit_t qubit) {
     }
 }
 
-void applyZ(state_t* state, qubit_t qubit) {
+void applyZ(state_t* state, const qubit_t qubit) {
     dim_t flipDistance = POW2(qubit, dim_t);
     dim_t indices = POW2(state->qubits - 1, dim_t);
 

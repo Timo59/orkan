@@ -11,8 +11,8 @@
 #include "qTypes.h"
 #endif
 
-#ifndef STATELIB_H
-#include "statelib.h"
+#ifndef PSTATE_H
+#include "pstate.h"
 #endif
 
 #ifndef GATELIB_H

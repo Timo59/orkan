@@ -1,10 +1,6 @@
 set(INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-# Introduce compile time option of API/specification improved gate operations
-set(GATEMETH OMP CACHE STRING "Select the method to apply quantum gates")
-set_property(CACHE GATEMETH PROPERTY STRINGS BLAS BLAS_OMP GCD OMP PROFILE OLD)
-
 add_library(Gate OBJECT                                                 # Build the object library contributing to qlib
         ${SOURCE_DIR}/gatelib.c                                         # Source file with gates not yet optimized and
         $<$<STREQUAL:${GATEMETH},BLAS>:${SOURCE_DIR}/qhipBLAS.c>        # If BLAS, gates optimized with BLAS
@@ -25,23 +21,7 @@ target_link_libraries(Gate                                      # Link libraries
                 $<$<IN_LIST:${GATEMETH},BLAS_OMP;OMP;PROFILE>:OMP_compiler_flags>
 )
 
-if (${GATEMETH} STREQUAL BLAS)
-    set(INCLUDE_GCD "")
-    set(INCLUDE_OMP "")
-    set(INCLUDE_VECLIB "#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
-elseif (${GATEMETH} STREQUAL BLAS_OMP)
-    set(INCLUDE_GCD "")
-    set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
-    set(INCLUDE_VECLIB "\n#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
-elseif (${GATEMETH} STREQUAL GCD)
-    set(INCLUDE_GCD "#ifndef __DISPATCH_PUBLIC__\n#include <dispatch/dispatch.h>\n#endif")
-    set(INCLUDE_OMP "")
-    set(INCLUDE_VECLIB "")
-elseif (${GATEMETH} STREQUAL OMP)
-    set(INCLUDE_GCD "")
-    set(INCLUDE_OMP "#ifndef __OMP_H\n#include <omp.h>\n#endif")
-    set(INCLUDE_VECLIB "")
-elseif (${GATEMETH} STREQUAL PROFILE)
+if (${GATEMETH} STREQUAL PROFILE)
     set(INCLUDE_GCD "#ifndef __DISPATCH_PUBLIC__\n#include <dispatch/dispatch.h>\n#endif\n")
     set(INCLUDE_OMP "\n#ifndef __OMP_H\n#include <omp.h>\n#endif\n")
     set(INCLUDE_VECLIB "\n#ifndef __VECLIB__\n#include <vecLib/vecLib.h>\n#endif")
@@ -60,6 +40,6 @@ elseif (${GATEMETH} STREQUAL PROFILE)
                          \nvoid applyZ_omp(state_t* state, qubit_t qubit);\n")
 endif ()
 
-configure_file(${INCLUDE_DIR}/gatelib.h.in gatelib.h @ONLY)
+configure_file(${INCLUDE_DIR}/qhipster.h.in qhipster.h @ONLY)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/gatelib.h DESTINATION include/qlib)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/qhipster.h DESTINATION include/qlib)
