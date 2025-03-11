@@ -28,10 +28,8 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     endif()
 endif()
 
-set(GATEMETH "BLAS" CACHE STRING "Choose gate method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
 set(CIRCMETH "BLAS" CACHE STRING "Choose circuit method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
 set(MEASMETH "BLAS_OMP" CACHE STRING "Choose measurement method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
-set_property(CACHE GATEMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
 set_property(CACHE CIRCMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
 set_property(CACHE MEASMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
 
@@ -57,17 +55,27 @@ target_link_directories(OMP_compiler_flags INTERFACE "/opt/homebrew/opt/libomp/l
 add_library(Q_compiler_flags INTERFACE)                                             # Interface library specifying usage
 target_compile_options(Q_compiler_flags INTERFACE -O0)                              # requirements for all Q dependents
 
+set(TEST_SRC
+        ${CMAKE_SOURCE_DIR}/internal/src/finDiff.c
+        ${CMAKE_SOURCE_DIR}/internal/src/gateMat.c
+        ${CMAKE_SOURCE_DIR}/internal/src/linalg.c
+        ${CMAKE_SOURCE_DIR}/internal/src/pauliMat.c
+        ${CMAKE_SOURCE_DIR}/internal/src/utils.c
+)
 add_library(Test_flags INTERFACE)                                                   # Interface library specifying usage
 target_include_directories(Test_flags                                               # requirements for unit tests
         INTERFACE   ${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/internal/include
 )
-target_link_libraries(Test_flags INTERFACE Test unity)
+target_link_libraries(Test_flags INTERFACE unity)
 
 add_subdirectory(state)
 add_subdirectory(gate)
 
-add_executable(gatelibTest gate/test/testQhipster.c)
+add_executable(gatelibTest
+        gate/test/testQhipster.c
+        ${TEST_SRC}
+)
 target_link_libraries(gatelibTest
         PRIVATE Gate
                 State
