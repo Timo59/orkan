@@ -346,8 +346,8 @@ void applyCX(state_t* state, const qubit_t target, const qubit_t control) {
     const dim_t incr = 1;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) { // Outer loop ensures that control qubit is active
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
-            zswap_(&vecSize, state->vec + j, &incr, state->vec + stride, &incr);
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
+            zswap_(&vecSize, state->vec + j, &incr, state->vec + j + stride, &incr);
         }
     }
 }
@@ -385,8 +385,8 @@ void applyCY(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t s = I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
-            zrot_(&vecSize, state->vec, &incr, state->vec + j + stride, &incr, &c, &s);
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
+            zrot_(&vecSize, state->vec + j, &incr, state->vec + j + stride, &incr, &c, &s);
             zscal_(&vecSize, &minus, state->vec + j, &incr);
         }
     }
@@ -423,7 +423,7 @@ void applyCZ(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t minus = -1;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zscal_(&vecSize, &minus, state->vec + j + stride, &incr);
         }
     }
@@ -466,7 +466,7 @@ void applyCS(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t alpha = I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
         }
     }
@@ -504,7 +504,7 @@ void applyCSdagger(state_t* state, const qubit_t target, const qubit_t control) 
     const cplx_t alpha = -I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
         }
     }
@@ -543,7 +543,7 @@ void applyCH(state_t* state, const qubit_t target, const qubit_t control) {
     const double s = -INVSQRT2;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zscal_(&vecSize, &minus, state->vec + j + stride, &incr);
             zdrot_(&vecSize, state->vec + j, &incr, state->vec + j + stride, &incr, &c, &s);
         }
@@ -588,7 +588,7 @@ void applyCHy(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t s = INVSQRT2 * I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zscal_(&vecSize, &minus, state->vec + j + stride, &incr);
             zrot_(&vecSize, state->vec + j, &incr, state->vec + j + stride, &incr, &c, &s);
         }
@@ -632,7 +632,7 @@ void applyCT(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t alpha = INVSQRT2 + INVSQRT2 * I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
         }
     }
@@ -669,7 +669,7 @@ void applyCTdagger(state_t* state, const qubit_t target, const qubit_t control) 
     const cplx_t alpha = INVSQRT2 - INVSQRT2 * I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
         }
     }
@@ -709,7 +709,7 @@ void applyCP(state_t* state, const qubit_t target, const qubit_t control, const 
     const cplx_t alpha = cos(angle) + sin(angle) * I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
-        for (dim_t j = i; j < innerBound; j *= innerStep) {
+        for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
         }
     }
@@ -779,3 +779,16 @@ void applyToffoli(state_t* state, const qubit_t target, const qubit_t control1, 
         }
     }
 }
+
+//void applyToffoli(state_t* state, const qubit_t target, const qubit_t control1, const qubit_t control2) {
+//    dim_t stride = POW2(target, dim_t);
+//    dim_t stepSize = POW2(target + 1, dim_t);
+//
+//    for (dim_t i = 0; i < state->dim; i += stepSize) {
+//        for (dim_t j = i; j < i + stride; ++j) {
+//            if (j & POW2(control1, dim_t) && j & POW2(control2, dim_t)) {
+//                SWAP(state->vec + j, state->vec + j + stride, cplx_t);
+//            }
+//        }
+//    }
+//}

@@ -68,41 +68,41 @@ void applyRZdagger(state_t* state, qubit_t qubit, double angle);
  *                                              Controlled Pauli gates
  * =====================================================================================================================
  */
-void applyCX(state_t* state, qubit_t control, qubit_t target);
-void applyCY(state_t* state, qubit_t control, qubit_t target);
-void applyCZ(state_t* state, qubit_t control, qubit_t target);
+void applyCX(state_t* state, qubit_t target, qubit_t control);
+void applyCY(state_t* state, qubit_t target, qubit_t control);
+void applyCZ(state_t* state, qubit_t target, qubit_t control);
 
 /*
  * =====================================================================================================================
  *                                              Controlled Clifford gates
  * =====================================================================================================================
  */
-void applyCS(state_t* state, qubit_t control, qubit_t target);
-void applyCSdagger(state_t* state, qubit_t control, qubit_t target);
-void applyCH(state_t* state, qubit_t control, qubit_t target);
+void applyCS(state_t* state, qubit_t target, qubit_t control);
+void applyCSdagger(state_t* state, qubit_t target, qubit_t control);
+void applyCH(state_t* state, qubit_t target, qubit_t control);
 
 /*
  * =====================================================================================================================
  *                                              Controlled Hadamard-Y gate
  * =====================================================================================================================
  */
-void applyCHy(state_t* state, qubit_t control, qubit_t target);
+void applyCHy(state_t* state, qubit_t target, qubit_t control);
 
 /*
  * =====================================================================================================================
  *                                                  Controlled T gate
  * =====================================================================================================================
  */
-void applyCT(state_t* state, qubit_t control, qubit_t target);
-void applyCTdagger(state_t* state, qubit_t control, qubit_t target);
+void applyCT(state_t* state, qubit_t target, qubit_t control);
+void applyCTdagger(state_t* state, qubit_t target, qubit_t control);
 
 /*
  * =====================================================================================================================
  *                                                  Controlled P gate
  * =====================================================================================================================
  */
-void applyCP(state_t* state, qubit_t control, qubit_t target, double angle);
-void applyCPdagger(state_t* state, qubit_t control, qubit_t target, double angle);
+void applyCP(state_t* state, qubit_t target, qubit_t control, double angle);
+void applyCPdagger(state_t* state, qubit_t target, qubit_t control, double angle);
 
 /*
  * =====================================================================================================================
@@ -116,7 +116,7 @@ void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2);
  *                                              Toffoli gate
  * =====================================================================================================================
  */
-void applyToffoli(state_t* state, qubit_t control1, qubit_t control2, qubit_t target);
+void applyToffoli(state_t* state, qubit_t target, qubit_t control1, qubit_t control2);
 
 #ifdef __cplusplus
 }
