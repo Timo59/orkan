@@ -82,8 +82,8 @@ target_link_libraries(gatelibTest
                 Test_flags
 )
 
-add_subdirectory(circlib)
-add_executable(circlibTest circlib/test/testCirclib.c)
+add_subdirectory(circ)
+add_executable(circlibTest circ/test/testCirclib.c)
 target_include_directories(circlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
 
 target_link_libraries(circlibTest
