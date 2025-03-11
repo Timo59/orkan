@@ -772,10 +772,9 @@ void applyToffoli(state_t* state, const qubit_t target, const qubit_t control1, 
     const dim_t stepSize = POW2(target + 1, dim_t);              // Number of contiguous elements the tensor product
                                                                     // of gate and identities acts on
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-
         for (dim_t j = i; j < i + stride; ++j) {
             if (j & POW2(control1, dim_t) && j & POW2(control2, dim_t)) {
-                SWAP(state->vec + j, state->vec + (j + stride), cplx_t);
+                SWAP(state->vec + j, state->vec + j + stride, cplx_t);
             }
         }
     }

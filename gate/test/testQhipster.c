@@ -663,11 +663,11 @@ void testApplyToffoli(void) {
                     */
                     for (dim_t i = 0; i < dim + 1; ++i) {
                         stateInitVector(&testState, vecs[i]);
-                        cplx_t* reference = cmatVecMul(gateMat, vecs[i], dim);
+                        cplx_t* ref = cmatVecMul(gateMat, vecs[i], dim);
                         applyToffoli(&testState, control1, control2, target);
 
-                        TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
-                        free(reference);
+                        TEST_ASSERT_TRUE(cvectorAlmostEqual(ref, testState.vec, dim, PRECISION));
+                        free(ref);
                     }
                     free(gateMat);
                 }
