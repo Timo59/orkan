@@ -28,6 +28,27 @@
 
 /*
  * =====================================================================================================================
+ *                                                  Internal functions
+ * =====================================================================================================================
+ */
+/*
+ * This function inserts a one at the specified position in the bit string corresponding to the given long integer.
+ *
+ * @param[in] a     Integer the one is inserted into
+ * @param[in] pos   Position in the bit string representation to insert the one
+ *
+ * @return          Integer where one is inserted at pos
+ */
+static inline dim_t insone(dim_t a, dim_t pos) {
+    dim_t left = a & (~0U << pos);                                  // Create a mask of all qubits left to control
+    left = (left << 1) | 1;                                         // Append another bit and set it to one
+    const dim_t right = a & ~(~0U << pos);                          // Create a mask of all qubits right to control
+    const dim_t out = (left | right);                               // Concatenate the two bit strings
+    return out;
+}
+
+/*
+ * =====================================================================================================================
  *                                                  Pauli gates
  * =====================================================================================================================
  */
@@ -312,7 +333,7 @@ void applyRZdagger(state_t* state, const qubit_t qubit, const double angle) {
  * =====================================================================================================================
  */
 /*
- * This function applies a Pauli-X gate on the target qubit conditioned on the control qubit.
+ * This function applies a Pauli-X gate to the target qubit conditioned on the control qubit.
  *
  * @param[in,out] state     Address of the state struct the gate is applied to
  * @param[in] target        Qubit the gate is applied on if control is active
@@ -329,17 +350,14 @@ void applyCX(state_t* state, const qubit_t target, const qubit_t control) {
 
     for (dim_t i = 0; i < indices; i += blockStride) {              // Iterate basis states of free qubits and insert an
                                                                     // active bit at the position control:
-        dim_t left = i & (~0U << control);                          // Create a mask of all qubits left to control
-        left = (left << 1) | 1;                                     // Append another bit and set it to one
-        const dim_t right = i & ~(~0U << control);                  // Create a mask of all qubits right to control
-        const dim_t j = (left | right);                             // Concatenate the two bit strings
+        const dim_t j = insone(i, control);
 
         zswap_(&flipStride, state->vec + j, &incr, state->vec + j + flipStride, &incr);
     }
 }
 
 /*
- * This function applies a Pauli-Y gate on the target qubit conditioned on the control qubit.
+ * This function applies a Pauli-Y gate to the target qubit conditioned on the control qubit.
  *
  * @param[in,out] state     Address of the state struct the gate is applied to
  * @param[in] target        Qubit the gate is applied on if control is active
@@ -355,10 +373,7 @@ void applyCY(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t minus = -I;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zswap_(&flipStride, state->vec + j, &incr, state->vec + j + flipStride, &incr);
         zscal_(&flipStride, &minus, state->vec + j, &incr);
@@ -367,7 +382,7 @@ void applyCY(state_t* state, const qubit_t target, const qubit_t control) {
 }
 
 /*
- * This function applies a Pauli-Z gate on the target qubit conditioned on the control qubit.
+ * This function applies a Pauli-Z gate to the target qubit conditioned on the control qubit.
  *
  * @param[in,out] state     Address of the state struct the gate is applied to
  * @param[in] target        Qubit the gate is applied on if control is active
@@ -382,10 +397,7 @@ void applyCZ(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t minus = -1;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zscal_(&flipStride, &minus, state->vec + j + flipStride, &incr);
     }
@@ -396,6 +408,14 @@ void applyCZ(state_t* state, const qubit_t target, const qubit_t control) {
  *                                              Controlled Clifford gates
  * =====================================================================================================================
  */
+/*
+ * This function applies an S gate to the target qubit conditioned on the control qubit.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] target        Qubit the gate is applied on if control is active
+ * @param[in] control       Qubit controlling the application of the gate
+ *
+ */
 void applyCS(state_t* state, const qubit_t target, const qubit_t control) {
     const dim_t flipStride = POW2(target, dim_t);
     const dim_t blockStride = POW2(target + 1, dim_t);
@@ -404,15 +424,20 @@ void applyCS(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t alpha = I;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zscal_(&flipStride, &alpha, state->vec + j + flipStride, &incr);
     }
 }
 
+/*
+ * This function applies in inverse S gate to the target qubit conditioned on the control qubit.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] target        Qubit the gate is applied on if control is active
+ * @param[in] control       Qubit controlling the application of the gate
+ *
+ */
 void applyCSdagger(state_t* state, const qubit_t target, const qubit_t control) {
     const dim_t flipStride = POW2(target, dim_t);
     const dim_t blockStride = POW2(target + 1, dim_t);
@@ -421,15 +446,20 @@ void applyCSdagger(state_t* state, const qubit_t target, const qubit_t control) 
     const cplx_t alpha = -I;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zscal_(&flipStride, &alpha, state->vec + j + flipStride, &incr);
     }
 }
 
+/*
+ * This function applies a Hadamard gate to the target qubit conditioned on the control qubit.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] target        Qubit the gate is applied on if control is active
+ * @param[in] control       Qubit controlling the application of the gate
+ *
+ */
 void applyCH(state_t* state, const qubit_t target, const qubit_t control) {
     const dim_t flipStride = POW2(target, dim_t);
     const dim_t blockStride = POW2(target + 1, dim_t);
@@ -440,10 +470,7 @@ void applyCH(state_t* state, const qubit_t target, const qubit_t control) {
     const double s = -INVSQRT2;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zscal_(&flipStride, &minus, state->vec + j + flipStride, &incr);
         zdrot_(&flipStride, state->vec + j, &incr, state->vec + j + flipStride, &incr, &c, &s);
@@ -455,6 +482,14 @@ void applyCH(state_t* state, const qubit_t target, const qubit_t control) {
  *                                              Controlled Hadamard-Y gate
  * =====================================================================================================================
  */
+/*
+ * This function applies a Hadamard-Y gate to the target qubit conditioned on the control qubit.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] target        Qubit the gate is applied on if control is active
+ * @param[in] control       Qubit controlling the application of the gate
+ *
+ */
 void applyCHy(state_t* state, const qubit_t target, const qubit_t control) {
     const dim_t flipStride = POW2(target, dim_t);
     const dim_t blockStride = POW2(target + 1, dim_t);
@@ -465,10 +500,7 @@ void applyCHy(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t s = INVSQRT2 * I;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zscal_(&flipStride, &minus, state->vec + j + flipStride, &incr);
         zrot_(&flipStride, state->vec + j, &incr, state->vec + j + flipStride, &incr, &c, &s);
@@ -480,7 +512,14 @@ void applyCHy(state_t* state, const qubit_t target, const qubit_t control) {
  *                                                  Controlled T gate
  * =====================================================================================================================
  */
-
+/*
+ * This function applies a T gate gate to the target qubit conditioned on the control qubit.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] target        Qubit the gate is applied on if control is active
+ * @param[in] control       Qubit controlling the application of the gate
+ *
+ */
 void applyCT(state_t* state, const qubit_t target, const qubit_t control) {
     const dim_t flipStride = POW2(target, dim_t);
     const dim_t blockStride = POW2(target + 1, dim_t);
@@ -489,15 +528,20 @@ void applyCT(state_t* state, const qubit_t target, const qubit_t control) {
     const cplx_t alpha = INVSQRT2 + INVSQRT2 * I;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zscal_(&flipStride, &alpha, state->vec + j + flipStride, &incr);
     }
 }
 
+/*
+ * This function applies an inverse T gate to the target qubit conditioned on the control qubit.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] target        Qubit the gate is applied on if control is active
+ * @param[in] control       Qubit controlling the application of the gate
+ *
+ */
 void applyCTdagger(state_t* state, const qubit_t target, const qubit_t control) {
     const dim_t flipStride = POW2(target, dim_t);
     const dim_t blockStride = POW2(target + 1, dim_t);
@@ -506,10 +550,7 @@ void applyCTdagger(state_t* state, const qubit_t target, const qubit_t control) 
     const cplx_t alpha = INVSQRT2 - INVSQRT2 * I;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zscal_(&flipStride, &alpha, state->vec + j + flipStride, &incr);
     }
@@ -520,7 +561,14 @@ void applyCTdagger(state_t* state, const qubit_t target, const qubit_t control) 
  *                                                  Controlled P gate
  * =====================================================================================================================
  */
-
+/*
+ * This function applies a P gate to the target qubit conditioned on the control qubit.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] target        Qubit the gate is applied on if control is active
+ * @param[in] control       Qubit controlling the application of the gate
+ *
+ */
 void applyCP(state_t* state, const qubit_t target, const qubit_t control, const double angle) {
     const dim_t flipStride = POW2(target, dim_t);
     const dim_t blockStride = POW2(target + 1, dim_t);
@@ -529,10 +577,7 @@ void applyCP(state_t* state, const qubit_t target, const qubit_t control, const 
     const cplx_t alpha = cos(angle) + sin(angle) * I;
 
     for (dim_t i = 0; i < indices; i += blockStride) {
-        dim_t left = i & (~0U << control);
-        left = (left << 1) | 1;
-        const dim_t right = i & ~(~0U << control);
-        const dim_t j = (left | right);
+        const dim_t j = insone(i, control);
 
         zscal_(&flipStride, &alpha, state->vec + j + flipStride, &incr);
     }
@@ -540,4 +585,79 @@ void applyCP(state_t* state, const qubit_t target, const qubit_t control, const 
 
 void applyCPdagger(state_t* state, const qubit_t target, const qubit_t control, const double angle) {
     applyCP(state, control, target, -angle);
+}
+
+/*
+ * =====================================================================================================================
+ *                                                      SWAP
+ * =====================================================================================================================
+ */
+/*
+ * This function swaps the specified qubits.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] qubit1        Qubit to be swapped
+ * @param[in] qubit2        Qubits to be swapped
+ */
+void applySWAP(state_t* state, const qubit_t qubit1, const qubit_t qubit2) {
+    const qubit_t left = MAX(qubit1, qubit2);                       // index of the qubit to the left
+    const qubit_t right = MIN(qubit1, qubit2);                      // index of the qubit to the right
+    const dim_t majorStride = POW2(left + 1, dim_t);                // Number of contiguous elements the tensor product
+                                                                    // of gate and identities acts on
+    const dim_t ubound = POW2(left, dim_t);                         // Number of contiguous elements actually affected
+                                                                    // by the swap (left=0, right=1)
+    const dim_t minorStride = POW2(right + 1, dim_t);               // Range of computational basis states that leave
+    const dim_t lbound = POW2(right, dim_t);                        // Number of contiguous elements swapped
+    const dim_t flipStride = POW2(left, dim_t) - POW2(right, dim_t);    // Stride of basis states with left=0 and
+                                                                    // right=1
+    const dim_t incr = 1;
+    for (dim_t i = lbound; i < state->dim; i += majorStride) {      // Iterate basis states with all zeros to the right
+                                                                    // of and including left and right=1
+        for (dim_t j = i ; j < i + ubound; j += minorStride) {      // Iterate basis states with fixed qubits to the
+                                                                    // left of and including left (left=0)
+            zswap_(&lbound, state->vec + j, &incr, state->vec + j + flipStride, &incr);
+        }
+    }
+}
+
+/*
+ * =====================================================================================================================
+ *                                              Toffoli gate
+ * =====================================================================================================================
+ */
+/*
+ * This function applies the Toffoli gate; i.e., a Pauli-X gate to the target controlled by the specified qubits.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] target        Qubit the gate is applied to if both control qubits are active
+ * @param[in] control1      Control qubit one
+ * @param[in] control2      Control qubit two
+ */
+
+void applyToffoli(state_t* state, const qubit_t target, const qubit_t control1, const qubit_t control2) {
+    const dim_t flipStride = POW2(target, dim_t);                   // Distance between vector elements differing only
+                                                                    // at position qubit
+    const dim_t blockStride = POW2(target + 1, dim_t);              // Number of contiguous elements the tensor product
+                                                                    // of gate and identities acts on
+    for (dim_t i = 0; i < state->dim; i += blockStride) {
+
+        for (dim_t j = i; j < i + flipStride; ++j)
+        {
+            /*
+            The Pauli-X gate is applied to target only if both control bits in the index's binary
+            representation are set to one.
+            */
+            if (j & POW2(control1, dim_t) && j & POW2(control2, dim_t))
+            {
+                /*
+                Meeting the condition, the value of the j-th entry originating from the pointer
+                stored in state is stored to a temporary double complex variable. Subesequently, one
+                sets the value the j-th entry's pointer holds to be the value of the entry whose
+                index's binary representation only differs in qubit. Finally, the latter pointer is
+                set to the value stored under the temporary and j.
+                */
+                SWAP(state->vec + j, state->vec + (j + flipStride), cplx_t);
+            }
+        }
+    }
 }
