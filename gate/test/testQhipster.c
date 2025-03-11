@@ -274,7 +274,7 @@ void testApplyCX(void) {
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                   // For each state vector
                     stateInitVector(&testState, vecs[i]);                   // Copy state vector to testState's vector,
-                    applyCX(&testState, control, target);                   // apply test function
+                    applyCX(&testState, target, control);                   // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, vecs[i], dim);  // Matrix multiplication as reference
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
@@ -313,7 +313,7 @@ void testApplyCY(void) {
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                   // For each state vector
                     stateInitVector(&testState, vecs[i]);                   // Copy state vector to testState's vector,
-                    applyCY(&testState, control, target);                   // apply test function
+                    applyCY(&testState, target, control);                   // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, vecs[i], dim);  // Matrix multiplication as reference
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
@@ -352,7 +352,7 @@ void testApplyCZ(void) {
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                   // For each state vector
                     stateInitVector(&testState, vecs[i]);                   // Copy state vector to testState's vector,
-                    applyCZ(&testState, control, target);                   // apply test function
+                    applyCZ(&testState, target, control);                   // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, vecs[i], dim);  // Matrix multiplication as reference
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
@@ -391,7 +391,7 @@ void testApplyCS(void) {
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                   // For each state vector
                     stateInitVector(&testState, vecs[i]);                   // Copy state vector to testState's vector,
-                    applyCS(&testState, control, target);                   // apply test function
+                    applyCS(&testState, target, control);                   // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, vecs[i], dim);  // Matrix multiplication as reference
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
@@ -430,7 +430,7 @@ void testApplyCH(void) {
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                   // For each state vector
                     stateInitVector(&testState, vecs[i]);                   // Copy state vector to testState's vector,
-                    applyCH(&testState, control, target);                   // apply test function
+                    applyCH(&testState, target, control);                   // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, vecs[i], dim);  // Matrix multiplication as reference
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
@@ -471,7 +471,7 @@ void testApplyCT(void) {
                                                                                         // representation
                 for (dim_t i = 0; i < dim + 1; ++i) {                   // For each state vector
                     stateInitVector(&testState, vecs[i]);                   // Copy state vector to testState's vector,
-                    applyCT(&testState, control, target);                   // apply test function
+                    applyCT(&testState, target, control);                   // apply test function
                     cplx_t* reference = cmatVecMul(gateMat, vecs[i], dim);  // Matrix multiplication as reference
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(reference, testState.vec, dim, PRECISION));
                     free(reference);
@@ -664,7 +664,7 @@ void testApplyToffoli(void) {
                     for (dim_t i = 0; i < dim + 1; ++i) {
                         stateInitVector(&testState, vecs[i]);
                         cplx_t* ref = cmatVecMul(gateMat, vecs[i], dim);
-                        applyToffoli(&testState, control1, control2, target);
+                        applyToffoli(&testState, target, control1, control2);
 
                         TEST_ASSERT_TRUE(cvectorAlmostEqual(ref, testState.vec, dim, PRECISION));
                         free(ref);
