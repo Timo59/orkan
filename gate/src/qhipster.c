@@ -14,10 +14,6 @@
 #include "pstate.h"
 #endif
 
-#ifndef _STDLIB_H_
-#include <stdlib.h>
-#endif
-
 #ifdef MACOS
 #include <vecLib/blas_new.h>
 #include <vecLib/lapack.h>
@@ -217,7 +213,13 @@ void applyTdagger(state_t* state, const qubit_t qubit) {
  *                                                      P gate
  * =====================================================================================================================
  */
-
+/*
+ * This function applies the P-gate to the specified qubit in the specified pure quantum state.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] qubit         Qubit the gate acts on
+ * @param[in] angle
+ */
 void applyP(state_t* state, const qubit_t qubit, const double angle) {
     const dim_t stride = POW2(qubit, dim_t);
     const dim_t stepSize = POW2(qubit + 1, dim_t);
@@ -750,6 +752,16 @@ void applySWAP(state_t* state, const qubit_t qubit1, const qubit_t qubit2) {
             zswap_(&lbound, state->vec + j, &incr, state->vec + j + stride, &incr);
         }
     }
+}
+/*
+ * This function performs an imaginary time evolution of the specified state by a swap gate the specified qubits.
+ *
+ * @param[in,out] state     Address of the state struct the gate is applied to
+ * @param[in] qubit1        Qubit to be swapped
+ * @param[in] qubit2        Qubits to be swapped
+ */
+void applyRswap(state_t* state, qubit_t qubit1, qubit_t qubit2) {
+
 }
 
 /*
