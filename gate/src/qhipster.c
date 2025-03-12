@@ -738,18 +738,17 @@ void applySWAP(state_t* state, const qubit_t qubit1, const qubit_t qubit2) {
     const qubit_t right = MIN(qubit1, qubit2);                      // index of the qubit to the right
     const dim_t outerStep = POW2(left + 1, dim_t);                  // Number of contiguous elements the tensor product
                                                                     // of gate and identities acts on
-    const dim_t ubound = POW2(left, dim_t);                         // Number of contiguous elements actually affected
+    const dim_t innerBound = POW2(left, dim_t);                     // Number of contiguous elements actually affected
                                                                     // by the swap (left=0, right=1)
     const dim_t innerStep = POW2(right + 1, dim_t);                 // Range of computational basis states that leave
-    const dim_t lbound = POW2(right, dim_t);                        // Number of contiguous elements swapped
-    const dim_t stride = POW2(left, dim_t) - POW2(right, dim_t);    // Stride of basis states with left=0 and
-                                                                    // right=1
+    const dim_t stride = POW2(right, dim_t);                        // Number of contiguous elements swapped
     const dim_t incr = 1;
-    for (dim_t i = lbound; i < state->dim; i += outerStep) {      // Iterate basis states with all zeros to the right
+
+    for (dim_t i = 0; i < state->dim; i += outerStep) {             // Iterate basis states with all zeros to the right
                                                                     // of and including left and right=1
-        for (dim_t j = i ; j < i + ubound; j += innerStep) {      // Iterate basis states with fixed qubits to the
-                                                                    // left of and including left (left=0)
-            zswap_(&lbound, state->vec + j, &incr, state->vec + j + stride, &incr);
+        for (dim_t j = i ; j < i + innerBound; j += innerStep) {        // Iterate basis states with fixed qubits to the
+                                                                        // left of and including left (left=0)
+            zswap_(&stride, state->vec + j + stride, &incr, state->vec + j + innerBound, &incr);
         }
     }
 }
@@ -760,8 +759,33 @@ void applySWAP(state_t* state, const qubit_t qubit1, const qubit_t qubit2) {
  * @param[in] qubit1        Qubit to be swapped
  * @param[in] qubit2        Qubits to be swapped
  */
-void applyRswap(state_t* state, qubit_t qubit1, qubit_t qubit2) {
+void applyRswap(state_t* state, const qubit_t qubit1, const qubit_t qubit2, const double angle) {
+    const qubit_t left = MAX(qubit1, qubit2);                       // index of the qubit to the left
+    const qubit_t right = MIN(qubit1, qubit2);                      // index of the qubit to the right
+    const dim_t outerStep = POW2(left + 1, dim_t);                  // Number of contiguous elements the tensor product
+                                                                    // of gate and identities acts on
+    const dim_t innerBound = POW2(left, dim_t);                     // Number of contiguous elements actually affected
+                                                                    // by the swap (left=0, right=1)
+    const dim_t innerStep = POW2(right + 1, dim_t);                 // Range of computational basis states that leave
+    const dim_t stride = POW2(right, dim_t);                        // Number of contiguous elements swapped
+    const dim_t incr = 1;
+    const double c = cos(angle / 2.);
+    const cplx_t s = -I * sin(angle / 2.);
+    const cplx_t e = (cplx_t) c + s;                                // cos(angle/2) - i sin(angle/2)
 
+    for (dim_t i = 0; i < state->dim; i += outerStep) {             // Iterate basis states with all zeros to the right
+                                                                    // of and including left and right=1
+        for (dim_t j = i ; j < i + innerBound; j += innerStep) {    // Iterate basis states with fixed qubits to the
+                                                                    // left of and including left (left=0)
+           zscal_(&stride, &e, state->vec + j, &incr);                          // Multiply bases with q1=0 and q2=0 by
+                                                                                // e^-i*angle
+           zscal_(&stride, &e, state->vec + j + stride + innerBound, &incr);    // Multiply bases with q1=1 and q2=1 by
+                                                                                // e^-i*angle
+           zrot_(&stride, state->vec + j + stride, &incr, state->vec + j + innerBound, &incr, &c, &s);
+                                                                    // Perform a rotation in the complex plain of bases
+                                                                    // with q1=0, q2=1 and q1=1, q2=0, respectively
+        }
+    }
 }
 
 /*
@@ -791,16 +815,3 @@ void applyToffoli(state_t* state, const qubit_t target, const qubit_t control1, 
         }
     }
 }
-
-//void applyToffoli(state_t* state, const qubit_t target, const qubit_t control1, const qubit_t control2) {
-//    dim_t stride = POW2(target, dim_t);
-//    dim_t stepSize = POW2(target + 1, dim_t);
-//
-//    for (dim_t i = 0; i < state->dim; i += stepSize) {
-//        for (dim_t j = i; j < i + stride; ++j) {
-//            if (j & POW2(control1, dim_t) && j & POW2(control2, dim_t)) {
-//                SWAP(state->vec + j, state->vec + j + stride, cplx_t);
-//            }
-//        }
-//    }
-//}

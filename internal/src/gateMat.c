@@ -236,6 +236,65 @@ cplx_t* swapGateMat(qubit_t qubits, qubit_t qubit1, qubit_t qubit2) {
     return result;
 }
 
+cplx_t* RswapMat(const qubit_t qubits, const qubit_t right, const double angle) {
+    const cplx_t RSWAPMAT[16] = {cos(angle / 2.) - I * sin(angle / 2.), 0, 0, 0,\
+                                 0, cos(angle / 2.), -I * sin(angle / 2.), 0,\
+                                 0, -I * sin(angle / 2.), cos(angle / 2.), 0,\
+                                 0, 0, 0, cos(angle / 2.) - I * sin(angle / 2.)};
+    cplx_t* out = ONE;
+
+    for (qubit_t i = 0; i < qubits; ++i) {
+        cplx_t* tmp;
+        if (i == right) {
+            tmp = ckronecker(RSWAPMAT, out, 4, POW2(i, dim_t));
+            if (i != 0) {
+                free(out);
+            }
+            ++i;
+        }
+        else {
+            tmp = ckronecker(IDMAT, out, 2, POW2(i, dim_t));
+            if (i != 0) {
+                free(out);
+            }
+        }
+        out = tmp;
+    }
+    return out;
+}
+
+cplx_t* RswapGateMat(const qubit_t qubits, const qubit_t qubit1, const qubit_t qubit2, const double angle) {
+    const dim_t dim = POW2(qubits, dim_t);
+    const qubit_t left = MAX(qubit1, qubit2);
+    const qubit_t right = MIN(qubit1, qubit2);
+    cplx_t* out = identityMat(qubits);
+    cplx_t* tmp;
+
+    for (qubit_t i = right; i < left - 1; ++i) {                // Swap right qubit until right and left qubit are
+        cplx_t* neighborSwap = neighboringSwapGateMat(qubits, i);   // next to each other
+        tmp = cmatMul(neighborSwap, out, dim);
+        free(out);
+        free(neighborSwap);
+        out = tmp;
+    }
+
+    cplx_t* rswap = RswapMat(qubits, left - 1, angle);              // Apply the imaginary time evolution by the
+    tmp = cmatMul(rswap, out, dim);                                 // time angle with SWAP to the adjacent qubits
+    free(rswap);
+    free(out);
+    out = tmp;
+
+    for (qubit_t i = left - 1; i > right; --i) {                    // reverse the above transposition by a sequence of
+        cplx_t* neighborSwap = neighboringSwapGateMat(qubits, i - 1);   // swaps
+        tmp = cmatMul(neighborSwap, out, dim);
+        free(out);
+        free(neighborSwap);
+        out = tmp;
+    }
+
+    return out;
+}
+
 /*
  * This function computes the matrix representation of any single qubit gate with conditional execution depending on the
  * state of two other qubits.
