@@ -110,7 +110,7 @@ void applyCPdagger(state_t* state, qubit_t target, qubit_t control, double angle
  * =====================================================================================================================
  */
 void applySWAP(state_t* state, qubit_t qubit1, qubit_t qubit2);
-void applyRswap(state_t* state, qubit_t qubit1, qubit_t qubit2);
+void applyRswap(state_t* state, qubit_t qubit1, qubit_t qubit2, double angle);
 
 /*
  * =====================================================================================================================

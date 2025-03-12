@@ -630,6 +630,34 @@ void testApplySWAP(void) {
     }
 }
 
+void testApplyRswap(void) {
+    for (qubit_t qubits = 2; qubits <= MAXQUBITS; ++qubits) {
+        dim_t dim = POW2(qubits, dim_t);                            // Hilbert space dimension
+        state_t testState;                                          // Initialize a pure quantum state with specified
+        stateInitEmpty(&testState, qubits);                         // number of qubits
+        cplx_t** vecs = generateTestVectors(qubits);                // State vectors for matrix multiplication
+        const double angle = qubits * 0.25;
+
+        for (qubit_t right = 0; right < qubits - 1 ; ++right) {         // For each constituent in the swap
+                                                                        // up to second to last qubit
+            for (qubit_t left = right + 1; left < qubits; ++left) {     // For each qubit at least one qubit away
+                cplx_t* gateMat = RswapGateMat(qubits, right, left, angle);
+
+                for (dim_t i = 0; i < dim + 1; ++i) {
+                    stateInitVector(&testState, vecs[i]);
+                    applyRswap(&testState, right, left, angle);
+                    cplx_t* ref = cmatVecMul(gateMat, vecs[i], dim);
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(ref, testState.vec, dim, PRECISION));
+                    free(ref);
+                }
+                free(gateMat);
+            }
+        }
+        freeTestVectors(vecs, qubits);
+        stateFreeVector(&testState);
+    }
+}
+
 /*
  * =====================================================================================================================
  *                                              test Toffoli
@@ -704,6 +732,7 @@ int main(void) {
     RUN_TEST(testApplyRY);
     RUN_TEST(testApplyRZ);
     RUN_TEST(testApplySWAP);
+    RUN_TEST(testApplyRswap);
     RUN_TEST(testApplyToffoli);
     return UNITY_END();
 }

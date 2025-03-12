@@ -102,6 +102,8 @@ cplx_t* neighboringSwapGateMat(qubit_t qubits, qubit_t target);
 
 cplx_t* swapGateMat(qubit_t qubits, qubit_t qubit1, qubit_t qubit2);
 
+cplx_t* RswapGateMat(qubit_t qubits, qubit_t qubit1, qubit_t qubit2, double angle);
+
 cplx_t* doublyControlledGateMat(const cplx_t mat[],qubit_t qubits, qubit_t control1, qubit_t control2, qubit_t target);
 
 #endif /* GATEMAT_H */
