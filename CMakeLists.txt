@@ -6,9 +6,13 @@ set(CMAKE_C_STANDARD 17)
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(STATUS "Building on macOS")
     add_definitions(-DMACOS)
+    set(MACOS 1)
+    set(LINUX 0)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Building on Linux")
     add_definitions(-DLINUX)
+    set(MACOS 0)
+    set(LINUX 1)
 else()
     message(FATAL_ERROR "Unknown system: ${CMAKE_SYSTEM_NAME}")
 endif ()
@@ -38,7 +42,9 @@ target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                   
                                                                                     # manually when building unity lib
 add_library(BLAS_compiler_flags INTERFACE)                                          # Interface library specifying usage
 target_link_libraries(BLAS_compiler_flags INTERFACE                                 # requirements for dependents of
-        -lblas
+        $<${MACOS}:-lblas>
+        $<${LINUX}:-lopenblas>
+        $<${LINUX}:-lpthread>
         -llapack
 )
 
