@@ -61,7 +61,7 @@ void stateFreeVector(state_t* state);
  *                                              Binary operations
  * =====================================================================================================================
  */
-cplx_t stateOverlap(const state_t* state1, const state_t* state2);
+cplx_t stateOverlap(state_t state1, state_t state2);
 
 #ifdef __cplusplus
 }

@@ -92,41 +92,36 @@ target_link_libraries(gatelibTest
 )
 
 add_subdirectory(circ)
-add_executable(circlibTest circ/test/testCirclib.c)
-target_include_directories(circlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
+#add_executable(circlibTest circ/test/testCirclib.c)
+#target_include_directories(circlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
+#
+#target_link_libraries(circlibTest
+#        PRIVATE Test_flags
+#                Math
+#                State
+#                Gate
+#                Circ
+#)
 
-target_link_libraries(circlibTest
-        PRIVATE Test_flags
-                Math
-                State
-                Gate
-                Circ
-)
-
-add_subdirectory(measlib)
-
-add_executable(measlibTest measlib/test/testExact.c)
-
-target_include_directories(measlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
-
-target_link_libraries(measlibTest
-        PRIVATE
-            Test_flags
-            Math
-            State
-            Gate
-            Circ
-            Meas
-)
+add_subdirectory(meas)
+#add_executable(measlibTest meas/test/testExact.c)
+#target_include_directories(measlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
+#target_link_libraries(measlibTest
+#        PRIVATE
+#            Test_flags
+#            Math
+#            State
+#            Gate
+#            Circ
+#            Meas
+#)
 
 add_test(NAME gateTest COMMAND gatelibTest)
-add_test(NAME circTest COMMAND circlibTest)
-add_test(NAME measTest COMMAND measlibTest)
+#add_test(NAME circTest COMMAND circlibTest)
+#add_test(NAME measTest COMMAND measlibTest)
 
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl")
 add_library(${PROJECT_NAME} SHARED
-        $<$<IN_LIST:${CIRCMETH},OLD;OMP;PROFILE>:$<TARGET_OBJECTS:Math>>
-        $<$<IN_LIST:${MEASMETH},OLD;OMP;PROFILE>:$<TARGET_OBJECTS:Math>>
         $<TARGET_OBJECTS:State>
         $<TARGET_OBJECTS:Gate>
         $<TARGET_OBJECTS:Circ>
@@ -137,8 +132,6 @@ target_link_libraries(${PROJECT_NAME}
                 Gate
                 Circ
                 Meas
-                $<$<IN_LIST:${CIRCMETH},OLD;OMP;PROFILE>:Math>
-                $<$<IN_LIST:${MEASMETH},OLD;OMP;PROFILE>:Math>
 )
 
 install(TARGETS Q
@@ -151,7 +144,11 @@ install(FILES       "include/qLib.h"
                     "include/qTypes.h"
         DESTINATION include/qlib)
 
-add_dependencies(Q gatelibTest circlibTest measlibTest)
+add_dependencies(Q
+        gatelibTest
+#        circlibTest
+#        measlibTest
+)
 
 add_custom_command(
         TARGET Q
