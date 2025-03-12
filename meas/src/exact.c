@@ -1,0 +1,99 @@
+//
+// Created by Timo Ziegler on 12.03.25.
+//
+/*
+ * =====================================================================================================================
+ *                                                      Includes
+ * =====================================================================================================================
+ */
+#ifndef EXACT_H
+#include "exact.h"
+#endif
+
+#ifndef __MATH__
+#include <math.h>
+#endif
+
+#ifndef _STDLIB_H_
+#include <stdlib.h>
+#endif
+
+#ifndef _STDIO_H_
+#include <stdio.h>
+#endif
+
+#ifdef MACOS
+#include <vecLib/blas_new.h>
+#include <vecLib/lapack.h>
+#else
+#include <openblas-pthread/f77blas.h>
+#endif
+
+/*
+ * =====================================================================================================================
+ *                                                  Function definitions
+ * =====================================================================================================================
+ */
+/*
+ * This function returns the mean value of an observable with respect to a quantum state
+ *
+ * @param[in,out]   state   Quantum state; untouched by the function
+ * @param[in]       obs     Diagonal entries of an observanle (is required to be diagonalizable in computational basis)
+ *
+ * @return  The mean value of the observable with respect to the quantum state with DOUBLE PRECISION
+ */
+double meanObs(state_t* state, const double obs[]) {
+    double out = 0;
+    for (dim_t i = 0; i < state->dim; ++i) {
+        out += pow(cabs(state->vec[i]), 2) * obs[i];
+    }
+    return out;
+}
+
+/*
+ * This function returns the gradient of an observable with respect to a quantum state after the application of a
+ * parametrized quantum circuit
+ *
+ * @param[in,out]   state   Input quantum state to the PQC. On exit, the output of the PQC with the CURRENT parameter
+ *                          setting
+ * @param[in]       d       Number of Parametrized Quantum Blocks in the PQC
+ * @param[in]       pqbs[]  Functions resembling the application of a PQB
+ * @param[in]       par[]   Parameters for the PQC
+ * @param[in]       qbs[]   Functions resembling the application of the evolution operators (Order must be in accordance
+ *                          with pqbs
+ * @param[in]       obs[]   Observable
+ */
+double* gradPQC(state_t* state, const depth_t d, const applyPQB pqbs[], const double par[], const applyQB qbs[],
+    const double obs[]) {
+    const dim_t incr = 1;
+    state_t bra;                                    // state, initialized to the input state, evolved with all evolution
+    stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
+    zcopy_(&state->dim, state->vec, &incr, bra.vec, &incr);
+
+    state_t ket;                                    // state, inheriting each intermediate evolution from input, acted on
+    stateInitEmpty(&ket, state->qubits);            // with the respective evolution operator and finally evolved with
+                                                    // the remaining evolution operators
+    double* out = malloc(d * sizeof (double));
+    if (!out) {
+        fprintf(stderr, "gradPQC: out allocation failed\n");
+        return NULL;
+    }
+
+    applyPQC(&bra, d, pqbs, par);
+    for (dim_t i = 0; i < bra.dim; ++i) {                           // Apply the diagonal observable to bra
+        bra.vec[i] *= obs[i];
+    }
+
+    for (depth_t j = 0; j < d; ++j) {                               // Iterate the components of the PQC
+        pqbs[j](state, par[j]);                                     // Evolve state with the current component,
+        zcopy_(&state->dim, state->vec, &incr, ket.vec, &incr);     // copy its vector to ket
+        qbs[j](&ket);                                               // and apply the observable to ket
+
+        applyPQC(&ket, d - j - 1, pqbs + 1 + j, par + 1 + j);       // Evolve ket with the rest of the evolution operators
+
+        out[j] = 2 * cimag(stateOverlap(bra, ket));
+    }
+    stateFreeVector(&bra);
+    stateFreeVector(&ket);
+    return out;
+    }

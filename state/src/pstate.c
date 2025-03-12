@@ -89,10 +89,9 @@ void stateFreeVector(state_t* state) {
  * =====================================================================================================================
  */
 
-cplx_t stateOverlap(const state_t* state1, const state_t* state2) {
-	cplx_t result = 0;
-	for (dim_t i = 0; i < state1->dim; ++i) {
-		result += conj(state1->vec[i]) * state2->vec[i];
-	}
-	return result;
+cplx_t stateOverlap(const state_t state1, const state_t state2) {
+	const dim_t incr = 1;
+	cplx_t out;
+	zdotc_(&out, &state1.dim, state1.vec, &incr, state2.vec, &incr);
+	return out;
 }

@@ -20,7 +20,10 @@
 #else
 #include <openblas-pthread/f77blas.h>
 #endif
+
+#ifndef _STDIO_H_
 #include <stdio.h>
+#endif
 
 #ifndef QHIPSTER_H
 #include "qhipster.h"
