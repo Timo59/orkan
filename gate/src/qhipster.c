@@ -18,7 +18,7 @@
 #include <vecLib/blas_new.h>
 #include <vecLib/lapack.h>
 #else
-#include <f77blas.h>
+#include <openblas-pthread/f77blas.h>
 #endif
 #include <stdio.h>
 
