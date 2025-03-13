@@ -7,7 +7,7 @@
 #include "qhipster.h"
 #endif
 
-#ifndef HELPFUNC_H
+#ifndef UTILS_H
 #include "utils.h"
 #endif
 
@@ -32,7 +32,6 @@
  *                                                  setUp and tearDown
  * =====================================================================================================================
  */
-
 void setUp(void) {}
 
 void tearDown(void) {}

@@ -52,9 +52,8 @@ target_link_libraries(BLAS_compiler_flags INTERFACE
 )
 
 add_library(OMP_compiler_flags INTERFACE)                                           # Interface library specifying usage
-                                                                                    # requirements for dependents of
-target_compile_options(OMP_compiler_flags INTERFACE                                 # the OpenMP API
-        -Xpreprocessor
+target_compile_options(OMP_compiler_flags INTERFACE                                 # requirements for dependents of
+        -Xpreprocessor                                                              # the OpenMP API
         -fopenmp
 )
 target_include_directories(OMP_compiler_flags INTERFACE "/opt/homebrew/opt/libomp/include")
@@ -80,29 +79,7 @@ target_link_libraries(Test_flags INTERFACE unity)
 
 add_subdirectory(state)
 add_subdirectory(gate)
-
-add_executable(gatelibTest
-        gate/test/testQhipster.c
-        ${TEST_SRC}
-)
-target_link_libraries(gatelibTest
-        PRIVATE Gate
-                State
-                Test_flags
-)
-
 add_subdirectory(circ)
-#add_executable(circlibTest circ/test/testCirclib.c)
-#target_include_directories(circlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
-#
-#target_link_libraries(circlibTest
-#        PRIVATE Test_flags
-#                Math
-#                State
-#                Gate
-#                Circ
-#)
-
 add_subdirectory(meas)
 #add_executable(measlibTest meas/test/testExact.c)
 #target_include_directories(measlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
@@ -116,9 +93,9 @@ add_subdirectory(meas)
 #            Meas
 #)
 
-add_test(NAME gateTest COMMAND gatelibTest)
-#add_test(NAME circTest COMMAND circlibTest)
-#add_test(NAME measTest COMMAND measlibTest)
+add_test(NAME testGate COMMAND gateTest)
+#add_test(NAME testCirc COMMAND circTest)
+#add_test(NAME testMeas COMMAND measTest)
 
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl")
 add_library(${PROJECT_NAME} SHARED
@@ -145,7 +122,7 @@ install(FILES       "include/qLib.h"
         DESTINATION include/qlib)
 
 add_dependencies(Q
-        gatelibTest
+        gateTest
 #        circlibTest
 #        measlibTest
 )

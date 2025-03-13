@@ -31,7 +31,7 @@ extern "C" {
  *                                                  Function definitions
  * =====================================================================================================================
  */
-
+double meanObs(const state_t* state, const double obs[]);
 
 #ifdef __cplusplus
 }
