@@ -11,9 +11,7 @@ target_link_libraries(Circ
         PRIVATE State
 )
 
-add_executable(circTest
-        ${TEST_DIR}/testPQC.c
-)
+add_executable(circTest ${TEST_DIR}/testPQC.c)
 target_link_libraries(circTest
         PRIVATE State
                 Gate
