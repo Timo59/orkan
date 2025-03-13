@@ -32,6 +32,7 @@
 #else
 #include <openblas-pthread/f77blas.h>
 #endif
+#include "../../internal/include/utils.h"
 
 /*
  * =====================================================================================================================
@@ -56,8 +57,8 @@ double meanObs(const state_t* state, const double obs[]) {
 }
 
 /*
- * This function returns the gradient of an observable with respect to a quantum state after the application of a
- * parametrized quantum circuit
+ * This function returns the gradient of an observable's mean value with respect to a quantum state after the
+ * application of a parametrized quantum circuit
  *
  * @param[in,out]   state   Input quantum state to the PQC. On exit, the output of the PQC with the CURRENT parameter
  *                          setting
@@ -67,39 +68,74 @@ double meanObs(const state_t* state, const double obs[]) {
  * @param[in]       qbs[]   Functions resembling the application of the evolution operators (Order must be in accordance
  *                          with pqbs
  * @param[in]       obs[]   Observable
+ * @param[in,out]   grad*   On exit, gradient of the mean value
  */
-double* gradPQC(state_t* state, const depth_t d, const applyPQB pqbs[], const double par[], const applyQB qbs[],
-    const double obs[]) {
+void gradPQC(state_t* state, const depth_t d, const applyPQB pqbs[], const double par[], const applyQB qbs[],
+    const double obs[], double** grad) {
     const dim_t incr = 1;
     state_t bra;                                    // state, initialized to the input state, evolved with all evolution
     stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
     stateInitVector(&bra, state->vec);
 
-
-    double* out = malloc(d * sizeof (double));
-    if (!out) {
-        fprintf(stderr, "gradPQC: out allocation failed\n");
-        return NULL;
+    double* tmp = malloc(d * sizeof (double));
+    if (!tmp) {
+        fprintf(stderr, "gradPQC: grad reallocation failed\n");
+        return;
     }
+    *grad = tmp;
 
     applyPQC(&bra, d, pqbs, par);
     for (dim_t i = 0; i < bra.dim; ++i) {                           // Apply the diagonal observable to bra
         bra.vec[i] *= obs[i];
     }
-#pragma omp parallel for default(none) shared(state, d, pqbs, par, qbs, incr, bra, out) num_threads(d)
+#pragma omp parallel for default(none) shared(state, d, pqbs, par, qbs, grad, incr, bra) num_threads(d)
     for (depth_t j = 0; j < d; ++j) {                               // Iterate the components of the PQC
         state_t ket;                                                // Initialized to the input state; acted on by the
         stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the j-th parameter
         stateInitVector(&ket, state->vec);
         applyPQC(&ket, j, pqbs, par);                               // Apply parametrized blocks up to j
-        zcopy_(&state->dim, state->vec, &incr, ket.vec, &incr);     // copy its vector to ket
         qbs[j](&ket);                                               // and apply the evolution operator to ket
 
-        applyPQC(&ket, d - j - 1, pqbs + 1 + j, par + 1 + j);       // Evolve ket with rest of the evolution operators
+        applyPQC(&ket, d - j, pqbs + j, par + j);                   // Evolve ket with rest of the evolution operators
 
-        out[j] = 2 * cimag(stateOverlap(bra, ket));
+        *(*grad + j) = 2 * cimag(stateOverlap(bra, ket));
         stateFreeVector(&ket);
     }
     stateFreeVector(&bra);
-    return out;
-    }
+}
+
+// void gradPQC(state_t* state, const depth_t d, const applyPQB pqbs[], const double par[], const applyQB qbs[],
+//     const double obs[], double** grad) {
+//     const dim_t incr = 1;
+//     state_t bra;                                    // state, initialized to the input state, evolved with all evolution
+//     stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
+//     stateInitVector(&bra, state->vec);
+//
+//     state_t ket;                            // state, inheriting each intermediate evolution from tmp, acted on with the
+//     stateInitEmpty(&ket, state->qubits);    // respective evolution operator and finally evolved with the remaining
+//     // evolution operators
+//
+//     double* tmp = malloc(d * sizeof (double));
+//     if (!tmp) {
+//         fprintf(stderr, "gradPQC: grad reallocation failed\n");
+//         return;
+//     }
+//     *grad = tmp;
+//
+//     applyPQC(&bra, d, pqbs, par);
+//     for (dim_t i = 0; i < bra.dim; ++i) {                           // Apply the diagonal observable to bra
+//         bra.vec[i] *= obs[i];
+//     }
+//
+//     for (depth_t k = 0; k < d; ++k) {                               // Iterate the components of the PQC
+//         pqbs[k](state, par[k]);                                     // Evolve tmp with the current component,
+//         stateInitVector(&ket, state->vec);                          // copy its vector to ket
+//         qbs[k](state);                                              // and apply the observable to ket
+//
+//         applyPQC(&ket, d - k - 1, pqbs + k + 1, par + k + 1);
+//
+//         *(*grad + k) = 2 * cimag(stateOverlap(bra, ket));           // The k-th entry is the overlap of bra and ket
+//     }
+//     stateFreeVector(&bra);
+//     stateFreeVector(&ket);
+// }
