@@ -44,7 +44,7 @@
  *
  * WARNING: This function only gives appropriate results if the QB is involutory; i.e., QB*QB = Id
  */
-void evolveQB(state_t* state, applyQB qb, double par) {
+void evoQB(state_t* state, const applyQB qb, double par) {
     const dim_t incr = 1;
     const cplx_t c = cos(par);
     const cplx_t s = - I * sin(par);
@@ -57,6 +57,24 @@ void evolveQB(state_t* state, applyQB qb, double par) {
     zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
     qb(state);
     zaxpby_(&state->dim, &c, tmp, &incr, &s, state->vec, &incr);    // cos(par)*state - i*sin(par)*qb(state)
+}
+
+void lcQB(state_t* state, const depth_t d, applyQB qb[], const double c[]) {
+    const dim_t incr = 1;
+    cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
+    cplx_t* out = calloc(state->dim, sizeof (cplx_t));
+    if(!tmp || !out) {
+        fprintf(stderr, "lcQB: tmp/out allocation failed\n");
+        return;
+    }
+    for (depth_t i = 0; i < d; ++i) {
+        zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
+        qb[i](state);
+        zaxpy_(&state->dim, c + i, tmp, &incr, out, &incr);
+        stateFreeVector(state);
+    }
+    free(tmp);
+    state->vec = out;
 }
 
 /*
