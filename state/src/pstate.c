@@ -22,7 +22,7 @@
 #ifdef MACOS
 #include <vecLib/blas_new.h>
 #else
-#include <f77blas.h>
+#include <openblas-pthread/f77blas.h>
 #endif
 
 /*
