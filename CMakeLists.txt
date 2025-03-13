@@ -34,11 +34,12 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif()
 
 add_subdirectory(extern/Unity)
+add_subdirectory(internal)
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                       # include double has to be called
                                                                                     # manually when building unity lib
 add_library(BLAS_compiler_flags INTERFACE)                                          # Interface library specifying usage
 target_link_directories(BLAS_compiler_flags                                         # of BLAS routines
-        INTERFACE   /usr/lib/x86_64-linux-gnu/openblas-pthread
+        INTERFACE   $<${LINUX}:/usr/lib/x86_64-linux-gnu/openblas-pthread>
 )
 target_link_libraries(BLAS_compiler_flags INTERFACE
         $<${MACOS}:-lblas>
@@ -59,19 +60,15 @@ target_link_directories(OMP_compiler_flags INTERFACE "/opt/homebrew/opt/libomp/l
 add_library(Q_compiler_flags INTERFACE)                                             # Interface library specifying usage
 target_compile_options(Q_compiler_flags INTERFACE -O0)                              # requirements for all Q dependents
 
-set(TEST_SRC
-        ${CMAKE_SOURCE_DIR}/internal/src/finDiff.c
-        ${CMAKE_SOURCE_DIR}/internal/src/gateMat.c
-        ${CMAKE_SOURCE_DIR}/internal/src/linalg.c
-        ${CMAKE_SOURCE_DIR}/internal/src/pauliMat.c
-        ${CMAKE_SOURCE_DIR}/internal/src/utils.c
-)
 add_library(Test_flags INTERFACE)                                                   # Interface library specifying usage
 target_include_directories(Test_flags                                               # requirements for unit tests
         INTERFACE   ${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/internal/include
 )
-target_link_libraries(Test_flags INTERFACE unity)
+target_link_libraries(Test_flags INTERFACE
+        $<TARGET_OBJECTS:Internal>
+        unity
+)
 
 add_subdirectory(state)
 add_subdirectory(gate)

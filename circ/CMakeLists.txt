@@ -13,7 +13,6 @@ target_link_libraries(Circ
 
 add_executable(circTest
         ${TEST_DIR}/testPQC.c
-        ${TEST_SRC}
 )
 target_link_libraries(circTest
         PRIVATE State
