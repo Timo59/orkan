@@ -26,6 +26,13 @@
 #include "utils.h"
 #endif
 
+#ifdef MACOS
+#include <vecLib/blas_new.h>
+#include <vecLib/lapack.h>
+#else
+#include <openblas-pthread/f77blas.h>
+#endif
+
 /*
  * =====================================================================================================================
  *                                                      macros
@@ -89,6 +96,7 @@ void testMeanObs(void) {
  * =====================================================================================================================
  */
 double randPar[4] = {0.342377381, 1.416765874, -1.458084103, 1.767723341};
+dim_t incr = 1;
 
 void rx2(state_t* state, const double par) {
     applyRX(state, 0, par);
@@ -204,16 +212,46 @@ applyPQB pqbs[20] = {rx2, ry2, rz2, rswap2, rx3, ry3, rz3, rswap3, rx4, ry4, rz4
     rx6, ry6, rz6, rswap6};
 
 void x2(state_t* state) {
+    cplx_t alpha = 1;
+    cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
+    zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
+    cplx_t* out = calloc(state->dim, sizeof (cplx_t));
     applyX(state, 0);
+    zaxpy_(&state->dim, &alpha, state->vec, &incr, out, &incr);
+    zcopy_(&state->dim, tmp, &incr, state->vec, &incr);
     applyX(state, 1);
+    zaxpy_(&state->dim, &alpha, state->vec, &incr, out, &incr);
+    free(tmp);
+    stateFreeVector(state);
+    state->vec = tmp;
 }
 void y2(state_t* state) {
+    cplx_t alpha = 1;
+    cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
+    zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
+    cplx_t* out = calloc(state->dim, sizeof (cplx_t));
     applyY(state, 0);
+    zaxpy_(&state->dim, &alpha, state->vec, &incr, out, &incr);
+    zcopy_(&state->dim, tmp, &incr, state->vec, &incr);
     applyY(state, 1);
+    zaxpy_(&state->dim, &alpha, state->vec, &incr, out, &incr);
+    free(tmp);
+    stateFreeVector(state);
+    state->vec = tmp;
 }
 void z2(state_t* state) {
+    cplx_t alpha = 1;
+    cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
+    zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
+    cplx_t* out = calloc(state->dim, sizeof (cplx_t));
     applyZ(state, 0);
+    zaxpy_(&state->dim, &alpha, state->vec, &incr, out, &incr);
+    zcopy_(&state->dim, tmp, &incr, state->vec, &incr);
     applyZ(state, 1);
+    zaxpy_(&state->dim, &alpha, state->vec, &incr, out, &incr);
+    free(tmp);
+    stateFreeVector(state);
+    state->vec = tmp;
 }
 void swap2(state_t* state) {
     applySWAP(state, 0, 1);
