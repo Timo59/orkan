@@ -15,7 +15,6 @@ target_link_libraries(Gate                                      # Link libraries
 
 add_executable(gateTest
         ${TEST_DIR}/testQhipster.c
-        ${TEST_SRC}
 )
 target_link_libraries(gateTest
         PRIVATE Gate
