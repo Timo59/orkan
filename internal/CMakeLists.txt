@@ -1,7 +1,7 @@
 set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-add_library(Internal OBJECT
+add_library(Internal STATIC
         ${SOURCE_DIR}/finDiff.c
         ${SOURCE_DIR}/gateMat.c
         ${SOURCE_DIR}/linalg.c
