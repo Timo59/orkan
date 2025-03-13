@@ -46,7 +46,7 @@ typedef void (*applyPQB)(state_t* state, double par);
  *                                                  Function definitions
  * =====================================================================================================================
  */
-void applyPQC(state_t* state, const depth_t d, applyPQB pqbs[], double par[]);
+void applyPQC(state_t* state, depth_t d, const applyPQB pqbs[], const double par[]);
 
 #ifdef __cplusplus
 }

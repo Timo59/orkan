@@ -14,6 +14,10 @@
 #include <math.h>
 #endif
 
+#ifndef __OMP_H
+#include <omp.h>
+#endif
+
 #ifndef _STDLIB_H_
 #include <stdlib.h>
 #endif
@@ -42,8 +46,9 @@
  *
  * @return  The mean value of the observable with respect to the quantum state with DOUBLE PRECISION
  */
-double meanObs(state_t* state, const double obs[]) {
+double meanObs(const state_t* state, const double obs[]) {
     double out = 0;
+#pragma omp parallel for reduction(+:out) default(none) shared(state, obs)
     for (dim_t i = 0; i < state->dim; ++i) {
         out += pow(cabs(state->vec[i]), 2) * obs[i];
     }
