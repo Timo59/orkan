@@ -8,6 +8,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     add_definitions(-DMACOS)
     set(MACOS 1)
     set(LINUX 0)
+    set(CMAKE_SHARED_LINKER_FLAGS "-Wl")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Building on Linux")
     add_definitions(-DLINUX)
@@ -92,7 +93,6 @@ add_test(NAME testGate COMMAND gateTest)
 add_test(NAME testCirc COMMAND circTest)
 #add_test(NAME testMeas COMMAND measTest)
 
-set(CMAKE_SHARED_LINKER_FLAGS $<MACOS:-Wl>)
 add_library(${PROJECT_NAME} SHARED
         $<TARGET_OBJECTS:State>
         $<TARGET_OBJECTS:Gate>
