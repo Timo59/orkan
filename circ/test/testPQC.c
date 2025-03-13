@@ -223,12 +223,16 @@ void testApplyPQC(void) {
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
 
-        for (uint8_t j = 0; j < 4; j++) {
+        for (uint8_t j = 0; j < 3; j++) {
             for (uint8_t k = 0; k < qubits; k++) {              // Free all allocated matrix memory
                 free(pqbMat[j][k]);
             }
             free(pqbMat[j]);                                    // Free all allocated matrix memory address space
         }
+        for (uint8_t j = 0; j < swapc; j++) {
+            free(pqbMat[3][j]);
+        }
+        free(pqbMat[3]);
         freeTestVectors(vecs, qubits);
         stateFreeVector(&testState);
     }

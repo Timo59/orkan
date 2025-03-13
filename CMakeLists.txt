@@ -8,7 +8,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     add_definitions(-DMACOS)
     set(MACOS 1)
     set(LINUX 0)
-    set(CMAKE_SHARED_LINKER_FLAGS "-Wl")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Building on Linux")
     add_definitions(-DLINUX)
@@ -66,7 +65,7 @@ target_include_directories(Test_flags                                           
                     ${CMAKE_SOURCE_DIR}/internal/include
 )
 target_link_libraries(Test_flags INTERFACE
-        $<TARGET_OBJECTS:Internal>
+        Internal
         unity
 )
 
