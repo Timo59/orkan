@@ -42,6 +42,7 @@ typedef unsigned short              depth_t;
 #include <openblas-pthread/openblas_config.h>
     typedef double complex          cplx_t;
     typedef blasint                 dim_t;
+#include <openblas-pthread/f77blas.h>
 #endif
 typedef enum pauli {
     ID,
