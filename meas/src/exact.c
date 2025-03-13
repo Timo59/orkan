@@ -73,11 +73,9 @@ double* gradPQC(state_t* state, const depth_t d, const applyPQB pqbs[], const do
     const dim_t incr = 1;
     state_t bra;                                    // state, initialized to the input state, evolved with all evolution
     stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
-    zcopy_(&state->dim, state->vec, &incr, bra.vec, &incr);
+    stateInitVector(&bra, state->vec);
 
-    state_t ket;                                    // state, inheriting each intermediate evolution from input, acted on
-    stateInitEmpty(&ket, state->qubits);            // with the respective evolution operator and finally evolved with
-                                                    // the remaining evolution operators
+
     double* out = malloc(d * sizeof (double));
     if (!out) {
         fprintf(stderr, "gradPQC: out allocation failed\n");
@@ -88,17 +86,20 @@ double* gradPQC(state_t* state, const depth_t d, const applyPQB pqbs[], const do
     for (dim_t i = 0; i < bra.dim; ++i) {                           // Apply the diagonal observable to bra
         bra.vec[i] *= obs[i];
     }
-
+#pragma omp parallel for default(none) shared(state, d, pqbs, par, qbs, incr, bra, out) num_threads(d)
     for (depth_t j = 0; j < d; ++j) {                               // Iterate the components of the PQC
-        pqbs[j](state, par[j]);                                     // Evolve state with the current component,
+        state_t ket;                                                // Initialized to the input state; acted on by the
+        stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the j-th parameter
+        stateInitVector(&ket, state->vec);
+        applyPQC(&ket, j, pqbs, par);                               // Apply parametrized blocks up to j
         zcopy_(&state->dim, state->vec, &incr, ket.vec, &incr);     // copy its vector to ket
-        qbs[j](&ket);                                               // and apply the observable to ket
+        qbs[j](&ket);                                               // and apply the evolution operator to ket
 
-        applyPQC(&ket, d - j - 1, pqbs + 1 + j, par + 1 + j);       // Evolve ket with the rest of the evolution operators
+        applyPQC(&ket, d - j - 1, pqbs + 1 + j, par + 1 + j);       // Evolve ket with rest of the evolution operators
 
         out[j] = 2 * cimag(stateOverlap(bra, ket));
+        stateFreeVector(&ket);
     }
     stateFreeVector(&bra);
-    stateFreeVector(&ket);
     return out;
     }
