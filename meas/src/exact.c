@@ -72,7 +72,6 @@ double meanObs(const state_t* state, const double obs[]) {
  */
 void gradPQC(state_t* state, const depth_t d, const applyPQB pqbs[], const double par[], const applyQB qbs[],
     const double obs[], double** grad) {
-    const dim_t incr = 1;
     state_t bra;                                    // state, initialized to the input state, evolved with all evolution
     stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
     stateInitVector(&bra, state->vec);
@@ -88,7 +87,7 @@ void gradPQC(state_t* state, const depth_t d, const applyPQB pqbs[], const doubl
     for (dim_t i = 0; i < bra.dim; ++i) {                           // Apply the diagonal observable to bra
         bra.vec[i] *= obs[i];
     }
-#pragma omp parallel for default(none) shared(state, d, pqbs, par, qbs, grad, incr, bra) num_threads(d)
+#pragma omp parallel for default(none) shared(state, d, pqbs, par, qbs, grad, bra) num_threads(d)
     for (depth_t j = 0; j < d; ++j) {                               // Iterate the components of the PQC
         state_t ket;                                                // Initialized to the input state; acted on by the
         stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the j-th parameter

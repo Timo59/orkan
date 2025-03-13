@@ -316,6 +316,7 @@ void swap6(state_t* state) {
 applyQB qbs[20] = {x2, y2, z2, swap2, x3, y3, z3, swap3, x4, y4, z4, swap4, x5, y5, z5, swap5, x6, y6, z6, swap6};
 
 cplx_t* (*rMat[])(qubit_t, qubit_t, double) = {RXGateMat, RYGateMat, RZGateMat};
+cplx_t* mat[3] = {XMAT, YMAT, ZMAT};
 
 void testGradPQC(void) {
     state_t testState;
@@ -351,6 +352,36 @@ void testGradPQC(void) {
                 }
                 free(pqbMat[j]);                                    // Free all matrix memory address space allocated
             }                                                       // for Pauli rotations
+        }
+        cplx_t** qbMat[4];
+        for (uint8_t i = 0; i < 3; i++) {
+            if ((qbMat[i] = malloc(qubits * sizeof (cplx_t*))) == NULL) {
+                fprintf(stderr, "testGradPQC: qbMat[%d] allocation failed\n", i);
+                for (uint8_t j = 0; j < i; j++) {
+                    for (uint8_t k = 0; k < qubits; k++) {          // Free all matrix memory allocated up to current i
+                        free(qbMat[j][k]);
+                    }
+                    free(qbMat[j]);                                 // Free all matrix memory address space allocated
+                }                                                   // up to current i
+                freeTestVectors(vecs, qubits);
+                stateFreeVector(&testState);
+                exit(EXIT_FAILURE);
+            }
+            for (uint8_t j = 0; j < qubits; j++) {
+                qbMat[i][j] = singleQubitGateMat(mat[i], qubits, j);
+            }
+        }
+        if ((qbMat[3] = malloc(swapc * sizeof (cplx_t*))) == NULL) {
+            fprintf(stderr, "testGradPQC: qbMat[3] allocation failed\n");
+            for (uint8_t j = 0; j < 3; j++) {
+                for (uint8_t k = 0; k < qubits; k++) {              // Free all matrix memory allocated for Pauli
+                    free(qbMat[j][k]);                              // rotations
+                }
+                free(qbMat[j]);                                     // Free all matrix memory address space allocated
+            }                                                       // for Pauli rotations
+        }
+        for (uint8_t j = 0; j < swapc; j++) {
+            qbMat[3][j] = swapGateMat(qubits, 2 * j, 2 * j + 1);
         }
 
         /* TESTING */
@@ -397,6 +428,51 @@ void testGradPQC(void) {
             applyPQC(&testState, 4, pqbs, randPar);
             double meanTest = meanObs(&testState, diagObs);
 
+            double ref3[4];
+            cplx_t* tmp2 = malloc(dim * sizeof (cplx_t));
+            if (!tmp2) {
+                fprintf(stderr, "testGradPQC: tmp2 allocation failed\n");
+                return;
+            }
+            for (uint8_t j = 0; j < 3; j++) {
+                for (dim_t k = 0; k < dim; k++) {                       // Copy current test vector to tmp
+                    tmp[k] = vecs[i][k];
+                    tmp2[k] = vecs[i][k];
+                }
+                for (uint8_t k = 0; k <= j; k++) {
+                    for (uint8_t l = 0; l < qubits; l++) {
+                        cmatVecMulInPlace(pqbMat[k][l], tmp, dim);
+                        cmatVecMulInPlace(pqbMat[k][l], tmp2, dim);
+                    }
+                }
+                for (uint8_t k = 0; k < qubits; k++) {
+                    cmatVecMulInPlace(qbMat[j][k], tmp, dim);
+                }
+                for (uint8_t k = j + 1; k < 3; ++k) {
+                    for (uint8_t l = 0; l < qubits; l++) {
+                        cmatVecMulInPlace(pqbMat[k][l], tmp, dim);
+                        cmatVecMulInPlace(pqbMat[k][l], tmp2, dim);
+                    }
+                }
+                ref3[j] = 2 * cimag(cInner(tmp2, tmp, dim));
+            }
+            for (dim_t k = 0; k < dim; k++) {                       // Copy current test vector to tmp
+                tmp[k] = vecs[i][k];
+                tmp2[k] = vecs[i][k];
+            }
+            for (uint8_t k = 0; k < 3; k++) {
+                for (uint8_t l = 0; l < qubits; l++) {
+                    cmatVecMulInPlace(pqbMat[k][l], tmp, dim);
+                    cmatVecMulInPlace(qbMat[k][l], tmp2, dim);
+                }
+            }
+            for (uint8_t k = 0; k < swapc; k++) {
+                cmatVecMulInPlace(pqbMat[3][k], tmp, dim);
+                cmatVecMulInPlace(qbMat[3][k], tmp, dim);
+                cmatVecMulInPlace(pqbMat[3][k], tmp2, dim);
+            }
+            ref3[3] = 2 * cimag(cInner(tmp2, tmp, dim));
+
             for (depth_t j = 0; j < 4; ++j) {
                 randPar[j] += EPSILON;                              // Slightly shift the j-th parameter value
 
@@ -439,8 +515,10 @@ void testGradPQC(void) {
             vectorPrint(test, 4);
             printf("ref = ");
             vectorPrint(ref, 4);
-            printf("ref = ");
+            printf("ref2 = ");
             vectorPrint(ref2, 4);
+            printf("ref3 = ");
+            vectorPrint(ref3, 4);
             TEST_ASSERT_TRUE(rvectorAlmostEqual(ref, test, 4, APPROXPRECISION));
         }
         for (uint8_t j = 0; j < 3; j++) {
