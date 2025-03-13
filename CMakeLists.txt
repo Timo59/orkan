@@ -94,7 +94,7 @@ add_subdirectory(meas)
 #)
 
 add_test(NAME testGate COMMAND gateTest)
-#add_test(NAME testCirc COMMAND circTest)
+add_test(NAME testCirc COMMAND circTest)
 #add_test(NAME testMeas COMMAND measTest)
 
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl")
@@ -123,13 +123,13 @@ install(FILES       "include/qLib.h"
 
 add_dependencies(Q
         gateTest
-#        circlibTest
+        circTest
 #        measlibTest
 )
 
 add_custom_command(
         TARGET Q
-        COMMENT "Run tests on gatelib"
+        COMMENT "Run tests on qlib"
         DEPENDS
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure

@@ -36,6 +36,7 @@ typedef unsigned short              depth_t;
 #include <vecLib/lapack_types.h>
     typedef __LAPACK_double_complex cplx_t;
     typedef __LAPACK_int            dim_t;
+#include <vecLib/blas_new.h>
 #else
 #define OPENBLAS_USE64BITINT
 #include <openblas_config.h>
@@ -52,7 +53,7 @@ typedef unsigned char           qubit_t;
 
 /*
  * =====================================================================================================================
- *                                                      macros
+ *                                                      Macros
  * =====================================================================================================================
  */
 
@@ -69,6 +70,21 @@ typedef unsigned char           qubit_t;
 
 #define SETREAL(a, b)           (*((double*) &(a)) = (b))
 #define SETIMAG(a, b)           (*(((double*) &(a)) + 1) = (b))
+
+/*
+ * =====================================================================================================================
+ *                                                      Wrapper
+ * =====================================================================================================================
+ */
+inline cplx_t zdotc(const dim_t *N, cplx_t *X, const dim_t *INCX, cplx_t *Y, const dim_t *INCY) {
+#ifdef MACOS
+    cplx_t out;
+    zdotc_(&out, N, X, INCX, Y, INCY);
+    return out;
+#else
+    return zdotc(N, X, INCX, Y, INCY);
+#endif
+}
 
 #ifdef __cplusplus
 }
