@@ -39,7 +39,7 @@ typedef unsigned short              depth_t;
 #include <vecLib/blas_new.h>
 #else
 #define OPENBLAS_USE64BITINT
-#include <openblas_config.h>
+#include <openblas-pthread/openblas_config.h>
     typedef double complex          cplx_t;
     typedef blasint                 dim_t;
 #endif

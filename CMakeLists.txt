@@ -32,11 +32,6 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     endif()
 endif()
 
-set(CIRCMETH "BLAS" CACHE STRING "Choose circuit method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
-set(MEASMETH "BLAS_OMP" CACHE STRING "Choose measurement method of build: BLAS, BLAS_OMP, OLD, OMP, or PROFILE")
-set_property(CACHE CIRCMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
-set_property(CACHE MEASMETH PROPERTY STRINGS "BLAS" "BLAS_OMP" "OLD" "OMP" "OLD" "PROFILE")
-
 add_subdirectory(extern/Unity)
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                       # include double has to be called
                                                                                     # manually when building unity lib
