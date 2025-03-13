@@ -36,13 +36,11 @@ typedef unsigned short              depth_t;
 #include <vecLib/lapack_types.h>
     typedef __LAPACK_double_complex cplx_t;
     typedef __LAPACK_int            dim_t;
-#include <vecLib/blas_new.h>
 #else
 #define OPENBLAS_USE64BITINT
 #include <openblas-pthread/openblas_config.h>
     typedef double complex          cplx_t;
     typedef blasint                 dim_t;
-#include <openblas-pthread/f77blas.h>
 #endif
 typedef enum pauli {
     ID,
@@ -77,15 +75,6 @@ typedef unsigned char           qubit_t;
  *                                                      Wrapper
  * =====================================================================================================================
  */
-inline cplx_t zdotc(const dim_t *N, cplx_t *X, const dim_t *INCX, cplx_t *Y, const dim_t *INCY) {
-#ifdef MACOS
-    cplx_t out;
-    zdotc_(&out, N, X, INCX, Y, INCY);
-    return out;
-#else
-    return zdotc_(N, X, INCX, Y, INCY);
-#endif
-}
 
 #ifdef __cplusplus
 }
