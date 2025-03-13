@@ -92,7 +92,7 @@ add_test(NAME testGate COMMAND gateTest)
 add_test(NAME testCirc COMMAND circTest)
 #add_test(NAME testMeas COMMAND measTest)
 
-set(CMAKE_SHARED_LINKER_FLAGS "-Wl")
+set(CMAKE_SHARED_LINKER_FLAGS $<MACOS:-Wl>)
 add_library(${PROJECT_NAME} SHARED
         $<TARGET_OBJECTS:State>
         $<TARGET_OBJECTS:Gate>
