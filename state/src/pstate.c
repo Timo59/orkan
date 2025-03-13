@@ -91,7 +91,5 @@ void stateFreeVector(state_t* state) {
 
 cplx_t stateOverlap(const state_t state1, const state_t state2) {
 	const dim_t incr = 1;
-	cplx_t out;
-	zdotc_(&out, &state1.dim, state1.vec, &incr, state2.vec, &incr);
-	return out;
+	return zdotc(&state1.dim, state1.vec, &incr, state2.vec, &incr);
 }
