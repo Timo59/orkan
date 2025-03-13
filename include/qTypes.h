@@ -82,7 +82,7 @@ inline cplx_t zdotc(const dim_t *N, cplx_t *X, const dim_t *INCX, cplx_t *Y, con
     zdotc_(&out, N, X, INCX, Y, INCY);
     return out;
 #else
-    return zdotc_(N, X, INCX, Y, INCY);
+    return BLASFUNC(zdotc)(N, X, INCX, Y, INCY);
 #endif
 }
 
