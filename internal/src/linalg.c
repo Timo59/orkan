@@ -339,16 +339,16 @@ complex double* ckronecker(const complex double a[],
     return result;
 }
 
-double complex* zexpm(double complex* m, const double complex a, const dim_t dim) {
+cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     /* Eigenvalue decomposition of m*/
     const char JOBZ = 'V';                                          // Compute eigenvalues and -vectors
     const char UPLO = 'L';                                          // Lower triangle of m is stored
     double eig[dim];                                                // Eigenvalues in ascending order
-    double complex work_query;                                      // Returns optimal LWORK on exit of workspace query
-    double complex* work;
-    __LAPACK_int LWORK = -1;                                        // Length of work array; -1 for workspace query
+    cplx_t work_query;                                              // Returns optimal LWORK on exit of workspace query
+    cplx_t* work;
+    dim_t LWORK = -1;                                               // Length of work array; -1 for workspace query
     double rwork[3 * dim - 2];
-    __LAPACK_int INFO;                                              // Status of zheev_
+    dim_t INFO;                                                     // Status of zheev_
 
     zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, &work_query, &LWORK, rwork, &INFO);    // Workspace query
     if (INFO < 0) {
@@ -361,7 +361,7 @@ double complex* zexpm(double complex* m, const double complex a, const dim_t dim
                         "elements %ld+1:%ld of W contain eigenvalues which have converged.\n", INFO, dim);
         return NULL;
     }
-    LWORK = (__LAPACK_int ) work_query;                             // Update LWORK to workspace query outcome
+    LWORK = (dim_t) work_query;                                     // Update LWORK to workspace query outcome
     if ((work = malloc(LWORK * sizeof(double complex))) == NULL) {
         fprintf(stderr, "zexpm: work allocation failed\n");
         return NULL;
