@@ -54,7 +54,7 @@ typedef void (*applyLCQB)(state_t* state, double c[]);
  * =====================================================================================================================
  */
 void evoQB(state_t* state, applyQB qb, double par);
-void lcQB(state_t* state, applyQB qb[], double c);
+void lcQB(state_t* state, const depth_t d, applyQB qb[], const cplx_t c[]);
 void applyPQC(state_t* state, depth_t d, const applyPQB pqbs[], const double par[]);
 
 #ifdef __cplusplus

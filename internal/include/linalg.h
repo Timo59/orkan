@@ -11,8 +11,20 @@
 #include <complex.h>
 #endif
 
-#ifndef _STDLIB_H_
-#include <stdlib.h>
+#ifdef MACOS
+#define ACCELERATE_NEW_LAPACK                                   // Required to use cblas_new
+#define ACCELERATE_LAPACK_ILP64                                 // __LAPACK_int is a 64-bit integer
+#include <vecLib/lapack_types.h>
+typedef __LAPACK_double_complex cplx_t;
+typedef __LAPACK_int            dim_t;
+#include <vecLib/blas_new.h>
+#include <vecLib/lapack.h>
+#else
+#define OPENBLAS_USE64BITINT
+#include <openblas-pthread/openblas_config.h>
+typedef double complex          cplx_t;
+typedef blasint                 dim_t;
+#include <openblas-pthread/f77blas.h>
 #endif
 
 /*
@@ -104,6 +116,8 @@ complex double* ckronecker(const complex double a[],
                            const complex double b[],
                            unsigned long long dimA,
                            unsigned long long dimB);
+
+double complex* zexpm(double complex* m, const double complex a, const dim_t dim);
 
 #ifdef __cplusplus
 }

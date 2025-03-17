@@ -50,30 +50,45 @@ void evoQB(state_t* state, const applyQB qb, double par) {
     const cplx_t s = - I * sin(par);
     cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
     if(!tmp) {
-        fprintf(stderr, "applyPQB: tmp allocation failed\n");
+        fprintf(stderr, "evoPQB: tmp allocation failed\n");
         return;
     }
 
     zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
     qb(state);
     zaxpby_(&state->dim, &c, tmp, &incr, &s, state->vec, &incr);    // cos(par)*state - i*sin(par)*qb(state)
+    free(tmp);
 }
 
-void lcQB(state_t* state, const depth_t d, applyQB qb[], const double c[]) {
+/*
+ * This function applies a linear combination of quantum blocks to the input state
+ *
+ * @param[in,out]   state   Input quantum state. On exit, state after linear combination of quantum blocks
+ * @param[in]       d       Number of quantum blocks in the linear combination
+ * @param[in]       qb      Quantum block; i.e, a function applying quantum gates to the quantum state
+ * @param[in]       c       Coefficients of the quantum blocks in the linear combination
+ */
+void lcQB(state_t* state, const depth_t d, applyQB qb[], const cplx_t c[]) {
     const dim_t incr = 1;
-    cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
     cplx_t* out = calloc(state->dim, sizeof (cplx_t));
-    if(!tmp || !out) {
-        fprintf(stderr, "lcQB: tmp/out allocation failed\n");
+    if(!out) {
+        fprintf(stderr, "lcQB: out allocation failed\n");
         return;
     }
     for (depth_t i = 0; i < d; ++i) {
+        cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
+        if(!tmp) {
+            fprintf(stderr, "lcQB: tmp allocation failed\n");
+            free(out);
+            return;
+        }
         zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
         qb[i](state);
-        zaxpy_(&state->dim, c + i, tmp, &incr, out, &incr);
+        zaxpy_(&state->dim, c + i, state->vec, &incr, out, &incr);
         stateFreeVector(state);
+        state->vec = tmp;
     }
-    free(tmp);
+    stateFreeVector(state);
     state->vec = out;
 }
 
