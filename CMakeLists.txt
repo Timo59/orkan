@@ -14,7 +14,6 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(MACOS 0)
     set(LINUX 1)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 #    find_library(LIBMKL NAMES mkl_intel_ilp64 HINTS /opt/intel/oneapi/mkl/2025.0/lib/)
 #    if (NOT LIBOPT)
 #        message(FATAL_ERROR "libMKL not found")
@@ -23,7 +22,6 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 #        add_library(libmkl IMPORTED SHARED)
 #        set_target_properties(libmkl PROPERTIES IMPORTED_LOCATION ${LIBMKL})
 #    endif()
-
 else()
     message(FATAL_ERROR "Unknown system: ${CMAKE_SYSTEM_NAME}")
 endif ()
@@ -54,10 +52,9 @@ target_link_directories(BLAS_compiler_flags                                     
 )
 target_link_libraries(BLAS_compiler_flags INTERFACE
         $<${MACOS}:-lblas>
-        $<${MACOS}:-llapack>
         $<${LINUX}:-lopenblas>
         $<${LINUX}:-lpthread>
-        $<${LINUX}:-llapack>
+        -llapack
 )
 
 add_library(OMP_compiler_flags INTERFACE)                                           # Interface library specifying usage

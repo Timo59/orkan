@@ -28,7 +28,6 @@ extern "C" {
  * =====================================================================================================================
  */
 typedef unsigned long long          complength_t;
-typedef double complex              cplx_t;
 typedef unsigned short              depth_t;
 #ifdef MACOS
 #define ACCELERATE_NEW_LAPACK                                   // Required to use cblas_new
