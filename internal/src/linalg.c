@@ -15,6 +15,7 @@
 #ifndef _STDLIB_H_
 #include <stdlib.h>
 #endif
+#include <utils.h>
 
 /*
  * =====================================================================================================================
@@ -349,6 +350,9 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     dim_t LWORK = -1;                                               // Length of work array; -1 for workspace query
     double rwork[3 * dim - 2];
     dim_t INFO;                                                     // Status of zheev_
+
+    printf("Input matrix =\n");
+    matrixPrint(m, dim);
 
     zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, &work_query, &LWORK, rwork, &INFO);    // Workspace query
     if (INFO < 0) {
