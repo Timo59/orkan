@@ -348,13 +348,23 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     cplx_t work_query;                                              // Returns optimal LWORK on exit of workspace query
     cplx_t* work;
     dim_t LWORK = -1;                                               // Length of work array; -1 for workspace query
-    double rwork[3 * dim - 2];
     dim_t INFO;                                                     // Status of zheev_
 
     printf("Input matrix =\n");
     matrixPrint(m, dim);
-
+#ifdef MACOS
+    double rwork[3 * dim - 2];
     zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, &work_query, &LWORK, rwork, &INFO);    // Workspace query
+#else
+    double rwork_query;
+    double* rwork;
+    dim_t LRWORK = -1;
+    dim_t iwork_query;
+    dim_t* iwork;
+    dim_t LIWORK = -1;
+    zheevd_(&JOBZ, &UPLO, &dim, m, &dim, eig, &work_query, &LWORK, &rwork_query, &LRWORK, &iwork_query, &LIWORK, \
+        &INFO);
+#endif
     printf("INFO = %ld\n", INFO);
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
@@ -372,7 +382,24 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
         return NULL;
     }
 
+#ifdef MACOS
     zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, work, &LWORK, rwork, &INFO);
+#else
+    LRWORK = (dim_t) rwork_query;                                     // Update LRWORK to workspace query outcome
+    printf("LRWORK = %ld\n", LRWORK);
+    if ((rwork = malloc(LRWORK * sizeof (double))) == NULL) {
+        fprintf(stderr, "zexpm: rwork allocation failed\n");
+        return NULL;
+    }
+    LIWORK = (dim_t) iwork_query;                                     // Update LIWORK to workspace query outcome
+    printf("LIWORK = %ld\n", LIWORK);
+    if ((iwork = malloc(LIWORK * sizeof(dim_t))) == NULL) {
+        fprintf(stderr, "zexpm: iwork allocation failed\n");
+        return NULL;
+    }
+    zheevd_(&JOBZ, &UPLO, &dim, m, &dim, eig, &work, &LWORK, &rwork, &LRWORK, &iwork, &LIWORK, &INFO);
+#endif
+
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
         return NULL;
