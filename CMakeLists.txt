@@ -15,7 +15,7 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(LINUX 1)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-    find_library(LIBMKL NAMES mkl_intel_ilp64 HINTS /opt/intel/oneapi/mkl/2025.0/lib)
+    find_library(LIBMKL NAMES mkl_intel_ilp64 HINTS /opt/intel/oneapi/mkl/2025.0/lib/)
     if (NOT LIBOPT)
         message(FATAL_ERROR "libMKL not found")
     else()
