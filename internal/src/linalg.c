@@ -366,8 +366,6 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
         return NULL;
     }
 
-    printf("LWORK = %ld\n", LWORK);
-
     zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, work, &LWORK, rwork, &INFO);
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
