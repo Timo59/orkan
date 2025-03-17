@@ -26,14 +26,6 @@
 #include <stdio.h>
 #endif
 
-#ifdef MACOS
-#include <vecLib/blas_new.h>
-#include <vecLib/lapack.h>
-#else
-#include <openblas-pthread/f77blas.h>
-#endif
-#include "../../internal/include/utils.h"
-
 /*
  * =====================================================================================================================
  *                                                  Function definitions
