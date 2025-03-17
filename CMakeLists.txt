@@ -39,7 +39,8 @@ target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                   
                                                                                     # manually when building unity lib
 add_library(BLAS_compiler_flags INTERFACE)                                          # Interface library specifying usage
 target_link_directories(BLAS_compiler_flags                                         # of BLAS routines
-        INTERFACE   $<${LINUX}:/usr/lib/x86_64-linux-gnu/openblas-pthread>
+        INTERFACE   $<${LINUX}:/usr/lib/x86_64-linux-gnu/lapack>
+                    $<${LINUX}:/usr/lib/x86_64-linux-gnu/openblas-pthread>
 )
 target_link_libraries(BLAS_compiler_flags INTERFACE
         $<${MACOS}:-lblas>
