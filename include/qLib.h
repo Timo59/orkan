@@ -15,12 +15,12 @@
 #include "pstate.h"
 #endif
 
-#ifndef GATELIB_H
-#include "gatelib.h"
+#ifndef QHIPSTER_H
+#include "qhipster.h"
 #endif
 
-#ifndef CIRCLIB_H
-#include "circlib.h"
+#ifndef PQC_H
+#include "pqc.h"
 #endif
 
 #ifndef EXACT_H
