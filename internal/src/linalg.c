@@ -360,7 +360,7 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
         return NULL;
     }
     if (INFO > 0) {
-        fprintf(stderr, "zexpm: zheev_ - the algorithm failed to converge; %ld off-diagonal elements of an intermediate"
+        fprintf(stderr, "zexpm: zheev_ - the algorithm failed to converge; %d off-diagonal elements of an intermediate"
                         " tridiagonal form did not converge to zero.\n", INFO);
         return NULL;
     }
