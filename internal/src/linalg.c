@@ -365,6 +365,7 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
         return NULL;
     }
     LWORK = (dim_t) work_query;                                     // Update LWORK to workspace query outcome
+    printf("LWORK = %ld\n", LWORK);
     if ((work = malloc(LWORK * sizeof(double complex))) == NULL) {
         fprintf(stderr, "zexpm: work allocation failed\n");
         return NULL;

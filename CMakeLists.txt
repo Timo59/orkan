@@ -39,7 +39,7 @@ target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                   
                                                                                     # manually when building unity lib
 add_library(BLAS_compiler_flags INTERFACE)                                          # Interface library specifying usage
 target_link_directories(BLAS_compiler_flags                                         # of BLAS routines
-        INTERFACE   $<${LINUX}:/usr/lib/x86_64-linux-gnu>
+        INTERFACE   $<${LINUX}:/usr/lib/x86_64-linux-gnu/openblas-pthread>
 )
 target_link_libraries(BLAS_compiler_flags INTERFACE
         $<${MACOS}:-lblas>
@@ -58,7 +58,7 @@ target_link_libraries(OMP_compiler_flags INTERFACE $<${MACOS}:-lomp>)
 target_link_directories(OMP_compiler_flags INTERFACE $<${MACOS}:/opt/homebrew/opt/libomp/lib>)
 
 add_library(Q_compiler_flags INTERFACE)                                             # Interface library specifying usage
-target_compile_options(Q_compiler_flags INTERFACE -O0)                              # requirements for all Q dependents
+target_compile_options(Q_compiler_flags INTERFACE -O0 -g)                           # requirements for all Q dependents
 
 add_library(Test_flags INTERFACE)                                                   # Interface library specifying usage
 target_include_directories(Test_flags                                               # requirements for unit tests
