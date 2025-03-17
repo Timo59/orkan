@@ -12,4 +12,4 @@ target_link_libraries(State
         PUBLIC  $<${LINUX}:-lm>
 )
 
-install(FILES include/pstate.h DESTINATION include/qlib)
+install(FILES ${INCLUDE_DIR}/pstate.h DESTINATION include/qlib)

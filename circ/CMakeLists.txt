@@ -19,6 +19,5 @@ target_link_libraries(circTest
                 Test_flags
 )
 
-install(FILES       ${INCLUDE_DIR}/pqc.h
-        DESTINATION include/qlib
+install(FILES ${INCLUDE_DIR}/pqc.h DESTINATION include/qlib
 )

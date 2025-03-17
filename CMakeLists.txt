@@ -86,21 +86,10 @@ add_subdirectory(state)
 add_subdirectory(gate)
 add_subdirectory(circ)
 add_subdirectory(meas)
-#add_executable(measlibTest meas/test/testExact.c)
-#target_include_directories(measlibTest PRIVATE "${CMAKE_SOURCE_DIR}/include")
-#target_link_libraries(measlibTest
-#        PRIVATE
-#            Test_flags
-#            Math
-#            State
-#            Gate
-#            Circ
-#            Meas
-#)
 
 add_test(NAME testGate COMMAND gateTest)
 add_test(NAME testCirc COMMAND circTest)
-#add_test(NAME testMeas COMMAND measTest)
+add_test(NAME testMeas COMMAND measTest)
 
 add_library(${PROJECT_NAME} SHARED
         $<TARGET_OBJECTS:State>
@@ -121,14 +110,14 @@ install(TARGETS Q
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include/qlib
 )
-install(FILES       "include/qLib.h"
-                    "include/qTypes.h"
+install(FILES       include/qLib.h
+                    include/qTypes.h
         DESTINATION include/qlib)
 
 add_dependencies(Q
         gateTest
         circTest
-#        measlibTest
+        measTest
 )
 
 add_custom_command(

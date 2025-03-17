@@ -24,5 +24,4 @@ target_link_libraries(measTest
                 Test_flags
 )
 
-install(FILES       ${CMAKE_CURRENT_BINARY_DIR}/exact.h
-        DESTINATION include/qlib)
+install(FILES ${INCLUDE_DIR}/exact.h DESTINATION include/qlib)
