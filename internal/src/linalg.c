@@ -356,9 +356,8 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
         return NULL;
     }
     if (INFO > 0) {
-        fprintf(stderr, "zexpm: zheev_ - the QR algorithm failed to compute all the eigenvalues, and no eigenvectors"
-                        "have been computed;\n"
-                        "elements %ld+1:%ld of W contain eigenvalues which have converged.\n", INFO, dim);
+        fprintf(stderr, "zexpm: zheev_ - the algorithm failed to converge; %ld off-diagonal elements of an intermediate"
+                        " tridiagonal form did not converge to zero.\n", INFO);
         return NULL;
     }
     LWORK = (dim_t) work_query;                                     // Update LWORK to workspace query outcome
@@ -373,9 +372,8 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
         return NULL;
     }
     if (INFO > 0) {
-        fprintf(stderr, "zexpm: zheev_ - the QR algorithm failed to compute all the eigenvalues, and no eigenvectors"
-                        "have been computed;\n"
-                        "elements %ld+1:%ld of W contain eigenvalues which have converged.\n", INFO, dim);
+        fprintf(stderr, "zexpm: zheev_ - the algorithm failed to converge; %ld off-diagonal elements of an intermediate"
+                        " tridiagonal form did not converge to zero.\n", INFO);
         return NULL;
     }
 
