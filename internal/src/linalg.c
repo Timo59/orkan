@@ -8,6 +8,14 @@
 #include "linalg.h"
 #endif
 
+#ifndef _STDIO_H_
+#include <stdio.h>
+#endif
+
+#ifndef _STDLIB_H_
+#include <stdlib.h>
+#endif
+
 /*
  * =====================================================================================================================
  *                                              Real vector operations
@@ -329,4 +337,67 @@ complex double* ckronecker(const complex double a[],
         }
     }
     return result;
+}
+
+double complex* zexpm(double complex* m, const double complex a, const dim_t dim) {
+    /* Eigenvalue decomposition of m*/
+    const char JOBZ = 'V';                                          // Compute eigenvalues and -vectors
+    const char UPLO = 'L';                                          // Lower triangle of m is stored
+    double eig[dim];                                                // Eigenvalues in ascending order
+    double complex work_query;                                      // Returns optimal LWORK on exit of workspace query
+    double complex* work;
+    __LAPACK_int LWORK = -1;                                        // Length of work array; -1 for workspace query
+    double rwork[3 * dim - 2];
+    __LAPACK_int INFO;                                              // Status of zheev_
+
+    zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, &work_query, &LWORK, rwork, &INFO);    // Workspace query
+    if (INFO < 0) {
+        fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
+        return NULL;
+    }
+    if (INFO > 0) {
+        fprintf(stderr, "zexpm: zheev_ - the QR algorithm failed to compute all the eigenvalues, and no eigenvectors"
+                        "have been computed;\n"
+                        "elements %ld+1:%ld of W contain eigenvalues which have converged.\n", INFO, dim);
+        return NULL;
+    }
+    LWORK = (__LAPACK_int ) work_query;                             // Update LWORK to workspace query outcome
+    if ((work = malloc(LWORK * sizeof(double complex))) == NULL) {
+        fprintf(stderr, "zexpm: work allocation failed\n");
+        return NULL;
+    }
+
+    zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, work, &LWORK, rwork, &INFO);
+    if (INFO < 0) {
+        fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
+        return NULL;
+    }
+    if (INFO > 0) {
+        fprintf(stderr, "zexpm: zheev_ - the QR algorithm failed to compute all the eigenvalues, and no eigenvectors"
+                        "have been computed;\n"
+                        "elements %ld+1:%ld of W contain eigenvalues which have converged.\n", INFO, dim);
+        return NULL;
+    }
+
+    /* Populate the output matrix's diagonal with the exponentiated eigenvalues and reverse the basis transformation */
+    double complex* out;
+    if ((out = calloc(dim * dim, sizeof(double complex))) == NULL) {
+        fprintf(stderr, "zexpm: out allocation failed\n");
+        free(work);
+        return NULL;
+    }
+    for (int i = 0; i < dim; i++) {
+        out[i * dim + i] = cexp(-a * I * eig[i]);                   // Populate the output's diagonal with exp(a * eig)
+    }
+
+    const char N = 'N';
+    const char C = 'C';
+    const cplx_t ALPHA = 1.;                                        // Transform the output matrix to the original basis
+    const cplx_t BETA = 0.;                                         //          out -> U * out U**H
+    double complex tmp[dim * dim];                                  // where U's columns are M's eigenvectors
+    zgemm_(&N, &N, &dim, &dim, &dim, &ALPHA, m, &dim, out, &dim, &BETA, tmp, &dim);
+    zgemm_(&N, &C, &dim, &dim, &dim, &ALPHA, tmp, &dim, m, &dim, &BETA, out, &dim);
+
+    free(work);
+    return out;
 }
