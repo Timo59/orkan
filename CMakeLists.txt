@@ -47,7 +47,7 @@ target_link_libraries(BLAS_compiler_flags INTERFACE
         $<${MACOS}:-llapack>
         $<${LINUX}:-lopenblas>
         $<${LINUX}:-lpthread>
-        $<${LINUX}:-lapack>
+        $<${LINUX}:-llapack>
 )
 
 add_library(OMP_compiler_flags INTERFACE)                                           # Interface library specifying usage
