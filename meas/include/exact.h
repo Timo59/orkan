@@ -32,7 +32,8 @@ extern "C" {
  * =====================================================================================================================
  */
 double meanObs(const state_t* state, const double obs[]);
-void gradPQC(state_t* state, depth_t d, const applyQB pqc[], const applyQB qbs[], const double obs[], double** grad);
+void gradPQC(state_t* state, depth_t d, const applyPQB pqc[], const double par[], const applyQB qbs[],
+    const double obs[], double* grad);
 
 #ifdef __cplusplus
 }
