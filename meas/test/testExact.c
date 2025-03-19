@@ -46,7 +46,7 @@ void testGradPQC(void) {
 
         stateInitEmpty(&testState, qubits);
         const applyQB* blocks = qbs + 4 * (qubits - 2);
-        const applyQB* circuit = pqc + 4 * (qubits - 2);
+        const applyPQB* circuit = pqc + 4 * (qubits - 2);
 
         cplx_t* pqbMat[4];                                          // Matrix representations of parametrized blocks
         const uint8_t swapc = qubits / 2;                           // Number of adjacent swaps
@@ -54,8 +54,8 @@ void testGradPQC(void) {
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
-            double* test = NULL;
-            gradPQC(&testState, 4, circuit, blocks, diagObs, &test);
+            double* test = malloc(4 * sizeof (double));
+            gradPQC(&testState, 4, circuit, randPar, blocks, diagObs, test);
 
             double ref[4];
             cplx_t* tmp = malloc(dim * sizeof (cplx_t));

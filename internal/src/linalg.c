@@ -350,9 +350,6 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     dim_t LWORK = -1;                                               // Length of work array; -1 for workspace query
     dim_t INFO;                                                     // Status of zheev_
 
-    printf("Input matrix =\n");
-    matrixPrint(m, dim);
-
     double rwork[3 * dim - 2];
     zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, &work_query, &LWORK, rwork, &INFO);    // Workspace query
 
@@ -366,7 +363,6 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
         return NULL;
     }
     LWORK = (dim_t) work_query;                                     // Update LWORK to workspace query outcome
-    printf("LWORK = %ld\n", LWORK);
     if ((work = malloc(LWORK * sizeof(double complex))) == NULL) {
         fprintf(stderr, "zexpm: work allocation failed\n");
         return NULL;

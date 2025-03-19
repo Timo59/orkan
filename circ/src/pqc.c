@@ -44,7 +44,7 @@
  *
  * WARNING: This function only gives appropriate results if the QB is involutory; i.e., QB*QB = Id
  */
-void evoQB(state_t* state, const applyQB qb, double par) {
+void evoQB(state_t* state, const applyQB qb, const double par) {
     const dim_t incr = 1;
     const cplx_t c = cos(par);
     const cplx_t s = - I * sin(par);
