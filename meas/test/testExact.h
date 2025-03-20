@@ -64,7 +64,7 @@ double diagObs[64] = {-0.672013803, -1.080744850, 1.989524770, 1.988930799, 1.73
     0.289965927
     };
 
-double randPar[4] = {0.342377381, 1.416765874, -1.458084103, 1.767723341};
+double randPar[5] = {-1.935113472, 0.170656438, -1.916424226, -0.785971871, 1.746181027};
 const cplx_t* pauliMat[] = {XMAT, YMAT, ZMAT};
 cplx_t* (*rMat[])(qubit_t, qubit_t, double) = {RXGateMat, RYGateMat, RZGateMat};
 
@@ -87,6 +87,9 @@ extern inline void z2(state_t* state) {
 }
 extern inline void swap2(state_t* state) {
     applySWAP(state, 0, 1);
+}
+extern inline void diag(state_t* state) {
+    applyDiag(state, diagObs);
 }
 extern inline void x3(state_t* state) {
     applyX(state, 0);
@@ -182,7 +185,9 @@ extern inline void swap6(state_t* state) {
     applySWAP(state, 2, 3);
     applySWAP(state, 4, 5);
 }
-applyQB qbs[20] = {x2, y2, z2, swap2, x3, y3, z3, swap3, x4, y4, z4, swap4, x5, y5, z5, swap5, x6, y6, z6, swap6};
+
+applyQB qbs[25] = {x2, y2, z2, swap2, diag, x3, y3, z3, swap3, diag, x4, y4, z4, swap4, diag, x5, y5, z5, swap5, diag,
+    x6, y6, z6, swap6, diag};
 
 extern inline void evoX2(state_t* state, const double par) {
     evoQB(state, x2, par);
@@ -195,6 +200,9 @@ extern inline void evoZ2(state_t* state, const double par) {
 }
 extern inline void evoSwap2(state_t* state, const double par) {
     evoQB(state, swap2, par);
+}
+extern inline void evoDiag2(state_t* state, const double par) {
+    evoDiag(state, diagObs, par);
 }
 extern inline void evoX3(state_t* state, const double par) {
     evoQB(state, x3, par);
@@ -244,8 +252,8 @@ extern inline void evoZ6(state_t* state, const double par) {
 extern inline void evoSwap6(state_t* state, const double par) {
     evoQB(state, swap6, par);
 }
-applyPQB pqc[20] = {evoX2, evoY2, evoZ2, evoSwap2, evoX3, evoY3, evoZ3, evoSwap3, evoX4, evoY4, evoZ4, evoSwap4, evoX5,
-    evoY5, evoZ5, evoSwap5, evoX6, evoY6, evoZ6, evoSwap6};
+applyPQB pqc[25] = {evoX2, evoY2, evoZ2, evoSwap2, evoDiag2, evoX3, evoY3, evoZ3, evoSwap3, evoDiag2, evoX4, evoY4,
+    evoZ4, evoSwap4, evoDiag2, evoX5, evoY5, evoZ5, evoSwap5, evoDiag2, evoX6, evoY6, evoZ6, evoSwap6, evoDiag2};
 
 // void rx2(state_t* state, const double par) {
 //     applyRX(state, 0, par);
