@@ -9,6 +9,9 @@ target_include_directories(Circ
 )
 target_link_libraries(Circ
         PRIVATE State
+            BLAS_compiler_flags
+            OMP_compiler_flags
+            Q_compiler_flags
 )
 
 add_executable(circTest ${TEST_DIR}/testPQC.c)

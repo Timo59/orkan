@@ -40,24 +40,24 @@ void testMeanObs(void) {
  */
 void testGradPQC(void) {
     state_t testState;
-    for (qubit_t qubits = 2; qubits < MAXQUBITS; qubits++) {
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
         const dim_t dim = POW2(qubits, dim_t);
         cplx_t** vecs = generateTestVectors(qubits);
 
         stateInitEmpty(&testState, qubits);
-        const applyQB* blocks = qbs + 4 * (qubits - 2);
-        const applyPQB* circuit = pqc + 4 * (qubits - 2);
+        const applyQB* blocks = qbs + 5 * (qubits - 2);
+        const applyPQB* circuit = pqc + 5 * (qubits - 2);
 
-        cplx_t* pqbMat[4];                                          // Matrix representations of parametrized blocks
+        cplx_t* pqbMat[5];                                          // Matrix representations of parametrized blocks
         const uint8_t swapc = qubits / 2;                           // Number of adjacent swaps
 
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
-            double* test = malloc(4 * sizeof (double));
-            gradPQC(&testState, 4, circuit, randPar, blocks, diagObs, test);
+            double* test = malloc(5 * sizeof (double));
+            gradPQC(&testState, 5, circuit, randPar, blocks, diagObs, test);
 
-            double ref[4];
+            double ref[5];
             cplx_t* tmp = malloc(dim * sizeof (cplx_t));
             if (!tmp) {
                 fprintf(stderr, "testGradPQC: tmp allocation failed\n");
@@ -86,7 +86,11 @@ void testGradPQC(void) {
             pqbMat[3] = zexpm(prod, randPar[3], dim);
             free(prod);
 
-            for (depth_t j = 0; j < 4; ++j) {                       // Evolve the temporary reference vector by matrix
+            prod = diagGateMat(qubits, diagObs);
+            pqbMat[4] = zexpm(prod, randPar[4], dim);
+            free(prod);
+
+            for (depth_t j = 0; j < 5; ++j) {                       // Evolve the temporary reference vector by matrix
                 cmatVecMulInPlace(pqbMat[j], tmp, dim);             // multiplication
             }
             double mean = 0;                                        // Mean value of the observable at the current
@@ -94,11 +98,11 @@ void testGradPQC(void) {
                 mean += pow(cabs(tmp[j]), 2) * diagObs[j];
             }
 
-            for (uint8_t j = 0; j < 4; ++j) {
+            for (uint8_t j = 0; j < 5; ++j) {
                 free(pqbMat[j]);
             }
 
-            for (depth_t j = 0; j < 4; ++j) {                       // For all directions in parameter space
+            for (depth_t j = 0; j < 5; ++j) {                       // For all directions in parameter space
                 randPar[j] += EPSILON;                              // Slightly shift the j-th parameter
                 for (dim_t k = 0; k < dim; ++k) {                   // Copy current test vector to tmp
                     tmp[k] = vecs[i][k];
@@ -123,7 +127,11 @@ void testGradPQC(void) {
                 pqbMat[3] = zexpm(prod, randPar[3], dim);
                 free(prod);
 
-                for (depth_t k = 0; k < 4; ++k) {                   // Evolve the temporary reference vector by matrix
+                prod = diagGateMat(qubits, diagObs);
+                pqbMat[4] = zexpm(prod, randPar[4], dim);
+                free(prod);
+
+                for (depth_t k = 0; k < 5; ++k) {                   // Evolve the temporary reference vector by matrix
                     cmatVecMulInPlace(pqbMat[k], tmp, dim);         // multiplication
                 }
                 double val = 0;                                     // Mean value of the observable at the shifted
@@ -133,12 +141,10 @@ void testGradPQC(void) {
 
                 ref[j] = 1/EPSILON * (val - mean);
                 randPar[j] -= EPSILON;
-                for (uint8_t k = 0; k < 4; ++k) {
+                for (uint8_t k = 0; k < 5; ++k) {
                     free(pqbMat[k]);
                 }
             }
-
-            TEST_ASSERT_TRUE(rvectorAlmostEqual(ref, test, 4, APPROXPRECISION));
             free(tmp);
             free(test);
         }

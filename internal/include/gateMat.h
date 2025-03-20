@@ -88,6 +88,8 @@ static cplx_t ONE[1] = {1.0 + 0.0 * I};
 
 cplx_t* identityMat(qubit_t qubits);
 
+cplx_t* diagGateMat(const qubit_t qubits, const double diag[]);
+
 cplx_t* singleQubitGateMat(const cplx_t mat[], qubit_t qubits, qubit_t pos);
 
 cplx_t* RXGateMat(qubit_t qubits, qubit_t pos, double angle);

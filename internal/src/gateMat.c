@@ -27,6 +27,20 @@ cplx_t* identityMat(qubit_t qubits) {
     return result;
 }
 
+cplx_t* diagGateMat(const qubit_t qubits, const double diag[]) {
+    const dim_t dim = 1 << qubits;
+    cplx_t* out = calloc(dim * dim, sizeof (cplx_t));
+    if (!out) {
+        fprintf(stderr, "diagGateMat: out allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (dim_t i = 0; i < dim; ++i) {
+        out[i + i * dim] = (cplx_t) diag[i];
+    }
+    return out;
+}
+
 /*
  * This function returns the matrix representation of single qubit gate applied at pos in a system of qubits.
  *
