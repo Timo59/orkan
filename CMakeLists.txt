@@ -117,15 +117,15 @@ if (${MACOS})
             circTest
             measTest
     )
+    add_custom_command(
+            TARGET Q
+            COMMENT "Run tests on qlib"
+            PRE_BUILD
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+    )
 else ()
     add_dependencies(Q
             gateTest
     )
 endif ()
-add_custom_command(
-        TARGET Q
-        COMMENT "Run tests on qlib"
-        PRE_BUILD
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-)
