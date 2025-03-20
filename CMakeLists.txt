@@ -111,12 +111,17 @@ install(FILES       include/qLib.h
                     include/qTypes.h
         DESTINATION include/qlib)
 
-add_dependencies(Q
-        gateTest
-        $<${MACOS}:circTest>
-        $<${MACOS}:measTest>
-)
-
+if (${MACOS})
+    add_dependencies(Q
+            gateTest
+            circTest
+            measTest
+    )
+else ()
+    add_dependencies(Q
+            gateTest
+    )
+endif ()
 add_custom_command(
         TARGET Q
         COMMENT "Run tests on qlib"
