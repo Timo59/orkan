@@ -63,7 +63,10 @@ target_compile_options(OMP_compiler_flags INTERFACE                             
         -fopenmp
 )
 target_include_directories(OMP_compiler_flags INTERFACE $<${MACOS}:/opt/homebrew/opt/libomp/include>)
-target_link_libraries(OMP_compiler_flags INTERFACE $<${MACOS}:-lomp>)
+target_link_libraries(OMP_compiler_flags
+        INTERFACE   $<${MACOS}:-lomp>
+                    $<${LINUX}:-fopenmp>
+)
 target_link_directories(OMP_compiler_flags INTERFACE $<${MACOS}:/opt/homebrew/opt/libomp/lib>)
 
 add_library(Q_compiler_flags INTERFACE)                                             # Interface library specifying usage
