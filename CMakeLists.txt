@@ -113,14 +113,14 @@ install(FILES       include/qLib.h
 
 add_dependencies(Q
         gateTest
-        circTest
-        measTest
+        $<${MACOS}:circTest>
+        $<${MACOS}:measTest>
 )
 
 add_custom_command(
         TARGET Q
         COMMENT "Run tests on qlib"
-        DEPENDS
+        PRE_BUILD
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
 )
