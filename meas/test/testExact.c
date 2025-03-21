@@ -38,7 +38,8 @@ void testMeanObs(void) {
  *                                                 testGradientPQC
  * =====================================================================================================================
  */
-void testGradPQC(void) {
+
+void testGradPQC1(void) {
     state_t testState;
     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
         const dim_t dim = POW2(qubits, dim_t);
@@ -60,7 +61,7 @@ void testGradPQC(void) {
             double ref[5];
             cplx_t* tmp = malloc(dim * sizeof (cplx_t));
             if (!tmp) {
-                fprintf(stderr, "testGradPQC: tmp allocation failed\n");
+                fprintf(stderr, "testGradPQC1: tmp allocation failed\n");
                 return;
             }
             for (dim_t j = 0; j < dim; ++j) {                       // Copy current test vector to tmp
@@ -153,6 +154,23 @@ void testGradPQC(void) {
     }
 }
 
+//void testGradPQC2(void) {
+//    state_t testState;
+//    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+//        const dim_t dim = POW2(qubits, dim_t);
+//        cplx_t **vecs = generateTestVectors(qubits);
+//
+//        stateInitEmpty(&testState, qubits);
+//        const applyQB* blocks = rqbs + 5 * (qubits - 2);
+//        const applyPQB* circuit = rpqc + 5 * (qubits - 2);
+//
+//        cplx_t* pqbMat[5];                                          // Matrix representations of parametrized blocks
+//        const uint8_t swapc = qubits / 2;                           // Number of adjacent swaps
+//
+//
+//    }
+//}
+
 /*
  * =====================================================================================================================
  *                                                      main
@@ -161,6 +179,6 @@ void testGradPQC(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testMeanObs);
-    RUN_TEST(testGradPQC);
+    RUN_TEST(testGradPQC1);
     return UNITY_END();
 }
