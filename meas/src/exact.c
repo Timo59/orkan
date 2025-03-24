@@ -92,3 +92,74 @@ void gradPQC(state_t* state, const depth_t d, const applyPQB pqc[], const double
     }
     stateFreeVector(&bra);
 }
+
+/*
+ * This function calculates the moment matrices of a set of observables wrt to a sequence of LCU.
+ *
+ * Input:
+ *      state_t* state:     State of a qubit system (CAUTION: Is changed within this function)
+ *      depth_t obsc:       Number of moment matrices
+ *      obs_t* obs[]:       Set of observables constituting the moment matrices
+ *      depth_t circdepth:  Number of LCU channels
+ *      double coeffs[]:    Coefficients for LCU; concatenation for all LCU (CAUTION: Coefficient for id is prepended to
+ *                          each set of coefficients)
+ *      depth_t uc:         Number of unitary operators in each LCU
+ *      unitary u[]:        Set of unitary operators; concatenation for all LCU
+ *      depth_t link:       Element of the LCU sequence constituting the basis for the moment matrices
+ *
+ * Output:
+ *  An array of moment matrices, whose entries are the overlaps of two quantum states with the corresponding observable
+ *  applied. In particular, all LCU preceding the one specified by link are applied with their coefficients setting on
+ *  input. Then, the set of unitary operators at link are applied one by one to the quantum state to give the states for
+ *  each column and row, respectively. The remaining LCU are also applied with their coefficients determined on inpt.
+ */
+
+void mmseq(state_t* state,
+           const depth_t obsc,
+           const applyQB obs[],
+           depth_t circdepth,
+           cplx_t coeff[],
+           const depth_t uc,
+           const applyQB u[],
+           depth_t link,
+           cplx_t* momMat[])
+{
+    for (depth_t k = 0; k < link; ++k) {                            // Apply all LCU channels prior to 'link'
+        lcQB(state, uc, u + k * uc, coeff + k * uc);
+    }
+
+#pragma omp parallel for default(none) shared(state, obsc, obs, circdepth, coeff, uc, u, link, momMat)
+    for (depth_t j = 0; j < uc; ++j) {                              // Iterate the moment matrices' columns
+        state_t bra, ket;
+        stateInitEmpty(&ket, state->qubits);
+        stateInitVector(&ket, state->vec);
+
+        u[j + link * uc](&ket);                                     // Apply the search unitary according to the link
+        for (depth_t k = link + 1; k < circdepth; ++k) {            // and the column
+            lcQB(state, uc, u + k * uc, coeff + k * uc);            // Apply all remaining LCU channels
+        }
+
+        for (depth_t k = 0; k < obsc; ++k) {                        // Calculate the j-th diagonal element for all
+            stateInitEmpty(&bra, state->qubits);                    // observables
+            stateInitVector(&bra, ket.vec);
+            obs[k](&bra);
+            momMat[k][j * uc - j * (j - 1) / 2] = stateOverlap(bra, ket);
+            stateFreeVector(&bra);
+        }
+
+        for (depth_t i = j + 1; i < uc; ++i) {
+            for (depth_t k = 0; k < obsc; ++k) {
+                stateInitEmpty(&bra, state->qubits);
+                stateInitVector(&bra, state->vec);
+                u[i + link * uc](&bra);
+                for (depth_t l = link + 1; l < circdepth; ++l) {
+                    lcQB(&bra, uc, u + l * uc, coeff + l * uc);
+                }
+                obs[k](&bra);
+                momMat[k][j * uc - j * (j - 1) / 2 + i - j] = stateOverlap(bra, ket);
+                stateFreeVector(&bra);
+            }
+        }
+        stateFreeVector(&ket);
+    }
+}
