@@ -81,6 +81,7 @@ void stateInitVector(state_t* state, const cplx_t vector[]) {
  */
 void stateFreeVector(state_t* state) {
 	free(state->vec);
+	state->vec = NULL;
 }
 
 /*
