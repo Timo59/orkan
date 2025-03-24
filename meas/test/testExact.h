@@ -70,7 +70,7 @@ cplx_t* (*rMat[])(qubit_t, qubit_t, double) = {RXGateMat, RYGateMat, RZGateMat};
 
 /*
  * =====================================================================================================================
- *                                                  Quantum blocks
+ *                                      Quantum blocks: Evolution as a product
  * =====================================================================================================================
  */
 extern inline void x2(state_t* state) {
@@ -255,117 +255,122 @@ extern inline void evoSwap6(state_t* state, const double par) {
 applyPQB pqc[25] = {evoX2, evoY2, evoZ2, evoSwap2, evoDiag2, evoX3, evoY3, evoZ3, evoSwap3, evoDiag2, evoX4, evoY4,
     evoZ4, evoSwap4, evoDiag2, evoX5, evoY5, evoZ5, evoSwap5, evoDiag2, evoX6, evoY6, evoZ6, evoSwap6, evoDiag2};
 
-// void rx2(state_t* state, const double par) {
-//     applyRX(state, 0, par);
-//     applyRX(state, 1, par);
-// }
-// void ry2(state_t* state, const double par) {
-//     applyRY(state, 0, par);
-//     applyRY(state, 1, par);
-// }
-// void rz2(state_t* state, const double par) {
-//     applyRZ(state, 0, par);
-//     applyRZ(state, 1, par);
-// }
-// void rswap2(state_t* state, const double par) {
-//     applyRswap(state, 0, 1, par);
-// }
-// void rx3(state_t* state, const double par) {
-//     applyRX(state, 0, par);
-//     applyRX(state, 1, par);
-//     applyRX(state, 2, par);
-// }
-// void ry3(state_t* state, const double par) {
-//     applyRY(state, 0, par);
-//     applyRY(state, 1, par);
-//     applyRY(state, 2, par);
-// }
-// void rz3(state_t* state, const double par) {
-//     applyRZ(state, 0, par);
-//     applyRZ(state, 1, par);
-//     applyRZ(state, 2, par);
-// }
-// void rswap3(state_t* state, const double par) {
-//     applyRswap(state, 0, 1, par);
-// }
-// void rx4(state_t* state, const double par) {
-//     applyRX(state, 0, par);
-//     applyRX(state, 1, par);
-//     applyRX(state, 2, par);
-//     applyRX(state, 3, par);
-// }
-// void ry4(state_t* state, const double par) {
-//     applyRY(state, 0, par);
-//     applyRY(state, 1, par);
-//     applyRY(state, 2, par);
-//     applyRY(state, 3, par);
-// }
-// void rz4(state_t* state, const double par) {
-//     applyRZ(state, 0, par);
-//     applyRZ(state, 1, par);
-//     applyRZ(state, 2, par);
-//     applyRZ(state, 3, par);
-// }
-// void rswap4(state_t* state, const double par) {
-//     applyRswap(state, 0, 1, par);
-//     applyRswap(state, 2, 3, par);
-// }
-// void rx5(state_t* state, const double par) {
-//     applyRX(state, 0, par);
-//     applyRX(state, 1, par);
-//     applyRX(state, 2, par);
-//     applyRX(state, 3, par);
-//     applyRX(state, 4, par);
-// }
-// void ry5(state_t* state, const double par) {
-//     applyRY(state, 0, par);
-//     applyRY(state, 1, par);
-//     applyRY(state, 2, par);
-//     applyRY(state, 3, par);
-//     applyRY(state, 4, par);
-// }
-// void rz5(state_t* state, const double par) {
-//     applyRZ(state, 0, par);
-//     applyRZ(state, 1, par);
-//     applyRZ(state, 2, par);
-//     applyRZ(state, 3, par);
-//     applyRZ(state, 4, par);
-// }
-// void rswap5(state_t* state, const double par) {
-//     applyRswap(state, 0, 1, par);
-//     applyRswap(state, 2, 3, par);
-// }
-// void rx6(state_t* state, const double par) {
-//     applyRX(state, 0, par);
-//     applyRX(state, 1, par);
-//     applyRX(state, 2, par);
-//     applyRX(state, 3, par);
-//     applyRX(state, 4, par);
-//     applyRX(state, 5, par);
-// }
-// void ry6(state_t* state, const double par) {
-//     applyRY(state, 0, par);
-//     applyRY(state, 1, par);
-//     applyRY(state, 2, par);
-//     applyRY(state, 3, par);
-//     applyRY(state, 4, par);
-//     applyRY(state, 5, par);
-// }
-// void rz6(state_t* state, const double par) {
-//     applyRZ(state, 0, par);
-//     applyRZ(state, 1, par);
-//     applyRZ(state, 2, par);
-//     applyRZ(state, 3, par);
-//     applyRZ(state, 4, par);
-//     applyRZ(state, 5, par);
-// }
-// void rswap6(state_t* state, const double par) {
-//     applyRswap(state, 0, 1, par);
-//     applyRswap(state, 2, 3, par);
-//     applyRswap(state, 4, 5, par);
-// }
-//
-// applyPQB pqbs[20] = {rx2, ry2, rz2, rswap2, rx3, ry3, rz3, rswap3, rx4, ry4, rz4, rswap4, rx5, ry5, rz5, rswap5, \
-//     rx6, ry6, rz6, rswap6};
+/*
+ * =====================================================================================================================
+ *                                      Quantum blocks: Evolution as a sum
+ * =====================================================================================================================
+ */
+extern inline void rx2(state_t* state, const double par) {
+     applyRX(state, 0, par);
+     applyRX(state, 1, par);
+ }
+extern inline void ry2(state_t* state, const double par) {
+     applyRY(state, 0, par);
+     applyRY(state, 1, par);
+ }
+extern inline void rz2(state_t* state, const double par) {
+     applyRZ(state, 0, par);
+     applyRZ(state, 1, par);
+ }
+extern inline void rswap2(state_t* state, const double par) {
+     applyRswap(state, 0, 1, par);
+ }
+extern inline void rx3(state_t* state, const double par) {
+     applyRX(state, 0, par);
+     applyRX(state, 1, par);
+     applyRX(state, 2, par);
+ }
+extern inline void ry3(state_t* state, const double par) {
+     applyRY(state, 0, par);
+     applyRY(state, 1, par);
+     applyRY(state, 2, par);
+ }
+extern inline void rz3(state_t* state, const double par) {
+     applyRZ(state, 0, par);
+     applyRZ(state, 1, par);
+     applyRZ(state, 2, par);
+ }
+extern inline void rswap3(state_t* state, const double par) {
+     applyRswap(state, 0, 1, par);
+ }
+extern inline void rx4(state_t* state, const double par) {
+     applyRX(state, 0, par);
+     applyRX(state, 1, par);
+     applyRX(state, 2, par);
+     applyRX(state, 3, par);
+ }
+extern inline void ry4(state_t* state, const double par) {
+     applyRY(state, 0, par);
+     applyRY(state, 1, par);
+     applyRY(state, 2, par);
+     applyRY(state, 3, par);
+ }
+extern inline void rz4(state_t* state, const double par) {
+     applyRZ(state, 0, par);
+     applyRZ(state, 1, par);
+     applyRZ(state, 2, par);
+     applyRZ(state, 3, par);
+ }
+extern inline void rswap4(state_t* state, const double par) {
+     applyRswap(state, 0, 1, par);
+     applyRswap(state, 2, 3, par);
+ }
+extern inline void rx5(state_t* state, const double par) {
+     applyRX(state, 0, par);
+     applyRX(state, 1, par);
+     applyRX(state, 2, par);
+     applyRX(state, 3, par);
+     applyRX(state, 4, par);
+ }
+extern inline void ry5(state_t* state, const double par) {
+     applyRY(state, 0, par);
+     applyRY(state, 1, par);
+     applyRY(state, 2, par);
+     applyRY(state, 3, par);
+     applyRY(state, 4, par);
+ }
+extern inline void rz5(state_t* state, const double par) {
+     applyRZ(state, 0, par);
+     applyRZ(state, 1, par);
+     applyRZ(state, 2, par);
+     applyRZ(state, 3, par);
+     applyRZ(state, 4, par);
+ }
+extern inline void rswap5(state_t* state, const double par) {
+     applyRswap(state, 0, 1, par);
+     applyRswap(state, 2, 3, par);
+ }
+extern inline void rx6(state_t* state, const double par) {
+     applyRX(state, 0, par);
+     applyRX(state, 1, par);
+     applyRX(state, 2, par);
+     applyRX(state, 3, par);
+     applyRX(state, 4, par);
+     applyRX(state, 5, par);
+ }
+extern inline void ry6(state_t* state, const double par) {
+     applyRY(state, 0, par);
+     applyRY(state, 1, par);
+     applyRY(state, 2, par);
+     applyRY(state, 3, par);
+     applyRY(state, 4, par);
+     applyRY(state, 5, par);
+ }
+extern inline void rz6(state_t* state, const double par) {
+     applyRZ(state, 0, par);
+     applyRZ(state, 1, par);
+     applyRZ(state, 2, par);
+     applyRZ(state, 3, par);
+     applyRZ(state, 4, par);
+     applyRZ(state, 5, par);
+ }
+extern inline void rswap6(state_t* state, const double par) {
+     applyRswap(state, 0, 1, par);
+     applyRswap(state, 2, 3, par);
+     applyRswap(state, 4, 5, par);
+ }
+
+applyPQB rpqc[20] = {rx2, ry2, rz2, rswap2, rx3, ry3, rz3, rswap3, rx4, ry4, rz4, rswap4, rx5, ry5, rz5, rswap5, \
+     rx6, ry6, rz6, rswap6};
 
 #endif //TESTEXACT_H

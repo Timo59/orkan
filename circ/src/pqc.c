@@ -85,7 +85,7 @@ void evoDiag(state_t* state, const double diag[], const double par) {
  * @param[in]       qb      Quantum block; i.e, a function applying quantum gates to the quantum state
  * @param[in]       c       Coefficients of the quantum blocks in the linear combination
  */
-void lcQB(state_t* state, const depth_t d, applyQB qb[], const cplx_t c[]) {
+void lcQB(state_t* state, const depth_t d, const applyQB qb[], const cplx_t c[]) {
     const dim_t incr = 1;
     cplx_t* out = calloc(state->dim, sizeof (cplx_t));
     if(!out) {

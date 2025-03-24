@@ -31,8 +31,6 @@ void testEvoQB(void) {
                 free(gateMat);
             }
             pqbMat[i] = zexpm(prod, randPar[i], dim);               // Imaginary time evolution matrix
-            printf("pqbMat[%d] = \n", i);
-            matrixPrint(pqbMat[i], dim);
             free(prod);
         }
         const uint8_t swapc = qubits / 2;                           // Number of adjacent swaps
@@ -43,8 +41,6 @@ void testEvoQB(void) {
             free(gateMat);
         }
         pqbMat[3] = zexpm(prod, randPar[3], dim);
-        printf("pqbMat[3] = \n");
-        matrixPrint(pqbMat[3], dim);
         free(prod);
 
         /* TESTING */
