@@ -96,16 +96,16 @@ void gradPQC(state_t* state, const depth_t d, const applyPQB pqc[], const double
 /*
  * This function calculates the moment matrices of a set of observables wrt to a sequence of LCU.
  *
- * Input:
- *      state_t* state:     State of a qubit system (CAUTION: Is changed within this function)
- *      depth_t obsc:       Number of moment matrices
- *      obs_t* obs[]:       Set of observables constituting the moment matrices
- *      depth_t circdepth:  Number of LCU channels
- *      double coeffs[]:    Coefficients for LCU; concatenation for all LCU (CAUTION: Coefficient for id is prepended to
- *                          each set of coefficients)
- *      depth_t uc:         Number of unitary operators in each LCU
- *      unitary u[]:        Set of unitary operators; concatenation for all LCU
- *      depth_t link:       Element of the LCU sequence constituting the basis for the moment matrices
+ *  @param[in, out] state:      Input quantum state to the PQC. On exit, the output of the PQC up to link with the
+ *                               CURRENT parameter setting
+ *  @param[in]      obsc:       Number of moment matrices
+ *  @param[in, out] obs[]:      Set of observables constituting the moment matrices
+ *  @param[in]      circdepth:  Number of LCU channels
+ *  @param[in, out] coeffs[]:   Coefficients for LCU; concatenation for all channels
+ *  @param[in]      uc:         Number of unitary operators in each LCU TODO: Allow for different numbers across channel
+ *  @param[in, out] u[]:        Set of unitary operators; concatenation for all LCU
+ *  @param[in, out] link:       Element of the LCU sequence constituting the basis for the moment matrices
+ *  @param[in, out] momMat[]:   Array of moment matrices in packed column major form
  *
  * Output:
  *  An array of moment matrices, whose entries are the overlaps of two quantum states with the corresponding observable
@@ -117,11 +117,11 @@ void gradPQC(state_t* state, const depth_t d, const applyPQB pqc[], const double
 void mmseq(state_t* state,
            const depth_t obsc,
            const applyQB obs[],
-           depth_t circdepth,
-           cplx_t coeff[],
+           const depth_t circdepth,
+           const cplx_t coeff[],
            const depth_t uc,
            const applyQB u[],
-           depth_t link,
+           const depth_t link,
            cplx_t* momMat[])
 {
     for (depth_t k = 0; k < link; ++k) {                            // Apply all LCU channels prior to 'link'

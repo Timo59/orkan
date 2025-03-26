@@ -65,6 +65,9 @@ double diagObs[64] = {-0.672013803, -1.080744850, 1.989524770, 1.988930799, 1.73
     };
 
 double randPar[5] = {-1.935113472, 0.170656438, -1.916424226, -0.785971871, 1.746181027};
+cplx_t coeff[4] = {0.551736480 + I * 0.461109576, -2.734804444 + I * 0.567079912, 0.362535970 + I * 0.714549265,
+    0.372739852 - I * -1.612172457};
+
 const cplx_t* pauliMat[] = {XMAT, YMAT, ZMAT};
 cplx_t* (*rMat[])(qubit_t, qubit_t, double) = {RXGateMat, RYGateMat, RZGateMat};
 
@@ -373,4 +376,72 @@ extern inline void rswap6(state_t* state, const double par) {
 applyPQB rpqc[20] = {rx2, ry2, rz2, rswap2, rx3, ry3, rz3, rswap3, rx4, ry4, rz4, rswap4, rx5, ry5, rz5, rswap5, \
      rx6, ry6, rz6, rswap6};
 
+/*
+ * =====================================================================================================================
+ *                                      Parametrized quantum blocks for moment matrix test
+ * =====================================================================================================================
+ */
+extern inline void UX2(state_t* state) {
+    evoX2(state, randPar[0]);
+}
+extern inline void UY2(state_t* state) {
+    evoY2(state, randPar[1]);
+}
+extern inline void UZ2(state_t* state) {
+    evoZ2(state, randPar[2]);
+}
+extern inline void USwap2(state_t* state) {
+    evoSwap2(state, randPar[3]);
+}
+extern inline void UDiag2(state_t* state) {
+    evoDiag2(state, randPar[4]);
+}
+extern inline void UX3(state_t* state) {
+    evoX3(state, randPar[0]);
+}
+extern inline void UY3(state_t* state) {
+    evoY3(state, randPar[1]);
+}
+extern inline void UZ3(state_t* state) {
+    evoZ3(state, randPar[2]);
+}
+extern inline void USwap3(state_t* state) {
+    evoSwap3(state, randPar[3]);
+}
+extern inline void UX4(state_t* state) {
+    evoX4(state, randPar[0]);
+}
+extern inline void UY4(state_t* state) {
+    evoY4(state, randPar[1]);
+}
+extern inline void UZ4(state_t* state) {
+    evoZ4(state, randPar[2]);
+}
+extern inline void USwap4(state_t* state) {
+    evoSwap4(state, randPar[3]);
+}
+extern inline void UX5(state_t* state) {
+    evoX5(state, randPar[0]);
+}
+extern inline void UY5(state_t* state) {
+    evoY5(state, randPar[1]);
+}
+extern inline void UZ5(state_t* state) {
+    evoZ5(state, randPar[2]);
+}
+extern inline void USwap5(state_t* state) {
+    evoSwap5(state, randPar[3]);
+}
+extern inline void UX6(state_t* state) {
+    evoX6(state, randPar[0]);
+}
+extern inline void UY6(state_t* state) {
+    evoY6(state, randPar[1]);
+}
+extern inline void UZ6(state_t* state) {
+    evoZ6(state, randPar[2]);
+}
+extern inline void USwap6(state_t* state) {
+    evoSwap2(state, randPar[3]);
+}
 #endif //TESTEXACT_H
