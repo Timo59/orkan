@@ -76,6 +76,7 @@ void testGradPQC1(void) {
                     free(gateMat);
                 }
                 pqbMat[j] = zexpm(prod, randPar[j], dim);
+                matrixPrint(pqbMat[j], dim);
                 free(prod);
             }
             cplx_t* prod = identityMat(qubits);
@@ -86,10 +87,12 @@ void testGradPQC1(void) {
             }
             pqbMat[3] = zexpm(prod, randPar[3], dim);
             free(prod);
+            matrixPrint(pqbMat[3], dim);
 
             prod = diagGateMat(qubits, diagObs);
             pqbMat[4] = zexpm(prod, randPar[4], dim);
             free(prod);
+            matrixPrint(pqbMat[4], dim);
 
             for (depth_t j = 0; j < 5; ++j) {                       // Evolve the temporary reference vector by matrix
                 cmatVecMulInPlace(pqbMat[j], tmp, dim);             // multiplication
@@ -145,6 +148,12 @@ void testGradPQC1(void) {
                 for (uint8_t k = 0; k < 5; ++k) {
                     free(pqbMat[k]);
                 }
+                printf("Qubits: %d\n", qubits);
+                printf("test = ");
+                vectorPrint(test, 5);
+                printf("ref = ");
+                vectorPrint(ref, 5);
+                TEST_ASSERT_TRUE(rvectorAlmostEqual(ref, test, 5, APPROXPRECISION));
             }
             free(tmp);
             free(test);
@@ -171,6 +180,29 @@ void testGradPQC1(void) {
 //    }
 //}
 
+/*
+ * =====================================================================================================================
+ *                                                 testMMseq
+ * =====================================================================================================================
+ */
+void testMMseq(void) {
+    state_t testState;
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+        cplx_t** vecs = generateTestVectors(qubits);
+
+        stateInitEmpty(&testState, qubits);
+        const applyQB* blocks = qbs + 5 * (qubits - 2);
+        const applyPQB* circuit = pqc + 5 * (qubits - 2);
+
+        applyQB u[30];                                              // Concatenation of channels' search unitaries
+        for (uint8_t i = 0; i < 5; ++i) {
+            for (uint8_t j = 0; j < 5; ++j) {                       // Alternating channels of the defined quantum
+                u[i * 10 + j] = blocks[j];                          // blocks
+            }
+        }
+    }
+}
 /*
  * =====================================================================================================================
  *                                                      main
