@@ -73,7 +73,7 @@ void evoQB(state_t* state, const applyQB qb, const double par) {
 void evoDiag(state_t* state, const double diag[], const double par) {
 #pragma omp parallel for default(none) shared(state, diag, par)
     for (dim_t i = 0; i < state->dim; ++i) {
-        state->vec[i] *= cexp(I * par * diag[i]);
+        state->vec[i] *= cexp(-I * par * diag[i]);
     }
 }
 

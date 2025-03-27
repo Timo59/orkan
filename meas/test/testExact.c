@@ -46,11 +46,10 @@ void testGradPQC1(void) {
         cplx_t** vecs = generateTestVectors(qubits);
 
         stateInitEmpty(&testState, qubits);
-        const applyQB* blocks = qbs + 5 * (qubits - 2);
+        const applyQB* blocks = qb + 5 * (qubits - 2);
         const applyPQB* circuit = pqc + 5 * (qubits - 2);
 
         cplx_t* pqbMat[5];                                          // Matrix representations of parametrized blocks
-        const uint8_t swapc = qubits / 2;                           // Number of adjacent swaps
 
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
@@ -68,33 +67,13 @@ void testGradPQC1(void) {
                 tmp[j] = vecs[i][j];
             }
 
-            for (uint8_t j = 0; j < 3; ++j) {                       // Calculate the evolution matrices at the current
-                cplx_t* prod = identityMat(qubits);                 // parameters
-                for (uint8_t k = 0; k < qubits; k++) {
-                    cplx_t* gateMat = singleQubitGateMat(pauliMat[j], qubits, k);
-                    cmatMulInPlace(prod, gateMat, dim);
-                    free(gateMat);
-                }
-                pqbMat[j] = zexpm(prod, randPar[j], dim);
-                matrixPrint(pqbMat[j], dim);
-                free(prod);
+            for (uint8_t j = 0; j < 5; ++j) {                       // Calculate the evolution matrices at the current
+                cplx_t* blockMat = qbMat[j](qubits);                // parameters
+                pqbMat[j] = zexpm(blockMat, randPar[j], dim);
+                free(blockMat);
             }
-            cplx_t* prod = identityMat(qubits);
-            for (uint8_t j = 0; j < swapc; ++j) {
-                cplx_t* gateMat = swapGateMat(qubits, 2 * j, 2 * j + 1);
-                cmatMulInPlace(prod, gateMat, dim);
-                free(gateMat);
-            }
-            pqbMat[3] = zexpm(prod, randPar[3], dim);
-            free(prod);
-            matrixPrint(pqbMat[3], dim);
 
-            prod = diagGateMat(qubits, diagObs);
-            pqbMat[4] = zexpm(prod, randPar[4], dim);
-            free(prod);
-            matrixPrint(pqbMat[4], dim);
-
-            for (depth_t j = 0; j < 5; ++j) {                       // Evolve the temporary reference vector by matrix
+            for (int8_t j = 4; j >= 0; --j) {                       // Evolve the temporary reference vector by matrix
                 cmatVecMulInPlace(pqbMat[j], tmp, dim);             // multiplication
             }
             double mean = 0;                                        // Mean value of the observable at the current
@@ -112,30 +91,13 @@ void testGradPQC1(void) {
                     tmp[k] = vecs[i][k];
                 }
 
-                for (uint8_t k = 0; k < 3; ++k) {                   // Calculate the evolution matrices at the shifted
-                    prod = identityMat(qubits);                     // parameters
-                    for (uint8_t l = 0; l < qubits; l++) {
-                        cplx_t* gateMat = singleQubitGateMat(pauliMat[k], qubits, l);
-                        cmatMulInPlace(prod, gateMat, dim);
-                        free(gateMat);
-                    }
-                    pqbMat[k] = zexpm(prod, randPar[k], dim);
-                    free(prod);
+                for (uint8_t k = 0; k < 5; ++k) {                   // Calculate the evolution matrices at the shifted
+                    cplx_t* blockMat = qbMat[k](qubits);            // parameters
+                    pqbMat[k] = zexpm(blockMat, randPar[k], dim);
+                    free(blockMat);
                 }
-                prod = identityMat(qubits);
-                for (uint8_t k = 0; k < swapc; ++k) {
-                    cplx_t* gateMat = swapGateMat(qubits, 2 * k, 2 * k + 1);
-                    cmatMulInPlace(prod, gateMat, dim);
-                    free(gateMat);
-                }
-                pqbMat[3] = zexpm(prod, randPar[3], dim);
-                free(prod);
 
-                prod = diagGateMat(qubits, diagObs);
-                pqbMat[4] = zexpm(prod, randPar[4], dim);
-                free(prod);
-
-                for (depth_t k = 0; k < 5; ++k) {                   // Evolve the temporary reference vector by matrix
+                for (int8_t k = 4; k >= 0; --k) {                   // Evolve the temporary reference vector by matrix
                     cmatVecMulInPlace(pqbMat[k], tmp, dim);         // multiplication
                 }
                 double val = 0;                                     // Mean value of the observable at the shifted
@@ -192,7 +154,7 @@ void testMMseq(void) {
         cplx_t** vecs = generateTestVectors(qubits);
 
         stateInitEmpty(&testState, qubits);
-        const applyQB* blocks = qbs + 5 * (qubits - 2);
+        const applyQB* blocks = qb + 5 * (qubits - 2);
         const applyPQB* circuit = pqc + 5 * (qubits - 2);
 
         applyQB u[30];                                              // Concatenation of channels' search unitaries
