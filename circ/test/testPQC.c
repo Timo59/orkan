@@ -10,6 +10,31 @@
 #include "testPQC.h"
 #endif
 
+void testApplyDiag(void) {
+    state_t testState;
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+        stateInitEmpty(&testState, qubits);
+        cplx_t** vecs = generateTestVectors(qubits);
+
+        cplx_t* mat = diagMat(qubits);                              // Matrix representation of diagonal observable
+
+        /* TESTING */
+        for (uint8_t i = 0; i < dim + 1; ++i) {
+            stateInitVector(&testState, vecs[i]);
+            applyDiag(&testState, diagObs);
+
+            cmatVecMulInPlace(mat, vecs[i], dim);
+
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
+        }
+
+        free(mat);
+        freeTestVectors(vecs, qubits);
+        stateFreeVector(&testState);
+    }
+}
+
 /*
  * =====================================================================================================================
  *                                                      testEvoQB
@@ -21,33 +46,20 @@ void testEvoQB(void) {
         const dim_t dim = POW2(qubits, dim_t);
         stateInitEmpty(&testState, qubits);
         cplx_t** vecs = generateTestVectors(qubits);
+        const applyQB* blocks = qb + 4 * (qubits - 2);
 
-        cplx_t* pqbMat[4];                                          // Imaginary time evolution in matrix representation
-        for (uint8_t i = 0; i < 3; i++) {
-            cplx_t* prod = identityMat(qubits);                     // Product of respective Pauli gate on all qubits
-            for (uint8_t j = 0; j < qubits; j++) {
-                cplx_t* gateMat = singleQubitGateMat(pauliMat[i], qubits, j);
-                cmatMulInPlace(prod, gateMat, dim);
-                free(gateMat);
-            }
-            pqbMat[i] = zexpm(prod, randPar[i], dim);               // Imaginary time evolution matrix
-            free(prod);
-        }
-        const uint8_t swapc = qubits / 2;                           // Number of adjacent swaps
-        cplx_t* prod = identityMat(qubits);
-        for (uint8_t j = 0; j < swapc; j++) {
-            cplx_t* gateMat = swapGateMat(qubits, 2 * j, 2 * j + 1);
-            cmatMulInPlace(prod, gateMat, dim);
+        cplx_t* pqbMat[4];                                          // Matrix representations of parametrized blocks
+        for (uint8_t i = 0; i < 4; ++i) {
+            cplx_t* gateMat = qbMat[i](qubits);
+            pqbMat[i] = zexpm(gateMat, randPar[i], dim);
             free(gateMat);
         }
-        pqbMat[3] = zexpm(prod, randPar[3], dim);
-        free(prod);
 
         /* TESTING */
-        for (uint8_t i = 0; i < dim + 1; ++i) {
+        for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);                   // Initialize testState with the i-th test vector
             for (uint8_t j = 0; j < 4; j++) {                       // Evolve testState with all four quantum blocks
-                evoQB(&testState, qbs[j + 4 * (qubits - 2)], randPar[j]);
+                evoQB(&testState, blocks[j], randPar[j]);
             }
 
             for (uint8_t j = 0; j < 4; j++) {                       // Evolve the test vector itself by matrix multi-
@@ -55,9 +67,43 @@ void testEvoQB(void) {
             }
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
+
         for (uint8_t i = 0; i < 4; ++i) {
             free(pqbMat[i]);
         }
+        stateFreeVector(&testState);
+        freeTestVectors(vecs, qubits);
+    }
+}
+
+/*
+ * =====================================================================================================================
+ *                                                      testEvoDiag
+ * =====================================================================================================================
+ */
+
+void testEvoDiag(void) {
+    state_t testState;
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+        cplx_t** vecs = generateTestVectors(qubits);
+        stateInitEmpty(&testState, qubits);
+
+        cplx_t* mat = diagMat(qubits);
+        cplx_t* evoMat = zexpm(mat, randPar[0], dim);
+        free(mat);
+
+        /* TESTING */
+        for (dim_t i = 0; i < dim + 1; ++i) {
+            stateInitVector(&testState, vecs[i]);
+            evoDiag(&testState, diagObs, randPar[0]);
+
+            cmatVecMulInPlace(evoMat, vecs[i], dim);
+
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
+        }
+
+        free(evoMat);
         stateFreeVector(&testState);
         freeTestVectors(vecs, qubits);
     }
@@ -75,36 +121,22 @@ void testLCQB(void) {
         cplx_t** vecs = generateTestVectors(qubits);
 
         stateInitEmpty(&testState, qubits);
-        applyQB* blocks = qbs + 4 * (qubits - 2);
+        applyQB* blocks = qb + 4 * (qubits - 2);
 
         cplx_t* lcqbMat = calloc(dim * dim, sizeof (cplx_t));       // Matrix representation of the linear combination
         if (!lcqbMat) {                                             // of quantum blocks
             fprintf(stderr, "testLCQB: lcqbMat allocation failed\n");
             return;
         }
-        for (uint8_t i = 0; i < 3; i++) {
-            cplx_t* prod = identityMat(qubits);                     // Product of respective Pauli gates on all qubits
-            for (uint8_t j = 0; j < qubits; j++) {
-                cplx_t* gateMat = singleQubitGateMat(pauliMat[i], qubits, j);
-                cmatMulInPlace(prod, gateMat, dim);
-                free(gateMat);
-            }
-            cscalarMatMulInPlace(coeff[i], prod, dim);
-            cmatAddInPlace(lcqbMat, prod, dim);
-            free(prod);
+        for (uint8_t i = 0; i < 4; ++i) {
+            cplx_t* tmp = qbMat[i](qubits);
+            cscalarMatMulInPlace(coeff[i], tmp, dim);
+            cmatAddInPlace(lcqbMat, tmp, dim);
+            free(tmp);
         }
-        const uint8_t swapc = qubits / 2;                           // Number of adjacent swaps
-        cplx_t* prod = identityMat(qubits);
-        for (uint8_t j = 0; j < swapc; j++) {
-            cplx_t* gateMat = swapGateMat(qubits, 2 * j, 2 * j + 1);
-            cmatMulInPlace(prod, gateMat, dim);
-            free(gateMat);
-        }
-        cscalarMatMulInPlace(coeff[3], prod, dim);
-        cmatAddInPlace(lcqbMat, prod, dim);
-        free(prod);
 
-        for (uint8_t i = 0; i < dim + 1; ++i) {
+        /* TESTING */
+        for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
             lcQB(&testState, 4, blocks, coeff);
 
@@ -205,7 +237,9 @@ void testLCQB(void) {
  */
 int main(void) {
     UNITY_BEGIN();
+    RUN_TEST(testApplyDiag);
     RUN_TEST(testEvoQB);
+    RUN_TEST(testEvoDiag);
     RUN_TEST(testLCQB);
     return UNITY_END();
 }

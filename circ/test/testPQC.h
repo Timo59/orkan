@@ -36,7 +36,19 @@
  * =====================================================================================================================
  */
 #define PRECISION               1e-8
-#define MAXQUBITS               6
+#define MAXQUBITS               7
+
+/*
+ * =====================================================================================================================
+ *                                                  Type definitions
+ * =====================================================================================================================
+ */
+/*
+ * Function:  Matrix representation of a quantum block
+ * ------------------------------------
+ * This function returns the matrix representation of some quantum block
+ */
+typedef cplx_t* (*matQB)(qubit_t qubits);
 
 /*
  * =====================================================================================================================
@@ -52,16 +64,27 @@ extern inline void tearDown(void) {}
  * =====================================================================================================================
  */
 double randPar[4] = {0.342377381, 1.416765874, -1.458084103, 1.767723341};
+
 cplx_t coeff[4] = {0.551736480 + I * 0.461109576, -2.734804444 + I * 0.567079912, 0.362535970 + I * 0.714549265,
     0.372739852 - I * -1.612172457};
-const cplx_t* pauliMat[] = {XMAT, YMAT, ZMAT};
-cplx_t* (*rMat[])(qubit_t, qubit_t, double) = {RXGateMat, RYGateMat, RZGateMat};
+
+double diagObs[64] = {-0.672013803, -1.080744850, 1.989524770, 1.988930799, 1.731153443, 0.219447958, -1.496797918,
+                      0.153447271, 1.394199856, 1.434125830, -0.525672657, 0.082399361, -0.256029741, 0.729175258, 1.631006491,
+                      2.747422307, -1.333258664, 0.147877182, 0.678307326, -2.064295279, -2.955271079, 0.834284985, -0.036103279,
+                      -0.174833204, 2.422058764, -2.213238216, 1.295379069, -2.132723608, 2.890693833, -2.400779788, -2.791631103,
+                      -0.748354991, -1.296158621, 1.286226791, -1.301539827, 3.019915018, 1.863008808, 0.373589359, -1.390747670,
+                      -2.016940260, 0.848049481, 1.515307618, -2.638919196, 1.680740517, -2.302014922, 0.864815536, -2.727445042,
+                      1.404416495, 1.087979959, -0.563509955, -2.881082581, 2.242557345, 1.721171693, 2.040283920, 1.542535211,
+                      0.520890342, 0.069996072, -3.053401020, 0.427764464, 1.344208689, -2.416954506, -2.499271157, 2.576468900,
+                      0.289965927
+};
 
 /*
  * =====================================================================================================================
  *                                                  Quantum blocks
  * =====================================================================================================================
  */
+// 2 qubits
 extern inline void x2(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
@@ -70,19 +93,23 @@ extern inline void y2(state_t* state) {
     applyY(state, 0);
     applyY(state, 1);
 }
+
 extern inline void z2(state_t* state) {
     applyZ(state, 0);
     applyZ(state, 1);
-
 }
+
 extern inline void swap2(state_t* state) {
     applySWAP(state, 0, 1);
 }
+
+// 3 qubits
 extern inline void x3(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
     applyX(state, 2);
 }
+
 extern inline void y3(state_t* state) {
     applyY(state, 0);
     applyY(state, 1);
@@ -96,6 +123,8 @@ extern inline void z3(state_t* state) {
 extern inline void swap3(state_t* state) {
     applySWAP(state, 0, 1);
 }
+
+// 4 qubits
 extern inline void x4(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
@@ -118,6 +147,8 @@ extern inline void swap4(state_t* state) {
     applySWAP(state, 0, 1);
     applySWAP(state, 2, 3);
 }
+
+// 5 qubits
 extern inline void x5(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
@@ -143,6 +174,8 @@ extern inline void swap5(state_t* state) {
     applySWAP(state, 0, 1);
     applySWAP(state, 2, 3);
 }
+
+// 6 qubits
 extern inline void x6(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
@@ -172,7 +205,66 @@ extern inline void swap6(state_t* state) {
     applySWAP(state, 2, 3);
     applySWAP(state, 4, 5);
 }
-applyQB qbs[20] = {x2, y2, z2, swap2, x3, y3, z3, swap3, x4, y4, z4, swap4, x5, y5, z5, swap5, x6, y6, z6, swap6};
+
+// Diagonal observable
+extern inline void diag(state_t* state) {
+    applyDiag(state, diagObs);
+}
+
+applyQB qb[25] = {x2, y2, z2, swap2, x3, y3, z3, swap3, x4, y4, z4, swap4, x5, y5, z5, swap5, x6, y6, z6, swap6};
+
+/*
+ * =====================================================================================================================
+ *                                          Reference: Quantum blocks
+ * =====================================================================================================================
+ */
+extern inline cplx_t* refX(qubit_t qubits) {
+    dim_t dim = 1 << qubits;
+    cplx_t* out = singleQubitGateMat(XMAT, qubits, qubits - 1);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = singleQubitGateMat(XMAT, qubits, i - 1);
+        cmatMulInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+extern inline cplx_t* refY(qubit_t qubits) {
+    dim_t dim = 1 << qubits;
+    cplx_t* out = singleQubitGateMat(YMAT, qubits, qubits - 1);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = singleQubitGateMat(YMAT, qubits, i - 1);
+        cmatMulInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+extern inline cplx_t* refZ(qubit_t qubits) {
+    dim_t dim = 1 << qubits;
+    cplx_t* out = singleQubitGateMat(ZMAT, qubits, qubits - 1);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = singleQubitGateMat(ZMAT, qubits, i - 1);
+        cmatMulInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+extern inline cplx_t* refSwap(qubit_t qubits) {
+    dim_t dim = 1 << qubits;
+    qubit_t start = qubits / 2;                                     // start = k for qubits = 2k and qubits = (2k + 1)
+    cplx_t* out = swapGateMat(qubits, 2 * start - 2, 2 * start - 1);    // SWAP the last qubit with odd index to left
+    for (qubit_t i = start - 1; i > 0; --i) {                       // Starting at the next qubit with odd index
+        cplx_t* tmp = swapGateMat(qubits, 2 * i - 2, 2 * i - 1);
+        cmatMulInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+matQB qbMat[25] = {refX, refY, refZ, refSwap};
+
+extern inline cplx_t* diagMat(qubit_t qubits) {
+    return diagGateMat(qubits, diagObs);
+}
 
 // void rx2(state_t* state, const double par) {
 //     applyRX(state, 0, par);

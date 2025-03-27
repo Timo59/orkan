@@ -341,6 +341,18 @@ complex double* ckronecker(const complex double a[],
 }
 
 cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
+    double complex* mColMaj = malloc(dim * dim * sizeof (double complex));  // Input matrix in column major form
+    if (!mColMaj) {
+        fprintf(stderr, "zexpm: mColMaj allocation failed\n");
+        return NULL;
+    }
+
+    for (dim_t i = 0; i < dim; ++i) {                               // Transform input matrix to column major form
+        for (dim_t j = 0; j < dim; ++j) {
+            mColMaj[j * dim + i] = m[i * dim + j];
+        }
+    }
+
     /* Eigenvalue decomposition of m*/
     const char JOBZ = 'V';                                          // Compute eigenvalues and -vectors
     const char UPLO = 'L';                                          // Lower triangle of m is stored
@@ -351,7 +363,7 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     dim_t INFO;                                                     // Status of zheev_
 
     double rwork[3 * dim - 2];
-    zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, &work_query, &LWORK, rwork, &INFO);    // Workspace query
+    zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, &work_query, &LWORK, rwork, &INFO);  // Workspace query
 
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
@@ -368,7 +380,7 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
         return NULL;
     }
 
-    zheev_(&JOBZ, &UPLO, &dim, m, &dim, eig, work, &LWORK, rwork, &INFO);
+    zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, work, &LWORK, rwork, &INFO);
 
 
     if (INFO < 0) {
@@ -397,9 +409,17 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     const cplx_t ALPHA = 1.;                                        // Transform the output matrix to the original basis
     const cplx_t BETA = 0.;                                         //          out -> U * out U**H
     double complex tmp[dim * dim];                                  // where U's columns are M's eigenvectors
-    zgemm_(&N, &N, &dim, &dim, &dim, &ALPHA, m, &dim, out, &dim, &BETA, tmp, &dim);
-    zgemm_(&N, &C, &dim, &dim, &dim, &ALPHA, tmp, &dim, m, &dim, &BETA, out, &dim);
+    zgemm_(&N, &N, &dim, &dim, &dim, &ALPHA, mColMaj, &dim, out, &dim, &BETA, tmp, &dim);
+    zgemm_(&N, &C, &dim, &dim, &dim, &ALPHA, tmp, &dim, mColMaj, &dim, &BETA, out, &dim);
 
     free(work);
-    return out;
+
+    for (dim_t j = 0; j < dim; ++ j) {
+        for (dim_t i = 0; i < dim; ++i) {
+            mColMaj[i * dim + j] = out[j * dim + i];                // Transform the result back to row major form
+        }
+    }
+    free(out);
+
+    return mColMaj;
 }
