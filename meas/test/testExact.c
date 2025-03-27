@@ -51,12 +51,15 @@ void testGradPQC1(void) {
 
         cplx_t* pqbMat[5];                                          // Matrix representations of parametrized blocks
 
+        printf("Qubits: %d\n", qubits);
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
             double* test = malloc(5 * sizeof (double));
             gradPQC(&testState, 5, circuit, randPar, blocks, diagObs, test);
 
+            printf("Start[%ld] = ", i);
+            vectorPrint(vecs[i], dim);
             double ref[5];
             cplx_t* tmp = malloc(dim * sizeof (cplx_t));
             if (!tmp) {
@@ -110,13 +113,14 @@ void testGradPQC1(void) {
                 for (uint8_t k = 0; k < 5; ++k) {
                     free(pqbMat[k]);
                 }
-                printf("Qubits: %d\n", qubits);
-                printf("test = ");
-                vectorPrint(test, 5);
-                printf("ref = ");
-                vectorPrint(ref, 5);
-                TEST_ASSERT_TRUE(rvectorAlmostEqual(ref, test, 5, APPROXPRECISION));
             }
+            printf("test = ");
+            vectorPrint(test, 5);
+            printf("ref = ");
+            vectorPrint(ref, 5);
+            printf("\n");
+            TEST_ASSERT_TRUE(rvectorAlmostEqual(ref, test, 5, APPROXPRECISION));
+
             free(tmp);
             free(test);
         }
