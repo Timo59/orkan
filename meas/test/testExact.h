@@ -73,67 +73,135 @@ cplx_t* (*rMat[])(qubit_t, qubit_t, double) = {RXGateMat, RYGateMat, RZGateMat};
 
 /*
  * =====================================================================================================================
- *                                      Quantum blocks: Evolution as a product
+ *                                                  Quantum blocks
  * =====================================================================================================================
  */
+// 2 qubits
 extern inline void x2(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
 }
+extern inline void refX2(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 2, 0), vec, 4);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 2, 1), vec, 4);
+}
+
 extern inline void y2(state_t* state) {
     applyY(state, 0);
     applyY(state, 1);
 }
+extern inline void refY2(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 2, 0), vec, 4);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 2, 1), vec, 4);
+}
+
 extern inline void z2(state_t* state) {
     applyZ(state, 0);
     applyZ(state, 1);
 }
+extern inline void refZ2(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 2, 0), vec, 4);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 2, 1), vec, 4);
+}
+
 extern inline void swap2(state_t* state) {
     applySWAP(state, 0, 1);
 }
-extern inline void diag(state_t* state) {
-    applyDiag(state, diagObs);
+extern inline void refSwap2(cplx_t vec[]) {
+    cmatVecMulInPlace(swapGateMat(2, 0, 1), vec, 4);
 }
+
+// 3 qubits
 extern inline void x3(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
     applyX(state, 2);
 }
+extern inline void refX3(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 3, 0), vec, 8);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 3, 1), vec, 8);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 3, 2), vec, 8);
+}
+
 extern inline void y3(state_t* state) {
     applyY(state, 0);
     applyY(state, 1);
     applyY(state, 2);
 }
+extern inline void refY3(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 3, 0), vec, 8);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 3, 1), vec, 8);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 3, 2), vec, 8);
+}
+
 extern inline void z3(state_t* state) {
     applyZ(state, 0);
     applyZ(state, 1);
     applyZ(state, 2);
 }
+extern inline void refZ3(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 3, 0), vec, 8);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 3, 1), vec, 8);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 3, 2), vec, 8);
+}
+
 extern inline void swap3(state_t* state) {
     applySWAP(state, 0, 1);
 }
+extern inline void refSwap3(cplx_t vec[]) {
+    cmatVecMulInPlace(swapGateMat(3, 0, 1), vec, 8);
+}
+
+// 4 qubits
 extern inline void x4(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
     applyX(state, 2);
     applyX(state, 3);
 }
+extern inline void refX4(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 4, 0), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 4, 1), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 4, 2), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 4, 3), vec, 16);
+}
+
 extern inline void y4(state_t* state) {
     applyY(state, 0);
     applyY(state, 1);
     applyY(state, 2);
     applyY(state, 3);
 }
+extern inline void refY4(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 4, 0), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 4, 1), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 4, 2), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 4, 3), vec, 16);
+}
+
 extern inline void z4(state_t* state) {
     applyZ(state, 0);
     applyZ(state, 1);
     applyZ(state, 2);
     applyZ(state, 3);
 }
+extern inline void refZ4(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 4, 0), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 4, 1), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 4, 2), vec, 16);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 4, 3), vec, 16);
+}
+
 extern inline void swap4(state_t* state) {
     applySWAP(state, 0, 1);
     applySWAP(state, 2, 3);
 }
+extern inline void refSwap4(cplx_t vec[]) {
+    cmatVecMulInPlace(swapGateMat(4, 0, 1), vec, 16);
+    cmatVecMulInPlace(swapGateMat(4, 2, 3), vec, 16);
+}
+
+// 5 qubits
 extern inline void x5(state_t* state) {
     applyX(state, 0);
     applyX(state, 1);
@@ -141,6 +209,14 @@ extern inline void x5(state_t* state) {
     applyX(state, 3);
     applyX(state, 4);
 }
+extern inline void refX5(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 5, 0), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 5, 1), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 5, 2), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 5, 3), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(XMAT, 5, 4), vec, 32);
+}
+
 extern inline void y5(state_t* state) {
     applyY(state, 0);
     applyY(state, 1);
@@ -148,6 +224,14 @@ extern inline void y5(state_t* state) {
     applyY(state, 3);
     applyY(state, 4);
 }
+extern inline void refY5(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 5, 0), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 5, 1), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 5, 2), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 5, 3), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(YMAT, 5, 4), vec, 32);
+}
+
 extern inline void z5(state_t* state) {
     applyZ(state, 0);
     applyZ(state, 1);
@@ -155,6 +239,14 @@ extern inline void z5(state_t* state) {
     applyZ(state, 3);
     applyZ(state, 4);
 }
+extern inline void refZ5(cplx_t vec[]) {
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 5, 0), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 5, 1), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 5, 2), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 5, 3), vec, 32);
+    cmatVecMulInPlace(singleQubitGateMat(ZMAT, 5, 4), vec, 32);
+}
+
 extern inline void swap5(state_t* state) {
     applySWAP(state, 0, 1);
     applySWAP(state, 2, 3);
@@ -187,6 +279,10 @@ extern inline void swap6(state_t* state) {
     applySWAP(state, 0, 1);
     applySWAP(state, 2, 3);
     applySWAP(state, 4, 5);
+}
+
+extern inline void diag(state_t* state) {
+    applyDiag(state, diagObs);
 }
 
 applyQB qbs[25] = {x2, y2, z2, swap2, diag, x3, y3, z3, swap3, diag, x4, y4, z4, swap4, diag, x5, y5, z5, swap5, diag,
