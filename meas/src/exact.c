@@ -101,7 +101,7 @@ void gradPQC(state_t* state, const depth_t d, const applyPQB pqc[], const double
  *  @param[in]      obsc:       Number of moment matrices
  *  @param[in, out] obs[]:      Set of observables constituting the moment matrices
  *  @param[in]      circdepth:  Number of LCU channels
- *  @param[in, out] coeffs[]:   Coefficients for LCU; concatenation for all channels
+ *  @param[in, out] c[]:        Coefficients for LCU; concatenation for all channels
  *  @param[in]      uc:         Number of unitary operators in each LCU TODO: Allow for different numbers across channel
  *  @param[in, out] u[]:        Set of unitary operators; concatenation for all LCU
  *  @param[in, out] link:       Element of the LCU sequence constituting the basis for the moment matrices
@@ -118,17 +118,17 @@ void mmseq(state_t* state,
            const depth_t obsc,
            const applyQB obs[],
            const depth_t circdepth,
-           const cplx_t coeff[],
+           const cplx_t c[],
            const depth_t uc,
            const applyQB u[],
            const depth_t link,
-           cplx_t* momMat[])
+           cplx_t** momMat[])
 {
     for (depth_t k = 0; k < link; ++k) {                            // Apply all LCU channels prior to 'link'
-        lcQB(state, uc, u + k * uc, coeff + k * uc);
+        lcQB(state, uc, u + k * uc, c + k * uc);
     }
 
-#pragma omp parallel for default(none) shared(state, obsc, obs, circdepth, coeff, uc, u, link, momMat)
+#pragma omp parallel for default(none) shared(state, obsc, obs, circdepth, c, uc, u, link, momMat)
     for (depth_t j = 0; j < uc; ++j) {                              // Iterate the moment matrices' columns
         state_t bra, ket;
         stateInitEmpty(&ket, state->qubits);
@@ -136,7 +136,7 @@ void mmseq(state_t* state,
 
         u[j + link * uc](&ket);                                     // Apply the search unitary according to the link
         for (depth_t k = link + 1; k < circdepth; ++k) {            // and the column
-            lcQB(state, uc, u + k * uc, coeff + k * uc);            // Apply all remaining LCU channels
+            lcQB(state, uc, u + k * uc, c + k * uc);            // Apply all remaining LCU channels
         }
 
         for (depth_t k = 0; k < obsc; ++k) {                        // Calculate the j-th diagonal element for all
@@ -153,7 +153,7 @@ void mmseq(state_t* state,
                 stateInitVector(&bra, state->vec);
                 u[i + link * uc](&bra);
                 for (depth_t l = link + 1; l < circdepth; ++l) {
-                    lcQB(&bra, uc, u + l * uc, coeff + l * uc);
+                    lcQB(&bra, uc, u + l * uc, c + l * uc);
                 }
                 obs[k](&bra);
                 momMat[k][j * uc - j * (j - 1) / 2 + i - j] = stateOverlap(bra, ket);

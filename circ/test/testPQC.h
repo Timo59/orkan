@@ -218,7 +218,7 @@ applyQB qb[25] = {x2, y2, z2, swap2, x3, y3, z3, swap3, x4, y4, z4, swap4, x5, y
  *                                          Reference: Quantum blocks
  * =====================================================================================================================
  */
-extern inline cplx_t* refX(qubit_t qubits) {
+extern inline cplx_t* xMat(qubit_t qubits) {
     dim_t dim = 1 << qubits;
     cplx_t* out = singleQubitGateMat(XMAT, qubits, qubits - 1);
     for (qubit_t i = qubits - 1; i > 0; --i) {
@@ -228,7 +228,7 @@ extern inline cplx_t* refX(qubit_t qubits) {
     }
     return out;
 }
-extern inline cplx_t* refY(qubit_t qubits) {
+extern inline cplx_t* yMat(qubit_t qubits) {
     dim_t dim = 1 << qubits;
     cplx_t* out = singleQubitGateMat(YMAT, qubits, qubits - 1);
     for (qubit_t i = qubits - 1; i > 0; --i) {
@@ -238,7 +238,7 @@ extern inline cplx_t* refY(qubit_t qubits) {
     }
     return out;
 }
-extern inline cplx_t* refZ(qubit_t qubits) {
+extern inline cplx_t* zMat(qubit_t qubits) {
     dim_t dim = 1 << qubits;
     cplx_t* out = singleQubitGateMat(ZMAT, qubits, qubits - 1);
     for (qubit_t i = qubits - 1; i > 0; --i) {
@@ -248,7 +248,7 @@ extern inline cplx_t* refZ(qubit_t qubits) {
     }
     return out;
 }
-extern inline cplx_t* refSwap(qubit_t qubits) {
+extern inline cplx_t* swapMat(qubit_t qubits) {
     dim_t dim = 1 << qubits;
     qubit_t start = qubits / 2;                                     // start = k for qubits = 2k and qubits = (2k + 1)
     cplx_t* out = swapGateMat(qubits, 2 * start - 2, 2 * start - 1);    // SWAP the last qubit with odd index to left
@@ -260,7 +260,7 @@ extern inline cplx_t* refSwap(qubit_t qubits) {
     return out;
 }
 
-matQB qbMat[25] = {refX, refY, refZ, refSwap};
+matQB qbMat[25] = {xMat, yMat, zMat, swapMat};
 
 extern inline cplx_t* diagMat(qubit_t qubits) {
     return diagGateMat(qubits, diagObs);
