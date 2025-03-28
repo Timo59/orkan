@@ -206,8 +206,39 @@ void testMMseq(void) {
         }
 
         for (dim_t i = 0; i < dim + 1; ++i) {
-            stateInitVector(&testState, vecs[i]);
-            mmseq(&testState, 3, observable, 3, )
+            for (uint8_t j = 0; j < 3; ++j) {                       // Iterate the channels of the sequence
+                stateInitVector(&testState, vecs[i]);
+                cplx_t* momMat[3];
+                for (uint8_t k = 0; k < 3; ++k) {
+                    if ((momMat[k] = malloc(15 * 16 / 2 * sizeof (cplx_t)))) {
+                        fprintf(stderr, "testMMseq: momMat[%d] allocation failed\n", k);
+                    }
+                }
+                mmseq(&testState, 3, observable, 3, coeff, 5, u, j, momMat);
+
+                cplx_t* test[3];                                    // Moment matrices expanded from packed column major
+                for (uint8_t k = 0; k < 3; ++k) {                   // to dense row major form
+                    if ((test[k] = malloc(15 * 15 * sizeof (cplx_t)))) {
+                        fprintf(stderr, "testMMseq: test[%d] allocation failed\n", k);
+                    }
+                }
+                for (uint8_t k = 15; k > 0; ++k) {
+                    for (uint8_t l = 0; l < k; ++l) {
+                        for (uint8_t mat = 0; mat < 3; ++mat) {
+                            test[mat][]
+                        }
+                    }
+                }
+                for (uint8_t k = 0; k < 3; ++k) {
+                    free(momMat[k]);
+                }
+
+                for (uint8_t k = 0; k < 3; ++k) {
+                    free(test[k]);
+                }
+
+            }
+
         }
 
     }

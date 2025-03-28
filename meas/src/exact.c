@@ -122,7 +122,7 @@ void mmseq(state_t* state,
            const depth_t uc,
            const applyQB u[],
            const depth_t link,
-           cplx_t** momMat[])
+           cplx_t* momMat[])
 {
     for (depth_t k = 0; k < link; ++k) {                            // Apply all LCU channels prior to 'link'
         lcQB(state, uc, u + k * uc, c + k * uc);
