@@ -182,50 +182,104 @@ void testMMseq(void) {
     state_t testState;
     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
         const dim_t dim = POW2(qubits, dim_t);
-        cplx_t** vecs = generateTestVectors(qubits);
         stateInitEmpty(&testState, qubits);
 
-        applyQB* observable = obs + 3 * (qubits - 2);               // diagObs, all-Y and rotational SWAP blocks
+        const applyQB* observable = obs + 3 * (qubits - 2);         // diagObs, all-Y and rotational SWAP blocks
 
         cplx_t* observableMat[3];                                   // Matrix representations of observables
         for (uint8_t i = 0; i < 3; ++i) {
             observableMat[i] = obsMat[i](qubits);
         }
 
-        applyQB* u = channel + 15 * (qubits - 2);                   // Concatenation of search unitaries
+        const applyQB* u = channel + 15 * (qubits - 2);             // Concatenation of search unitaries
 
-        cplx_t** uMat[3];                                           // Channel comprising the matrix representations of
+        cplx_t** uMat[3];                                           // Channels comprising the matrix representations of
         for (uint8_t i = 0; i < 3; ++i) {                           // the search unitaries
             if ((uMat[i] = malloc(5 * sizeof (qbMat))) == NULL) {
-                fprintf(stderr, "testMMseq: chMat[%d] allocation failed\n", i);
-                return;
+                fprintf(stderr, "testMMseq: uMat[%d] allocation failed\n", i);
+                for (uint8_t j = 0; j < i; ++j) {
+                    free(uMat[j]);
+                }
+                for (uint8_t j = 0; j < 3; ++j) {
+                    free(observableMat[j]);
+                }
+                stateFreeVector(&testState);
+                exit(EXIT_FAILURE);
             }
-            for (uint8_t j = 0; j < 15; ++j) {
+            for (uint8_t j = 0; j < 5; ++j) {
                 uMat[i][j] = channelMat[i][j](qubits);
             }
         }
 
-        for (dim_t i = 0; i < dim + 1; ++i) {
-            for (uint8_t j = 0; j < 3; ++j) {                       // Iterate the channels of the sequence
+        for (uint8_t j = 0; j < 3; ++j) {                           // Iterate the channels of the sequence
+            cplx_t** vecs = generateTestVectors(qubits);
+            for (dim_t i = 0; i < dim + 1; ++i) {                   // Iterate the test vectors
                 stateInitVector(&testState, vecs[i]);
-                cplx_t* momMat[3];
+                cplx_t* momMat[3];                                  // Moment matrices in column major, packed format
                 for (uint8_t k = 0; k < 3; ++k) {
-                    if ((momMat[k] = malloc(15 * 16 / 2 * sizeof (cplx_t)))) {
+                    if ((momMat[k] = malloc(5 * 6 / 2 * sizeof (cplx_t))) == NULL) {
                         fprintf(stderr, "testMMseq: momMat[%d] allocation failed\n", k);
+                        for (uint8_t l = 0; l < k; ++l) {
+                            free(momMat[l]);
+                        }
+                        for (uint8_t l = 0; l < 3; ++l) {
+                            for (uint8_t m = 0; m < 5; ++m) {
+                                free(uMat[l][m]);
+                            }
+                            free(observableMat[l]);
+                        }
+                        stateFreeVector(&testState);
+                        freeTestVectors(vecs, qubits);
+                        exit(EXIT_FAILURE);
                     }
                 }
                 mmseq(&testState, 3, observable, 3, coeff, 5, u, j, momMat);
 
-                cplx_t* test[3];                                    // Moment matrices expanded from packed column major
-                for (uint8_t k = 0; k < 3; ++k) {                   // to dense row major form
-                    if ((test[k] = malloc(15 * 15 * sizeof (cplx_t)))) {
+                cplx_t *test[3], *ref[3];                           // Moment matrices expanded from packed column major
+                for (uint8_t k = 0; k < 3; ++k) {                   // to dense row major form and reference
+                    if ((test[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
                         fprintf(stderr, "testMMseq: test[%d] allocation failed\n", k);
+                        for (uint8_t l = 0; l < k; ++l) {
+                            free(test[l]);
+                        }
+                        for (uint8_t l = 0; l < 3; ++l) {
+                            free(momMat[l]);
+                            for (uint8_t m = 0; m < 5; ++m) {
+                                free(uMat[l][m]);
+                            }
+                            free(observableMat[l]);
+                        }
+                        stateFreeVector(&testState);
+                        freeTestVectors(vecs, qubits);
+                        exit(EXIT_FAILURE);
+                    }
+
+                    if ((ref[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
+                        fprintf(stderr, "testMMseq: ref[%d] allocation failed\n", k);
+                        for (uint8_t l = 0; l < k; ++l) {
+                            free(ref[l]);
+                            free(test[l]);
+                        }
+                        free(test[k]);
+                        for (uint8_t l = 0; l < 3; ++l) {
+                            free(momMat[l]);
+                            for (uint8_t m = 0; m < 5; ++m) {
+                                free(uMat[l][m]);
+                            }
+                            free(observableMat[l]);
+                        }
+                        stateFreeVector(&testState);
+                        freeTestVectors(vecs, qubits);
+                        exit(EXIT_FAILURE);
                     }
                 }
-                for (uint8_t k = 15; k > 0; ++k) {
-                    for (uint8_t l = 0; l < k; ++l) {
+                for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the columns of packed column major form
+                    const uint16_t offset = 5 * k - k * (k - 1) / 2;   // Elements prior to the k-th column
+                    printf("%d\n", offset);
+                    for (uint8_t l = 0; l < 5 - k; ++l) {               // Iterate rows of the lower triangle
                         for (uint8_t mat = 0; mat < 3; ++mat) {
-                            test[mat][]
+                            test[mat][l + k + 5 * k] = conj(momMat[mat][l + offset]);
+                            test[mat][k + 5 * (l + k)] = momMat[mat][l + offset];
                         }
                     }
                 }
@@ -233,15 +287,90 @@ void testMMseq(void) {
                     free(momMat[k]);
                 }
 
-                for (uint8_t k = 0; k < 3; ++k) {
-                    free(test[k]);
+                for (uint8_t k = 0; k < j; ++k) {
+                    for (uint8_t l = 0; l < 5; ++l) {               // Matrix multiplication up to channel prior to link
+                        cmatVecMulInPlace(uMat[k][l], vecs[i], dim);
+                        cscalarVecMulInPlace(coeff[k * 5 + l], vecs[i], dim);
+                    }
                 }
 
+                cplx_t *refBra, *refKet;                            // Reference bra and ket to determine moment matrix
+                if ((refBra = malloc(dim * sizeof (cplx_t))) == NULL) {
+                    fprintf(stderr, "testMMseq: refBra/refKet allocation failed\n");
+                    for (uint8_t k = 0; k < 3; ++k) {
+                        free(ref[k]);
+                        free(test[k]);
+                        for (uint8_t l = 0; l < 5; ++l) {
+                            free(uMat[k][l]);
+                        }
+                        free(observableMat[k]);
+                    }
+                    stateFreeVector(&testState);
+                    freeTestVectors(vecs, qubits);
+                    exit(EXIT_FAILURE);
+                }
+                if ((refKet = malloc(dim * sizeof (cplx_t))) == NULL) {
+                    fprintf(stderr, "testMMseq: refBra/refKet allocation failed\n");
+                    free(refBra);
+                    for (uint8_t k = 0; k < 3; ++k) {
+                        free(ref[k]);
+                        free(test[k]);
+                        for (uint8_t l = 0; l < 5; ++l) {
+                            free(uMat[k][l]);
+                        }
+                        free(observableMat[k]);
+                    }
+                    stateFreeVector(&testState);
+                    freeTestVectors(vecs, qubits);
+                    exit(EXIT_FAILURE);
+                }
+
+                for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the rows of the reference moment matrices
+                    for (dim_t n = 0; n < dim; ++n) {               // Copy current reference state vector
+                        refBra[n] = vecs[i][n];
+                    }
+                    cmatVecMulInPlace(uMat[j][k], refBra, dim);
+
+                    for (uint8_t m = 0; m < 3; ++m) {                // Iterate the reference moment matrices themselves
+                        cmatVecMulInPlace(observableMat[m], refBra, dim);
+
+                        for (uint8_t l = 0; l < 5; ++l) {           // Iterate columns of the reference moment matrix
+                            for (dim_t n = 0; n < dim; ++n) {
+                                refKet[n] = vecs[i][n];
+                            }
+                            cmatVecMulInPlace(uMat[j][l], refKet, dim);
+
+                            ref[m][l + k * 5] = cInner(refBra, refKet, dim);
+                        } // for column of moment matrix
+                    } // for moment matrix
+                } // for row of reference moment matrix
+
+                printf("Qubits = %d, vector = %lld\n", qubits, i);
+                for (uint8_t k = 0; k < 3; ++k) {
+                    printf("ref[%d] =\n", k);
+                    cmatrixPrint(ref[k], 5);
+                    printf("test[%d] =\n", k);
+                    cmatrixPrint(test[k], 5);
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(ref[k], test[k], 25, PRECISION));
+                }
+
+                for (uint8_t k = 0; k < 3; ++k) {
+                    free(ref[k]);
+                    free(test[k]);
+                }
+                free(refBra);
+                free(refKet);
+            } // for test vector
+            freeTestVectors(vecs, qubits);
+        } // for link
+        for (uint8_t k = 0; k < 3; ++k) {
+            for (uint8_t l = 0; l < 5; ++l) {
+                free(uMat[k][l]);
             }
-
+            free(observableMat[k]);
         }
-
-    }
+        stateFreeVector(&testState);
+    } // for qubits
 }
 /*
  * =====================================================================================================================
@@ -250,7 +379,8 @@ void testMMseq(void) {
  */
 int main(void) {
     UNITY_BEGIN();
-    RUN_TEST(testMeanObs);
-    RUN_TEST(testGradPQC1);
+    // RUN_TEST(testMeanObs);
+    // RUN_TEST(testGradPQC1);
+    RUN_TEST(testMMseq);
     return UNITY_END();
 }

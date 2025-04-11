@@ -136,7 +136,7 @@ void mmseq(state_t* state,
 
         u[j + link * uc](&ket);                                     // Apply the search unitary according to the link
         for (depth_t k = link + 1; k < circdepth; ++k) {            // and the column
-            lcQB(state, uc, u + k * uc, c + k * uc);            // Apply all remaining LCU channels
+            lcQB(&ket, uc, u + k * uc, c + k * uc);             // Apply all remaining LCU channels
         }
 
         for (depth_t k = 0; k < obsc; ++k) {                        // Calculate the j-th diagonal element for all
