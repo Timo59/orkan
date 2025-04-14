@@ -13,6 +13,7 @@ target_link_libraries(Meas
                 BLAS_compiler_flags
                 OMP_compiler_flags
                 Q_compiler_flags
+                Test_flags
 )
 
 add_executable(measTest ${TEST_DIR}/testExact.c)
