@@ -26,6 +26,10 @@
 #include <stdio.h>
 #endif
 
+#ifndef UTILS_H
+#include "utils.h"
+#endif
+
 /*
  * =====================================================================================================================
  *                                                  Function definitions
@@ -135,8 +139,15 @@ void mmseq(state_t* state,
         stateInitVector(&ket, state->vec);
 
         u[j + link * uc](&ket);                                     // Apply the search unitary according to the link
+
         for (depth_t k = link + 1; k < circdepth; ++k) {            // and the column
             lcQB(&ket, uc, u + k * uc, c + k * uc);             // Apply all remaining LCU channels
+        }
+
+#pragma omp critical
+        {
+            printf("Test after (%d, %d)-th unitary: ", link, j);
+            vectorPrint(ket.vec, ket.dim);
         }
 
         for (depth_t k = 0; k < obsc; ++k) {                        // Calculate the j-th diagonal element for all
