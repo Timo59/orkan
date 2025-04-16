@@ -257,7 +257,7 @@ void testMMseq(void) {
         const applyQB* u = channel + 15 * (qubits - 2);             // Concatenation of search unitaries
 
         for (uint8_t i = 0; i < 3; ++i) {
-            if ((uMat[i] = malloc(5 * sizeof (qbMat))) == NULL) {
+            if ((uMat[i] = malloc(5 * sizeof (cplx_t*))) == NULL) {
                 fprintf(stderr, "testMMseq: uMat[%d] allocation failed\n", i);
                 exit(EXIT_FAILURE);
             }
@@ -330,53 +330,60 @@ void testMMseq(void) {
                 }
 
                 for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the rows of the reference moment matrices
-                    for (dim_t n = 0; n < dim; ++n) {               // Copy current reference state vector
-                        refBra[n] = vecs[i][n];
-                    }
-                    cmatVecMulInPlace(uMat[j][k], refBra, dim);
+                    for (uint8_t l = 0; l < 5; ++l) {               // Iterate columns of the reference moment matrix
+                        for (uint8_t m = 0; m < 3; ++m) {           // Iterate the reference moment matrices themselves
 
-                    for (uint8_t l = j + 1; l < 3; ++l) {           // Apply the remaining LCU channels to refBra
-                        cplx_t* sum = calloc(dim, sizeof (cplx_t));
-                        if (sum == NULL) {
-                            fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", l);
-                            exit(EXIT_FAILURE);
-                        }
-                        for (uint8_t m = 0; m < 5; ++m) {
-                            cplx_t* tmp = cmatVecMul(uMat[l][m], refBra, dim);
-                            cscalarVecMulInPlace(coeff[l * 5 + m], tmp, dim);
-                            cvecAddInPlace(sum, tmp, dim);
-                            free(tmp);
-                        }
-                        free(refBra);
-                        refBra = sum;
-                    }
-                    printf("Reference after (%d, %d)-th unitary: ", j, k);
-                    vectorPrint(refBra, dim);
-
-
-
-                    for (uint8_t m = 0; m < 3; ++m) {                // Iterate the reference moment matrices themselves
-                        cmatVecMulInPlace(observableMat[m], refBra, dim);
-
-                        for (uint8_t l = 0; l < 5; ++l) {           // Iterate columns of the reference moment matrix
-                            for (dim_t n = 0; n < dim; ++n) {
+                            for (dim_t n = 0; n < dim; ++n) {       // Copy current state vector to bra and ket
+                                refBra[n] = vecs[i][n];
                                 refKet[n] = vecs[i][n];
                             }
-                            cmatVecMulInPlace(uMat[j][l], refKet, dim);
 
-                            for (uint8_t n = j + 1; n < 3; ++n) {
-                                for (uint8_t s = 0; s < 5; ++s) {
-                                    cmatVecMulInPlace(uMat[n][s], refKet, dim);
-                                    cscalarVecMulInPlace(coeff[n * 5 + s], refKet, dim);
+                            for (uint8_t n = j + 1; n < 3; ++n) {   // Apply the remaining LCU channels to refBra
+                                cplx_t* sum = calloc(dim, sizeof (cplx_t));
+                                if (sum == NULL) {
+                                    fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", n);
+                                    exit(EXIT_FAILURE);
                                 }
+                                for (uint8_t s = 0; s < 5; ++s) {
+                                    cplx_t* tmp = cmatVecMul(uMat[n][s], refBra, dim);
+                                    cscalarVecMulInPlace(coeff[n * 5 + s], tmp, dim);
+                                    cvecAddInPlace(sum, tmp, dim);
+                                    free(tmp);
+                                }
+                                free(refBra);
+                                refBra = sum;
                             }
 
+                            if (m == 0 && l == 0) {
+                                cmatVecMulInPlace(uMat[j][k], refBra, dim);
+                                printf("Reference after (%d, %d)-th unitary: ", j, k);
+                                vectorPrint(refBra, dim);
+                            }
+
+                            cmatVecMulInPlace(observableMat[m], refBra, dim);
+
+                            cmatVecMulInPlace(uMat[j][l], refKet, dim);
+                            for (uint8_t n = j + 1; n < 3; ++n) {   // Apply the remaining LCU channels to refBra
+                                cplx_t* sum = calloc(dim, sizeof (cplx_t));
+                                if (sum == NULL) {
+                                    fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", n);
+                                    exit(EXIT_FAILURE);
+                                }
+                                for (uint8_t s = 0; s < 5; ++s) {
+                                    cplx_t* tmp = cmatVecMul(uMat[n][s], refKet, dim);
+                                    cscalarVecMulInPlace(coeff[n * 5 + s], tmp, dim);
+                                    cvecAddInPlace(sum, tmp, dim);
+                                    free(tmp);
+                                }
+                                free(refKet);
+                                refKet = sum;
+                            }
                             ref[m][l + k * 5] = cInner(refBra, refKet, dim);
-                        } // for column of moment matrix
-                    } // for moment matrix
+                        } // for moment matrix
+                    } // for column of moment matrix
                 } // for row of reference moment matrix
 
-                printf("Qubits = %d, vector = %lld\n", qubits, i);
+                printf("Qubits = %d, vector = %ld\n", qubits, i);
                 for (uint8_t k = 0; k < 3; ++k) {
                     printf("ref[%d] =\n", k);
                     cmatrixPrint(ref[k], 5);
