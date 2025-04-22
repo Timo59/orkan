@@ -333,8 +333,7 @@ void testMMseq(void) {
                     for (dim_t n = 0; n < dim; ++n) {               // Copy current reference state vector
                         refBra[n] = vecs[i][n];
                     }
-
-                    cmatVecMulInPlace(uMat[j][k], refBra, dim);
+                    cmatVecMulInPlace(uMat[j][k], refBra, dim);     // Apply the search unitary according to the row
 
                     for (uint8_t l = j + 1; l < 3; ++l) {           // Apply the remaining LCU channels to refBra
                         cplx_t* sum = calloc(dim, sizeof (cplx_t));
@@ -342,11 +341,9 @@ void testMMseq(void) {
                             fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", l);
                             exit(EXIT_FAILURE);
                         }
-                        printf("ref[%d], channel[%d]\n", k, l);
+
                         for (uint8_t m = 0; m < 5; ++m) {
                             cplx_t* tmp = cmatVecMul(uMat[l][m], refBra, dim);
-                            printf("\tunitary[%d] = ", m);
-                            vectorPrint(tmp, dim);
                             cscalarVecMulInPlace(coeff[l * 5 + m], tmp, dim);
                             cvecAddInPlace(sum, tmp, dim);
                             free(tmp);
@@ -354,30 +351,42 @@ void testMMseq(void) {
                         free(refBra);
                         refBra = sum;
                     }
-                    cmatVecMulInPlace(uMat[j][k], refBra, dim);
+                    printf("ref[%d]\n", k);
 
-                    for (uint8_t m = 0; m < 3; ++m) {                // Iterate the reference moment matrices themselves
-                        cmatVecMulInPlace(observableMat[m], refBra, dim);
+                    for (uint8_t l = 0; l < 5; ++l) {           // Iterate columns of the reference moment matrix
+                        for (dim_t n = 0; n < dim; ++n) {
+                            refKet[n] = vecs[i][n];
+                        }
+                        cmatVecMulInPlace(uMat[j][l], refKet, dim);
 
-                        for (uint8_t l = 0; l < 5; ++l) {           // Iterate columns of the reference moment matrix
-                            for (dim_t n = 0; n < dim; ++n) {
-                                refKet[n] = vecs[i][n];
-                            }
-                            cmatVecMulInPlace(uMat[j][l], refKet, dim);
-
-                            for (uint8_t n = j + 1; n < 3; ++n) {
-                                for (uint8_t s = 0; s < 5; ++s) {
-                                    cmatVecMulInPlace(uMat[n][s], refKet, dim);
-                                    cscalarVecMulInPlace(coeff[n * 5 + s], refKet, dim);
-                                }
+                        for (uint8_t m = j + 1; m < 3; ++m) {           // Apply the remaining LCU channels to refKet
+                            cplx_t* sum = calloc(dim, sizeof (cplx_t));
+                            if (sum == NULL) {
+                                fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", m);
+                                exit(EXIT_FAILURE);
                             }
 
-                            ref[m][l + k * 5] = cInner(refBra, refKet, dim);
-                        } // for column of moment matrix
-                    } // for moment matrix
+                            for (uint8_t n = 0; n < 5; ++n) {
+                                cplx_t* tmp = cmatVecMul(uMat[m][n], refKet, dim);
+                                cscalarVecMulInPlace(coeff[n * 5 + n], tmp, dim);
+                                cvecAddInPlace(sum, tmp, dim);
+                                free(tmp);
+                            }
+                            free(refKet);
+                            refKet = sum;
+                        }
+
+                        for (uint8_t m = 0; m < 3; ++m) {           // Iterate the moment matrices
+                            cplx_t* tmp = cmatVecMul(observableMat[m], refBra, dim);
+                            printf("\tobs[%d] = ", m);
+                            vectorPrint(tmp, dim);
+                            ref[m][l + k * 5] = cInner(tmp, refKet, dim);
+                            free(tmp);
+                        } // for moment matrix
+                    } // for column of moment matrix
                 } // for row of reference moment matrix
 
-                printf("Qubits = %d, vector = %lld\n", qubits, i);
+                printf("Qubits = %d, vector = %ld\n", qubits, i);
                 for (uint8_t k = 0; k < 3; ++k) {
                     printf("ref[%d] =\n", k);
                     cmatrixPrint(ref[k], 5);

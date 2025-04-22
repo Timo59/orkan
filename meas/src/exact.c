@@ -142,15 +142,17 @@ void mmseq(state_t* state,
 
         u[j + link * uc](&ket);                                     // Apply the search unitary according to the link
 
-            for (depth_t k = link + 1; k < circdepth; ++k) {            // and the column
-                printf("test[%d], channel[%d]\n", j, k);
-                lcQB(&ket, uc, u + k * uc, c + k * uc);             // Apply all remaining LCU channels
-            }
+        for (depth_t k = link + 1; k < circdepth; ++k) {            // and the column
+            lcQB(&ket, uc, u + k * uc, c + k * uc);             // Apply all remaining LCU channels
+        }
+        printf("test[%d]\n", j);
 
         for (depth_t k = 0; k < obsc; ++k) {                        // Calculate the j-th diagonal element for all
             stateInitEmpty(&bra, state->qubits);                    // observables
             stateInitVector(&bra, ket.vec);
             obs[k](&bra);
+            printf("\tobs[%d] = ", k);
+            vectorPrint(bra.vec, bra.dim);
             momMat[k][j * uc - j * (j - 1) / 2] = stateOverlap(bra, ket);
             stateFreeVector(&bra);
         }
