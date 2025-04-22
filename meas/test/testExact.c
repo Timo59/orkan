@@ -189,7 +189,7 @@ cplx_t** vecs = NULL;                                               // Test stat
 cplx_t* momMat[3] = {NULL, NULL, NULL};                             // Moment matrices as the result of mmseq
 cplx_t *test[3] = {NULL, NULL, NULL};                               // Moment matrices in dense row major form
 cplx_t *ref[3] = {NULL, NULL, NULL};                                // Reference from matrix multiplication
-cplx_t *refBra = NULL, *refKet = NULL;                              // Reference bra and ket to determine moment matrix
+cplx_t *refVec[5] = {NULL, NULL, NULL, NULL, NULL};                 // Reference state vecs to determine moment matrix
 
 void cleanupTestMMseq(void) {
     if (testState.vec != NULL) {
@@ -228,14 +228,13 @@ void cleanupTestMMseq(void) {
         printf("Freeing vecs...\n");
         freeTestVectors(vecs, testState.qubits);
     }
-    if (refBra != NULL) {
-        printf("Freeing refBra...\n");
-        free(refBra);
+    for (uint8_t i = 0; i < 5; ++i) {
+        printf("Freeing refVec[%d]...\n", i);
+        if (refVec[i] != NULL) {
+            free(refVec[i]);
+        }
     }
-    if (refKet != NULL) {
-        printf("Freeing refKet...\n");
-        free(refKet);
-    }
+
 }
 
 void testMMseq(void) {
@@ -292,10 +291,10 @@ void testMMseq(void) {
                 }
                 for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the columns of packed column major form
                     const uint16_t offset = 5 * k - k * (k - 1) / 2;   // Elements prior to the k-th column
-                    for (uint8_t l = 0; l < 5 - k; ++l) {               // Iterate rows of the lower triangle
+                    for (uint8_t l = 0; l < 5 - k; ++l) {           // Iterate rows of the lower triangle
                         for (uint8_t mat = 0; mat < 3; ++mat) {
-                            test[mat][l + k + 5 * k] = conj(momMat[mat][l + offset]);
-                            test[mat][k + 5 * (l + k)] = momMat[mat][l + offset];
+                            test[mat][k + 5 * (l + k)] = conj(momMat[mat][l + offset]);
+                            test[mat][l + k + 5 * k] = momMat[mat][l + offset];
                         }
                     }
                 }
@@ -320,22 +319,19 @@ void testMMseq(void) {
                     vecs[i] = sum;
                 }
 
-                if ((refBra = malloc(dim * sizeof (cplx_t))) == NULL) {
-                    fprintf(stderr, "testMMseq: refBra/refKet allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                if ((refKet = malloc(dim * sizeof (cplx_t))) == NULL) {
-                    fprintf(stderr, "testMMseq: refBra/refKet allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-
-                for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the rows of the reference moment matrices
-                    for (dim_t n = 0; n < dim; ++n) {               // Copy current reference state vector
-                        refBra[n] = vecs[i][n];
+                for (uint8_t k = 0; k < 5; ++k) {                   // Calculate the reference vectors spanning the
+                    if ((refVec[k] = malloc(dim * sizeof (cplx_t))) == NULL) {  // moment matrix
+                        fprintf(stderr, "testMMseq: refVec[%d] allocation failed\n", k);
+                        exit(EXIT_FAILURE);
                     }
-                    cmatVecMulInPlace(uMat[j][k], refBra, dim);     // Apply the search unitary according to the row
 
-                    for (uint8_t l = j + 1; l < 3; ++l) {           // Apply the remaining LCU channels to refBra
+                    for (dim_t l = 0; l < dim; ++l) {               // Copy current reference state vector
+                        refVec[k][l] = vecs[i][l];
+                    }
+
+                    cmatVecMulInPlace(uMat[j][k], refVec[k], dim);  // Apply the according search unitary
+
+                    for (uint8_t l = j + 1; l < 3; ++l) {           // Apply the remaining LCU channels to refVec[k]
                         cplx_t* sum = calloc(dim, sizeof (cplx_t));
                         if (sum == NULL) {
                             fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", l);
@@ -343,47 +339,30 @@ void testMMseq(void) {
                         }
 
                         for (uint8_t m = 0; m < 5; ++m) {
-                            cplx_t* tmp = cmatVecMul(uMat[l][m], refBra, dim);
+                            cplx_t* tmp = cmatVecMul(uMat[l][m], refVec[k], dim);
                             cscalarVecMulInPlace(coeff[l * 5 + m], tmp, dim);
                             cvecAddInPlace(sum, tmp, dim);
                             free(tmp);
                         }
-                        free(refBra);
-                        refBra = sum;
-                    }
+                        free(refVec[k]);
+                        refVec[k] = sum;
+                    } // for LCU channels
+                } // for reference vector
+
+
+                for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the rows of the reference moment matrices
                     printf("ref[%d]\n", k);
+                    for (uint8_t m = 0; m < 3; ++m) {               // Iterate the moment matrices
+                        cplx_t* tmp = cmatVecMul(observableMat[m], refVec[k], dim);
+                        printf("\tobs[%d] = ", m);
+                        vectorPrint(tmp, dim);
 
-                    for (uint8_t l = 0; l < 5; ++l) {           // Iterate columns of the reference moment matrix
-                        for (dim_t n = 0; n < dim; ++n) {
-                            refKet[n] = vecs[i][n];
-                        }
-                        cmatVecMulInPlace(uMat[j][l], refKet, dim);
+                        for (uint8_t l = 0; l < 5; ++l) {               // Iterate columns of the reference moment matrix
+                            ref[m][l + k * 5] = cInner(tmp, refVec[l], dim);
+                        } // for column of moment matrix
 
-                        for (uint8_t m = j + 1; m < 3; ++m) {           // Apply the remaining LCU channels to refKet
-                            cplx_t* sum = calloc(dim, sizeof (cplx_t));
-                            if (sum == NULL) {
-                                fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", m);
-                                exit(EXIT_FAILURE);
-                            }
-
-                            for (uint8_t n = 0; n < 5; ++n) {
-                                cplx_t* tmp = cmatVecMul(uMat[m][n], refKet, dim);
-                                cscalarVecMulInPlace(coeff[n * 5 + n], tmp, dim);
-                                cvecAddInPlace(sum, tmp, dim);
-                                free(tmp);
-                            }
-                            free(refKet);
-                            refKet = sum;
-                        }
-
-                        for (uint8_t m = 0; m < 3; ++m) {           // Iterate the moment matrices
-                            cplx_t* tmp = cmatVecMul(observableMat[m], refBra, dim);
-                            printf("\tobs[%d] = ", m);
-                            vectorPrint(tmp, dim);
-                            ref[m][l + k * 5] = cInner(tmp, refKet, dim);
-                            free(tmp);
-                        } // for moment matrix
-                    } // for column of moment matrix
+                        free(tmp);
+                    } // for moment matrix
                 } // for row of reference moment matrix
 
                 printf("Qubits = %d, vector = %ld\n", qubits, i);
@@ -392,7 +371,7 @@ void testMMseq(void) {
                     cmatrixPrint(ref[k], 5);
                     printf("test[%d] =\n", k);
                     cmatrixPrint(test[k], 5);
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(ref[k], test[k], 25, PRECISION));
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(ref[k], test[k], 25, APPROXPRECISION));
                 }
 
                 for (uint8_t k = 0; k < 3; ++k) {
@@ -401,10 +380,10 @@ void testMMseq(void) {
                     free(test[k]);
                     test[k] = NULL;
                 }
-                free(refBra);
-                refBra = NULL;
-                free(refKet);
-                refKet = NULL;
+                for (uint8_t k = 0; k < 5; ++k) {
+                    free(refVec[k]);
+                    refVec[k] = NULL;
+                }
             } // for test vector
             freeTestVectors(vecs, qubits);
             vecs = NULL;

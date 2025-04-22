@@ -139,6 +139,7 @@ void mmseq(state_t* state,
         state_t bra, ket;
         stateInitEmpty(&ket, state->qubits);
         stateInitVector(&ket, state->vec);
+        const unsigned short offset = j * uc - j * (j - 1) / 2;     // Elements prior to the j-th column
 
         u[j + link * uc](&ket);                                     // Apply the search unitary according to the link
 
@@ -151,22 +152,24 @@ void mmseq(state_t* state,
             stateInitEmpty(&bra, state->qubits);                    // observables
             stateInitVector(&bra, ket.vec);
             obs[k](&bra);
+
             printf("\tobs[%d] = ", k);
             vectorPrint(bra.vec, bra.dim);
-            momMat[k][j * uc - j * (j - 1) / 2] = stateOverlap(bra, ket);
+
+            momMat[k][offset] = stateOverlap(bra, ket);
             stateFreeVector(&bra);
         }
 
-        for (depth_t i = j + 1; i < uc; ++i) {
+        for (depth_t i = 0; i < uc - j; ++i) {
             for (depth_t k = 0; k < obsc; ++k) {
                 stateInitEmpty(&bra, state->qubits);
                 stateInitVector(&bra, state->vec);
-                u[i + link * uc](&bra);
+                u[i + j + link * uc](&bra);
                 for (depth_t l = link + 1; l < circdepth; ++l) {
                     lcQB(&bra, uc, u + l * uc, c + l * uc);
                 }
                 obs[k](&bra);
-                momMat[k][j * uc - j * (j - 1) / 2 + i - j] = stateOverlap(bra, ket);
+                momMat[k][i + offset] = stateOverlap(bra, ket);
                 stateFreeVector(&bra);
             }
         }
