@@ -193,43 +193,34 @@ cplx_t *refVec[5] = {NULL, NULL, NULL, NULL, NULL};                 // Reference
 
 void cleanupTestMMseq(void) {
     if (testState.vec != NULL) {
-        printf("Freeing testState...\n");
         stateFreeVector(&testState);
     }
     for (uint8_t i = 0; i < 3; ++i) {
         if (observableMat[i] != NULL) {
-            printf("Freeing observableMat[%d]...\n", i);
             free(observableMat[i]);
         }
         if (uMat[i] != NULL) {
             for (uint8_t j = 0; j < 5; ++j) {
                 if (uMat[i][j] != NULL) {
-                    printf("Freeing uMat[%d][%d]...\n", i, j);
                     free(uMat[i][j]);
                 }
             }
-            printf("Freeing uMat[%d]...\n", i);
             free(uMat[i]);
         }
         if (momMat[i] != NULL) {
-            printf("Freeing momMat[%d]...\n", i);
             free(momMat[i]);
         }
         if (test[i] != NULL) {
-            printf("Freeing test[%d]...\n", i);
             free(test[i]);
         }
         if (ref[i] != NULL) {
-            printf("Freeing ref[%d]...\n", i);
             free(ref[i]);
         }
     }
     if (vecs != NULL) {
-        printf("Freeing vecs...\n");
         freeTestVectors(vecs, testState.qubits);
     }
     for (uint8_t i = 0; i < 5; ++i) {
-        printf("Freeing refVec[%d]...\n", i);
         if (refVec[i] != NULL) {
             free(refVec[i]);
         }
@@ -291,10 +282,11 @@ void testMMseq(void) {
                 }
                 for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the columns of packed column major form
                     const uint16_t offset = 5 * k - k * (k - 1) / 2;   // Elements prior to the k-th column
-                    for (uint8_t l = 0; l < 5 - k; ++l) {           // Iterate rows of the lower triangle
-                        for (uint8_t mat = 0; mat < 3; ++mat) {
-                            test[mat][k + 5 * (l + k)] = conj(momMat[mat][l + offset]);
-                            test[mat][l + k + 5 * k] = momMat[mat][l + offset];
+                    for (uint8_t mat = 0; mat < 3; ++mat) {         // Iterate the moment matrices
+                        test[mat][k + k * 5] = momMat[mat][offset]; // Copy the diagonal elements from packed format
+                        for (uint8_t l = 1; l < 5 - k; ++l) {           // Iterate rows of the lower triangle
+                            test[mat][l + k + 5 * k] = conj(momMat[mat][l + offset]);
+                            test[mat][k + 5 * (l + k)] = momMat[mat][l + offset];
                         }
                     }
                 }
@@ -351,11 +343,8 @@ void testMMseq(void) {
 
 
                 for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the rows of the reference moment matrices
-                    printf("ref[%d]\n", k);
                     for (uint8_t m = 0; m < 3; ++m) {               // Iterate the moment matrices
                         cplx_t* tmp = cmatVecMul(observableMat[m], refVec[k], dim);
-                        printf("\tobs[%d] = ", m);
-                        vectorPrint(tmp, dim);
 
                         for (uint8_t l = 0; l < 5; ++l) {               // Iterate columns of the reference moment matrix
                             ref[m][l + k * 5] = cInner(tmp, refVec[l], dim);
@@ -365,12 +354,7 @@ void testMMseq(void) {
                     } // for moment matrix
                 } // for row of reference moment matrix
 
-                printf("Qubits = %d, vector = %ld\n", qubits, i);
                 for (uint8_t k = 0; k < 3; ++k) {
-                    printf("ref[%d] =\n", k);
-                    cmatrixPrint(ref[k], 5);
-                    printf("test[%d] =\n", k);
-                    cmatrixPrint(test[k], 5);
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(ref[k], test[k], 25, APPROXPRECISION));
                 }
 
@@ -393,13 +377,14 @@ void testMMseq(void) {
                 free(uMat[k][l]);
                 uMat[k][l] = NULL;
             }
+            free(uMat[k]);
+            uMat[k] = NULL;
             free(observableMat[k]);
             observableMat[k] = NULL;
         }
         stateFreeVector(&testState);
         testState.vec = NULL;
     } // for qubits
-    exit(EXIT_SUCCESS);
 }
 /*
  * =====================================================================================================================
@@ -408,8 +393,8 @@ void testMMseq(void) {
  */
 int main(void) {
     UNITY_BEGIN();
-    // RUN_TEST(testMeanObs);
-    // RUN_TEST(testGradPQC1);
+    RUN_TEST(testMeanObs);
+    RUN_TEST(testGradPQC1);
     RUN_TEST(testMMseq);
     return UNITY_END();
 }
