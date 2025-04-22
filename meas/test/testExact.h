@@ -608,7 +608,7 @@ extern inline void USwap2(state_t* state) {
     evoSwap2(state, randPar[3]);
 }
 extern inline void URSwap2(state_t* state) {
-    rswap2(state, randPar[4]);
+    rswap2(state, randPar[3]);
 }
 
 extern inline void UDiag(state_t* state) {
@@ -640,7 +640,7 @@ extern inline void USwap3(state_t* state) {
     evoSwap2(state, randPar[3]);
 }
 extern inline void URSwap3(state_t* state) {
-    rswap2(state, randPar[4]);
+    rswap2(state, randPar[3]);
 }
 
 extern inline void UX4(state_t* state) {
@@ -668,7 +668,7 @@ extern inline void USwap4(state_t* state) {
     evoSwap4(state, randPar[3]);
 }
 extern inline void URSwap4(state_t* state) {
-    rswap4(state, randPar[4]);
+    rswap4(state, randPar[3]);
 }
 
 extern inline void UX5(state_t* state) {
@@ -696,7 +696,7 @@ extern inline void USwap5(state_t* state) {
     evoSwap5(state, randPar[3]);
 }
 extern inline void URSwap5(state_t* state) {
-    rswap5(state, randPar[4]);
+    rswap5(state, randPar[3]);
 }
 
 extern inline void UX6(state_t* state) {
@@ -724,7 +724,7 @@ extern inline void USwap6(state_t* state) {
     evoSwap6(state, randPar[3]);
 }
 extern inline void URSwap6(state_t* state) {
-    rswap6(state, randPar[4]);
+    rswap6(state, randPar[3]);
 }
 
 applyQB obs[15] = {diag, y2, USwap2, diag, y3, USwap3, diag, y4, USwap4, diag, y5, USwap5, diag, y6, USwap6};
