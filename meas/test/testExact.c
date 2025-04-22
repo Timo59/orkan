@@ -244,13 +244,13 @@ void testMMseq(void) {
         exit(EXIT_FAILURE);
     }
 
-    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {        // Iterate number of qubits
         const dim_t dim = POW2(qubits, dim_t);
-        stateInitEmpty(&testState, qubits);
+        stateInitEmpty(&testState, qubits);                         // Define the quantum state
 
         const applyQB* observable = obs + 3 * (qubits - 2);         // diagObs, all-Y and rotational SWAP blocks
 
-        for (uint8_t i = 0; i < 3; ++i) {
+        for (uint8_t i = 0; i < 3; ++i) {                           // Matrix representation of observables
             observableMat[i] = obsMat[i](qubits);
         }
 
@@ -304,8 +304,8 @@ void testMMseq(void) {
                     momMat[k] = NULL;
                 }
 
-                for (uint8_t k = 0; k < j; ++k) {                   // Matrix representation of LCU up to channel prior
-                    cplx_t* sum = calloc(dim, sizeof (cplx_t));
+                for (uint8_t k = 0; k < j; ++k) {                   // Apply the matrix representation of LCU channels
+                    cplx_t* sum = calloc(dim, sizeof (cplx_t));     // prior to the j-th channel to the reference vector
                     if (sum == NULL) {
                         fprintf(stderr, "testMMseq: %d-th sum allocation prior to link failed\n", k);
                         exit(EXIT_FAILURE);
@@ -333,6 +333,7 @@ void testMMseq(void) {
                     for (dim_t n = 0; n < dim; ++n) {               // Copy current reference state vector
                         refBra[n] = vecs[i][n];
                     }
+
                     cmatVecMulInPlace(uMat[j][k], refBra, dim);
 
                     for (uint8_t l = j + 1; l < 3; ++l) {           // Apply the remaining LCU channels to refBra
@@ -341,8 +342,11 @@ void testMMseq(void) {
                             fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", l);
                             exit(EXIT_FAILURE);
                         }
+                        printf("ref[%d], channel[%d]\n", k, l);
                         for (uint8_t m = 0; m < 5; ++m) {
                             cplx_t* tmp = cmatVecMul(uMat[l][m], refBra, dim);
+                            printf("\tunitary[%d] = ", m);
+                            vectorPrint(tmp, dim);
                             cscalarVecMulInPlace(coeff[l * 5 + m], tmp, dim);
                             cvecAddInPlace(sum, tmp, dim);
                             free(tmp);
@@ -350,10 +354,7 @@ void testMMseq(void) {
                         free(refBra);
                         refBra = sum;
                     }
-                    printf("Reference after (%d, %d)-th unitary: ", j, k);
-                    vectorPrint(refBra, dim);
-
-
+                    cmatVecMulInPlace(uMat[j][k], refBra, dim);
 
                     for (uint8_t m = 0; m < 3; ++m) {                // Iterate the reference moment matrices themselves
                         cmatVecMulInPlace(observableMat[m], refBra, dim);

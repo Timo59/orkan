@@ -33,6 +33,10 @@
 #include <openblas-pthread/f77blas.h>
 #endif
 
+#ifndef UTILS_H
+#include "utils.h"
+#endif
+
 /*
  * =====================================================================================================================
  *                                                  Function definitions
@@ -101,6 +105,8 @@ void lcQB(state_t* state, const depth_t d, const applyQB qb[], const cplx_t c[])
         }
         zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
         qb[i](state);
+        printf("\tunitary[%d] = ", i);
+        vectorPrint(state->vec, state->dim);
         zaxpy_(&state->dim, c + i, state->vec, &incr, out, &incr);
         stateFreeVector(state);
         state->vec = tmp;
