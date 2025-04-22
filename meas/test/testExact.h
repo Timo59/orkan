@@ -727,7 +727,7 @@ extern inline void URSwap6(state_t* state) {
     rswap6(state, randPar[3]);
 }
 
-applyQB obs[15] = {diag, y2, USwap2, diag, y3, USwap3, diag, y4, USwap4, diag, y5, USwap5, diag, y6, USwap6};
+applyQB obs[15] = {diag, y2, x2, diag, y3, x3, diag, y4, x4, diag, y5, x5, diag, y6, x6};
 
 applyQB channel[75] = {x2, y2, z2, swap2, diag, UX2, UY2, UZ2, USwap2, UDiag, URX2, URY2, URZ2, URSwap2, UDiag,
                        x3, y3, z3, swap3, diag, UX3, UY3, UZ3, USwap3, UDiag, URX3, URY3, URZ3, URSwap3, UDiag,
@@ -772,7 +772,7 @@ extern inline cplx_t* UDiagMat(qubit_t qubits) {
     return evoDiagMat(qubits, randPar[4]);
 }
 
-matQB obsMat[3] = {diagMat, yMat, USwapMat};
+matQB obsMat[3] = {diagMat, yMat, xMat};
 
 matQB channelMat[3][5] = {{xMat, yMat, zMat, swapMat, diagMat}, {UXMat, UYMat, UZMat, USwapMat, UDiagMat},
                         {URXMat, URYMat, URZMat, URSwapMat, UDiagMat}};
