@@ -26,12 +26,6 @@
 #include <stdio.h>
 #endif
 
-#ifndef UTILS_H
-#include "utils.h"
-#endif
-
-#include <unistd.h>
-
 /*
  * =====================================================================================================================
  *                                                  Function definitions

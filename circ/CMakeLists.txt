@@ -12,7 +12,6 @@ target_link_libraries(Circ
                 BLAS_compiler_flags
                 OMP_compiler_flags
                 Q_compiler_flags
-                Test_flags
 )
 
 add_executable(circTest ${TEST_DIR}/testPQC.c)
