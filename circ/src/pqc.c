@@ -33,10 +33,6 @@
 #include <openblas-pthread/f77blas.h>
 #endif
 
-#ifndef UTILS_H
-#include "utils.h"
-#endif
-
 /*
  * =====================================================================================================================
  *                                                  Function definitions
