@@ -262,7 +262,7 @@ void testMMseq(void) {
                 stateInitVector(&testState, vecs[i]);
 
                 for (uint8_t k = 0; k < 3; ++k) {
-                    if ((momMat[k] = malloc(5 * 6 / 2 * sizeof (cplx_t))) == NULL) {
+                    if ((momMat[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
                         fprintf(stderr, "testMMseq: momMat[%d] allocation failed\n", k);
                         exit(EXIT_FAILURE);
                     }
@@ -280,13 +280,11 @@ void testMMseq(void) {
                         exit(EXIT_FAILURE);
                     }
                 }
-                for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the columns of packed column major form
-                    const uint16_t offset = 5 * k - k * (k - 1) / 2;   // Elements prior to the k-th column
+                for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the columns of the column major form
                     for (uint8_t mat = 0; mat < 3; ++mat) {         // Iterate the moment matrices
-                        test[mat][k + k * 5] = momMat[mat][offset]; // Copy the diagonal elements from packed format
-                        for (uint8_t l = 1; l < 5 - k; ++l) {           // Iterate rows of the lower triangle
-                            test[mat][l + k + 5 * k] = conj(momMat[mat][l + offset]);
-                            test[mat][k + 5 * (l + k)] = momMat[mat][l + offset];
+                        test[mat][k + k * 5] = momMat[mat][k + k * 5];  // Copy the diagonal elements
+                        for (uint8_t l = 0; l < 5; ++l) {               // Iterate rows of the lower triangle
+                            test[mat][l + 5 * k] = momMat[mat][k + 5 * l];
                         }
                     }
                 }
