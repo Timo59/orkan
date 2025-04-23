@@ -134,7 +134,7 @@ void mmseq(state_t* state,
         lcQB(state, uc, u + k * uc, c + k * uc);
     }
 
-//#pragma omp parallel for default(none) shared(state, obsc, obs, circdepth, c, uc, u, link, momMat)
+#pragma omp parallel for default(none) shared(state, obsc, obs, circdepth, c, uc, u, link, momMat)
     for (depth_t j = 0; j < uc; ++j) {                              // Iterate the moment matrices' columns
         state_t bra, ket;
         stateInitEmpty(&ket, state->qubits);
