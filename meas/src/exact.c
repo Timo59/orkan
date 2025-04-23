@@ -97,7 +97,7 @@ void gradPQC(state_t* state, const depth_t d, const applyPQB pqc[], const double
  * This function calculates the moment matrices of a set of observables wrt to a sequence of LCU.
  *
  *  @param[in, out] state:      Input quantum state to the PQC. On exit, the output of the PQC up to link with the
- *                               CURRENT parameter setting
+ *                              CURRENT parameter setting
  *  @param[in]      obsc:       Number of moment matrices
  *  @param[in, out] obs[]:      Set of observables constituting the moment matrices
  *  @param[in]      circdepth:  Number of LCU channels
@@ -105,7 +105,7 @@ void gradPQC(state_t* state, const depth_t d, const applyPQB pqc[], const double
  *  @param[in]      uc:         Number of unitary operators in each LCU TODO: Allow for different numbers across channel
  *  @param[in, out] u[]:        Set of unitary operators; concatenation for all LCU
  *  @param[in, out] link:       Element of the LCU sequence constituting the basis for the moment matrices
- *  @param[in, out] momMat[]:   Array of moment matrices in packed column major form
+ *  @param[in, out] momMat[]:   Array of moment matrices in column major form
  *
  * Output:
  *  An array of moment matrices, whose entries are the overlaps of two quantum states with the corresponding observable
@@ -133,7 +133,6 @@ void mmseq(state_t* state,
         state_t bra, ket;
         stateInitEmpty(&ket, state->qubits);
         stateInitVector(&ket, state->vec);
-        const unsigned short offset = j * uc - j * (j - 1) / 2;     // Elements prior to the j-th column
 
         u[j + link * uc](&ket);                                     // Apply the search unitary according to the link
 
@@ -146,20 +145,21 @@ void mmseq(state_t* state,
             stateInitVector(&bra, ket.vec);
             obs[k](&bra);
 
-            momMat[k][offset] = stateOverlap(bra, ket);
+            momMat[k][j + j * uc] = stateOverlap(bra, ket);
             stateFreeVector(&bra);
         }
 
-        for (depth_t i = 0; i < uc - j; ++i) {
+        for (depth_t i = j + 1; i < uc; ++i) {
             for (depth_t k = 0; k < obsc; ++k) {
                 stateInitEmpty(&bra, state->qubits);
                 stateInitVector(&bra, state->vec);
-                u[i + j + link * uc](&bra);
+                u[i + link * uc](&bra);
                 for (depth_t l = link + 1; l < circdepth; ++l) {
                     lcQB(&bra, uc, u + l * uc, c + l * uc);
                 }
                 obs[k](&bra);
-                momMat[k][i + offset] = stateOverlap(bra, ket);
+                momMat[k][i + j * uc] = stateOverlap(bra, ket);
+                momMat[k][j + i * uc] = conj(momMat[k][i + j * uc]);
                 stateFreeVector(&bra);
             }
         }
