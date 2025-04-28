@@ -32,20 +32,41 @@
  * =====================================================================================================================
  */
 /*
- * This function returns the mean value of an observable with respect to a quantum state
+ * This function returns the mean value of a diagonal observable with respect to a quantum state
  *
  * @param[in,out]   state   Quantum state; untouched by the function
- * @param[in]       obs     Diagonal entries of an observanle (is required to be diagonalizable in computational basis)
+ * @param[in]       obs     Diagonal entries of an observable (in the computational basis)
  *
  * @return  The mean value of the observable with respect to the quantum state with DOUBLE PRECISION
  */
-double meanObs(const state_t* state, const double obs[]) {
+double meanDiagObs(const state_t* state, const double obs[]) {
     double out = 0;
 #pragma omp parallel for reduction(+:out) default(none) shared(state, obs)
     for (dim_t i = 0; i < state->dim; ++i) {
         out += pow(cabs(state->vec[i]), 2) * obs[i];
     }
     return out;
+}
+
+/*
+ * This function returns the mean value of an observable with respect to a quantum state
+ *
+ * @param[in,out]   state   Quantum state; untouched by the function
+ * @param[in]       obs     Function determining a sequence of gates describing the observable
+ *
+ * @return  The mean value of the observable with respect to the quantum state with DOUBLE PRECISION
+ */
+double meanObsQb(const state_t* state, const applyQB obs) {
+    state_t tmp;                                                    // Temporary state the observable is applied to
+    stateInitEmpty(&tmp, state->qubits);
+    stateInitVector(&tmp, state->vec);
+    obs(&tmp);
+    cplx_t overlap = stateOverlap(tmp, *state);
+    if (fabs(cimag(overlap)) < 1e-9) {
+        return creal(overlap);
+    }
+    fprintf(stderr, "meanObs: Mean value of observable has non-negligible imaginary component\n");
+    exit(EXIT_FAILURE);
 }
 
 /*
