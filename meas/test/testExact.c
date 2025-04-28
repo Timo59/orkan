@@ -10,7 +10,7 @@
  *                                                  testMeanObs
  * =====================================================================================================================
  */
-void testMeanObs(void) {
+void testMeanDiagObs(void) {
     state_t testState;
     for (qubit_t qubits = 1; qubits <= MAXQUBITS; qubits++) {
         const dim_t dim = POW2(qubits, dim_t);
@@ -19,7 +19,7 @@ void testMeanObs(void) {
 
         for (uint8_t i = 0; i < dim + 1; i++) {
             stateInitVector(&testState, vecs[i]);
-            double test = meanObs(&testState, diagObs);
+            double test = meanDiagObs(&testState, diagObs);
 
             double ref = 0;
             for (dim_t j = 0; j < dim; j++) {
@@ -391,7 +391,7 @@ void testMMseq(void) {
  */
 int main(void) {
     UNITY_BEGIN();
-    RUN_TEST(testMeanObs);
+    RUN_TEST(testMeanDiagObs);
     RUN_TEST(testGradPQC1);
     RUN_TEST(testMMseq);
     return UNITY_END();
