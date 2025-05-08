@@ -50,12 +50,24 @@ typedef void (*applyLCQB)(state_t* state, double c[]);
 
 /*
  * =====================================================================================================================
- *                                                  Function definitions
+ *                                                  Direct application
  * =====================================================================================================================
  */
 void applyDiag(state_t* state, const double diag[]);
+
+/*
+ * =====================================================================================================================
+ *                                              Imaginary time evolution
+ * =====================================================================================================================
+ */
 void evoQB(state_t* state, applyQB qb, double par);
 void evoDiag(state_t* state, const double diag[], double par);
+void evoLCQB(state_t* state, applyLCQB lcqb, double par);
+#define evolve(X, Y, Z) _Generic((Y), \
+    double*: evoDiag,                 \
+    applyQB: evoQB                    \
+    ) (X, Y, Z)
+
 void lcQB(state_t* state, depth_t d, const applyQB qb[], const cplx_t c[]);
 void applyPQC(state_t* state, depth_t d, const applyPQB pqbs[], const double par[]);
 
