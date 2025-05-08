@@ -36,7 +36,8 @@ double meanObsQb(const state_t* state, applyQB obs);
 #define meanObs(X, Y) _Generic((Y), \
     double*: meanDiagObs,           \
     applyQB: meanObsQb              \
-    )\
+    ) (X, Y)
+
 void gradPQC(state_t* state, depth_t d, const applyPQB pqc[], const double par[], const applyQB qb[],
     const double obs[], double* grad);
 void mmseq(state_t* state, depth_t obsc, const applyQB obs[], depth_t circdepth, const cplx_t c[], depth_t uc,
