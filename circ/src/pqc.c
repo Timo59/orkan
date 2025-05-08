@@ -35,7 +35,7 @@
 
 /*
  * =====================================================================================================================
- *                                                  Function definitions
+ *                                                  Direct application
  * =====================================================================================================================
  */
 void applyDiag(state_t* state, const double diag[]) {
@@ -44,6 +44,19 @@ void applyDiag(state_t* state, const double diag[]) {
         state->vec[i] *= diag[i];
     }
 }
+
+/*
+ * =====================================================================================================================
+ *                                              Imaginary time evolution
+ * =====================================================================================================================
+ */
+void evoDiag(state_t* state, const double diag[], const double par) {
+#pragma omp parallel for default(none) shared(state, diag, par)
+    for (dim_t i = 0; i < state->dim; ++i) {
+        state->vec[i] *= cexp(-I * par * diag[i]);
+    }
+}
+
 /*
  * This function applies an imaginary time evolution of the quantum state by the specified quantum block (sequence of
  * gates) for the time specified by par
@@ -68,13 +81,6 @@ void evoQB(state_t* state, const applyQB qb, const double par) {
     qb(state);
     zaxpby_(&state->dim, &c, tmp, &incr, &s, state->vec, &incr);    // cos(par)*state - i*sin(par)*qb(state)
     free(tmp);
-}
-
-void evoDiag(state_t* state, const double diag[], const double par) {
-#pragma omp parallel for default(none) shared(state, diag, par)
-    for (dim_t i = 0; i < state->dim; ++i) {
-        state->vec[i] *= cexp(-I * par * diag[i]);
-    }
 }
 
 /*
