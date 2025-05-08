@@ -36,7 +36,9 @@
  */
 /*
  * This function applies the Pauli-X gate to the specified qubit in the specified pure quantum state.
- *
+ *                                          | 0   1 |
+ *                                      X = |       |
+ *                                          | 1   0 |
  * @param[in,out] state     Address of the state struct the gate is applied to
  * @param[in] qubit         Qubit the gate acts on
  */
@@ -56,7 +58,9 @@ void applyX(state_t* state, const qubit_t qubit) {
 
 /*
  * This function applies the Pauli-Y gate to the specified qubit in the specified pure quantum state.
- *
+ *                                          | 0  -i |
+ *                                      Y = |       |
+ *                                          | i   0 |
  * @param[in,out] state     Address of the state struct the gate is applied to
  * @param[in] qubit         Qubit the gate acts on
  */
@@ -76,7 +80,9 @@ void applyY(state_t* state, const qubit_t qubit) {
 
 /*
  * This function applies the Pauli-Z gate to the specified qubit in the specified pure quantum state.
- *
+ *                                          | 1   0 |
+ *                                      Z = |       |
+ *                                          | 0  -1 |
  * @param[in,out] state     Address of the state struct the gate is applied to
  * @param[in] qubit         Qubit the gate acts on
  */
@@ -98,6 +104,9 @@ void applyZ(state_t* state, const qubit_t qubit) {
  */
 /*
  * This function applies the phase gate to the specified qubit in the specified pure quantum state.
+ *                                          | 1   0 |
+ *                                      S = |       |
+ *                                          | 0   i |
  *
  * @param[in,out] state    Address of the state struct the gate is applied to
  * @param[in,out] qubit    Qubit the gate acts on
@@ -115,6 +124,9 @@ void applyS(state_t* state, const qubit_t qubit) {
 /*
  * This function applies the inverse phase gate to the specified qubit in the specified pure quantum state.
  *
+ *                                          | 1   0 |
+ *                                   S^-1 = |       |
+ *                                          | 0  -i |
  * @param[in,out] state    Address of the state struct the gate is applied to
  * @param[in,out] qubit    Qubit the gate acts on
  */
@@ -130,7 +142,9 @@ void applySdagger(state_t* state, const qubit_t qubit) {
 
 /*
  * This function applies the Hadamard gate to the specified qubit in the specified pure quantum state.
- *
+ *                                             1    | 1   1 |
+ *                                      H = ------- |       |
+ *                                          sqrt(2) | 1  -1 |
  * @param[in,out] state    Address of the state struct the gate is applied to
  * @param[in,out] qubit    Qubit the gate acts on
  */

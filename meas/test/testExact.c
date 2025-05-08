@@ -19,7 +19,7 @@ void testMeanDiagObs(void) {
 
         for (uint8_t i = 0; i < dim + 1; i++) {
             stateInitVector(&testState, vecs[i]);
-            double test = meanDiagObs(&testState, diagObs);
+            const double test = meanObs(&testState, diagObs);
 
             double ref = 0;
             for (dim_t j = 0; j < dim; j++) {
@@ -27,6 +27,44 @@ void testMeanDiagObs(void) {
             }
 
             TEST_ASSERT_TRUE(ralmostEqual(ref, test, PRECISION));
+        }
+        freeTestVectors(vecs, qubits);
+        stateFreeVector(&testState);
+    }
+}
+
+void testMeanObsQb(void) {
+    state_t testState;
+    for (qubit_t qubits = 2; qubits <= MAXQUBITS; qubits++) {
+        const dim_t dim = POW2(qubits, dim_t);
+        stateInitEmpty(&testState, qubits);
+        cplx_t** vecs = generateTestVectors(qubits);
+
+        applyQB *observables = qb + 5 * (qubits - 2);
+
+        for (uint8_t j = 0; j < 4; ++j) {
+            cplx_t* observableMat = qbMat[5 * (qubits - 2) + j](qubits);
+            for (uint8_t i = 0; i < dim + 1; i++) {
+                stateInitVector(&testState, vecs[i]);
+                const double test = meanObs(&testState, observables[j]);
+
+                cplx_t* tmp = malloc(dim * sizeof(cplx_t));
+                if (tmp == NULL) {
+                    free(observableMat);
+                    stateFreeVector(&testState);
+                    freeTestVectors(vecs, qubits);
+                    exit(EXIT_FAILURE);
+                }
+                for (dim_t k = 0; k < dim; k++) {
+                    tmp[k] = vecs[i][k];
+                }
+
+                cmatVecMulInPlace(observableMat, tmp, dim);
+                double ref = creal(cInner(tmp, vecs[i], dim));
+
+                TEST_ASSERT_TRUE(ralmostEqual(ref, test, PRECISION));
+            }
+            free(observableMat);
         }
         freeTestVectors(vecs, qubits);
         stateFreeVector(&testState);
@@ -392,6 +430,7 @@ void testMMseq(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testMeanDiagObs);
+    RUN_TEST(testMeanObsQb);
     RUN_TEST(testGradPQC1);
     RUN_TEST(testMMseq);
     return UNITY_END();
