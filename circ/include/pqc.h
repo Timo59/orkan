@@ -27,6 +27,7 @@ extern "C" {
  *                                                  Type definitions
  * =====================================================================================================================
  */
+
 /*
  * Function: Apply Quantum Block (QB)
  * ------------------------------------
@@ -42,33 +43,43 @@ typedef void (*applyQB)(state_t* state);
 typedef void (*applyPQB)(state_t* state, double par);
 
 /*
- * Function: Apply Linear Combination of Quantum Blocks (LCQB)
- * -----------------------------------------------------------
- * This function applies a linear combination of (parametrized) gates to a quantum state
+ * Function: Apply Linear Combination of hermitian operators
+ * ----------------------------------------------------------
+ * This function applies a real valued linear combination of (parametrized) gates to a quantum state
  */
-typedef void (*applyLCQB)(state_t* state, double c[]);
+typedef void (*applyHerm)(state_t* state, double c[]);
 
 /*
  * =====================================================================================================================
  *                                                  Direct application
  * =====================================================================================================================
  */
+
+/*
+ * This function applies the diagonal hermitian operator to the quantum state
+ *
+ * @param[in,out] state : Quantum state; On exit,
+ */
 void applyDiag(state_t* state, const double diag[]);
+void lcQB(state_t* state, depth_t d, const applyQB qb[], const cplx_t c[]);
 
 /*
  * =====================================================================================================================
  *                                              Imaginary time evolution
  * =====================================================================================================================
  */
-void evoQB(state_t* state, applyQB qb, double par);
 void evoDiag(state_t* state, const double diag[], double par);
-void evoLCQB(state_t* state, applyLCQB lcqb, double par);
-#define evolve(X, Y, Z) _Generic((Y), \
-    double*: evoDiag,                 \
-    applyQB: evoQB                    \
+
+void evoQB(state_t* state, applyQB qb, double par);
+
+void evoHerm(state_t* state, applyHerm herm, double par);
+
+#define ite(X, Y, Z) _Generic((Y), \
+    double*:    evoDiag,           \
+    applyQB:    evoQB              \
+    applyHerm:  evoHerm            \
     ) (X, Y, Z)
 
-void lcQB(state_t* state, depth_t d, const applyQB qb[], const cplx_t c[]);
 void applyPQC(state_t* state, depth_t d, const applyPQB pqbs[], const double par[]);
 
 #ifdef __cplusplus
