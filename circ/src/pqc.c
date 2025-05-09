@@ -46,6 +46,8 @@ void applyDiag(state_t* state, const double diag[]) {
     }
 }
 
+void applyHerm(state_t* )
+
 void lcQB(state_t* state, const depth_t d, const applyQB qb[], const cplx_t c[]) {
     const dim_t incr = 1;
     cplx_t* out = calloc(state->dim, sizeof (cplx_t));
