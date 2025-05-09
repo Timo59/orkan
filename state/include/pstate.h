@@ -23,10 +23,11 @@ extern "C" {
  *                                                  type definitions
  * =====================================================================================================================
  */
+
 /*
  * Struct:      state_t
  * --------------------
- * Description: This struct represents a multi-qubit pure state.
+ * This struct represents a multi-qubit pure state.
  * Contents:    
  *      vec:        Vector representation of the state.
  *      qubits:     Number of qubits of the underlying system.
