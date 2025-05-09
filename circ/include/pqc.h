@@ -39,17 +39,23 @@ typedef void (*applyQB)(state_t* state);
  * Function: Apply Parametrized Quantum Block (PQB)
  * -------------------------------------------------
  * This function applies a parametrized quantum block to a quantum state.
- * ATTENTION: For the gradPQC function to work properly, only one function in the parametrized block is allowed to
- * depend on the parameter (in particular when using parametrized gates like RX, RY, RZ)
  */
 typedef void (*applyPQB)(state_t* state, double par);
 
 /*
- * Function: Apply Linear Combination of hermitian operators
- * ----------------------------------------------------------
- * This function applies a real valued linear combination of (parametrized) gates to a quantum state
+ * Struct: herm
+ * -------------
+ * This struct represents a hermitian operator as a sum of weighted hermitian operators
+ * Contents:
+ *      len     : Number of terms
+ *      comp    : Elementary hermitian operators
+ *      coeff   : Coefficients
  */
-typedef void (*applyHerm)(state_t* state, double c[]);
+typedef struct herm {
+    unsigned int    len;
+    applyQB*        comp;
+    double*         coeff;
+}herm_t;
 
 /*
  * Struct: pqc
