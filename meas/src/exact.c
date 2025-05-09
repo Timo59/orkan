@@ -28,17 +28,10 @@
 
 /*
  * =====================================================================================================================
- *                                                  Function definitions
+ *                                              Observable mean value
  * =====================================================================================================================
  */
-/*
- * This function returns the mean value of a diagonal observable with respect to a quantum state
- *
- * @param[in,out]   state   Quantum state; untouched by the function
- * @param[in]       obs     Diagonal entries of an observable (in the computational basis)
- *
- * @return  The mean value of the observable with respect to the quantum state with DOUBLE PRECISION
- */
+
 double meanDiagObs(const state_t* state, const double obs[]) {
     double out = 0;
 #pragma omp parallel for reduction(+:out) default(none) shared(state, obs)
@@ -48,14 +41,6 @@ double meanDiagObs(const state_t* state, const double obs[]) {
     return out;
 }
 
-/*
- * This function returns the mean value of an observable with respect to a quantum state
- *
- * @param[in,out]   state   Quantum state; untouched by the function
- * @param[in]       obs     Function determining a sequence of gates describing the observable
- *
- * @return  The mean value of the observable with respect to the quantum state with DOUBLE PRECISION
- */
 double meanObsQb(const state_t* state, const applyQB obs) {
     state_t tmp;                                                    // Temporary state the observable is applied to
     stateInitEmpty(&tmp, state->qubits);
@@ -81,38 +66,47 @@ double meanObsQb(const state_t* state, const applyQB obs) {
  * @param[in]       obs[]   Observable
  * @param[in,out]   grad*   Array of d DOUBLE PRECISION values. On exit, gradient of the mean value
  */
-void gradPQC(state_t* state, const depth_t d, const applyPQB pqc[], const double par[], const applyQB qb[],
-    const double obs[], double* grad) {
-    state_t bra;                                    // state, initialized to the input state, evolved with all evolution
-    stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
-    stateInitVector(&bra, state->vec);
-
-    for (depth_t i = 0; i < d; ++i){                                // Apply the PQC to bra
-        pqc[i](&bra, par[i]);
+double* gradPQC(state_t* state, const pqc_t pqc, const double* par) {
+    // Create an array, assigning the current parameter to each PQB according to the parameter index array in the PQC
+    double parCopy[pqc.len];
+    for (depth_t i = 0; i < pqc.len; ++i) {
+        parCopy[i] = par[pqc.parIdx[i]];
     }
-    for (dim_t i = 0; i < bra.dim; ++i) {                           // Apply the diagonal observable to bra
-        bra.vec[i] *= obs[i];
-    }
-
-#pragma omp parallel for default(none) shared(state, d, pqc, par, qb, grad, bra) num_threads(d)
-    for (depth_t i = 0; i < d; ++i) {                               // Iterate the components of the PQC
-        state_t ket;                                                // Initialized to the input state; acted on by the
-        stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the i-th parameter
-        stateInitVector(&ket, state->vec);
-
-        for (depth_t j = 0; j < i; ++j) {                           // Apply parametrized blocks up to i-1
-            pqc[j](&ket, par[j]);
-        }
-        qb[i](&ket);                                               // and apply the evolution operator to ket
-        for (depth_t j = i; j < d; ++j) {                           // Evolve ket with rest of the evolution operators
-            pqc[j](&ket, par[j]);
-        }
-
-        grad[i] = 2 * cimag(stateOverlap(bra, ket));
-        stateFreeVector(&ket);
-    }
-    stateFreeVector(&bra);
+    // Iterate the PQC
+    for (depth_t i = 0; i < pqc.len; ++i) {}
 }
+//void gradPQC(state_t* state, const depth_t d, const applyPQB pqc[], const double par[], const applyQB qb[],
+//    const double obs[], double* grad) {
+//    state_t bra;                                    // state, initialized to the input state, evolved with all evolution
+//    stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
+//    stateInitVector(&bra, state->vec);
+//
+//    for (depth_t i = 0; i < d; ++i){                                // Apply the PQC to bra
+//        pqc[i](&bra, par[i]);
+//    }
+//    for (dim_t i = 0; i < bra.dim; ++i) {                           // Apply the diagonal observable to bra
+//        bra.vec[i] *= obs[i];
+//    }
+//
+//#pragma omp parallel for default(none) shared(state, d, pqc, par, qb, grad, bra) num_threads(d)
+//    for (depth_t i = 0; i < d; ++i) {                               // Iterate the components of the PQC
+//        state_t ket;                                                // Initialized to the input state; acted on by the
+//        stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the i-th parameter
+//        stateInitVector(&ket, state->vec);
+//
+//        for (depth_t j = 0; j < i; ++j) {                           // Apply parametrized blocks up to i-1
+//            pqc[j](&ket, par[j]);
+//        }
+//        qb[i](&ket);                                               // and apply the evolution operator to ket
+//        for (depth_t j = i; j < d; ++j) {                           // Evolve ket with rest of the evolution operators
+//            pqc[j](&ket, par[j]);
+//        }
+//
+//        grad[i] = 2 * cimag(stateOverlap(bra, ket));
+//        stateFreeVector(&ket);
+//    }
+//    stateFreeVector(&bra);
+//}
 
 /*
  * This function calculates the moment matrices of a set of observables wrt to a sequence of LCU.

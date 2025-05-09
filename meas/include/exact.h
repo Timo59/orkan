@@ -28,18 +28,58 @@ extern "C" {
 
 /*
  * =====================================================================================================================
- *                                                  Function definitions
+ *                                              Observable mean value
  * =====================================================================================================================
  */
+
+/*
+ * @brief This function returns the mean value of a diagonal observable with respect to the quantum state
+ *
+ * @param[in]   state   Quantum state
+ * @param[in]   obs     The diagonal entries of an observable O (in the computational basis)
+ *
+ * @return  The mean value of the observable with respect to the quantum state
+ */
 double meanDiagObs(const state_t* state, const double obs[]);
+
+/*
+ * @brief This function returns the mean value of an observable represented by a quantum block with respect to the
+ * quantum state
+ *
+ * @param[in]   state   Quantum state
+ * @param[in]   obs     Quantum block; i.e, a function applying quantum gates to the quantum state, representing the
+ *                      observable
+ *
+ * @return  The mean value of the observable with respect to the quantum state
+ */
 double meanObsQb(const state_t* state, applyQB obs);
+
+/*
+ * @brief Function polymorphism of calculating the observable's mean value: Chooses the appropriate function based on
+ * second input
+ *
+ * This macro uses C11's `_Generic` feature to perform function selection based on the type of the second parameter `Y`.
+ * Supported Types and Corresponding Functions:
+ * - `double*`  : Calls `meanDiagObs`, which processes diagonal obsrvables.
+ * - `applyQB`  : Calls `meanObsQB`, which processes quantum blocks.
+ *
+ * @param[in]       X   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*H)
+ * @param[in]       Y   Type of evolution; see above for supported types
+ *
+ * @note Ensure that all expected types are accounted for to prevent unexpected behavior or compile-time errors.
+ */
 #define meanObs(X, Y) _Generic((Y), \
     double*: meanDiagObs,           \
     applyQB: meanObsQb              \
     ) (X, Y)
 
-void gradPQC(state_t* state, depth_t d, const applyPQB pqc[], const double par[], const applyQB qb[],
-    const double obs[], double* grad);
+/*
+ * =====================================================================================================================
+ *                                              Gradient PQC
+ * =====================================================================================================================
+ */
+double* gradPQC(state_t* state, pqc_t pqc, const double* par);
+
 void mmseq(state_t* state, depth_t obsc, const applyQB obs[], depth_t circdepth, const cplx_t c[], depth_t uc,
            const applyQB u[], depth_t link, cplx_t* momMat[]);
 

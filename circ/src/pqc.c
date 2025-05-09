@@ -102,8 +102,8 @@ void evoPQB(state_t* state, const applyPQB pqb, const double par) {
     pqb(state, par);
 }
 
-void applyPQC(state_t* state, const pqc_t pqc) {
+void applyPQC(state_t* state, const pqc_t pqc, const double par[]) {
     for (depth_t i = 0; i < pqc.len; ++i) {
-        evolve(state, pqc.pqb[i], pqc.par + pqc.parIdx[i]);
+        pqc.pqb[i](state, *(par + pqc.parIdx[i]));
     }
 }

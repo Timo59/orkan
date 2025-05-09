@@ -58,14 +58,12 @@ typedef void (*applyHerm)(state_t* state, double c[]);
  * Contents:
  *      len     : Number of parametrized quantum blocks
  *      pqbs    : Array of parametrized quantum blocks
- *      par     : Array of parameters; length can deviate if different quantum blocks depend on the same parameter
  *      parIdx  : Assigns a parameter from par to a parametrized quantum block of pqbs; must be of length len
  *
  */
 typedef struct pqc {
     depth_t     len;
     applyPQB*   pqb;
-    double*     par;
     depth_t*    parIdx;
 } pqc_t;
 
@@ -136,8 +134,8 @@ void evoQB(state_t* state, applyQB qb, double par);
 void evoPQB(state_t* state, applyPQB pqb, const double par);
 
 /*
- * @brief Function polymorphism of the unitary evolution of a quantum: Chooses the appropriate function based on second
- * input
+ * @brief Function polymorphism of the quantum state's unitary evolution: Chooses the appropriate function based on
+ * second input
  *
  * This macro uses C11's `_Generic` feature to perform function selection based on the type of the second parameter `Y`.
  * Supported Types and Corresponding Functions:
@@ -165,7 +163,7 @@ void evoPQB(state_t* state, applyPQB pqb, const double par);
  * @param[in]       pqc     Parametrized quantum circuit; struct inheriting the parametrized blocks, their total, the
  *                          parameters and an assignment of parameters to parametrized quantum blocks
  */
-void applyPQC(state_t* state, pqc_t pqc);
+void applyPQC(state_t* state, pqc_t pqc, const double par[]);
 
 #ifdef __cplusplus
 }
