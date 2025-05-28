@@ -65,7 +65,9 @@ extern inline void tearDown(void) {}
  */
 double randPar[4] = {0.342377381, 1.416765874, -1.458084103, 1.767723341};
 
-cplx_t coeff[4] = {0.551736480 + I * 0.461109576, -2.734804444 + I * 0.567079912, 0.362535970 + I * 0.714549265,
+double dcoeff[5] = {4.52488, -1.01950, 3.19184, -0.90711, -3.30330};
+
+cplx_t zcoeff[4] = {0.551736480 + I * 0.461109576, -2.734804444 + I * 0.567079912, 0.362535970 + I * 0.714549265,
     0.372739852 - I * -1.612172457};
 
 double diagObs[64] = {-0.672013803, -1.080744850, 1.989524770, 1.988930799, 1.731153443, 0.219447958, -1.496797918,
@@ -211,7 +213,8 @@ extern inline void diag(state_t* state) {
     applyDiag(state, diagObs);
 }
 
-applyQB qb[25] = {x2, y2, z2, swap2, x3, y3, z3, swap3, x4, y4, z4, swap4, x5, y5, z5, swap5, x6, y6, z6, swap6};
+applyQB qb[25] = {x2, y2, z2, swap2, diag, x3, y3, z3, swap3, diag, x4, y4, z4, swap4, diag, x5, y5, z5, swap5, diag,
+    x6, y6, z6, swap6, diag};
 
 /*
  * =====================================================================================================================
@@ -260,11 +263,11 @@ extern inline cplx_t* swapMat(qubit_t qubits) {
     return out;
 }
 
-matQB qbMat[25] = {xMat, yMat, zMat, swapMat};
-
 extern inline cplx_t* diagMat(qubit_t qubits) {
     return diagGateMat(qubits, diagObs);
 }
+
+matQB qbMat[25] = {xMat, yMat, zMat, swapMat, diagMat};
 
 // void rx2(state_t* state, const double par) {
 //     applyRX(state, 0, par);

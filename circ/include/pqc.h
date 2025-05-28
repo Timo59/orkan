@@ -92,6 +92,18 @@ typedef struct pqc {
 void applyDiag(state_t* state, const double diag[]);
 
 /*
+ * @brief This function applies a general hermitian operator (sum of weighted hermitian operators) to the quantum state
+ *
+ * @param[in,out]   state   Quantum state; On exit, the statevector is the product of H.v
+ * @param[in]       herm    The hermitian operator; i.e., a weighted sum of hermitian quantum blocks
+ *
+ * @note    WARNING: This action is unphysical in the sense of a circuit model and rather belongs to the measurement
+ *          part of a circuit. As long as the hermitian operator is not unitary, the output is no longer a quantum
+ *          state, due to missing normalization.
+ */
+void applyHerm(state_t* state, const herm_t* herm);
+
+/*
  * @brief This function applies a linear combination of quantum blocks to the input state
  *
  * @param[in,out]   state   Quantum state. On exit, state after linear combination of quantum blocks
