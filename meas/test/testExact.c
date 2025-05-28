@@ -305,7 +305,7 @@ void testMMseq(void) {
                         exit(EXIT_FAILURE);
                     }
                 }
-                mmseq(&testState, 3, observable, 3, coeff, 5, u, j, momMat);
+                mmseq(&testState, 3, observable, 3, zcoeff, 5, u, j, momMat);
 
                 for (uint8_t k = 0; k < 3; ++k) {
                     if ((test[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
@@ -339,7 +339,7 @@ void testMMseq(void) {
                     }
                     for (uint8_t l = 0; l < 5; ++l) {
                         cplx_t* tmp = cmatVecMul(uMat[k][l], vecs[i], dim);
-                        cscalarVecMulInPlace(coeff[k * 5 + l], tmp, dim);
+                        cscalarVecMulInPlace(zcoeff[k * 5 + l], tmp, dim);
                         cvecAddInPlace(sum, tmp, dim);
                         free(tmp);
                     }
@@ -368,7 +368,7 @@ void testMMseq(void) {
 
                         for (uint8_t m = 0; m < 5; ++m) {
                             cplx_t* tmp = cmatVecMul(uMat[l][m], refVec[k], dim);
-                            cscalarVecMulInPlace(coeff[l * 5 + m], tmp, dim);
+                            cscalarVecMulInPlace(zcoeff[l * 5 + m], tmp, dim);
                             cvecAddInPlace(sum, tmp, dim);
                             free(tmp);
                         }

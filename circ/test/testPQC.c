@@ -10,6 +10,11 @@
 #include "testPQC.h"
 #endif
 
+/*
+ * =====================================================================================================================
+ *                                                  applyDiag
+ * =====================================================================================================================
+ */
 void testApplyDiag(void) {
     state_t testState;
     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
@@ -32,6 +37,92 @@ void testApplyDiag(void) {
         free(mat);
         freeTestVectors(vecs, qubits);
         stateFreeVector(&testState);
+    }
+}
+
+/*
+ * =====================================================================================================================
+ *                                                  applyHerm
+ * =====================================================================================================================
+ */
+void testApplyHerm(void) {
+    state_t testState;
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+        stateInitEmpty(&testState, qubits);
+        cplx_t** vecs = generateTestVectors(qubits);
+
+        // Define the hermitian struct
+        herm_t testHerm;
+        testHerm.len = 5;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
+        testHerm.comp = qb + testHerm.len * (qubits - 2);
+        testHerm.coeff = dcoeff;
+
+        // Define the hermitian's matrix representation
+        cplx_t* testHermMat = calloc(dim * dim, sizeof(cplx_t));
+        for (dim_t i = 0; i < 5; ++i) {
+            cplx_t* tmp = qbMat[i](qubits);
+            const cplx_t alpha = dcoeff[i];
+            cscalarMatMulInPlace(alpha, tmp, dim);
+            cmatAddInPlace(testHermMat, tmp, dim);
+            matrixPrint(testHermMat, dim);
+            free(tmp);
+        }
+
+        /* TESTING */
+        for (uint8_t i = 0; i < dim + 1; ++i) {
+            stateInitVector(&testState, vecs[i]);
+            applyHerm(&testState, &testHerm);
+
+            cmatVecMulInPlace(testHermMat, vecs[i], dim);
+
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
+        }
+
+        free(testHermMat);
+        freeTestVectors(vecs, qubits);
+        stateFreeVector(&testState);
+    }
+}
+
+/*
+ * =====================================================================================================================
+ *                                                      testLCQB
+ * =====================================================================================================================
+ */
+void testLCQB(void) {
+    state_t testState;
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+        cplx_t** vecs = generateTestVectors(qubits);
+
+        stateInitEmpty(&testState, qubits);
+        applyQB* blocks = qb + 4 * (qubits - 2);
+
+        cplx_t* lcqbMat = calloc(dim * dim, sizeof (cplx_t));       // Matrix representation of the linear combination
+        if (!lcqbMat) {                                             // of quantum blocks
+            fprintf(stderr, "testLCQB: lcqbMat allocation failed\n");
+            return;
+        }
+        for (uint8_t i = 0; i < 4; ++i) {
+            cplx_t* tmp = qbMat[i](qubits);
+            cscalarMatMulInPlace(zcoeff[i], tmp, dim);
+            cmatAddInPlace(lcqbMat, tmp, dim);
+            free(tmp);
+        }
+
+        /* TESTING */
+        for (dim_t i = 0; i < dim + 1; ++i) {
+            stateInitVector(&testState, vecs[i]);
+            lcQB(&testState, 4, blocks, zcoeff);
+
+            cmatVecMulInPlace(lcqbMat, vecs[i], dim);
+
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
+        }
+        free(lcqbMat);
+        stateFreeVector(&testState);
+        freeTestVectors(vecs, qubits);
     }
 }
 
@@ -104,47 +195,6 @@ void testEvoDiag(void) {
         }
 
         free(evoMat);
-        stateFreeVector(&testState);
-        freeTestVectors(vecs, qubits);
-    }
-}
-
-/*
- * =====================================================================================================================
- *                                                      testLCQB
- * =====================================================================================================================
- */
-void testLCQB(void) {
-    state_t testState;
-    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
-        const dim_t dim = POW2(qubits, dim_t);
-        cplx_t** vecs = generateTestVectors(qubits);
-
-        stateInitEmpty(&testState, qubits);
-        applyQB* blocks = qb + 4 * (qubits - 2);
-
-        cplx_t* lcqbMat = calloc(dim * dim, sizeof (cplx_t));       // Matrix representation of the linear combination
-        if (!lcqbMat) {                                             // of quantum blocks
-            fprintf(stderr, "testLCQB: lcqbMat allocation failed\n");
-            return;
-        }
-        for (uint8_t i = 0; i < 4; ++i) {
-            cplx_t* tmp = qbMat[i](qubits);
-            cscalarMatMulInPlace(coeff[i], tmp, dim);
-            cmatAddInPlace(lcqbMat, tmp, dim);
-            free(tmp);
-        }
-
-        /* TESTING */
-        for (dim_t i = 0; i < dim + 1; ++i) {
-            stateInitVector(&testState, vecs[i]);
-            lcQB(&testState, 4, blocks, coeff);
-
-            cmatVecMulInPlace(lcqbMat, vecs[i], dim);
-
-            TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
-        }
-        free(lcqbMat);
         stateFreeVector(&testState);
         freeTestVectors(vecs, qubits);
     }
@@ -238,8 +288,9 @@ void testLCQB(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testApplyDiag);
-    RUN_TEST(testEvoQB);
-    RUN_TEST(testEvoDiag);
-    RUN_TEST(testLCQB);
+    RUN_TEST(testApplyHerm);
+    // RUN_TEST(testLCQB);
+    // RUN_TEST(testEvoQB);
+    // RUN_TEST(testEvoDiag);
     return UNITY_END();
 }

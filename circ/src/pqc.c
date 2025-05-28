@@ -46,7 +46,59 @@ void applyDiag(state_t* state, const double diag[]) {
     }
 }
 
-void applyHerm(state_t* )
+void applyHerm(state_t* state, const herm_t* herm) {
+    const dim_t incr = 1;
+    cplx_t* out = calloc(state->dim, sizeof(cplx_t));
+    if (out == NULL) {
+        fprintf(stderr, "applyHerm: out allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (unsigned int i = 0; i < herm->len; ++i) {
+        state_t tmp;
+        stateInitEmpty(&tmp, state->qubits);
+        stateInitVector(&tmp, state->vec);
+
+        herm->comp[i](state);
+        cplx_t ALPHA = herm->coeff[i];                          // zaxpy_ takes in double complex variable
+        zaxpy_(&state->dim, &ALPHA, tmp.vec, &incr, out, &incr);
+
+        stateFreeVector(&tmp);
+    }
+
+    stateFreeVector(state);
+    state->vec = out;
+}
+
+// void applyHerm(state_t* state, const herm_t* herm) {
+//     const dim_t incr = 1;
+//     cplx_t* out = calloc(state->dim, sizeof(cplx_t));
+//     if (out == NULL) {
+//         fprintf(stderr, "applyHerm: out allocation failed\n");
+//         exit(EXIT_FAILURE);
+//     }
+// // Creates a team of threads each applying one of the hermitian's quantum blocks to a copy of the input state
+// #pragma omp parallel default(none) shared(state, herm, incr, out)
+//     {
+//         state_t tmp;
+//         stateInitEmpty(&tmp, state->qubits);
+//         stateInitVector(&tmp, state->vec);
+//
+// #pragma omp for
+//         for (unsigned int i = 0; i < herm->len; ++i) {
+//             herm->comp[i](state);
+//             cplx_t ALPHA = herm->coeff[i];                          // zaxpy_ takes in double complex variable
+// // To avoid a race condition the resulting state vector is added to the output one by one
+// #pragma omp critical(sum)
+//             {
+//                 zaxpy_(&state->dim, &ALPHA, tmp.vec, &incr, out, &incr);
+//             }
+//         }
+//         stateFreeVector(&tmp);
+//     }
+//     stateFreeVector(state);
+//     state->vec = out;
+// }
 
 void lcQB(state_t* state, const depth_t d, const applyQB qb[], const cplx_t c[]) {
     const dim_t incr = 1;
