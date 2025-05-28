@@ -22,7 +22,8 @@ void testApplyDiag(void) {
         stateInitEmpty(&testState, qubits);
         cplx_t** vecs = generateTestVectors(qubits);
 
-        cplx_t* mat = diagMat(qubits);                              // Matrix representation of diagonal observable
+        // Define the diagonal hermitian operator's matrix representation
+        cplx_t* mat = diagMat(qubits);
 
         /* TESTING */
         for (uint8_t i = 0; i < dim + 1; ++i) {
@@ -52,20 +53,19 @@ void testApplyHerm(void) {
         stateInitEmpty(&testState, qubits);
         cplx_t** vecs = generateTestVectors(qubits);
 
-        // Define the hermitian struct
+        // Define the hermitian operator struct
         herm_t testHerm;
         testHerm.len = 5;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
         testHerm.comp = qb + testHerm.len * (qubits - 2);
         testHerm.coeff = dcoeff;
 
-        // Define the hermitian's matrix representation
+        // Define the hermitian operator's matrix representation
         cplx_t* testHermMat = calloc(dim * dim, sizeof(cplx_t));
         for (dim_t i = 0; i < 5; ++i) {
             cplx_t* tmp = qbMat[i](qubits);
             const cplx_t alpha = dcoeff[i];
             cscalarMatMulInPlace(alpha, tmp, dim);
             cmatAddInPlace(testHermMat, tmp, dim);
-            matrixPrint(testHermMat, dim);
             free(tmp);
         }
 
