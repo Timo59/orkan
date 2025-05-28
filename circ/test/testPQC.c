@@ -12,7 +12,7 @@
 
 /*
  * =====================================================================================================================
- *                                                  applyDiag
+ *                                                      applyDiag
  * =====================================================================================================================
  */
 void testApplyDiag(void) {
@@ -43,7 +43,7 @@ void testApplyDiag(void) {
 
 /*
  * =====================================================================================================================
- *                                                  applyHerm
+ *                                                      applyHerm
  * =====================================================================================================================
  */
 void testApplyHerm(void) {
@@ -91,10 +91,10 @@ void testApplyHerm(void) {
 
 /*
  * =====================================================================================================================
- *                                                      testLCQB
+ *                                                      applyLCQB
  * =====================================================================================================================
  */
-void testLCQB(void) {
+void testApplyLCQB(void) {
     state_t testState;
     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
         const dim_t dim = POW2(qubits, dim_t);
@@ -110,7 +110,7 @@ void testLCQB(void) {
         // Define the LCQB's matrix representation
         cplx_t* testLCQBMat = calloc(dim * dim, sizeof (cplx_t));
         if (testLCQBMat == NULL) {
-            fprintf(stderr, "testLCQB(): testLCQBMat allocation failed\n");
+            fprintf(stderr, "testApplyLCQB(): testLCQBMat allocation failed\n");
             exit(EXIT_FAILURE);
         }
         for (uint8_t i = 0; i < 5; ++i) {
@@ -298,7 +298,7 @@ int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testApplyDiag);
     RUN_TEST(testApplyHerm);
-    RUN_TEST(testLCQB);
+    RUN_TEST(testApplyLCQB);
     // RUN_TEST(testEvoQB);
     // RUN_TEST(testEvoDiag);
     return UNITY_END();
