@@ -109,7 +109,7 @@ cplx_t** momMat(const state_t* state, const obs_t* obs[], depth_t obsc, const un
 cplx_t** momMatPQC(const state_t* state, const obs_t* obs[], depth_t obsc, const obs_t* evoOps[], depth_t circdepth,
                    double angles[]);
 
-cplx_t** mmseq(state_t* state, const depth_t obsc, const obs_t* obs[], depth_t circdepth, cplx_t coeff[],
+cplx_t** mmseq(state_t* state, const depth_t obsc, const obs_t* obs[], depth_t circdepth, cplx_t weight[],
                const depth_t uc, const unitary u[], depth_t link);
 
 #ifdef __cplusplus

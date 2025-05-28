@@ -46,57 +46,76 @@ void applyDiag(state_t* state, const double diag[]) {
     }
 }
 
- void applyHerm(state_t* state, const herm_t* herm) {
-     const dim_t incr = 1;
-     cplx_t* out = calloc(state->dim, sizeof(cplx_t));
-     if (out == NULL) {
-         fprintf(stderr, "applyHerm: out allocation failed\n");
-         exit(EXIT_FAILURE);
-     }
-
- // Creates a team of threads each applying one of the hermitian's quantum blocks to a copy of the input state
- #pragma omp parallel default(none) shared(state, herm, incr, out)
-     {
-         state_t tmp;
-         stateInitEmpty(&tmp, state->qubits);
-         stateInitVector(&tmp, state->vec);
-
- #pragma omp for
-         for (unsigned int i = 0; i < herm->len; ++i) {
-             herm->comp[i](&tmp);
-             cplx_t ALPHA = herm->coeff[i];                          // zaxpy_ takes in double complex variable
-
- // To avoid a race condition the resulting state vector is added to the output one by one
- #pragma omp critical(sum)
-             {
-                 zaxpy_(&state->dim, &ALPHA, tmp.vec, &incr, out, &incr);
-             }
-         }
-         stateFreeVector(&tmp);
-     }
-     stateFreeVector(state);
-     state->vec = out;
- }
-
-void lcQB(state_t* state, const depth_t d, const applyQB qb[], const cplx_t c[]) {
+void applyHerm(state_t* state, const herm_t* herm) {
     const dim_t incr = 1;
-    cplx_t* out = calloc(state->dim, sizeof (cplx_t));
-    if(!out) {
-        fprintf(stderr, "lcQB: out allocation failed\n");
-        return;
+    cplx_t* out = calloc(state->dim, sizeof(cplx_t));
+    if (out == NULL) {
+        fprintf(stderr, "applyHerm(): out allocation failed\n");
+        exit(EXIT_FAILURE);
     }
-    for (depth_t i = 0; i < d; ++i) {
-        cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
-        if(!tmp) {
-            fprintf(stderr, "lcQB: tmp allocation failed\n");
+
+    // Creates a team of threads each applying one of the hermitian's quantum blocks to a copy of the input state
+#pragma omp parallel default(none) shared(state, herm, stderr, incr, out)
+    {
+        state_t tmp;
+        tmp.qubits = state->qubits;
+        tmp.dim = state->dim;
+        if ((tmp.vec = malloc(tmp.dim * sizeof(cplx_t))) == NULL) {
+            fprintf(stderr, "applyHerm(): tmp allocation failed\n");
             free(out);
-            return;
+            exit(EXIT_FAILURE);
         }
-        zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
-        qb[i](state);
-        zaxpy_(&state->dim, c + i, state->vec, &incr, out, &incr);
-        stateFreeVector(state);
-        state->vec = tmp;
+        stateInitVector(&tmp, state->vec);
+
+#pragma omp for
+        for (unsigned int i = 0; i < herm->len; ++i) {
+            herm->comp[i](&tmp);
+            cplx_t ALPHA = herm->weight[i];            // zaxpy_ takes in double complex variable
+
+            // To avoid a race condition the resulting state vector is added to the output one by one
+#pragma omp critical(sum)
+            {
+                zaxpy_(&state->dim, &ALPHA, tmp.vec, &incr, out, &incr);
+            }
+        }
+        stateFreeVector(&tmp);
+    }
+    stateFreeVector(state);
+    state->vec = out;
+}
+
+void applyLCQB(state_t* state, const lcqb_t* lcqb) {
+    const dim_t incr = 1;
+    cplx_t* out = calloc(state->dim, sizeof(cplx_t));
+    if (out == NULL) {
+        fprintf(stderr, "applyLQCB(): out allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Creates a team of threads each applying one of the hermitian's quantum blocks to a copy of the input state
+#pragma omp parallel default(none) shared(state, lcqb, stderr, incr, out)
+    {
+        state_t tmp;
+        tmp.qubits = state->qubits;
+        tmp.dim = state->dim;
+        if ((tmp.vec = malloc(tmp.dim * sizeof(cplx_t))) == NULL) {
+            fprintf(stderr, "applyHerm(): tmp allocation failed\n");
+            free(out);
+            exit(EXIT_FAILURE);
+        }
+        stateInitVector(&tmp, state->vec);
+
+#pragma omp for
+        for (depth_t i = 0; i < lcqb->len; ++i) {
+            lcqb->comp[i](&tmp);
+
+            // To avoid a race condition the resulting state vector is added to the output one by one
+#pragma omp critical(sum)
+            {
+                zaxpy_(&state->dim, lcqb->weight + i, tmp.vec, &incr, out, &incr);
+            }
+        }
+        stateFreeVector(&tmp);
     }
     stateFreeVector(state);
     state->vec = out;
