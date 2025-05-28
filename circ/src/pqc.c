@@ -138,7 +138,7 @@ void evoQB(state_t* state, const applyQB qb, const double par) {
     const cplx_t c = cos(par);
     const cplx_t s = - I * sin(par);
     cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
-    if(!tmp) {
+    if(tmp == NULL) {
         fprintf(stderr, "evoPQB: tmp allocation failed\n");
         return;
     }

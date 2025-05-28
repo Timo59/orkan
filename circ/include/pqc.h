@@ -167,7 +167,7 @@ void evoQB(state_t* state, applyQB qb, double par);
  *
  * @note In accordance with the definition of rotational Pauli gates par is internally divided by two.
  */
-void evoPQB(state_t* state, applyPQB pqb, const double par);
+void evoPQB(state_t* state, applyPQB pqb, double par);
 
 /*
  * @brief Function polymorphism of the quantum state's unitary evolution: Chooses the appropriate function based on
