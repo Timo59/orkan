@@ -43,6 +43,7 @@ void stateInitEmpty(state_t* state, const qubit_t qubits) {
 	state->dim = POW2(qubits, dim_t);
 	if((state->vec = calloc(state->dim, sizeof(cplx_t))) == NULL) {
         fprintf(stderr, "Statevector allocation failed\n");
+        exit(EXIT_FAILURE);
     }
 }
 

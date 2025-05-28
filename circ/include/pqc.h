@@ -45,17 +45,34 @@ typedef void (*applyPQB)(state_t* state, double par);
 /*
  * Struct: herm
  * -------------
- * This struct represents a hermitian operator as a sum of weighted hermitian operators
+ * This struct represents a hermitian operator; i.e., a weighted sum of hermitian operators with DOUBLE PRECISION
+ * weights
  * Contents:
  *      len     : Number of terms
  *      comp    : Elementary hermitian operators
- *      coeff   : Coefficients
+ *      weights : Weights (DOUBLE PRECISION)
  */
 typedef struct herm {
     unsigned int    len;
     applyQB*        comp;
-    double*         coeff;
+    double*         weight;
 }herm_t;
+
+/*
+ * Struct: lcqb
+ * -------------
+ * This struct represents a linear combination of quantum blocks; i.e, a weighted sum of quantum blocks with COMPLEX
+ * DOUBLE weights
+ * Contents:
+ *      len     : Number of terms
+ *      comp    : Quantum blocks
+ *      weights : Weights (COMPLEX DOUBLE)
+ */
+typedef struct lcqb {
+    depth_t     len;
+    applyQB*    comp;
+    cplx_t*     weight;
+}lcqb_t;
 
 /*
  * Struct: pqc
@@ -107,11 +124,12 @@ void applyHerm(state_t* state, const herm_t* herm);
  * @brief This function applies a linear combination of quantum blocks to the input state
  *
  * @param[in,out]   state   Quantum state. On exit, state after linear combination of quantum blocks
- * @param[in]       d       Number of quantum blocks in the linear combination
- * @param[in]       qb      Quantum block; i.e, a function applying quantum gates to the quantum state
- * @param[in]       c       Coefficients of the quantum blocks in the linear combination
+ * @param[in]       lcqb    The linear combination of quantum blocks; i.e., a weighted sum of quantum blocks
+ *
+ * @note    WARNING: This action may be unphysical in the sense of the circuit model. As long as the linear combination
+ *          is not unitary, the output is no longer a quantum state, due to missing normalization.
  */
-void lcQB(state_t* state, depth_t d, const applyQB qb[], const cplx_t c[]);
+void applyLCQB(state_t* state, const lcqb_t* lcqb);
 
 /*
  * =====================================================================================================================
