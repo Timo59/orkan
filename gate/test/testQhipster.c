@@ -629,7 +629,7 @@ void testApplySWAP(void) {
     }
 }
 
-void testApplyRswap(void) {
+void testApplyRSWAP(void) {
     for (qubit_t qubits = 2; qubits <= MAXQUBITS; ++qubits) {
         dim_t dim = POW2(qubits, dim_t);                            // Hilbert space dimension
         state_t testState;                                          // Initialize a pure quantum state with specified
@@ -644,7 +644,7 @@ void testApplyRswap(void) {
 
                 for (dim_t i = 0; i < dim + 1; ++i) {
                     stateInitVector(&testState, vecs[i]);
-                    applyRswap(&testState, right, left, angle);
+                    applyRSWAP(&testState, right, left, angle);
                     cplx_t* ref = cmatVecMul(gateMat, vecs[i], dim);
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(ref, testState.vec, dim, PRECISION));
                     free(ref);
@@ -731,7 +731,7 @@ int main(void) {
     RUN_TEST(testApplyRY);
     RUN_TEST(testApplyRZ);
     RUN_TEST(testApplySWAP);
-    RUN_TEST(testApplyRswap);
+    RUN_TEST(testApplyRSWAP);
     RUN_TEST(testApplyToffoli);
     return UNITY_END();
 }

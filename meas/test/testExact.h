@@ -313,7 +313,7 @@ extern inline void evoSwap2(state_t* state, const double par) {
     evoQB(state, swap2, par);
 }
 extern inline void rswap2(state_t* state, const double par) {
-    applyRswap(state, 0, 1, par);
+    applyRSWAP(state, 0, 1, par);
 }
 
 extern inline void evoDiag2(state_t* state, const double par) {
@@ -352,7 +352,7 @@ extern inline void evoSwap3(state_t* state, const double par) {
     evoQB(state, swap3, par);
 }
 extern inline void rswap3(state_t* state, const double par) {
-    applyRswap(state, 0, 1, par);
+    applyRSWAP(state, 0, 1, par);
 }
 
 extern inline void evoX4(state_t* state, const double par) {
@@ -389,8 +389,8 @@ extern inline void evoSwap4(state_t* state, const double par) {
     evoQB(state, swap4, par);
 }
 extern inline void rswap4(state_t* state, const double par) {
-    applyRswap(state, 0, 1, par);
-    applyRswap(state, 2, 3, par);
+    applyRSWAP(state, 0, 1, par);
+    applyRSWAP(state, 2, 3, par);
 }
 
 extern inline void evoX5(state_t* state, const double par) {
@@ -430,8 +430,8 @@ extern inline void evoSwap5(state_t* state, const double par) {
     evoQB(state, swap5, par);
 }
 extern inline void rswap5(state_t* state, const double par) {
-    applyRswap(state, 0, 1, par);
-    applyRswap(state, 2, 3, par);
+    applyRSWAP(state, 0, 1, par);
+    applyRSWAP(state, 2, 3, par);
 }
 
 extern inline void evoX6(state_t* state, const double par) {
@@ -474,9 +474,9 @@ extern inline void evoSwap6(state_t* state, const double par) {
     evoQB(state, swap6, par);
 }
 extern inline void rswap6(state_t* state, const double par) {
-    applyRswap(state, 0, 1, par);
-    applyRswap(state, 2, 3, par);
-    applyRswap(state, 4, 5, par);
+    applyRSWAP(state, 0, 1, par);
+    applyRSWAP(state, 2, 3, par);
+    applyRSWAP(state, 4, 5, par);
 }
 
 applyPQB pqc[25] = {evoX2, evoY2, evoZ2, evoSwap2, evoDiag2, evoX3, evoY3, evoZ3, evoSwap3, evoDiag2, evoX4, evoY4,

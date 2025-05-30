@@ -776,7 +776,7 @@ void applySWAP(state_t* state, const qubit_t qubit1, const qubit_t qubit2) {
  * @param[in] qubit1        Qubit to be swapped
  * @param[in] qubit2        Qubits to be swapped
  */
-void applyRswap(state_t* state, const qubit_t qubit1, const qubit_t qubit2, const double angle) {
+void applyRSWAP(state_t* state, qubit_t qubit1, qubit_t qubit2, double angle) {
     const qubit_t left = MAX(qubit1, qubit2);                       // index of the qubit to the left
     const qubit_t right = MIN(qubit1, qubit2);                      // index of the qubit to the right
     const dim_t outerStep = POW2(left + 1, dim_t);                  // Number of contiguous elements the tensor product
