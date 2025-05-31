@@ -149,6 +149,12 @@ void evoQB(state_t* state, const applyQB qb, const double par) {
     free(tmp);
 }
 
+void evoHerm(state_t* state, const herm_t* herm, const double par) {
+    for (unsigned int i = 0; i < herm->len; ++i) {
+        evoQB(state, herm->comp[i], herm->weight[i] * par);
+    }
+}
+
 void evoPQB(state_t* state, const applyPQB pqb, const double par) {
     pqb(state, par);
 }

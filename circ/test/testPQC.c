@@ -137,47 +137,6 @@ void testApplyLCQB(void) {
 
 /*
  * =====================================================================================================================
- *                                                      testEvoQB
- * =====================================================================================================================
- */
-void testEvoQB(void) {
-    state_t testState;
-    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
-        const dim_t dim = POW2(qubits, dim_t);
-        stateInitEmpty(&testState, qubits);
-        cplx_t** vecs = generateTestVectors(qubits);
-        const applyQB* blocks = qb + 4 * (qubits - 2);
-
-        cplx_t* pqbMat[4];                                          // Matrix representations of parametrized blocks
-        for (uint8_t i = 0; i < 4; ++i) {
-            cplx_t* gateMat = qbMat[i](qubits);
-            pqbMat[i] = zexpm(gateMat, randPar[i], dim);
-            free(gateMat);
-        }
-
-        /* TESTING */
-        for (dim_t i = 0; i < dim + 1; ++i) {
-            stateInitVector(&testState, vecs[i]);                   // Initialize testState with the i-th test vector
-            for (uint8_t j = 0; j < 4; j++) {                       // Evolve testState with all four quantum blocks
-                evoQB(&testState, blocks[j], randPar[j]);
-            }
-
-            for (uint8_t j = 0; j < 4; j++) {                       // Evolve the test vector itself by matrix multi-
-                cmatVecMulInPlace(pqbMat[j], vecs[i], dim);         // plication
-            }
-            TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
-        }
-
-        for (uint8_t i = 0; i < 4; ++i) {
-            free(pqbMat[i]);
-        }
-        stateFreeVector(&testState);
-        freeTestVectors(vecs, qubits);
-    }
-}
-
-/*
- * =====================================================================================================================
  *                                                      testEvoDiag
  * =====================================================================================================================
  */
@@ -204,6 +163,101 @@ void testEvoDiag(void) {
         }
 
         free(evoMat);
+        stateFreeVector(&testState);
+        freeTestVectors(vecs, qubits);
+    }
+}
+
+/*
+ * =====================================================================================================================
+ *                                                      testEvoQB
+ * =====================================================================================================================
+ */
+void testEvoQB(void) {
+    state_t testState;
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+        stateInitEmpty(&testState, qubits);
+        cplx_t** vecs = generateTestVectors(qubits);
+        const applyQB* testBlock = qb + 5 * (qubits - 2);
+
+        cplx_t* pqbMat[4];                                          // Matrix representations of parametrized blocks
+        for (uint8_t i = 0; i < 4; ++i) {
+            cplx_t* gateMat = qbMat[i](qubits);
+            pqbMat[i] = zexpm(gateMat, dcoeff[i], dim);
+            free(gateMat);
+        }
+
+        /* TESTING */
+        for (dim_t i = 0; i < dim + 1; ++i) {
+            stateInitVector(&testState, vecs[i]);                   // Initialize testState with the i-th test vector
+            for (uint8_t j = 0; j < 4; j++) {                       // Evolve testState with all four quantum blocks
+                evoQB(&testState, testBlock[j], dcoeff[j]);
+            }
+
+            for (uint8_t j = 0; j < 4; j++) {                       // Evolve the test vector itself by matrix multi-
+                cmatVecMulInPlace(pqbMat[j], vecs[i], dim);         // plication
+            }
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
+        }
+
+        for (uint8_t i = 0; i < 4; ++i) {
+            free(pqbMat[i]);
+        }
+        stateFreeVector(&testState);
+        freeTestVectors(vecs, qubits);
+    }
+}
+
+/*
+ * =====================================================================================================================
+ *                                                      testEvoHerm
+ * =====================================================================================================================
+ */
+void testEvoHerm(void) {
+    state_t testState;
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+        stateInitEmpty(&testState, qubits);
+        cplx_t** vecs = generateTestVectors(qubits);
+
+        // Define the hermitian operator struct
+        herm_t testHerm;
+        testHerm.len = 4;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
+        testHerm.comp = qb + testHerm.len + 1 * (qubits - 2);
+        testHerm.weight = dcoeff;
+
+        // Define the matrix representations of the parametrized block (Since the defined quantum blocks do not commute
+        // pairwise, we have to take the product of the matrix exponentials rather than the exponential of the sum)
+        cplx_t* testHermEvoMat = identityMat(qubits);
+        for (uint8_t i = 1; i < 5; ++i) {
+            cplx_t* gateMat = qbMat[4 - i](qubits);
+            cplx_t* pqbMat = zexpm(gateMat, randPar[0] * dcoeff[4 - i], dim);
+            printf("M =\n");
+            matrixPrint(testHermEvoMat, dim);
+            cmatMulInPlace(testHermEvoMat, pqbMat, dim);
+            free(gateMat);
+            free(pqbMat);
+        }
+        printf("M =\n");
+        matrixPrint(testHermEvoMat, dim);
+
+        /* TESTING */
+        for (dim_t i = 0; i < dim + 1; ++i) {
+            stateInitVector(&testState, vecs[i]);                   // Initialize testState with the i-th test vector
+            evoHerm(&testState, &testHerm, randPar[0]);
+
+            cmatVecMulInPlace(testHermEvoMat, vecs[i], dim);        // Evolve the test vector by matrix multiplication
+
+            printf("Test = ");
+            vectorPrint(testState.vec, dim);
+            printf("Ref = ");
+            vectorPrint(vecs[i], dim);
+
+            TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
+        }
+
+        free(testHermEvoMat);
         stateFreeVector(&testState);
         freeTestVectors(vecs, qubits);
     }
@@ -299,7 +353,8 @@ int main(void) {
     RUN_TEST(testApplyDiag);
     RUN_TEST(testApplyHerm);
     RUN_TEST(testApplyLCQB);
-    // RUN_TEST(testEvoQB);
-    // RUN_TEST(testEvoDiag);
+    RUN_TEST(testEvoDiag);
+    RUN_TEST(testEvoQB);
+    RUN_TEST(testEvoHerm);
     return UNITY_END();
 }
