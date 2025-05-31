@@ -224,7 +224,7 @@ void testEvoHerm(void) {
         // Define the hermitian operator struct
         herm_t testHerm;
         testHerm.len = 4;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
-        testHerm.comp = qb + testHerm.len + 1 * (qubits - 2);
+        testHerm.comp = qb + (testHerm.len + 1) * (qubits - 2);
         testHerm.weight = dcoeff;
 
         // Define the matrix representations of the parametrized block (Since the defined quantum blocks do not commute
@@ -233,14 +233,10 @@ void testEvoHerm(void) {
         for (uint8_t i = 1; i < 5; ++i) {
             cplx_t* gateMat = qbMat[4 - i](qubits);
             cplx_t* pqbMat = zexpm(gateMat, randPar[0] * dcoeff[4 - i], dim);
-            printf("M =\n");
-            matrixPrint(testHermEvoMat, dim);
             cmatMulInPlace(testHermEvoMat, pqbMat, dim);
             free(gateMat);
             free(pqbMat);
         }
-        printf("M =\n");
-        matrixPrint(testHermEvoMat, dim);
 
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
@@ -248,11 +244,6 @@ void testEvoHerm(void) {
             evoHerm(&testState, &testHerm, randPar[0]);
 
             cmatVecMulInPlace(testHermEvoMat, vecs[i], dim);        // Evolve the test vector by matrix multiplication
-
-            printf("Test = ");
-            vectorPrint(testState.vec, dim);
-            printf("Ref = ");
-            vectorPrint(vecs[i], dim);
 
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
