@@ -159,6 +159,19 @@ void evoDiag(state_t* state, const double diag[], double par);
 void evoQB(state_t* state, applyQB qb, double par);
 
 /*
+ * @brief This function unitarily evolves of the quantum state with respect to the hermitian operator (weighted sum of
+ * quantum blocks)
+ *
+ * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*qb)
+ * @param[in]       herm    Hermitian operator; i.e, a struct inheriting the weighted sum of quantum blocks
+ * @param[in]       par     Time of the evolution
+ *
+ * @note WARNING:   This function only gives appropriate results if the QBs pairwise commute (Trotter-Suzuki
+ *                  approximation) and each QB is involutory; i.e., QB*QB = Id.
+ */
+void evoHerm(state_t* state, const herm_t* herm, const double par);
+
+/*
  * @brief Wrapper funtion for the unitary evolution of the quantum state with respect to a parametrized quantum block
  *
  * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to pqb(state, par)
