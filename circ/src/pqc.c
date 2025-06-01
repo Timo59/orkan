@@ -54,7 +54,7 @@ void applyHerm(state_t* state, const herm_t* herm) {
         exit(EXIT_FAILURE);
     }
 
-    // Creates a team of threads each applying one of the hermitian's quantum blocks to a copy of the input state
+    // Creates a team of threads each applying one of the hermitian's composite gates to a copy of the input state
 #pragma omp parallel default(none) shared(state, herm, stderr, incr, out)
     {
         state_t tmp;
@@ -84,7 +84,7 @@ void applyHerm(state_t* state, const herm_t* herm) {
     state->vec = out;
 }
 
-void applyLCQB(state_t* state, const lcqb_t* lcqb) {
+void applyLCCG(state_t* state, const lccg_t* lccg) {
     const dim_t incr = 1;
     cplx_t* out = calloc(state->dim, sizeof(cplx_t));
     if (out == NULL) {
@@ -92,8 +92,9 @@ void applyLCQB(state_t* state, const lcqb_t* lcqb) {
         exit(EXIT_FAILURE);
     }
 
-    // Creates a team of threads each applying one of the hermitian's quantum blocks to a copy of the input state
-#pragma omp parallel default(none) shared(state, lcqb, stderr, incr, out)
+    // Creates a team of threads each applying one of the linear combination's composite gates to a copy of the input
+    // state
+#pragma omp parallel default(none) shared(state, lccg, stderr, incr, out)
     {
         state_t tmp;
         tmp.qubits = state->qubits;
@@ -106,13 +107,13 @@ void applyLCQB(state_t* state, const lcqb_t* lcqb) {
         stateInitVector(&tmp, state->vec);
 
 #pragma omp for
-        for (depth_t i = 0; i < lcqb->len; ++i) {
-            lcqb->comp[i](&tmp);
+        for (depth_t i = 0; i < lccg->len; ++i) {
+            lccg->comp[i](&tmp);
 
             // To avoid a race condition the resulting state vector is added to the output one by one
 #pragma omp critical(sum)
             {
-                zaxpy_(&state->dim, lcqb->weight + i, tmp.vec, &incr, out, &incr);
+                zaxpy_(&state->dim, lccg->weight + i, tmp.vec, &incr, out, &incr);
             }
         }
         stateFreeVector(&tmp);
@@ -133,7 +134,7 @@ void evoDiag(state_t* state, const double diag[], const double par) {
     }
 }
 
-void evoQB(state_t* state, const applyQB qb, const double par) {
+void evoCG(state_t* state, const applyCG cg, const double par) {
     const dim_t incr = 1;
     const cplx_t c = cos(par);
     const cplx_t s = - I * sin(par);
@@ -144,19 +145,19 @@ void evoQB(state_t* state, const applyQB qb, const double par) {
     }
 
     zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
-    qb(state);
+    cg(state);
     zaxpby_(&state->dim, &c, tmp, &incr, &s, state->vec, &incr);    // cos(par)*state - i*sin(par)*qb(state)
     free(tmp);
 }
 
 void evoHerm(state_t* state, const herm_t* herm, const double par) {
     for (unsigned int i = 0; i < herm->len; ++i) {
-        evoQB(state, herm->comp[i], herm->weight[i] * par);
+        evoCG(state, herm->comp[i], herm->weight[i] * par);
     }
 }
 
-void evoPQB(state_t* state, const applyPQB pqb, const double par) {
-    pqb(state, par);
+void evoPCG(state_t* state, const applyPCG pcg, const double par) {
+    pcg(state, par);
 }
 
 void applyPQC(state_t* state, const pqc_t pqc, const double par[]) {

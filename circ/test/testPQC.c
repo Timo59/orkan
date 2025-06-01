@@ -56,7 +56,7 @@ void testApplyHerm(void) {
         // Define the hermitian operator struct
         herm_t testHerm;
         testHerm.len = 5;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
-        testHerm.comp = qb + testHerm.len * (qubits - 2);
+        testHerm.comp = cg + testHerm.len * (qubits - 2);
         testHerm.weight = dcoeff;
 
         // Define the hermitian operator's matrix representation
@@ -66,7 +66,7 @@ void testApplyHerm(void) {
             exit(EXIT_FAILURE);
         }
         for (dim_t i = 0; i < 5; ++i) {
-            cplx_t* tmp = qbMat[i](qubits);
+            cplx_t* tmp = cgMat[i](qubits);
             const cplx_t alpha = dcoeff[i];
             cscalarMatMulInPlace(alpha, tmp, dim);
             cmatAddInPlace(testHermMat, tmp, dim);
@@ -94,7 +94,7 @@ void testApplyHerm(void) {
  *                                                      applyLCQB
  * =====================================================================================================================
  */
-void testApplyLCQB(void) {
+void testApplyLCCG(void) {
     state_t testState;
     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
         const dim_t dim = POW2(qubits, dim_t);
@@ -102,34 +102,34 @@ void testApplyLCQB(void) {
         cplx_t** vecs = generateTestVectors(qubits);
 
         // Define the hermitian operator struct
-        lcqb_t testLCQB;
-        testLCQB.len = 5;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
-        testLCQB.comp = qb + testLCQB.len * (qubits - 2);
-        testLCQB.weight = zcoeff;
+        lccg_t testLCCG;
+        testLCCG.len = 5;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
+        testLCCG.comp = cg + testLCCG.len * (qubits - 2);
+        testLCCG.weight = zcoeff;
 
-        // Define the LCQB's matrix representation
-        cplx_t* testLCQBMat = calloc(dim * dim, sizeof (cplx_t));
-        if (testLCQBMat == NULL) {
+        // Define the LCCG's matrix representation
+        cplx_t* testLCCGMat = calloc(dim * dim, sizeof (cplx_t));
+        if (testLCCGMat == NULL) {
             fprintf(stderr, "testApplyLCQB(): testLCQBMat allocation failed\n");
             exit(EXIT_FAILURE);
         }
         for (uint8_t i = 0; i < 5; ++i) {
-            cplx_t* tmp = qbMat[i](qubits);
+            cplx_t* tmp = cgMat[i](qubits);
             cscalarMatMulInPlace(zcoeff[i], tmp, dim);
-            cmatAddInPlace(testLCQBMat, tmp, dim);
+            cmatAddInPlace(testLCCGMat, tmp, dim);
             free(tmp);
         }
 
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
-            applyLCQB(&testState, &testLCQB);
+            applyLCCG(&testState, &testLCCG);
 
-            cmatVecMulInPlace(testLCQBMat, vecs[i], dim);
+            cmatVecMulInPlace(testLCCGMat, vecs[i], dim);
 
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
-        free(testLCQBMat);
+        free(testLCCGMat);
         stateFreeVector(&testState);
         freeTestVectors(vecs, qubits);
     }
@@ -173,36 +173,36 @@ void testEvoDiag(void) {
  *                                                      testEvoQB
  * =====================================================================================================================
  */
-void testEvoQB(void) {
+void testEvoCG(void) {
     state_t testState;
     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
         const dim_t dim = POW2(qubits, dim_t);
         stateInitEmpty(&testState, qubits);
         cplx_t** vecs = generateTestVectors(qubits);
-        const applyQB* testBlock = qb + 5 * (qubits - 2);
+        const applyCG* testBlock = cg + 5 * (qubits - 2);
 
-        cplx_t* pqbMat[4];                                          // Matrix representations of parametrized blocks
-        for (uint8_t i = 0; i < 4; ++i) {
-            cplx_t* gateMat = qbMat[i](qubits);
-            pqbMat[i] = zexpm(gateMat, dcoeff[i], dim);
+        cplx_t* pcgMat[4];                                          // Matrix representations of parametrized composite
+        for (uint8_t i = 0; i < 4; ++i) {                           // gates
+            cplx_t* gateMat = cgMat[i](qubits);
+            pcgMat[i] = zexpm(gateMat, dcoeff[i], dim);
             free(gateMat);
         }
 
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);                   // Initialize testState with the i-th test vector
-            for (uint8_t j = 0; j < 4; j++) {                       // Evolve testState with all four quantum blocks
-                evoQB(&testState, testBlock[j], dcoeff[j]);
+            for (uint8_t j = 0; j < 4; j++) {                       // Evolve testState with all four composite quantum
+                evoCG(&testState, testBlock[j], dcoeff[j]);         // gates
             }
 
             for (uint8_t j = 0; j < 4; j++) {                       // Evolve the test vector itself by matrix multi-
-                cmatVecMulInPlace(pqbMat[j], vecs[i], dim);         // plication
+                cmatVecMulInPlace(pcgMat[j], vecs[i], dim);         // plication
             }
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
 
         for (uint8_t i = 0; i < 4; ++i) {
-            free(pqbMat[i]);
+            free(pcgMat[i]);
         }
         stateFreeVector(&testState);
         freeTestVectors(vecs, qubits);
@@ -224,14 +224,15 @@ void testEvoHerm(void) {
         // Define the hermitian operator struct
         herm_t testHerm;
         testHerm.len = 4;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
-        testHerm.comp = qb + (testHerm.len + 1) * (qubits - 2);
+        testHerm.comp = cg + (testHerm.len + 1) * (qubits - 2);
         testHerm.weight = dcoeff;
 
-        // Define the matrix representations of the parametrized block (Since the defined quantum blocks do not commute
-        // pairwise, we have to take the product of the matrix exponentials rather than the exponential of the sum)
+        // Define the matrix representations of the parametrized composite gates (Since the defined composite quantum
+        // gates do not commute pairwise, we have to take the product of the matrix exponentials rather than the
+        // exponential of the sum)
         cplx_t* testHermEvoMat = identityMat(qubits);
         for (uint8_t i = 1; i < 5; ++i) {
-            cplx_t* gateMat = qbMat[4 - i](qubits);
+            cplx_t* gateMat = cgMat[4 - i](qubits);
             cplx_t* pqbMat = zexpm(gateMat, randPar[0] * dcoeff[4 - i], dim);
             cmatMulInPlace(testHermEvoMat, pqbMat, dim);
             free(gateMat);
@@ -343,9 +344,9 @@ int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testApplyDiag);
     RUN_TEST(testApplyHerm);
-    RUN_TEST(testApplyLCQB);
+    RUN_TEST(testApplyLCCG);
     RUN_TEST(testEvoDiag);
-    RUN_TEST(testEvoQB);
+    RUN_TEST(testEvoCG);
     RUN_TEST(testEvoHerm);
     return UNITY_END();
 }
