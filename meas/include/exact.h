@@ -43,16 +43,25 @@ extern "C" {
 double meanDiagObs(const state_t* state, const double obs[]);
 
 /*
- * @brief This function returns the mean value of an observable represented by a quantum block with respect to the
- * quantum state
+ * @brief This function returns the mean value of a composite quantum gate with respect to the quantum state
  *
  * @param[in]   state   Quantum state
- * @param[in]   obs     Quantum block; i.e, a function applying quantum gates to the quantum state, representing the
- *                      observable
+ * @param[in]   obs     Composite quantum gate; i.e, a function applying quantum gates to the quantum state,
+ *                      representing the observable
  *
- * @return  The mean value of the observable with respect to the quantum state
+ * @return  The mean value of the composite quantum gate with respect to the quantum state
  */
-double meanObsQb(const state_t* state, applyQB obs);
+double meanCG(const state_t* state, applyCG obs);
+
+/*
+ * @brief This function returns the mean value of a hermitian operator with respect to the quantum state
+ *
+ * @param[in]   state   Quantum state
+ * @param[in]   obs     Hermitian operator; i.e., a weighted sum of composite quantum gates representing the observable
+ *
+ * @return  The mean value of the composite quantum gate with respect to the quantum state
+ */
+double meanObsHerm(const state_t* state, const herm_t* obs);
 
 /*
  * @brief Function polymorphism of calculating the observable's mean value: Chooses the appropriate function based on
@@ -60,8 +69,8 @@ double meanObsQb(const state_t* state, applyQB obs);
  *
  * This macro uses C11's `_Generic` feature to perform function selection based on the type of the second parameter `Y`.
  * Supported Types and Corresponding Functions:
- * - `double*`  : Calls `meanDiagObs`, which processes diagonal obsrvables.
- * - `applyQB`  : Calls `meanObsQB`, which processes quantum blocks.
+ * - `double*`  : Calls `meanDiagObs`, which processes diagonal observables.
+ * - `applyQB`  : Calls `meanObsGC`, which processes composite quantum gates.
  *
  * @param[in]       X   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*H)
  * @param[in]       Y   Type of evolution; see above for supported types
@@ -70,7 +79,8 @@ double meanObsQb(const state_t* state, applyQB obs);
  */
 #define meanObs(X, Y) _Generic((Y), \
     double*: meanDiagObs,           \
-    applyQB: meanObsQb              \
+    applyCG: meanCG,                \
+    herm_t*: meanObsHerm            \
     ) (X, Y)
 
 /*
@@ -78,10 +88,11 @@ double meanObsQb(const state_t* state, applyQB obs);
  *                                              Gradient PQC
  * =====================================================================================================================
  */
-double* gradPQC(state_t* state, pqc_t pqc, const double* par);
+    void gradPQC(state_t* state, depth_t d, const applyPCG pqc[], const double par[], const applyCG cg[],
+        const double obs[], double* grad);
 
-void mmseq(state_t* state, depth_t obsc, const applyQB obs[], depth_t circdepth, const cplx_t c[], depth_t uc,
-           const applyQB u[], depth_t link, cplx_t* momMat[]);
+void mmseq(state_t* state, depth_t obsc, const applyCG obs[], depth_t circdepth, const lccg_t lcu[], depth_t link,
+           cplx_t* momMat[]);
 
 #ifdef __cplusplus
 }

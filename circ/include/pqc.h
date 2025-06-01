@@ -29,18 +29,18 @@ extern "C" {
  */
 
 /*
- * Function: Apply Quantum Block (QB)
+ * Function: Apply Composite Gate (CG)
  * ------------------------------------
- * This function applies a fixed sequence of gates to a quantum state
+ * This function applies a fixed composition of quantum gates to a quantum state
  */
-typedef void (*applyQB)(state_t* state);
+typedef void (*applyCG)(state_t* state);
 
 /*
- * Function: Apply Parametrized Quantum Block (PQB)
+ * Function: Apply Parametrized Composite Gate (PCG)
  * -------------------------------------------------
- * This function applies a parametrized quantum block to a quantum state.
+ * This function applies a parametrized composition of quantum gates to a quantum state.
  */
-typedef void (*applyPQB)(state_t* state, double par);
+typedef void (*applyPCG)(state_t* state, double par);
 
 /*
  * Struct: herm
@@ -49,30 +49,30 @@ typedef void (*applyPQB)(state_t* state, double par);
  * weights
  * Contents:
  *      len     : Number of terms
- *      comp    : Elementary hermitian operators
+ *      comp    : Elementary hermitian operators; i.e. composition of quantum gates
  *      weights : Weights (DOUBLE PRECISION)
  */
 typedef struct herm {
     unsigned int    len;
-    applyQB*        comp;
+    applyCG*        comp;
     double*         weight;
 }herm_t;
 
 /*
- * Struct: lcqb
+ * Struct: lccg
  * -------------
- * This struct represents a linear combination of quantum blocks; i.e, a weighted sum of quantum blocks with COMPLEX
- * DOUBLE weights
+ * This struct represents a linear combination of composite gates; i.e, a weighted sum of compositions of quantum gates
+ * with COMPLEX DOUBLE weights
  * Contents:
  *      len     : Number of terms
- *      comp    : Quantum blocks
+ *      comp    : Composite gates
  *      weights : Weights (COMPLEX DOUBLE)
  */
-typedef struct lcqb {
+typedef struct lccg {
     depth_t     len;
-    applyQB*    comp;
+    applyCG*    comp;
     cplx_t*     weight;
-}lcqb_t;
+}lccg_t;
 
 /*
  * Struct: pqc
@@ -80,13 +80,13 @@ typedef struct lcqb {
  * This struct represents a parametrized quantum circuit
  * Contents:
  *      len     : Number of parametrized quantum blocks
- *      pqbs    : Array of parametrized quantum blocks
- *      parIdx  : Assigns a parameter from par to a parametrized quantum block of pqbs; must be of length len
+ *      pcg     : Array of parametrized composite gates
+ *      parIdx  : Assigns a parameter from par to a parametrized composite gate of pcg; must be of length len
  *
  */
 typedef struct pqc {
     depth_t     len;
-    applyPQB*   pqb;
+    applyPCG*   pqb;
     depth_t*    parIdx;
 } pqc_t;
 
@@ -109,10 +109,11 @@ typedef struct pqc {
 void applyDiag(state_t* state, const double diag[]);
 
 /*
- * @brief This function applies a general hermitian operator (sum of weighted hermitian operators) to the quantum state
+ * @brief This function applies a general hermitian operator (sum of weighted hermitian composite gates) to the quantum
+ * state
  *
  * @param[in,out]   state   Quantum state; On exit, the statevector is the product of H.v
- * @param[in]       herm    The hermitian operator; i.e., a weighted sum of hermitian quantum blocks
+ * @param[in]       herm    The hermitian operator; i.e., a weighted sum of hermitian composite gates
  *
  * @note    WARNING: This action is unphysical in the sense of a circuit model and rather belongs to the measurement
  *          part of a circuit. As long as the hermitian operator is not unitary, the output is no longer a quantum
@@ -121,15 +122,16 @@ void applyDiag(state_t* state, const double diag[]);
 void applyHerm(state_t* state, const herm_t* herm);
 
 /*
- * @brief This function applies a linear combination of quantum blocks to the input state
+ * @brief This function applies a linear combination of composite gates to the input state
  *
- * @param[in,out]   state   Quantum state. On exit, state after linear combination of quantum blocks
- * @param[in]       lcqb    The linear combination of quantum blocks; i.e., a weighted sum of quantum blocks
+ * @param[in,out]   state   Quantum state. On exit, state after linear combination of composite gates
+ * @param[in]       lccg    The linear combination of composite gates; i.e., a weighted sum of compositions of quantum
+ *                          gates
  *
  * @note    WARNING: This action may be unphysical in the sense of the circuit model. As long as the linear combination
  *          is not unitary, the output is no longer a quantum state, due to missing normalization.
  */
-void applyLCQB(state_t* state, const lcqb_t* lcqb);
+void applyLCCG(state_t* state, const lccg_t* lccg);
 
 /*
  * =====================================================================================================================
@@ -138,7 +140,7 @@ void applyLCQB(state_t* state, const lcqb_t* lcqb);
  */
 
 /*
- * lbrief This function unitarily evolves the quantum state with respect to the diagonal hermitian operator
+ * @brief This function unitarily evolves the quantum state with respect to the diagonal hermitian operator
  *
  * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*H)
  * @param[in]       diag    The diagonal entries of the hermitian operator H
@@ -147,40 +149,40 @@ void applyLCQB(state_t* state, const lcqb_t* lcqb);
 void evoDiag(state_t* state, const double diag[], double par);
 
 /*
- * @brief This function unitarily evolves of the quantum state with respect to the specified quantum block (sequence of
- * gates)
+ * @brief This function unitarily evolves of the quantum state with respect to the specified composition of quantum
+ * gates
  *
- * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*qb)
- * @param[in]       qb      Quantum block; i.e, a function applying quantum gates to the quantum state
+ * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*cg)
+ * @param[in]       cg      Composite gate; i.e, a function applying a composition of quantum gates to the quantum state
  * @param[in]       par     Time of the evolution
  *
- * @note WARNING: This function only gives appropriate results if the QB is involutory; i.e., QB*QB = Id
+ * @note WARNING: This function only gives appropriate results if the CG is involutory; i.e., QB*QB = Id
  */
-void evoQB(state_t* state, applyQB qb, double par);
+void evoCG(state_t* state, applyCG cg, double par);
 
 /*
  * @brief This function unitarily evolves of the quantum state with respect to the hermitian operator (weighted sum of
- * quantum blocks)
+ * composite quantum gates)
  *
  * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*qb)
- * @param[in]       herm    Hermitian operator; i.e, a struct inheriting the weighted sum of quantum blocks
+ * @param[in]       herm    Hermitian operator; i.e, a struct inheriting the weighted sum of composite quantum gates
  * @param[in]       par     Time of the evolution
  *
  * @note WARNING:   This function only gives appropriate results if the QBs pairwise commute (Trotter-Suzuki
- *                  approximation) and each QB is involutory; i.e., QB*QB = Id.
+ *                  approximation) and each CG is involutory; i.e., CG*CG = Id.
  */
 void evoHerm(state_t* state, const herm_t* herm, const double par);
 
 /*
- * @brief Wrapper funtion for the unitary evolution of the quantum state with respect to a parametrized quantum block
+ * @brief Wrapper funtion for the unitary evolution of the quantum state with respect to a parametrized composite gate
  *
- * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to pqb(state, par)
- * @param[in]       pqb     Parametrized quantum block
+ * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to pcg(state, par)
+ * @param[in]       pcg     Parametrized composite quantum gate
  * @param[in]       par     Time of the evolution
  *
  * @note In accordance with the definition of rotational Pauli gates par is internally divided by two.
  */
-void evoPQB(state_t* state, applyPQB pqb, double par);
+void evoPQB(state_t* state, applyPCG pcg, double par);
 
 /*
  * @brief Function polymorphism of the quantum state's unitary evolution: Chooses the appropriate function based on
@@ -200,8 +202,8 @@ void evoPQB(state_t* state, applyPQB pqb, double par);
  */
 #define evolve(X, Y, Z) _Generic((Y), \
     double*:    evoDiag,              \
-    applyQB:    evoQB                 \
-    applyPQB:   evoPQB                \
+    applyCG:    evoQB                 \
+    applyPCG:   evoPQB                \
     ) (X, Y, Z)
 
 /*
