@@ -109,6 +109,15 @@ typedef struct pqc {
 void applyDiag(state_t* state, const double diag[]);
 
 /*
+ * @brief Wrapper function for the application of a composite quantum gate to a quntum state
+ *
+ * @param[in,out]   state   Quantum state. On exit, state after application of the composite quantum gate
+ * @param[in]       cg      Composite quantum gate
+ *
+ */
+void applyCGwrapper(state_t* state, applyCG cg);
+
+/*
  * @brief This function applies a general hermitian operator (sum of weighted hermitian composite gates) to the quantum
  * state
  *
@@ -132,6 +141,29 @@ void applyHerm(state_t* state, const herm_t* herm);
  *          is not unitary, the output is no longer a quantum state, due to missing normalization.
  */
 void applyLCCG(state_t* state, const lccg_t* lccg);
+
+/*
+ * @brief Function polymorphism of the application of composite quantum gates to a quantum state: Chooses the
+ * appropriate function based on second input
+ *
+ * This macro uses C11's `_Generic` feature to perform function selection based on the type of the second parameter `Y`.
+ * Supported Types and Corresponding Functions:
+ * - `double*`  : Calls `evoDiag`, which processes diagonal hermitian operators.
+ * - `applyQB`  : Calls `evoQB`, which processes quantum blocks.
+ * - `applyPQB` : Calls `evoPQB`, a wrapper function for parametrized quantum blocks.
+ *
+ * @param[in,out]   X   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*H)
+ * @param[in]       Y   Type of evolution; see above for supported types
+ * @param[in]       Z   Time of the evolution
+ *
+ * @note Ensure that all expected types are accounted for to prevent unexpected behavior or compile-time errors.
+ */
+#define apply(X, Y) _Generic((Y),  \
+    double*:    applyDiag,          \
+    applyCG:    applyCGwrapper,     \
+    herm_t*:    applyHerm,          \
+    lccg_t*:    applyLCCG           \
+) (X, Y, Z)
 
 /*
  * =====================================================================================================================
@@ -182,7 +214,7 @@ void evoHerm(state_t* state, const herm_t* herm, const double par);
  *
  * @note In accordance with the definition of rotational Pauli gates par is internally divided by two.
  */
-void evoPQB(state_t* state, applyPCG pcg, double par);
+void evoPCGwrapper(state_t* state, applyPCG pcg, double par);
 
 /*
  * @brief Function polymorphism of the quantum state's unitary evolution: Chooses the appropriate function based on
@@ -202,8 +234,9 @@ void evoPQB(state_t* state, applyPCG pcg, double par);
  */
 #define evolve(X, Y, Z) _Generic((Y), \
     double*:    evoDiag,              \
-    applyCG:    evoQB                 \
-    applyPCG:   evoPQB                \
+    applyCG:    evoQB,                \
+    herm_t*:    evoHerm,              \
+    applyPCG:   evoPCGwrapper         \
     ) (X, Y, Z)
 
 /*
