@@ -46,6 +46,10 @@ void applyDiag(state_t* state, const double diag[]) {
     }
 }
 
+void applyCGwrapper(state_t* state, const applyCG cg) {
+    cg(state);
+}
+
 void applyHerm(state_t* state, const herm_t* herm) {
     const dim_t incr = 1;
     cplx_t* out = calloc(state->dim, sizeof(cplx_t));
@@ -156,7 +160,7 @@ void evoHerm(state_t* state, const herm_t* herm, const double par) {
     }
 }
 
-void evoPCG(state_t* state, const applyPCG pcg, const double par) {
+void evoPCGwrapper(state_t* state, const applyPCG pcg, const double par) {
     pcg(state, par);
 }
 
