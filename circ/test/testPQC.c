@@ -28,7 +28,7 @@ void testApplyDiag(void) {
         /* TESTING */
         for (uint8_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
-            applyDiag(&testState, diagObs);
+            apply(&testState, diagObs);
 
             cmatVecMulInPlace(mat, vecs[i], dim);
 
@@ -76,7 +76,7 @@ void testApplyHerm(void) {
         /* TESTING */
         for (uint8_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
-            applyHerm(&testState, &testHerm);
+            apply(&testState, &testHerm);
 
             cmatVecMulInPlace(testHermMat, vecs[i], dim);
 
@@ -123,7 +123,7 @@ void testApplyLCCG(void) {
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
-            applyLCCG(&testState, &testLCCG);
+            apply(&testState, &testLCCG);
 
             cmatVecMulInPlace(testLCCGMat, vecs[i], dim);
 
@@ -155,7 +155,7 @@ void testEvoDiag(void) {
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
-            evoDiag(&testState, diagObs, randPar[0]);
+            evolve(&testState, diagObs, randPar[0]);
 
             cmatVecMulInPlace(evoMat, vecs[i], dim);
 
@@ -192,7 +192,7 @@ void testEvoCG(void) {
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);                   // Initialize testState with the i-th test vector
             for (uint8_t j = 0; j < 4; j++) {                       // Evolve testState with all four composite quantum
-                evoCG(&testState, testBlock[j], dcoeff[j]);         // gates
+                evolve(&testState, testBlock[j], dcoeff[j]);         // gates
             }
 
             for (uint8_t j = 0; j < 4; j++) {                       // Evolve the test vector itself by matrix multi-
@@ -242,7 +242,7 @@ void testEvoHerm(void) {
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);                   // Initialize testState with the i-th test vector
-            evoHerm(&testState, &testHerm, randPar[0]);
+            evolve(&testState, &testHerm, randPar[0]);
 
             cmatVecMulInPlace(testHermEvoMat, vecs[i], dim);        // Evolve the test vector by matrix multiplication
 

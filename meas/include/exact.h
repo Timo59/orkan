@@ -88,8 +88,8 @@ double meanObsHerm(const state_t* state, const herm_t* obs);
  *                                              Gradient PQC
  * =====================================================================================================================
  */
-    void gradPQC(state_t* state, depth_t d, const applyPCG pqc[], const double par[], const applyCG cg[],
-        const double obs[], double* grad);
+void gradPQC(state_t* state, depth_t d, const applyPCG pqc[], const double par[], const applyCG cg[],
+    const double obs[], double* grad);
 
 void mmseq(state_t* state, depth_t obsc, const applyCG obs[], depth_t circdepth, const lccg_t lcu[], depth_t link,
            cplx_t* momMat[]);
