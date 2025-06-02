@@ -85,7 +85,7 @@ double meanObsHerm(const state_t* state, const herm_t* obs) {
  */
 void gradPQC(state_t* state, const depth_t d, const applyPCG pqc[], const double par[], const applyCG cg[],
     const double obs[], double* grad) {
-    state_t bra;                                    // state, initialized to the input state, evolved with all evolution
+    state_t bra;                                    // Initialized to the input state, evolved with all evolution
     stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
     stateInitVector(&bra, state->vec);
 

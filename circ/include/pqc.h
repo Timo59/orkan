@@ -158,12 +158,12 @@ void applyLCCG(state_t* state, const lccg_t* lccg);
  *
  * @note Ensure that all expected types are accounted for to prevent unexpected behavior or compile-time errors.
  */
-#define apply(X, Y) _Generic((Y),  \
+#define apply(X, Y) _Generic((Y),   \
     double*:    applyDiag,          \
     applyCG:    applyCGwrapper,     \
     herm_t*:    applyHerm,          \
     lccg_t*:    applyLCCG           \
-) (X, Y, Z)
+) (X, Y)
 
 /*
  * =====================================================================================================================
@@ -234,7 +234,7 @@ void evoPCGwrapper(state_t* state, applyPCG pcg, double par);
  */
 #define evolve(X, Y, Z) _Generic((Y), \
     double*:    evoDiag,              \
-    applyCG:    evoQB,                \
+    applyCG:    evoCG,                \
     herm_t*:    evoHerm,              \
     applyPCG:   evoPCGwrapper         \
     ) (X, Y, Z)
