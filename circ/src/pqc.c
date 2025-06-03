@@ -144,7 +144,7 @@ void evoCG(state_t* state, const applyCG cg, const double par) {
     const cplx_t s = - I * sin(par);
     cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
     if(tmp == NULL) {
-        fprintf(stderr, "evoPQB: tmp allocation failed\n");
+        fprintf(stderr, "evoCG(): tmp allocation failed\n");
         return;
     }
 
