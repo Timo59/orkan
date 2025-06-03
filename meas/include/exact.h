@@ -100,12 +100,12 @@ double meanObsHerm(const state_t* state, const herm_t* obs);
  * @param[in]       d       Number of Parametrized Quantum Blocks in the PQC
  * @param[in]       pqc[]   Parametrized quantum circuit; i.e., sequence of parametrized unitary quantum operations
  * @param[in]       par[]   Parameter value of the PQC
- * @param[in]       cg[]    Hermitian operator corresponding to the parametrized unitary quantum operations
+ * @param[in]       gen[]   Array of the hamiltonians generating the parametrized unitary transformations
  *
  * @return  The gradient vector
  */
 double* gradPQCDiag(state_t* state, const double obs[], depth_t d, const applyPCG pqc[], const double par[],
-    const applyCG cg[]);
+    const applyCG gen[]);
 
 /*
  * This function returns the gradient of an observable's mean value with respect to a quantum state after the
@@ -117,12 +117,12 @@ double* gradPQCDiag(state_t* state, const double obs[], depth_t d, const applyPC
  * @param[in]       d       Number of Parametrized Quantum Blocks in the PQC
  * @param[in]       pqc[]   Parametrized quantum circuit; i.e., sequence of parametrized unitary quantum operations
  * @pram[in]        par[]   Parameter values of the PQC
- * @param[in]       cg[]    Hermitian operator corresponding to the parametrized unitary quantum operations
+ * @param[in]       gen[]   Array of the hamiltonians generating the parametrized unitary transformations
  *
  * @return  The gradient vector
  */
 double* gradPQCHerm(state_t* state, const herm_t* obs, depth_t d, const applyPCG pqc[], const double par[],
-    const applyCG cg[]);
+    const applyCG gen[]);
 
 /*
  * @brief Function polymorphism of calculating the gradient of an observable's mean value with respect to a quantum
@@ -138,7 +138,7 @@ double* gradPQCHerm(state_t* state, const herm_t* obs, depth_t d, const applyPCG
  * @param[in]       Z   Number of Parametrized Quantum Blocks in the PQC
  * @param[in]       A   Parametrized quantum circuit; i.e., sequence of parametrized unitary quantum operations
  * @param[in]       B   Parameter values of the PQC
- * @param[in]       C   Hermitian operator corresponding to the parametrized unitary quantum operations
+ * @param[in]       C   Array of the hamiltonians generating the parametrized unitary transformations
  *
  * @note Ensure that all expected types are accounted for to prevent unexpected behavior or compile-time errors.
  */

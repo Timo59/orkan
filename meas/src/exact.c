@@ -51,7 +51,7 @@ double meanCG(const state_t* state, const applyCG obs) {
         stateFreeVector(&tmp);
         return creal(overlap);
     }
-    fprintf(stderr, "meanObs: Mean value of observable has non-negligible imaginary component\n");
+    fprintf(stderr, "meanCG(): Mean value of observable has non-negligible imaginary component\n");
     stateFreeVector(&tmp);
     exit(EXIT_FAILURE);
 }
@@ -66,7 +66,7 @@ double meanObsHerm(const state_t* state, const herm_t* obs) {
         stateFreeVector(&tmp);
         return creal(overlap);
     }
-    fprintf(stderr, "meanObs: Mean value of observable has non-negligible imaginary component\n");
+    fprintf(stderr, "meanObsHerm(): Mean value of observable has non-negligible imaginary component\n");
     stateFreeVector(&tmp);
     exit(EXIT_FAILURE);
 }
@@ -78,10 +78,10 @@ double meanObsHerm(const state_t* state, const herm_t* obs) {
  */
 
 double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const applyPCG pqc[], const double par[],
-    const applyCG cg[]) {
+    const applyCG gen[]) {
     double* out = malloc(d * sizeof(double));
     if (out == NULL) {
-        fprintf(stderr, "gradPQCDiag: out allocation failed\n");
+        fprintf(stderr, "gradPQCDiag(): out allocation failed\n");
         exit(EXIT_FAILURE);
     }
     state_t bra;                                    // Initialized to the input state, evolved with all evolution
@@ -93,7 +93,7 @@ double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const a
     }
     applyDiag(&bra, obs);                                           // Apply the diagonal observable to bra
 
-#pragma omp parallel for default(none) shared(state, d, pqc, par, cg, bra, out) num_threads(d)
+#pragma omp parallel for default(none) shared(state, d, pqc, par, gen, bra, out) num_threads(d)
     for (depth_t i = 0; i < d; ++i) {                               // Iterate the components of the PQC
         state_t ket;                                                // Initialized to the input state; acted on by the
         stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the i-th parameter
@@ -102,7 +102,7 @@ double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const a
         for (depth_t j = 0; j < i; ++j) {                           // Apply parametrized blocks up to i-1
             pqc[j](&ket, par[j]);
         }
-        cg[i](&ket);                                                // and apply the evolution operator to ket
+        gen[i](&ket);                                               // and apply the evolution operator to ket
         for (depth_t j = i; j < d; ++j) {                           // Evolve ket with rest of the evolution operators
             pqc[j](&ket, par[j]);
         }
@@ -115,12 +115,13 @@ double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const a
 }
 
 double* gradPQCHerm(state_t* state, const herm_t* obs, const depth_t d, const applyPCG pqc[], const double par[],
-    const applyCG cg[]) {
+    const applyCG gen[]) {
     double* out = malloc(d * sizeof(double));
     if (out == NULL) {
-        fprintf(stderr, "gradPQCDiag: out allocation failed\n");
+        fprintf(stderr, "gradPQCHerm: out allocation failed\n");
         exit(EXIT_FAILURE);
     }
+
     state_t bra;                                    // Initialized to the input state, evolved with all evolution
     stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
     stateInitVector(&bra, state->vec);
@@ -130,7 +131,7 @@ double* gradPQCHerm(state_t* state, const herm_t* obs, const depth_t d, const ap
     }
     applyHerm(&bra, obs);                                           // Apply the diagonal observable to bra
 
-#pragma omp parallel for default(none) shared(state, d, pqc, par, cg, bra, out) num_threads(d)
+#pragma omp parallel for default(none) shared(state, d, pqc, par, gen, bra, out) num_threads(d)
     for (depth_t i = 0; i < d; ++i) {                               // Iterate the components of the PQC
         state_t ket;                                                // Initialized to the input state; acted on by the
         stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the i-th parameter
@@ -139,7 +140,7 @@ double* gradPQCHerm(state_t* state, const herm_t* obs, const depth_t d, const ap
         for (depth_t j = 0; j < i; ++j) {                           // Apply parametrized blocks up to i-1
             pqc[j](&ket, par[j]);
         }
-        cg[i](&ket);                                                // and apply the evolution operator to ket
+        gen[i](&ket);                                               // and apply the evolution operator to ket
         for (depth_t j = i; j < d; ++j) {                           // Evolve ket with rest of the evolution operators
             pqc[j](&ket, par[j]);
         }

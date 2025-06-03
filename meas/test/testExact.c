@@ -85,6 +85,12 @@ void testMeanCG(void) {
 }
 
 void testMeanObsHerm(void) {
+    // Register cleanup function
+    if (atexit(cleanup)) {
+        fprintf(stderr, "Failed to register cleanup function\n");
+        exit(EXIT_FAILURE);
+    }
+
     for (qubit_t qubits = 2; qubits <= MAXQUBITS; qubits++) {
         const dim_t dim = POW2(qubits, dim_t);
 
@@ -142,10 +148,16 @@ void testMeanObsHerm(void) {
  *                                                 testGradientPQC
  * =====================================================================================================================
  */
-
-static double* FinDiffMeth()
+static double* finDiffMeth(const cplx_t* x, unsigned char d, const cplx_t* H, const matPCG U[], unsigned char parc,
+    double par[]);
 
 void testGradPQCDiag(void) {
+    // Register cleanup function
+    if (atexit(cleanup)) {
+        fprintf(stderr, "Failed to register cleanup function\n");
+        exit(EXIT_FAILURE);
+    }
+
     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
         const dim_t dim = POW2(qubits, dim_t);
 
@@ -153,132 +165,114 @@ void testGradPQCDiag(void) {
         stateInitEmpty(&testState, qubits);
         vecs = generateTestVectors(qubits);
 
-        const applyQB* blocks = qb + 5 * (qubits - 2);
-        const applyPQB* circuit = pqc + 5 * (qubits - 2);
+        // Define the test observable as the diagonal entries of a diagonal hermitian operator
+        double* testObs = diagObs;
 
-        cplx_t* pqbMat[5];                                          // Matrix representations of parametrized blocks
+        // Define the matrix representation of the test observable
+        testObsMat = diagMat(qubits);
+
+        // Define test PQC and the generators of the unitary transformations
+        const applyPCG* testPQC = pqc + 5 * (qubits - 2);
+        const applyCG* testGen = cg + 5 * (qubits - 2);
+
+        // Define matrix representations of the test PQC
+        const matPCG* testPQCMat = pqcMat;
 
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
-            double* test = malloc(5 * sizeof (double));
-            gradPQC(&testState, 5, circuit, randPar, blocks, diagObs, test);
 
-            double ref[5];
-            cplx_t* tmp = malloc(dim * sizeof (cplx_t));
-            if (!tmp) {
-                fprintf(stderr, "testGradPQC1: tmp allocation failed\n");
-                return;
-            }
-            for (dim_t j = 0; j < dim; ++j) {                       // Copy current test vector to tmp
-                tmp[j] = vecs[i][j];
-            }
+            // Ascertain the exact gradient by tested method
+            testVec = gradPQC(&testState, testObs, 5, testPQC, randPar, testGen);
 
-            for (uint8_t j = 0; j < 5; ++j) {                       // Calculate the evolution matrices with the current
-                pqbMat[j] = evoMat[j](qubits, randPar[j]);          // parameters
-            }
+            // Ascertain the reference gradient by finite difference method
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat, testPQCMat, 5, randPar);
 
-            for (int8_t j = 0; j < 5; ++j) {                        // Evolve the temporary reference vector by matrix
-                cmatVecMulInPlace(pqbMat[j], tmp, dim);             // multiplication
-            }
-            double mean = 0;                                        // Mean value of the observable at the current
-            for (dim_t j = 0; j < dim; ++j) {                       // parameters
-                mean += pow(cabs(tmp[j]), 2) * diagObs[j];
-            }
+            // Check if the entries of both gradients are at most 1e-4 apart
+            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 5, APPROXPRECISION));
 
-
-            double ref2[5];
-            cplx_t* tmpBra = malloc(dim * sizeof (cplx_t));
-            if (!tmpBra) {
-                fprintf(stderr, "testGradPQC1: tmpBra allocation failed\n");
-                return;
-            }
-            for (dim_t j = 0; j < dim; ++j) {
-                tmpBra[j] = vecs[i][j];
-            }
-            for (uint8_t j = 0; j < 5; ++j) {
-                cmatVecMulInPlace(pqbMat[j], tmpBra, dim);
-            }
-
-            for (uint8_t j = 0; j < 5; ++j) {
-                for (dim_t k = 0; k < dim; ++k) {
-                    tmp[k] = vecs[i][k];
-                }
-
-                for (uint8_t k = 0; k <= j; ++k) {
-                    cmatVecMulInPlace(pqbMat[k], tmp, dim);
-                }
-
-                cplx_t* blockMat = cgMat[j](qubits);
-                cmatVecMulInPlace(blockMat, tmp, dim);
-                free(blockMat);
-
-                for (uint8_t k = j + 1; k < 5; ++k) {
-                    cmatVecMulInPlace(pqbMat[k], tmp, dim);
-                }
-
-                ref2[j] = 2 * cimag(cInner(tmpBra, tmp, dim));
-            }
-            free(tmpBra);
-
-            for (uint8_t j = 0; j < 5; ++j) {
-                free(pqbMat[j]);
-            }
-
-
-            for (depth_t j = 0; j < 5; ++j) {                       // For all directions in parameter space
-                randPar[j] += EPSILON;                              // Slightly shift the j-th parameter
-                for (dim_t k = 0; k < dim; ++k) {                   // Copy current test vector to tmp
-                    tmp[k] = vecs[i][k];
-                }
-
-                for (uint8_t k = 0; k < 5; ++k) {                   // Calculate the evolution matrices with the shifted
-                    pqbMat[k] = evoMat[k](qubits, randPar[k]);      // parameters
-                }
-
-                for (int8_t k = 0; k < 5; ++k) {                    // Evolve the temporary reference vector by matrix
-                    cmatVecMulInPlace(pqbMat[k], tmp, dim);         // multiplication
-                }
-                double val = 0;                                     // Mean value of the observable at the shifted
-                for (dim_t k = 0; k < dim; ++k) {                   // parameters
-                    val += pow(cabs(tmp[k]), 2) * diagObs[k];
-                }
-
-                ref[j] = 1/EPSILON * (val - mean);
-                randPar[j] -= EPSILON;
-
-                for (uint8_t k = 0; k < 5; ++k) {
-                    free(pqbMat[k]);
-                }
-
-            }
-
-            TEST_ASSERT_TRUE(rvectorAlmostEqual(ref, test, 5, APPROXPRECISION));
-
-            free(tmp);
-            free(test);
+            free(testVec);
+            testVec = NULL;
+            free(refVec);
+            refVec = NULL;
         }
-        stateFreeVector(&testState);
+
+        free(testObsMat);
+        testObsMat = NULL;
         freeTestVectors(vecs, qubits);
+        vecs = NULL;
+        stateFreeVector(&testState);
+        testState.vec = NULL;
     }
 }
 
-//void testGradPQC2(void) {
-//    state_t testState;
-//    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
-//        const dim_t dim = POW2(qubits, dim_t);
-//        cplx_t **vecs = generateTestVectors(qubits);
-//
-//        stateInitEmpty(&testState, qubits);
-//        const applyQB* blocks = rqbs + 5 * (qubits - 2);
-//        const applyPQB* circuit = rpqc + 5 * (qubits - 2);
-//
-//        cplx_t* pqbMat[5];                                          // Matrix representations of parametrized blocks
-//        const uint8_t swapc = qubits / 2;                           // Number of adjacent swaps
-//
-//
-//    }
-//}
+void testGradPQCHerm(void) {
+    // Register cleanup function
+    if (atexit(cleanup)) {
+        fprintf(stderr, "Failed to register cleanup function\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+
+        // Define test state and initialize test state vectors
+        stateInitEmpty(&testState, qubits);
+        vecs = generateTestVectors(qubits);
+
+        // Define the test observable as a general hermitian operator
+        herm_t testObs;
+        testObs.len = 5;                                // xi, yi, zi, swapi, diag for i = qubits defined in testExact.h
+        testObs.comp = cg + testObs.len * (qubits - 2);
+        testObs.weight = dcoeff;
+
+        // Define the matrix representation of the test observable
+        testObsMat = calloc(dim * dim, sizeof(cplx_t));
+        if (testObsMat == NULL) {
+            fprintf(stderr, "testGradPQCHerm(): testObsMat allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
+        for (uint8_t j = 0; j < 5; ++j) {
+            cplx_t* gateMat = cgMat[j](qubits);
+            cscalarMatMulInPlace(dcoeff[j], gateMat, dim);
+            cmatAddInPlace(testObsMat, gateMat, dim);
+            free(gateMat);
+        }
+
+        // Define test PQC and the generators of the unitary transformations
+        const applyPCG* testPQC = pqc + 5 * (qubits - 2);
+        const applyCG* testGen = cg + 5 * (qubits - 2);
+
+        // Define matrix representations of the test PQC
+        const matPCG* testPQCMat = pqcMat;
+
+        /* TESTING */
+        for (dim_t i = 0; i < dim + 1; ++i) {
+            stateInitVector(&testState, vecs[i]);
+
+            // Ascertain the exact gradient by tested method
+            testVec = gradPQC(&testState, &testObs, 5, testPQC, randPar, testGen);
+
+            // Ascertain the reference gradient by finite difference method
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat, testPQCMat, 5, randPar);
+
+            // Check if the entries of both gradients are at most 1e-4 apart
+            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 5, APPROXPRECISION));
+
+            free(testVec);
+            testVec = NULL;
+            free(refVec);
+            refVec = NULL;
+        }
+
+        free(testObsMat);
+        testObsMat = NULL;
+        freeTestVectors(vecs, qubits);
+        vecs = NULL;
+        stateFreeVector(&testState);
+        testState.vec = NULL;
+    }
+}
 
 // /*
 //  * =====================================================================================================================
@@ -491,6 +485,7 @@ void testGradPQCDiag(void) {
 //         testState.vec = NULL;
 //     } // for qubits
 // }
+
 /*
  * =====================================================================================================================
  *                                                      main
@@ -501,7 +496,123 @@ int main(void) {
     RUN_TEST(testMeanDiagObs);
     RUN_TEST(testMeanCG);
     RUN_TEST(testMeanObsHerm);
-    // RUN_TEST(testGradPQC1);
+    RUN_TEST(testGradPQCDiag);
+    RUN_TEST(testGradPQCHerm);
     // RUN_TEST(testMMseq);
     return UNITY_END();
+}
+
+/*
+ * =====================================================================================================================
+ *                                                 Helper functions
+ * =====================================================================================================================
+ */
+/*
+ * @brief   Returns the gradient of the quadratic form associated with the hermitian matrix using finite difference
+ * method; i.e.,
+ *                                                  <Ux|H|Ux>
+ *
+ * @param[in,out] x : Vector transformed with the unitary matrix
+ * @param[in] d     : Logarithm of the vector space dimension; i.e., dim = 2**d
+ * @param[in,out] H : Hermitian matrix
+ * @param[in,out] U : Sequence of parametrized unitary transformation
+ * @param[in] par   : Parameter setting
+ *
+ * @returns The approximate gradient of the quadratic form of H with respect to x after performing a sequence of
+ *          parametrized unitary transformations at the parameter setting
+ */
+static double* finDiffMeth(const cplx_t* x, const unsigned char d, const cplx_t* H, const matPCG U[],
+                           const unsigned char parc, double par[]) {
+    const unsigned long dim = POW2(d, unsigned long);
+
+    double* out = malloc(parc * sizeof(double));
+    if (out == NULL) {
+        fprintf(stderr, "finDiffMeth(): out allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the input vector to one temporary to conduct matrix multiplications to
+    cplx_t *bra, *ket;
+    if ((bra = malloc(dim * sizeof(cplx_t))) == NULL) {
+        fprintf(stderr, "finDiffMeth(): bra allocation failed\n");
+        free(out);
+        exit(EXIT_FAILURE);
+    }
+    if ((ket = malloc(dim * sizeof(cplx_t))) == NULL) {
+        fprintf(stderr, "finDiffMeth(): ket allocation failed\n");
+        free(out);
+        free(bra);
+        exit(EXIT_FAILURE);
+    }
+    for (unsigned long i = 0; i < dim; ++i) {
+        ket[i] = x[i];
+    }
+
+    // Initialize the unitary transformation matrices for the input parameters, conduct matrix vector multiplication
+    // with ket and free the matrices afterward
+    cplx_t* uMat;
+    for (unsigned char i = 0; i < parc; ++i) {
+        uMat = U[i](d, par[i]);
+        cmatVecMulInPlace(uMat, ket, dim);
+        free(uMat);
+    }
+
+    // Copy ket to bra, conduct matrix vector multiplication of H with ket and calculate the quadratic form by inner
+    // product
+    for (unsigned long i = 0; i < dim; ++i) {
+        bra[i] = ket[i];
+    }
+    cmatVecMulInPlace(H, ket, dim);
+    double current;
+    if (cimag(cInner(bra, ket, dim)) < 1e-9) {
+        current = creal(cInner(bra, ket, dim));
+    } else {
+        fprintf(stderr, "finDiffMeth(): Quadratic form is off being real\n");
+        free(out);
+        free(bra);
+        free(ket);
+        exit(EXIT_FAILURE);
+    }
+
+    // For each parameter entry shift the value by EPSILON, compute the quadratic form at that point and add the
+    // difference with the current value to the return pointer
+    for (unsigned char i = 0; i < parc; ++i) {
+        par[i] += EPSILON;
+
+        // Copy input vector to ket
+        for (unsigned long j = 0; j < dim; ++j) {
+            ket[j] = x[j];
+        }
+
+        // Conduct matrix vector multiplication of the shifted unitary transformations and ket
+        for (unsigned char j = 0; j < parc; ++j) {
+            uMat = U[j](d, par[j]);
+            cmatVecMulInPlace(uMat, ket, dim);
+            free(uMat);
+        }
+
+        // Copy ket to bra, conduct matrix vector multiplication of H with ket and calculate the quadratic
+        for (unsigned long j = 0; j < dim; ++j) {
+            bra[j] = ket[j];
+        }
+        cmatVecMulInPlace(H, ket, dim);
+        double shifted;
+        if (cimag(cInner(bra, ket, dim)) < 1e-9) {
+            shifted = creal(cInner(bra, ket, dim));
+        } else {
+            fprintf(stderr, "finDiffMeth(): Quadratic form is off being real\n");
+            free(out);
+            free(bra);
+            free(ket);
+            exit(EXIT_FAILURE);
+        }
+
+        // Add the difference quotient to the return pointer and reset the parameter entry
+        out[i] = (1. / EPSILON) * (shifted - current);
+        par[i] -= EPSILON;
+    }
+
+    free(bra);
+    free(ket);
+    return out;
 }

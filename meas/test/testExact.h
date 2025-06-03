@@ -112,6 +112,9 @@ herm_t testHerm = {                                         // Define the hermit
     .weight = NULL,
 };
 
+double* testVec = NULL;                                     // Define a vector valued test result
+double* refVec = NULL;                                      // Defihe a vector valued reference result
+
 extern inline void cleanup(void) {
     if (testState.vec != NULL) {
         free(testState.vec);
@@ -124,6 +127,14 @@ extern inline void cleanup(void) {
     if (testObsMat != NULL) {
         free(testObsMat);
         testObsMat = NULL;
+    }
+    if (testVec != NULL) {
+        free(testVec);
+        testVec = NULL;
+    }
+    if (refVec != NULL) {
+        free(refVec);
+        refVec = NULL;
     }
 }
 
@@ -264,7 +275,7 @@ applyCG cg[25] = {x2, y2, z2, swap2, diag, x3, y3, z3, swap3, diag, x4, y4, z4, 
 
 /*
  * =====================================================================================================================
- *                                          Quantum block matrices
+ *                                  Composite quantum gates - matrix representation
  * =====================================================================================================================
  */
 extern inline cplx_t* xMat(qubit_t qubits) {
@@ -317,12 +328,12 @@ matCG cgMat[5] = {xMat, yMat, zMat, swapMat, diagMat};
 
 /*
  * =====================================================================================================================
- *                                          Parametrized quantum blocks
+ *                                          Parametrized composite quantum gates
  * =====================================================================================================================
  */
 // 2 qubits
 extern inline void evoX2(state_t* state, const double par) {
-    evoQB(state, x2, par);
+    evolve(state, x2, par);
 }
 extern inline void rx2(state_t* state, const double par) {
     applyRX(state, 0, par);
@@ -330,7 +341,7 @@ extern inline void rx2(state_t* state, const double par) {
 }
 
 extern inline void evoY2(state_t* state, const double par) {
-    evoQB(state, y2, par);
+    evolve(state, y2, par);
 }
 extern inline void ry2(state_t* state, const double par) {
     applyRY(state, 0, par);
@@ -338,7 +349,7 @@ extern inline void ry2(state_t* state, const double par) {
 }
 
 extern inline void evoZ2(state_t* state, const double par) {
-    evoQB(state, z2, par);
+    evolve(state, z2, par);
 }
 extern inline void rz2(state_t* state, const double par) {
     applyRZ(state, 0, par);
@@ -346,7 +357,7 @@ extern inline void rz2(state_t* state, const double par) {
 }
 
 extern inline void evoSwap2(state_t* state, const double par) {
-    evoQB(state, swap2, par);
+    evolve(state, swap2, par);
 }
 extern inline void rswap2(state_t* state, const double par) {
     applyRSWAP(state, 0, 1, par);
@@ -358,7 +369,7 @@ extern inline void evoDiag2(state_t* state, const double par) {
 
 // 3 qubits
 extern inline void evoX3(state_t* state, const double par) {
-    evoQB(state, x3, par);
+    evolve(state, x3, par);
 }
 extern inline void rx3(state_t* state, const double par) {
     applyRX(state, 0, par);
@@ -367,7 +378,7 @@ extern inline void rx3(state_t* state, const double par) {
 }
 
 extern inline void evoY3(state_t* state, const double par) {
-    evoQB(state, y3, par);
+    evolve(state, y3, par);
 }
 extern inline void ry3(state_t* state, const double par) {
     applyRY(state, 0, par);
@@ -376,7 +387,7 @@ extern inline void ry3(state_t* state, const double par) {
 }
 
 extern inline void evoZ3(state_t* state, const double par) {
-    evoQB(state, z3, par);
+    evolve(state, z3, par);
 }
 extern inline void rz3(state_t* state, const double par) {
     applyRZ(state, 0, par);
@@ -385,14 +396,14 @@ extern inline void rz3(state_t* state, const double par) {
 }
 
 extern inline void evoSwap3(state_t* state, const double par) {
-    evoQB(state, swap3, par);
+    evolve(state, swap3, par);
 }
 extern inline void rswap3(state_t* state, const double par) {
     applyRSWAP(state, 0, 1, par);
 }
 
 extern inline void evoX4(state_t* state, const double par) {
-    evoQB(state, x4, par);
+    evolve(state, x4, par);
 }
 extern inline void rx4(state_t* state, const double par) {
     applyRX(state, 0, par);
@@ -402,7 +413,7 @@ extern inline void rx4(state_t* state, const double par) {
 }
 
 extern inline void evoY4(state_t* state, const double par) {
-    evoQB(state, y4, par);
+    evolve(state, y4, par);
 }
 extern inline void ry4(state_t* state, const double par) {
     applyRY(state, 0, par);
@@ -412,7 +423,7 @@ extern inline void ry4(state_t* state, const double par) {
 }
 
 extern inline void evoZ4(state_t* state, const double par) {
-    evoQB(state, z4, par);
+    evolve(state, z4, par);
 }
 extern inline void rz4(state_t* state, const double par) {
     applyRZ(state, 0, par);
@@ -422,7 +433,7 @@ extern inline void rz4(state_t* state, const double par) {
 }
 
 extern inline void evoSwap4(state_t* state, const double par) {
-    evoQB(state, swap4, par);
+    evolve(state, swap4, par);
 }
 extern inline void rswap4(state_t* state, const double par) {
     applyRSWAP(state, 0, 1, par);
@@ -430,7 +441,7 @@ extern inline void rswap4(state_t* state, const double par) {
 }
 
 extern inline void evoX5(state_t* state, const double par) {
-    evoQB(state, x5, par);
+    evolve(state, x5, par);
 }
 extern inline void rx5(state_t* state, const double par) {
     applyRX(state, 0, par);
@@ -441,7 +452,7 @@ extern inline void rx5(state_t* state, const double par) {
 }
 
 extern inline void evoY5(state_t* state, const double par) {
-    evoQB(state, y5, par);
+    evolve(state, y5, par);
 }
 extern inline void ry5(state_t* state, const double par) {
     applyRY(state, 0, par);
@@ -452,7 +463,7 @@ extern inline void ry5(state_t* state, const double par) {
 }
 
 extern inline void evoZ5(state_t* state, const double par) {
-    evoQB(state, z5, par);
+    evolve(state, z5, par);
 }
 extern inline void rz5(state_t* state, const double par) {
     applyRZ(state, 0, par);
@@ -463,7 +474,7 @@ extern inline void rz5(state_t* state, const double par) {
 }
 
 extern inline void evoSwap5(state_t* state, const double par) {
-    evoQB(state, swap5, par);
+    evolve(state, swap5, par);
 }
 extern inline void rswap5(state_t* state, const double par) {
     applyRSWAP(state, 0, 1, par);
@@ -471,7 +482,7 @@ extern inline void rswap5(state_t* state, const double par) {
 }
 
 extern inline void evoX6(state_t* state, const double par) {
-    evoQB(state, x6, par);
+    evolve(state, x6, par);
 }
 extern inline void rx6(state_t* state, const double par) {
     applyRX(state, 0, par);
@@ -483,7 +494,7 @@ extern inline void rx6(state_t* state, const double par) {
 }
 
 extern inline void evoY6(state_t* state, const double par) {
-    evoQB(state, y6, par);
+    evolve(state, y6, par);
 }
 extern inline void ry6(state_t* state, const double par) {
     applyRY(state, 0, par);
@@ -495,7 +506,7 @@ extern inline void ry6(state_t* state, const double par) {
 }
 
 extern inline void evoZ6(state_t* state, const double par) {
-    evoQB(state, z6, par);
+    evolve(state, z6, par);
 }
 extern inline void rz6(state_t* state, const double par) {
     applyRZ(state, 0, par);
@@ -507,7 +518,7 @@ extern inline void rz6(state_t* state, const double par) {
 }
 
 extern inline void evoSwap6(state_t* state, const double par) {
-    evoQB(state, swap6, par);
+    evolve(state, swap6, par);
 }
 extern inline void rswap6(state_t* state, const double par) {
     applyRSWAP(state, 0, 1, par);
@@ -515,105 +526,105 @@ extern inline void rswap6(state_t* state, const double par) {
     applyRSWAP(state, 4, 5, par);
 }
 
-applyPQB pqc[25] = {evoX2, evoY2, evoZ2, evoSwap2, evoDiag2, evoX3, evoY3, evoZ3, evoSwap3, evoDiag2, evoX4, evoY4,
+applyPCG pqc[25] = {evoX2, evoY2, evoZ2, evoSwap2, evoDiag2, evoX3, evoY3, evoZ3, evoSwap3, evoDiag2, evoX4, evoY4,
                     evoZ4, evoSwap4, evoDiag2, evoX5, evoY5, evoZ5, evoSwap5, evoDiag2, evoX6, evoY6, evoZ6, evoSwap6, evoDiag2};
 
-applyPQB rpqc[20] = {rx2, ry2, rz2, rswap2, rx3, ry3, rz3, rswap3, rx4, ry4, rz4, rswap4, rx5, ry5, rz5, rswap5, \
+applyPCG rpqc[20] = {rx2, ry2, rz2, rswap2, rx3, ry3, rz3, rswap3, rx4, ry4, rz4, rswap4, rx5, ry5, rz5, rswap5, \
      rx6, ry6, rz6, rswap6};
 
-// /*
-//  * =====================================================================================================================
-//  *                                      Parametrized quantum block matrices
-//  * =====================================================================================================================
-//  */
-// extern inline cplx_t* evoXMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     cplx_t* gateMat = xMat(qubits);
-//     cplx_t* out = zexpm(gateMat, par, dim);
-//     free(gateMat);
-//
-//     return out;
-// }
-// extern inline cplx_t* rxMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     cplx_t* out = RXGateMat(qubits, qubits - 1, par);
-//     for (qubit_t i = qubits - 1; i > 0; --i) {
-//         cplx_t* tmp = RXGateMat(qubits, i - 1, par);
-//         cmatMulInPlace(out, tmp, dim);
-//         free(tmp);
-//     }
-//     return out;
-// }
-//
-// extern inline cplx_t* evoYMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     cplx_t* gateMat = yMat(qubits);
-//     cplx_t* out = zexpm(gateMat, par, dim);
-//     free(gateMat);
-//
-//     return out;
-// }
-// extern inline cplx_t* ryMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     cplx_t* out = RYGateMat(qubits, qubits - 1, par);
-//     for (qubit_t i = qubits - 1; i > 0; --i) {
-//         cplx_t* tmp = RYGateMat(qubits, i - 1, par);
-//         cmatMulInPlace(out, tmp, dim);
-//         free(tmp);
-//     }
-//     return out;
-// }
-//
-// extern inline cplx_t* evoZMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     cplx_t* gateMat = zMat(qubits);
-//     cplx_t* out = zexpm(gateMat, par, dim);
-//     free(gateMat);
-//
-//     return out;
-// }
-// extern inline cplx_t* rzMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     cplx_t* out = RZGateMat(qubits, qubits - 1, par);
-//     for (qubit_t i = qubits - 1; i > 0; --i) {
-//         cplx_t* tmp = RZGateMat(qubits, i - 1, par);
-//         cmatMulInPlace(out, tmp, dim);
-//         free(tmp);
-//     }
-//     return out;
-// }
-//
-// extern inline cplx_t* evoSwapMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     cplx_t* gateMat = swapMat(qubits);
-//     cplx_t* out = zexpm(gateMat, par, dim);
-//     free(gateMat);
-//
-//     return out;
-// }
-// extern inline cplx_t* rSwapMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     qubit_t start = qubits / 2;                                     // start = k for qubits = 2k and qubits = (2k + 1)
-//     cplx_t* out = RswapGateMat(qubits, 2 * start - 2, 2 * start - 1, par);
-//     for (qubit_t i = start - 1; i > 0; --i) {                       // Starting at the next qubit with odd index
-//         cplx_t* tmp = RswapGateMat(qubits, 2 * i - 2, 2 * i - 1, par);
-//         cmatMulInPlace(out, tmp, dim);
-//         free(tmp);
-//     }
-//     return out;
-// }
-//
-// extern inline cplx_t* evoDiagMat(qubit_t qubits, double par) {
-//     dim_t dim = 1 << qubits;
-//     cplx_t* gateMat = diagMat(qubits);
-//     cplx_t* out = zexpm(gateMat, par, dim);
-//     free(gateMat);
-//
-//     return out;
-// }
-//
-// matPCG evoMat[5] = {evoXMat, evoYMat, evoZMat, evoSwapMat, evoDiagMat};
-//
+/*
+ * =====================================================================================================================
+ *                                      Parametrized composite quantum gates - matrix representation
+ * =====================================================================================================================
+ */
+extern inline cplx_t* evoXMat(qubit_t qubits, double par) {
+     dim_t dim = 1 << qubits;
+     cplx_t* gateMat = xMat(qubits);
+     cplx_t* out = zexpm(gateMat, par, dim);
+     free(gateMat);
+
+     return out;
+ }
+extern inline cplx_t* rxMat(qubit_t qubits, double par) {
+    dim_t dim = 1 << qubits;
+    cplx_t* out = RXGateMat(qubits, qubits - 1, par);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = RXGateMat(qubits, i - 1, par);
+        cmatMulInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+    extern inline cplx_t* evoYMat(qubit_t qubits, double par) {
+    dim_t dim = 1 << qubits;
+    cplx_t* gateMat = yMat(qubits);
+    cplx_t* out = zexpm(gateMat, par, dim);
+    free(gateMat);
+
+    return out;
+}
+    extern inline cplx_t* ryMat(qubit_t qubits, double par) {
+    dim_t dim = 1 << qubits;
+    cplx_t* out = RYGateMat(qubits, qubits - 1, par);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = RYGateMat(qubits, i - 1, par);
+        cmatMulInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+extern inline cplx_t* evoZMat(qubit_t qubits, double par) {
+    dim_t dim = 1 << qubits;
+    cplx_t* gateMat = zMat(qubits);
+    cplx_t* out = zexpm(gateMat, par, dim);
+    free(gateMat);
+
+    return out;
+}
+extern inline cplx_t* rzMat(qubit_t qubits, double par) {
+    dim_t dim = 1 << qubits;
+    cplx_t* out = RZGateMat(qubits, qubits - 1, par);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = RZGateMat(qubits, i - 1, par);
+        cmatMulInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+extern inline cplx_t* evoSwapMat(qubit_t qubits, double par) {
+    dim_t dim = 1 << qubits;
+    cplx_t* gateMat = swapMat(qubits);
+    cplx_t* out = zexpm(gateMat, par, dim);
+    free(gateMat);
+
+    return out;
+}
+extern inline cplx_t* rSwapMat(qubit_t qubits, double par) {
+    dim_t dim = 1 << qubits;
+    qubit_t start = qubits / 2;                                     // start = k for qubits = 2k and qubits = (2k + 1)
+    cplx_t* out = RswapGateMat(qubits, 2 * start - 2, 2 * start - 1, par);
+    for (qubit_t i = start - 1; i > 0; --i) {                       // Starting at the next qubit with odd index
+        cplx_t* tmp = RswapGateMat(qubits, 2 * i - 2, 2 * i - 1, par);
+        cmatMulInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+extern inline cplx_t* evoDiagMat(qubit_t qubits, double par) {
+    dim_t dim = 1 << qubits;
+    cplx_t* gateMat = diagMat(qubits);
+    cplx_t* out = zexpm(gateMat, par, dim);
+    free(gateMat);
+
+    return out;
+}
+
+matPCG pqcMat[5] = {evoXMat, evoYMat, evoZMat, evoSwapMat, evoDiagMat};
+
 // /*
 //  * =====================================================================================================================
 //  *                                      Parametrized quantum blocks with fixed parameters
