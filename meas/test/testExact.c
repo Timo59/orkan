@@ -85,7 +85,6 @@ void testMeanCG(void) {
 }
 
 void testMeanObsHerm(void) {
-    // Register cleanup function
     if (atexit(cleanup)) {
         fprintf(stderr, "Failed to register cleanup function\n");
         exit(EXIT_FAILURE);
@@ -152,7 +151,6 @@ static double* finDiffMeth(const cplx_t* x, unsigned char d, const cplx_t* H, co
     double par[]);
 
 void testGradPQCDiag(void) {
-    // Register cleanup function
     if (atexit(cleanup)) {
         fprintf(stderr, "Failed to register cleanup function\n");
         exit(EXIT_FAILURE);
@@ -258,6 +256,66 @@ void testGradPQCHerm(void) {
 
             // Check if the entries of both gradients are at most 1e-4 apart
             TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 5, APPROXPRECISION));
+
+            free(testVec);
+            testVec = NULL;
+            free(refVec);
+            refVec = NULL;
+        }
+
+        free(testObsMat);
+        testObsMat = NULL;
+        freeTestVectors(vecs, qubits);
+        vecs = NULL;
+        stateFreeVector(&testState);
+        testState.vec = NULL;
+    }
+}
+
+void testGradPQCDiag2(void) {
+    if (atexit(cleanup)) {
+        fprintf(stderr, "Failed to register cleanup function\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
+        const dim_t dim = POW2(qubits, dim_t);
+
+        // Define test state and initialize test state vectors
+        stateInitEmpty(&testState, qubits);
+        vecs = generateTestVectors(qubits);
+
+        // Define the test observable as the diagonal entries of a diagonal hermitian operator
+        double* testObs = diagObs;
+
+        // Define the matrix representation of the test observable
+        testObsMat = diagMat(qubits);
+
+        // Define test PQC and the generators of the unitary transformations
+        const applyPCG* testPQC = rpqc + 4 * (qubits - 2);
+        const applyCG* testGen = gen + 4 * (qubits - 2);
+
+        // Define matrix representations of the test PQC
+        const matPCG* testPQCMat = rpqcMat;
+
+        /* TESTING */
+        for (dim_t i = 0; i < dim + 1; ++i) {
+            stateInitVector(&testState, vecs[i]);
+
+            // Ascertain the exact gradient by tested method
+            testVec = gradPQC(&testState, testObs, 4, testPQC, randPar, testGen);
+
+            // Ascertain the reference gradient by finite difference method
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat, testPQCMat, 4, randPar);
+
+            printf("qubits = %d\n", qubits);
+            printf("test = ");
+            vectorPrint(testVec, 4);
+            printf("ref = ");
+            vectorPrint(refVec, 4);
+
+            // Check if the entries of both gradients are at most 1e-4 apart
+            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 4, APPROXPRECISION));
 
             free(testVec);
             testVec = NULL;
@@ -498,6 +556,7 @@ int main(void) {
     RUN_TEST(testMeanObsHerm);
     RUN_TEST(testGradPQCDiag);
     RUN_TEST(testGradPQCHerm);
+    RUN_TEST(testGradPQCDiag2);
     // RUN_TEST(testMMseq);
     return UNITY_END();
 }
