@@ -118,7 +118,7 @@ double* gradPQCHerm(state_t* state, const herm_t* obs, const depth_t d, const ap
     const applyCG gen[]) {
     double* out = malloc(d * sizeof(double));
     if (out == NULL) {
-        fprintf(stderr, "gradPQCHerm: out allocation failed\n");
+        fprintf(stderr, "gradPQCHerm(): out allocation failed\n");
         exit(EXIT_FAILURE);
     }
 

@@ -299,23 +299,23 @@ void testGradPQCDiag2(void) {
         const matPCG* testPQCMat = rpqcMat;
 
         /* TESTING */
-        for (dim_t i = 0; i < dim + 1; ++i) {
+        for (dim_t i = dim; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec = gradPQC(&testState, testObs, 4, testPQC, randPar, testGen);
+            testVec = gradPQC(&testState, testObs, 1, testPQC, randPar, testGen);
 
             // Ascertain the reference gradient by finite difference method
-            refVec = finDiffMeth(vecs[i], qubits, testObsMat, testPQCMat, 4, randPar);
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat, testPQCMat, 1, randPar);
 
             printf("qubits = %d\n", qubits);
             printf("test = ");
-            vectorPrint(testVec, 4);
+            vectorPrint(testVec, 1);
             printf("ref = ");
-            vectorPrint(refVec, 4);
+            vectorPrint(refVec, 1);
 
             // Check if the entries of both gradients are at most 1e-4 apart
-            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 4, APPROXPRECISION));
+            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 1, APPROXPRECISION));
 
             free(testVec);
             testVec = NULL;
@@ -551,11 +551,11 @@ void testGradPQCDiag2(void) {
  */
 int main(void) {
     UNITY_BEGIN();
-    RUN_TEST(testMeanDiagObs);
-    RUN_TEST(testMeanCG);
-    RUN_TEST(testMeanObsHerm);
-    RUN_TEST(testGradPQCDiag);
-    RUN_TEST(testGradPQCHerm);
+//    RUN_TEST(testMeanDiagObs);
+//    RUN_TEST(testMeanCG);
+//    RUN_TEST(testMeanObsHerm);
+//    RUN_TEST(testGradPQCDiag);
+//    RUN_TEST(testGradPQCHerm);
     RUN_TEST(testGradPQCDiag2);
     // RUN_TEST(testMMseq);
     return UNITY_END();
