@@ -107,7 +107,7 @@ double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const a
             pqc[j](&ket, par[j]);
         }
 
-        out[i] = 2 * cimag(stateOverlap(bra, ket));
+        out[i] = cimag(stateOverlap(bra, ket));
         stateFreeVector(&ket);
     }
     stateFreeVector(&bra);

@@ -299,20 +299,64 @@ void testGradPQCDiag2(void) {
         const matPCG* testPQCMat = rpqcMat;
 
         /* TESTING */
-        for (dim_t i = dim; i < dim + 1; ++i) {
+        for (dim_t i = 0; i < dim + 1; ++i) {
+            // Check the action of all involved operators on the test state
+            stateInitVector(&testState, vecs[i]);
+            cplx_t* tmp = calloc(dim, sizeof(cplx_t));
+            for (dim_t j = 0; j < dim; ++j) {
+                tmp[j] = vecs[i][j];
+            }
+
+            printf("PARAMETRIZED GATES\n");
+            for (unsigned int j = 0; j < 4; ++j) {
+                testPQC[j](&testState, randPar[j]);
+                cplx_t* gate = testPQCMat[j](qubits, randPar[j]);
+                cmatVecMulInPlace(gate, tmp, dim);
+                free(gate);
+                printf("test = ");
+                vectorPrint(testState.vec, dim);
+                printf("ref = ");
+                vectorPrint(tmp, dim);
+                printf("\n");
+            }
+
+            printf("GENERATORS\n");
+            for (unsigned int j = 0; j < 4; ++j) {
+                testGen[j](&testState);
+                cplx_t* gate = genMat[j](qubits);
+                cmatVecMulInPlace(gate, tmp, dim);
+                free(gate);
+                printf("test = ");
+                vectorPrint(testState.vec, dim);
+                printf("ref = ");
+                vectorPrint(tmp, dim);
+                printf("\n");
+            }
+
+            printf("OBSERVABLES\n");
+            apply(&testState, testObs);
+            cmatVecMulInPlace(testObsMat, tmp, dim);
+            printf("test = ");
+            vectorPrint(testState.vec, dim);
+            printf("ref = ");
+            vectorPrint(tmp, dim);
+            printf("\n");
+
+            free(tmp);
+
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec = gradPQC(&testState, testObs, 1, testPQC, randPar, testGen);
+            testVec = gradPQC(&testState, testObs, 2, testPQC, randPar, testGen);
 
             // Ascertain the reference gradient by finite difference method
-            refVec = finDiffMeth(vecs[i], qubits, testObsMat, testPQCMat, 1, randPar);
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat, testPQCMat, 2, randPar);
 
             printf("qubits = %d\n", qubits);
             printf("test = ");
-            vectorPrint(testVec, 1);
+            vectorPrint(testVec, 2);
             printf("ref = ");
-            vectorPrint(refVec, 1);
+            vectorPrint(refVec, 2);
 
             // Check if the entries of both gradients are at most 1e-4 apart
             TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 1, APPROXPRECISION));
