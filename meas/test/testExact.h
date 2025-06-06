@@ -625,6 +625,271 @@ extern inline cplx_t* evoDiagMat(qubit_t qubits, double par) {
 
 matPCG pqcMat[5] = {evoXMat, evoYMat, evoZMat, evoSwapMat, evoDiagMat};
 
+matPCG rpqcMat[5] = {rxMat, ryMat, rzMat, rSwapMat};
+
+/*
+ * =====================================================================================================================
+ *                                      Generators of products of parametrized gates
+ * =====================================================================================================================
+ */
+
+double weight[6] = {1., 1., 1., 1., 1., 1.};
+
+extern inline void singleX0(state_t* state) {
+    applyX(state, 0);
+}
+extern inline void singleX1(state_t* state) {
+    applyX(state, 1);
+}
+extern inline void singleX2(state_t* state) {
+    applyX(state, 2);
+}
+extern inline void singleX3(state_t* state) {
+    applyX(state, 3);
+}
+extern inline void singleX4(state_t* state) {
+    applyX(state, 4);
+}
+extern inline void singleX5(state_t* state) {
+    applyX(state, 5);
+}
+applyCG singleX[6] = {singleX0, singleX1, singleX2, singleX3, singleX4, singleX5};
+
+extern inline void genRX2(state_t* state) {
+    herm_t gen;
+    gen.len = 2;
+    gen.comp = singleX;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRX3(state_t* state) {
+    herm_t gen;
+    gen.len = 3;
+    gen.comp = singleX;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRX4(state_t* state) {
+    herm_t gen;
+    gen.len = 4;
+    gen.comp = singleX;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRX5(state_t* state) {
+    herm_t gen;
+    gen.len = 5;
+    gen.comp = singleX;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRX6(state_t* state) {
+    herm_t gen;
+    gen.len = 6;
+    gen.comp = singleX;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void singleY0(state_t* state) {
+    applyY(state, 0);
+}
+extern inline void singleY1(state_t* state) {
+    applyY(state, 1);
+}
+extern inline void singleY2(state_t* state) {
+    applyY(state, 2);
+}
+extern inline void singleY3(state_t* state) {
+    applyY(state, 3);
+}
+extern inline void singleY4(state_t* state) {
+    applyY(state, 4);
+}
+extern inline void singleY5(state_t* state) {
+    applyY(state, 5);
+}
+applyCG singleY[6] = {singleY0, singleY1, singleY2, singleY3, singleY4, singleY5};
+
+extern inline void genRY2(state_t* state) {
+    herm_t gen;
+    gen.len = 2;
+    gen.comp = singleY;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRY3(state_t* state) {
+    herm_t gen;
+    gen.len = 3;
+    gen.comp = singleY;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRY4(state_t* state) {
+    herm_t gen;
+    gen.len = 4;
+    gen.comp = singleY;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRY5(state_t* state) {
+    herm_t gen;
+    gen.len = 5;
+    gen.comp = singleY;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRY6(state_t* state) {
+    herm_t gen;
+    gen.len = 6;
+    gen.comp = singleY;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void singleZ0(state_t* state) {
+    applyZ(state, 0);
+}
+extern inline void singleZ1(state_t* state) {
+    applyZ(state, 1);
+}
+extern inline void singleZ2(state_t* state) {
+    applyZ(state, 2);
+}
+extern inline void singleZ3(state_t* state) {
+    applyZ(state, 3);
+}
+extern inline void singleZ4(state_t* state) {
+    applyZ(state, 4);
+}
+extern inline void singleZ5(state_t* state) {
+    applyZ(state, 5);
+}
+applyCG singleZ[6] = {singleZ0, singleZ1, singleZ2, singleZ3, singleZ4, singleZ5};
+
+extern inline void genRZ2(state_t* state) {
+    herm_t gen;
+    gen.len = 2;
+    gen.comp = singleZ;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRZ3(state_t* state) {
+    herm_t gen;
+    gen.len = 3;
+    gen.comp = singleZ;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRZ4(state_t* state) {
+    herm_t gen;
+    gen.len = 4;
+    gen.comp = singleZ;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRZ5(state_t* state) {
+    herm_t gen;
+    gen.len = 5;
+    gen.comp = singleZ;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRZ6(state_t* state) {
+    herm_t gen;
+    gen.len = 6;
+    gen.comp = singleZ;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void singleSWAP0(state_t* state) {
+    applySWAP(state, 0, 1);
+}
+extern inline void singleSWAP1(state_t* state) {
+    applySWAP(state, 2, 3);
+}
+extern inline void singleSWAP2(state_t* state) {
+    applySWAP(state, 4, 5);
+}
+applyCG singleSWAP[3] = {singleSWAP0, singleSWAP1, singleSWAP2};
+
+extern inline void genRSWAP2(state_t* state) {
+    herm_t gen;
+    gen.len = 1;
+    gen.comp = singleSWAP;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRSWAP3(state_t* state) {
+    herm_t gen;
+    gen.len = 1;
+    gen.comp = singleSWAP;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRSWAP4(state_t* state) {
+    herm_t gen;
+    gen.len = 2;
+    gen.comp = singleSWAP;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRSWAP5(state_t* state) {
+    herm_t gen;
+    gen.len = 2;
+    gen.comp = singleSWAP;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+extern inline void genRSWAP6(state_t* state) {
+    herm_t gen;
+    gen.len = 3;
+    gen.comp = singleSWAP;
+    gen.weight = weight;
+
+    apply(state, &gen);
+}
+
+applyCG gen[20] = {genRX2, genRY2, genRZ2, genRSWAP2, genRX3, genRY3, genRZ3, genRSWAP3, genRX4, genRY4, genRZ4,
+    genRSWAP4, genRX5, genRY5, genRZ5, genRSWAP5, genRX6, genRY6, genRZ6, genRSWAP6
+};
+
 // /*
 //  * =====================================================================================================================
 //  *                                      Parametrized quantum blocks with fixed parameters
