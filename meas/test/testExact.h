@@ -278,8 +278,8 @@ applyCG cg[25] = {x2, y2, z2, swap2, diag, x3, y3, z3, swap3, diag, x4, y4, z4, 
  *                                  Composite quantum gates - matrix representation
  * =====================================================================================================================
  */
-extern inline cplx_t* xMat(qubit_t qubits) {
-    dim_t dim = 1 << qubits;
+extern inline cplx_t* xMat(const qubit_t qubits) {
+    const dim_t dim = 1 << qubits;
     cplx_t* out = singleQubitGateMat(XMAT, qubits, qubits - 1);
     for (qubit_t i = qubits - 1; i > 0; --i) {
         cplx_t* tmp = singleQubitGateMat(XMAT, qubits, i - 1);
@@ -288,8 +288,8 @@ extern inline cplx_t* xMat(qubit_t qubits) {
     }
     return out;
 }
-extern inline cplx_t* yMat(qubit_t qubits) {
-    dim_t dim = 1 << qubits;
+extern inline cplx_t* yMat(const qubit_t qubits) {
+    const dim_t dim = 1 << qubits;
     cplx_t* out = singleQubitGateMat(YMAT, qubits, qubits - 1);
     for (qubit_t i = qubits - 1; i > 0; --i) {
         cplx_t* tmp = singleQubitGateMat(YMAT, qubits, i - 1);
@@ -298,8 +298,8 @@ extern inline cplx_t* yMat(qubit_t qubits) {
     }
     return out;
 }
-extern inline cplx_t* zMat(qubit_t qubits) {
-    dim_t dim = 1 << qubits;
+extern inline cplx_t* zMat(const qubit_t qubits) {
+    const dim_t dim = 1 << qubits;
     cplx_t* out = singleQubitGateMat(ZMAT, qubits, qubits - 1);
     for (qubit_t i = qubits - 1; i > 0; --i) {
         cplx_t* tmp = singleQubitGateMat(ZMAT, qubits, i - 1);
@@ -308,9 +308,9 @@ extern inline cplx_t* zMat(qubit_t qubits) {
     }
     return out;
 }
-extern inline cplx_t* swapMat(qubit_t qubits) {
-    dim_t dim = 1 << qubits;
-    qubit_t start = qubits / 2;                                     // start = k for qubits = 2k and qubits = (2k + 1)
+extern inline cplx_t* swapMat(const qubit_t qubits) {
+    const dim_t dim = 1 << qubits;
+    const qubit_t start = qubits / 2;                               // start = k for qubits = 2k and qubits = (2k + 1)
     cplx_t* out = swapGateMat(qubits, 2 * start - 2, 2 * start - 1);    // SWAP the last qubit with odd index to left
     for (qubit_t i = start - 1; i > 0; --i) {                       // Starting at the next qubit with odd index
         cplx_t* tmp = swapGateMat(qubits, 2 * i - 2, 2 * i - 1);
@@ -320,7 +320,7 @@ extern inline cplx_t* swapMat(qubit_t qubits) {
     return out;
 }
 
-extern inline cplx_t* diagMat(qubit_t qubits) {
+extern inline cplx_t* diagMat(const qubit_t qubits) {
     return diagGateMat(qubits, diagObs);
 }
 
@@ -534,19 +534,19 @@ applyPCG rpqc[20] = {rx2, ry2, rz2, rswap2, rx3, ry3, rz3, rswap3, rx4, ry4, rz4
 
 /*
  * =====================================================================================================================
- *                                      Parametrized composite quantum gates - matrix representation
+ *                              Parametrized composite quantum gates - matrix representation
  * =====================================================================================================================
  */
-extern inline cplx_t* evoXMat(qubit_t qubits, double par) {
-     dim_t dim = 1 << qubits;
+extern inline cplx_t* evoXMat(const qubit_t qubits, const double par) {
+     const dim_t dim = 1 << qubits;
      cplx_t* gateMat = xMat(qubits);
      cplx_t* out = zexpm(gateMat, par, dim);
      free(gateMat);
 
      return out;
  }
-extern inline cplx_t* rxMat(qubit_t qubits, double par) {
-    dim_t dim = 1 << qubits;
+extern inline cplx_t* rxMat(const qubit_t qubits, const double par) {
+    const dim_t dim = 1 << qubits;
     cplx_t* out = RXGateMat(qubits, qubits - 1, par);
     for (qubit_t i = qubits - 1; i > 0; --i) {
         cplx_t* tmp = RXGateMat(qubits, i - 1, par);
@@ -556,16 +556,16 @@ extern inline cplx_t* rxMat(qubit_t qubits, double par) {
     return out;
 }
 
-    extern inline cplx_t* evoYMat(qubit_t qubits, double par) {
-    dim_t dim = 1 << qubits;
+    extern inline cplx_t* evoYMat(const qubit_t qubits, const double par) {
+    const dim_t dim = 1 << qubits;
     cplx_t* gateMat = yMat(qubits);
     cplx_t* out = zexpm(gateMat, par, dim);
     free(gateMat);
 
     return out;
 }
-    extern inline cplx_t* ryMat(qubit_t qubits, double par) {
-    dim_t dim = 1 << qubits;
+    extern inline cplx_t* ryMat(const qubit_t qubits, const double par) {
+    const dim_t dim = 1 << qubits;
     cplx_t* out = RYGateMat(qubits, qubits - 1, par);
     for (qubit_t i = qubits - 1; i > 0; --i) {
         cplx_t* tmp = RYGateMat(qubits, i - 1, par);
@@ -575,16 +575,16 @@ extern inline cplx_t* rxMat(qubit_t qubits, double par) {
     return out;
 }
 
-extern inline cplx_t* evoZMat(qubit_t qubits, double par) {
-    dim_t dim = 1 << qubits;
+extern inline cplx_t* evoZMat(const qubit_t qubits, const double par) {
+    const dim_t dim = 1 << qubits;
     cplx_t* gateMat = zMat(qubits);
     cplx_t* out = zexpm(gateMat, par, dim);
     free(gateMat);
 
     return out;
 }
-extern inline cplx_t* rzMat(qubit_t qubits, double par) {
-    dim_t dim = 1 << qubits;
+extern inline cplx_t* rzMat(const qubit_t qubits, const double par) {
+    const dim_t dim = 1 << qubits;
     cplx_t* out = RZGateMat(qubits, qubits - 1, par);
     for (qubit_t i = qubits - 1; i > 0; --i) {
         cplx_t* tmp = RZGateMat(qubits, i - 1, par);
@@ -594,17 +594,17 @@ extern inline cplx_t* rzMat(qubit_t qubits, double par) {
     return out;
 }
 
-extern inline cplx_t* evoSwapMat(qubit_t qubits, double par) {
-    dim_t dim = 1 << qubits;
+extern inline cplx_t* evoSwapMat(const qubit_t qubits, const double par) {
+    const dim_t dim = 1 << qubits;
     cplx_t* gateMat = swapMat(qubits);
     cplx_t* out = zexpm(gateMat, par, dim);
     free(gateMat);
 
     return out;
 }
-extern inline cplx_t* rSwapMat(qubit_t qubits, double par) {
-    dim_t dim = 1 << qubits;
-    qubit_t start = qubits / 2;                                     // start = k for qubits = 2k and qubits = (2k + 1)
+extern inline cplx_t* rSwapMat(const qubit_t qubits, const double par) {
+    const dim_t dim = 1 << qubits;
+    const qubit_t start = qubits / 2;                               // start = k for qubits = 2k and qubits = (2k + 1)
     cplx_t* out = RswapGateMat(qubits, 2 * start - 2, 2 * start - 1, par);
     for (qubit_t i = start - 1; i > 0; --i) {                       // Starting at the next qubit with odd index
         cplx_t* tmp = RswapGateMat(qubits, 2 * i - 2, 2 * i - 1, par);
@@ -614,8 +614,8 @@ extern inline cplx_t* rSwapMat(qubit_t qubits, double par) {
     return out;
 }
 
-extern inline cplx_t* evoDiagMat(qubit_t qubits, double par) {
-    dim_t dim = 1 << qubits;
+extern inline cplx_t* evoDiagMat(const qubit_t qubits, const double par) {
+    const dim_t dim = 1 << qubits;
     cplx_t* gateMat = diagMat(qubits);
     cplx_t* out = zexpm(gateMat, par, dim);
     free(gateMat);
@@ -889,6 +889,59 @@ extern inline void genRSWAP6(state_t* state) {
 applyCG gen[20] = {genRX2, genRY2, genRZ2, genRSWAP2, genRX3, genRY3, genRZ3, genRSWAP3, genRX4, genRY4, genRZ4,
     genRSWAP4, genRX5, genRY5, genRZ5, genRSWAP5, genRX6, genRY6, genRZ6, genRSWAP6
 };
+
+/*
+ * =====================================================================================================================
+ *                          Generators of products of parametrized gates - matrix representation
+ * =====================================================================================================================
+ */
+
+extern inline cplx_t* genRXMat(const qubit_t qubits) {
+    const dim_t dim = 1 << qubits;
+    cplx_t* out = singleQubitGateMat(XMAT, qubits, qubits - 1);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = singleQubitGateMat(XMAT, qubits, i - 1);
+        cmatAddInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+extern inline cplx_t* genRYMat(const qubit_t qubits) {
+    const dim_t dim = 1 << qubits;
+    cplx_t* out = singleQubitGateMat(YMAT, qubits, qubits - 1);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = singleQubitGateMat(YMAT, qubits, i - 1);
+        cmatAddInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+extern inline cplx_t* genRZMat(const qubit_t qubits) {
+    const dim_t dim = 1 << qubits;
+    cplx_t* out = singleQubitGateMat(ZMAT, qubits, qubits - 1);
+    for (qubit_t i = qubits - 1; i > 0; --i) {
+        cplx_t* tmp = singleQubitGateMat(ZMAT, qubits, i - 1);
+        cmatAddInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+extern inline cplx_t* genRSWAPMat(const qubit_t qubits) {
+    const dim_t dim = 1 << qubits;
+    const qubit_t start = qubits / 2;                               // start = k for qubits = 2k and qubits = (2k + 1)
+    cplx_t* out = swapGateMat(qubits, 2 * start - 2, 2 * start - 1);    // SWAP the last qubit with odd index to left
+    for (qubit_t i = start - 1; i > 0; --i) {                       // Starting at the next qubit with odd index
+        cplx_t* tmp = swapGateMat(qubits, 2 * i - 2, 2 * i - 1);
+        cmatAddInPlace(out, tmp, dim);
+        free(tmp);
+    }
+    return out;
+}
+
+matCG genMat[4] = {genRXMat, genRYMat, genRZMat, genRSWAPMat};
 
 // /*
 //  * =====================================================================================================================
