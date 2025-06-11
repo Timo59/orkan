@@ -540,7 +540,7 @@ applyPCG rpqc[20] = {rx2, ry2, rz2, rswap2, rx3, ry3, rz3, rswap3, rx4, ry4, rz4
 extern inline cplx_t* evoXMat(const qubit_t qubits, const double par) {
      const dim_t dim = 1 << qubits;
      cplx_t* gateMat = xMat(qubits);
-     cplx_t* out = zexpm(gateMat, par, dim);
+     cplx_t* out = zexpm(gateMat, par / 2., dim);
      free(gateMat);
 
      return out;
@@ -559,7 +559,7 @@ extern inline cplx_t* rxMat(const qubit_t qubits, const double par) {
     extern inline cplx_t* evoYMat(const qubit_t qubits, const double par) {
     const dim_t dim = 1 << qubits;
     cplx_t* gateMat = yMat(qubits);
-    cplx_t* out = zexpm(gateMat, par, dim);
+    cplx_t* out = zexpm(gateMat, par / 2., dim);
     free(gateMat);
 
     return out;
@@ -578,7 +578,7 @@ extern inline cplx_t* rxMat(const qubit_t qubits, const double par) {
 extern inline cplx_t* evoZMat(const qubit_t qubits, const double par) {
     const dim_t dim = 1 << qubits;
     cplx_t* gateMat = zMat(qubits);
-    cplx_t* out = zexpm(gateMat, par, dim);
+    cplx_t* out = zexpm(gateMat, par / 2., dim);
     free(gateMat);
 
     return out;
@@ -597,7 +597,7 @@ extern inline cplx_t* rzMat(const qubit_t qubits, const double par) {
 extern inline cplx_t* evoSwapMat(const qubit_t qubits, const double par) {
     const dim_t dim = 1 << qubits;
     cplx_t* gateMat = swapMat(qubits);
-    cplx_t* out = zexpm(gateMat, par, dim);
+    cplx_t* out = zexpm(gateMat, par / 2., dim);
     free(gateMat);
 
     return out;
@@ -617,7 +617,7 @@ extern inline cplx_t* rSwapMat(const qubit_t qubits, const double par) {
 extern inline cplx_t* evoDiagMat(const qubit_t qubits, const double par) {
     const dim_t dim = 1 << qubits;
     cplx_t* gateMat = diagMat(qubits);
-    cplx_t* out = zexpm(gateMat, par, dim);
+    cplx_t* out = zexpm(gateMat, par / 2., dim);
     free(gateMat);
 
     return out;

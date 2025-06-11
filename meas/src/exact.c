@@ -25,6 +25,7 @@
 #ifndef _STDIO_H_
 #include <stdio.h>
 #endif
+#include "../../internal/include/utils.h"
 
 /*
  * =====================================================================================================================
@@ -77,7 +78,7 @@ double meanObsHerm(const state_t* state, const herm_t* obs) {
  * =====================================================================================================================
  */
 
-double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const applyPCG pqc[], const double par[],
+double* gradPQCDiag(const state_t* state, const double obs[], const depth_t d, const applyPCG pqc[], const double par[],
     const applyCG gen[]) {
     double* out = malloc(d * sizeof(double));
     if (out == NULL) {
@@ -94,7 +95,8 @@ double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const a
     applyDiag(&bra, obs);                                           // Apply the diagonal observable to bra
 
 #pragma omp parallel for default(none) shared(state, d, pqc, par, gen, bra, out) num_threads(d)
-    for (depth_t i = 0; i < d; ++i) {                               // Iterate the components of the PQC
+    for (depth_t i = 0; i < d; ++i) {
+        // Iterate the components of the PQC
         state_t ket;                                                // Initialized to the input state; acted on by the
         stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the i-th parameter
         stateInitVector(&ket, state->vec);
@@ -102,7 +104,7 @@ double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const a
         for (depth_t j = 0; j < i; ++j) {                           // Apply parametrized blocks up to i-1
             pqc[j](&ket, par[j]);
         }
-        gen[i](&ket);                                               // and apply the evolution operator to ket
+            gen[i](&ket);                                           // and apply the evolution operator to ket
         for (depth_t j = i; j < d; ++j) {                           // Evolve ket with rest of the evolution operators
             pqc[j](&ket, par[j]);
         }
@@ -114,7 +116,7 @@ double* gradPQCDiag(state_t* state, const double obs[], const depth_t d, const a
     return out;
 }
 
-double* gradPQCHerm(state_t* state, const herm_t* obs, const depth_t d, const applyPCG pqc[], const double par[],
+double* gradPQCHerm(const state_t* state, const herm_t* obs, const depth_t d, const applyPCG pqc[], const double par[],
     const applyCG gen[]) {
     double* out = malloc(d * sizeof(double));
     if (out == NULL) {
@@ -145,7 +147,7 @@ double* gradPQCHerm(state_t* state, const herm_t* obs, const depth_t d, const ap
             pqc[j](&ket, par[j]);
         }
 
-        out[i] = 2 * cimag(stateOverlap(bra, ket));
+        out[i] = cimag(stateOverlap(bra, ket));
         stateFreeVector(&ket);
     }
     stateFreeVector(&bra);

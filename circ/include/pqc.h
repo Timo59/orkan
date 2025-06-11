@@ -106,7 +106,7 @@ typedef struct pqc {
  *          part of a circuit. As long as the hermitian operator is not involutive; i.e., H**2, the output is no longer
  *          a quantum state, due to missing normalization.
  */
-void applyDiag(state_t* state, const double diag[]);
+void applyDiag(const state_t* state, const double diag[]);
 
 /*
  * @brief Wrapper function for the application of a composite quantum gate to a quntum state
@@ -172,17 +172,18 @@ void applyLCCG(state_t* state, const lccg_t* lccg);
  */
 
 /*
- * @brief This function unitarily evolves the quantum state with respect to the diagonal hermitian operator
+ * @brief This function unitarily evolves the quantum state for time par/2 with respect to the diagonal hermitian
+ * operator
  *
  * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*H)
  * @param[in]       diag    The diagonal entries of the hermitian operator H
  * @param[in]       par     Time of the evolution
  */
-void evoDiag(state_t* state, const double diag[], double par);
+void evoDiag(const state_t* state, const double diag[], double par);
 
 /*
- * @brief This function unitarily evolves of the quantum state with respect to the specified composition of quantum
- * gates
+ * @brief This function unitarily evolves the quantum state for time par/2 with respect to the specified composition of
+ * quantum gates
  *
  * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*cg)
  * @param[in]       cg      Composite gate; i.e, a function applying a composition of quantum gates to the quantum state
@@ -193,8 +194,8 @@ void evoDiag(state_t* state, const double diag[], double par);
 void evoCG(state_t* state, applyCG cg, double par);
 
 /*
- * @brief This function unitarily evolves of the quantum state with respect to the hermitian operator (weighted sum of
- * composite quantum gates)
+ * @brief This function unitarily evolves of the quantum state for time par/2 with respect to the hermitian operator
+ * (weighted sum of composite quantum gates)
  *
  * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to exp(-i*(par/2)*qb)
  * @param[in]       herm    Hermitian operator; i.e, a struct inheriting the weighted sum of composite quantum gates
@@ -206,7 +207,8 @@ void evoCG(state_t* state, applyCG cg, double par);
 void evoHerm(state_t* state, const herm_t* herm, const double par);
 
 /*
- * @brief Wrapper funtion for the unitary evolution of the quantum state with respect to a parametrized composite gate
+ * @brief Wrapper function for the unitary evolution of the quantum state for time par/2 with respect to a parametrized
+ * composite gate
  *
  * @param[in,out]   state   Quantum state. On exit, state after evolution with respect to pcg(state, par)
  * @param[in]       pcg     Parametrized composite quantum gate
