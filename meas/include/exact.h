@@ -104,7 +104,7 @@ double meanObsHerm(const state_t* state, const herm_t* obs);
  *
  * @return  The gradient vector
  */
-double* gradPQCDiag(state_t* state, const double obs[], depth_t d, const applyPCG pqc[], const double par[],
+double* gradPQCDiag(const state_t* state, const double obs[], depth_t d, const applyPCG pqc[], const double par[],
     const applyCG gen[]);
 
 /*
@@ -121,7 +121,7 @@ double* gradPQCDiag(state_t* state, const double obs[], depth_t d, const applyPC
  *
  * @return  The gradient vector
  */
-double* gradPQCHerm(state_t* state, const herm_t* obs, depth_t d, const applyPCG pqc[], const double par[],
+double* gradPQCHerm(const state_t* state, const herm_t* obs, depth_t d, const applyPCG pqc[], const double par[],
     const applyCG gen[]);
 
 /*
