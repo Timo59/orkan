@@ -534,13 +534,9 @@ void testMMseq(void) {
                     for (dim_t l = 0; l < dim; ++l) {
                         vecsCopy[k][l] = vecs[i][l];
                     }
-                    printf("refVec[%d] =", k);
-                    vectorPrint(vecsCopy[k], dim);
 
                     // Apply respective search unitary
                     cmatVecMulInPlace(testLCUMat[j * 5 + k], vecsCopy[k], dim);
-                    printf("testLCUMat[%d] =\n", j * 5 + k);
-                    matrixPrint(testLCUMat[j * 5 + k], dim);
 
                     // Apply the remaining LCUs to vecsCopy[k]
                     for (uint8_t l = j + 1; l < 3; ++l) {
@@ -551,7 +547,7 @@ void testMMseq(void) {
                         }
 
                         for (uint8_t m = 0; m < 5; ++m) {
-                            cplx_t* tmp = cmatVecMul(testLCUMat[j * 5 + m], vecsCopy[k], dim);
+                            cplx_t* tmp = cmatVecMul(testLCUMat[l * 5 + m], vecsCopy[k], dim);
                             cscalarVecMulInPlace(zcoeff[l * 5 + m], tmp, dim);
                             cvecAddInPlace(sum, tmp, dim);
                             free(tmp);
@@ -559,8 +555,6 @@ void testMMseq(void) {
                         free(vecsCopy[k]);
                         vecsCopy[k] = sum;
                     } // for LCU channels
-                    printf("refVec[%d] =", k);
-                    vectorPrint(vecsCopy[k], dim);
                 } // for reference vector
 
                 // Calculate the matrix elements of the reference moment matrix
@@ -578,10 +572,6 @@ void testMMseq(void) {
                 } // for row of reference moment matrix
 
                 for (uint8_t k = 0; k < 2; ++k) {
-                    printf("test :\n");
-                    cmatrixPrint(testMat[k], dim);
-                    printf("ref :\n");
-                    cmatrixPrint(refMat[k], dim);
                     TEST_ASSERT_TRUE(cvectorAlmostEqual(refMat[k], testMat[k], 25, APPROXPRECISION));
                 }
 
@@ -619,13 +609,13 @@ void testMMseq(void) {
  */
 int main(void) {
     UNITY_BEGIN();
-//    RUN_TEST(testMeanDiagObs);
-//    RUN_TEST(testMeanObsHerm);
-//    RUN_TEST(testMeanCG);
-//    RUN_TEST(testGradPQCDiag);
-//    RUN_TEST(testGradPQCHerm);
-//    RUN_TEST(testGradPQCDiag2);
-//    RUN_TEST(testGradPQCHerm2);
+    RUN_TEST(testMeanDiagObs);
+    RUN_TEST(testMeanObsHerm);
+    RUN_TEST(testMeanCG);
+    RUN_TEST(testGradPQCDiag);
+    RUN_TEST(testGradPQCHerm);
+    RUN_TEST(testGradPQCDiag2);
+    RUN_TEST(testGradPQCHerm2);
     RUN_TEST(testMMseq);
     return UNITY_END();
 }
