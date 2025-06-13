@@ -104,7 +104,7 @@ state_t testState = {                                       // Define the state 
 };
 
 cplx_t** vecs = NULL;                                       // Define the state vectors for the function tests
-cplx_t* testObsMat = NULL;                                  // Define the matrix representation of the test observable
+cplx_t* testObsMat[2] = {NULL, NULL};                       // Define the matrix representations of the test observables
 cplx_t* testOpMat = NULL;                                   // Define the matrix representation of the test operator
 
 herm_t testHerm = {                                         // Define the hermitian operator struct
@@ -113,8 +113,11 @@ herm_t testHerm = {                                         // Define the hermit
     .weight = NULL,
 };
 
-double* testVec = NULL;                                     // Define a vector valued test result
-double* refVec = NULL;                                      // Defihe a vector valued reference result
+double* testVec[2] = {NULL};                                // Define vector valued test results
+double* refVec[2] = {NULL};                                 // Define vector valued reference results
+
+cplx_t* testLCUMat[15] = {NULL};                            // Define the matrices for the LCU sequence in testMMseq
+cplx_t* testMomMat[2] = {NULL};                                 // Define the moment matrices
 
 extern inline void cleanup(void) {
     if (testState.vec != NULL) {
@@ -125,21 +128,39 @@ extern inline void cleanup(void) {
         freeTestVectors(vecs, testState.qubits);
         vecs = NULL;
     }
-    if (testObsMat != NULL) {
-        free(testObsMat);
-        testObsMat = NULL;
+    for (unsigned char i = 0; i < 2; ++i) {
+        if (testObsMat[i] != NULL) {
+            free(testObsMat[i]);
+            testObsMat[i] = NULL;
+        }
     }
     if (testOpMat != NULL) {
         free(testOpMat);
         testOpMat = NULL;
     }
-    if (testVec != NULL) {
-        free(testVec);
-        testVec = NULL;
+    for (unsigned char i = 0; i < 2; ++i) {
+        if (testVec[i] != NULL) {
+            free(testVec[i]);
+            testVec[i] = NULL;
+        }
     }
-    if (refVec != NULL) {
-        free(refVec);
-        refVec = NULL;
+    for (unsigned char i = 0; i < 2; ++i) {
+        if (refVec[i] != NULL) {
+            free(refVec[i]);
+            refVec[i] = NULL;
+        }
+    }
+    for (unsigned char i = 0; i < 15; ++i) {
+        if (testLCUMat[i] != NULL) {
+            free(testLCUMat[i]);
+            testLCUMat[i] = NULL;
+        }
+    }
+    for (unsigned char i = 0; i < 2; ++i) {
+        if (testMomMat[i] != NULL) {
+            free(testMomMat[i]);
+            testMomMat[i] = NULL;
+        }
     }
 }
 
@@ -953,6 +974,15 @@ matCG genMat[4] = {genRXMat, genRYMat, genRZMat, genRSWAPMat};
  *                                      Parametrized quantum blocks with fixed parameters
  * =====================================================================================================================
  */
+
+inline void applyTestHerm(state_t* state) {                 // Define a function that applies testHerm to a state
+    apply(state, &testHerm);
+}
+inline void applyDiagObs(const state_t* state) {            // Define a function that applies diagObs to a state
+    apply(state, diagObs);
+}
+applyCG obs[2] = {applyDiagObs, applyTestHerm};             // For mmseq define the observables as function pointers
+
 extern inline void UX2(state_t* state) {
     evoX2(state, randPar[0]);
 }
@@ -1097,9 +1127,7 @@ extern inline void URSwap6(state_t* state) {
     rswap6(state, randPar[3]);
 }
 
-applyCG obs[15] = {diag, y2, x2, diag, y3, x3, diag, y4, x4, diag, y5, x5, diag, y6, x6};
-
-applyCG channel[75] = {x2, y2, z2, swap2, diag, UX2, UY2, UZ2, USwap2, UDiag, URX2, URY2, URZ2, URSwap2, UDiag,
+applyCG unitary[75] = {x2, y2, z2, swap2, diag, UX2, UY2, UZ2, USwap2, UDiag, URX2, URY2, URZ2, URSwap2, UDiag,
                        x3, y3, z3, swap3, diag, UX3, UY3, UZ3, USwap3, UDiag, URX3, URY3, URZ3, URSwap3, UDiag,
                        x4, y4, z4, swap4, diag, UX4, UY4, UZ4, USwap4, UDiag, URX4, URY4, URZ4, URSwap4, UDiag,
                        x5, y5, z5, swap5, diag, UX5, UY5, UZ5, USwap5, UDiag, URX5, URY5, URZ5, URSwap5, UDiag,
@@ -1142,9 +1170,7 @@ extern inline cplx_t* UDiagMat(qubit_t qubits) {
     return evoDiagMat(qubits, randPar[4]);
 }
 
-matCG obsMat[3] = {diagMat, yMat, xMat};
-
-matCG channelMat[3][5] = {{xMat, yMat, zMat, swapMat, diagMat}, {UXMat, UYMat, UZMat, USwapMat, UDiagMat},
+matCG unitaryMat[3][5] = {{xMat, yMat, zMat, swapMat, diagMat}, {UXMat, UYMat, UZMat, USwapMat, UDiagMat},
                         {URXMat, URYMat, URZMat, URSwapMat, UDiagMat}};
 
 
