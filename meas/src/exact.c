@@ -42,21 +42,6 @@ double meanDiagObs(const state_t* state, const double obs[]) {
     return out;
 }
 
-double meanCG(const state_t* state, const applyCG obs) {
-    state_t tmp;                                                    // Temporary state the observable is applied to
-    stateInitEmpty(&tmp, state->qubits);
-    stateInitVector(&tmp, state->vec);
-    obs(&tmp);
-    const cplx_t overlap = stateOverlap(tmp, *state);
-    if (fabs(cimag(overlap)) < 1e-9) {
-        stateFreeVector(&tmp);
-        return creal(overlap);
-    }
-    fprintf(stderr, "meanCG(): Mean value of observable has non-negligible imaginary component\n");
-    stateFreeVector(&tmp);
-    exit(EXIT_FAILURE);
-}
-
 double meanObsHerm(const state_t* state, const herm_t* obs) {
     state_t tmp;                                                    // Temporary state the observable is applied to
     stateInitEmpty(&tmp, state->qubits);
@@ -70,6 +55,21 @@ double meanObsHerm(const state_t* state, const herm_t* obs) {
     fprintf(stderr, "meanObsHerm(): Mean value of observable has non-negligible imaginary component\n");
     stateFreeVector(&tmp);
     exit(EXIT_FAILURE);
+}
+
+/*
+ * =====================================================================================================================
+ *                                              Operator mean value
+ * =====================================================================================================================
+ */
+cplx_t meanCG(const state_t* state, const applyCG obs) {
+    state_t tmp;                                                    // Temporary state the observable is applied to
+    stateInitEmpty(&tmp, state->qubits);
+    stateInitVector(&tmp, state->vec);
+    obs(&tmp);
+    const cplx_t overlap = stateOverlap(tmp, *state);
+    stateFreeVector(&tmp);
+    return overlap;
 }
 
 /*
@@ -172,7 +172,6 @@ double* gradPQCHerm(const state_t* state, const herm_t* obs, const depth_t d, co
  *  input. Then, the set of unitary operators at link are applied one by one to the quantum state to give the states for
  *  each column and row, respectively. The remaining LCU are also applied with their coefficients determined on input.
  */
-
 void mmseq(state_t* state,
            const depth_t obsc,
            const applyCG obs[],
