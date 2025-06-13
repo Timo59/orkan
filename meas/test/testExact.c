@@ -480,11 +480,7 @@ void testMMseq(void) {
                 }
                 mmseq(&testState, 2, testObs, 3, testLCU, j, testMomMat);
 
-                for (unsigned char k = 0; k < 15; ++k) {
-                    printf("testLCUMat[%d] = %p\n", k, testLCUMat[k]);
-                }
-
-                for (uint8_t k = 0; k < 3; ++k) {
+                for (uint8_t k = 0; k < 2; ++k) {
                     if ((testMat[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
                         fprintf(stderr, "testMMseq(): testMat[%d] allocation failed\n", k);
                         exit(EXIT_FAILURE);
@@ -495,13 +491,6 @@ void testMMseq(void) {
                         exit(EXIT_FAILURE);
                     }
                 }
-                for (unsigned char k = 0; k < 15; ++k) {
-                    printf("testLCUMat[%d] = %p\n", k, testLCUMat[k]);
-                }
-                printf("Pointer to testMat[0] = %p\n", testMat[0]);
-                printf("Pointer to testMat[1] = %p\n", testMat[1]);
-                printf("Pointer to refMat[0] = %p\n", refMat[0]);
-                printf("Pointer to refMat[0] = %p\n", refMat[1]);
 
                 // Bring testMomMat from column major format to row major
                 for (uint8_t k = 0; k < 5; ++k) {
