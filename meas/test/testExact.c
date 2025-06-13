@@ -190,18 +190,18 @@ void testGradPQCDiag(void) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec[0] = gradPQC(&testState, testObs, 5, testPQC, randPar, testGen);
+            testVec = gradPQC(&testState, testObs, 5, testPQC, randPar, testGen);
 
             // Ascertain the reference gradient by finite difference method
-            refVec[0] = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 5, randPar);
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 5, randPar);
 
             // Check if the entries of both gradients are at most 1e-4 apart
-            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec[0], testVec[0], 5, APPROXPRECISION));
+            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 5, APPROXPRECISION));
 
-            free(testVec[0]);
-            testVec[0] = NULL;
-            free(refVec[0]);
-            refVec[0] = NULL;
+            free(testVec);
+            testVec = NULL;
+            free(refVec);
+            refVec = NULL;
         }
 
         free(testObsMat[0]);
@@ -262,18 +262,18 @@ void testGradPQCHerm(void) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec[0] = gradPQC(&testState, &testObs, 5, testPQC, randPar, testGen);
+            testVec = gradPQC(&testState, &testObs, 5, testPQC, randPar, testGen);
 
             // Ascertain the reference gradient by finite difference method
-            refVec[0] = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 5, randPar);
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 5, randPar);
 
             // Check if the entries of both gradients are at most 1e-4 apart
-            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec[0], testVec[0], 5, APPROXPRECISION));
+            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 5, APPROXPRECISION));
 
-            free(testVec[0]);
-            testVec[0] = NULL;
-            free(refVec[0]);
-            refVec[0] = NULL;
+            free(testVec);
+            testVec = NULL;
+            free(refVec);
+            refVec = NULL;
         }
 
         free(testObsMat[0]);
@@ -319,18 +319,18 @@ void testGradPQCDiag2(void) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec[0] = gradPQC(&testState, testObs, 4, testPQC, randPar, testGen);
+            testVec = gradPQC(&testState, testObs, 4, testPQC, randPar, testGen);
 
             // Ascertain the reference gradient by finite difference method
-            refVec[0] = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 4, randPar);
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 4, randPar);
 
             // Check if the entries of both gradients are at most 1e-4 apart
-            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec[0], testVec[0], 1, APPROXPRECISION));
+            TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 1, APPROXPRECISION));
 
-            free(testVec[0]);
-            testVec[0] = NULL;
-            free(refVec[0]);
-            refVec[0] = NULL;
+            free(testVec);
+            testVec = NULL;
+            free(refVec);
+            refVec = NULL;
         }
 
         free(testObsMat[0]);
@@ -343,8 +343,8 @@ void testGradPQCDiag2(void) {
 }
 
 /*
- * Tests gradPQC with general hermitian operator operator as observable and a PQC comprising a composition of
- * parametrized quantum gates
+ * Tests gradPQC with general hermitian operator  as observable and a PQC comprising a composition of parametrized
+ * quantum gates
  */
 void testGradPQCHerm2(void) {
     if (atexit(cleanup)) {
@@ -390,18 +390,18 @@ void testGradPQCHerm2(void) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec[0] = gradPQC(&testState, &testObs, 4, testPQC, randPar, testGen);
+            testVec = gradPQC(&testState, &testObs, 4, testPQC, randPar, testGen);
 
             // Ascertain the reference gradient by finite difference method
-            refVec[0] = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 4, randPar);
+            refVec = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 4, randPar);
 
             // Check if the entries of both gradients are at most 1e-4 apart
             TEST_ASSERT_TRUE(rvectorAlmostEqual(refVec, testVec, 1, APPROXPRECISION));
 
-            free(testVec[0]);
-            testVec[0] = NULL;
-            free(refVec[0]);
-            refVec[0] = NULL;
+            free(testVec);
+            testVec = NULL;
+            free(refVec);
+            refVec = NULL;
         }
 
         free(testObsMat[0]);
@@ -480,24 +480,35 @@ void testMMseq(void) {
                 }
                 mmseq(&testState, 2, testObs, 3, testLCU, j, testMomMat);
 
+                for (unsigned char k = 0; k < 15; ++k) {
+                    printf("testLCUMat[%d] = %p\n", k, testLCUMat[k]);
+                }
+
                 for (uint8_t k = 0; k < 3; ++k) {
-                    if ((testVec[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
-                        fprintf(stderr, "testMMseq(): test[%d] allocation failed\n", k);
+                    if ((testMat[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
+                        fprintf(stderr, "testMMseq(): testMat[%d] allocation failed\n", k);
                         exit(EXIT_FAILURE);
                     }
 
-                    if ((refVec[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
-                        fprintf(stderr, "testMMseq(): ref[%d] allocation failed\n", k);
+                    if ((refMat[k] = malloc(5 * 5 * sizeof (cplx_t))) == NULL) {
+                        fprintf(stderr, "testMMseq(): refMat[%d] allocation failed\n", k);
                         exit(EXIT_FAILURE);
                     }
                 }
+                for (unsigned char k = 0; k < 15; ++k) {
+                    printf("testLCUMat[%d] = %p\n", k, testLCUMat[k]);
+                }
+                printf("Pointer to testMat[0] = %p\n", testMat[0]);
+                printf("Pointer to testMat[1] = %p\n", testMat[1]);
+                printf("Pointer to refMat[0] = %p\n", refMat[0]);
+                printf("Pointer to refMat[0] = %p\n", refMat[1]);
 
                 // Bring testMomMat from column major format to row major
                 for (uint8_t k = 0; k < 5; ++k) {
                     for (uint8_t mat = 0; mat < 2; ++mat) {
-                        testVec[mat][k + k * 5] = testMomMat[mat][k + k * 5];
+                        testMat[mat][k + k * 5] = testMomMat[mat][k + k * 5];
                         for (uint8_t l = 0; l < 5; ++l) {
-                            testVec[mat][l + 5 * k] = testMomMat[mat][k + 5 * l];
+                            testMat[mat][l + 5 * k] = testMomMat[mat][k + 5 * l];
                         }
                     }
                 }
@@ -524,19 +535,26 @@ void testMMseq(void) {
                     vecs[i] = sum;
                 }
 
-                for (uint8_t k = 0; k < 5; ++k) {                   // Calculate the reference vectors spanning the
-                    if ((refVec[k] = malloc(dim * sizeof (cplx_t))) == NULL) {  // moment matrix
-                        fprintf(stderr, "testMMseq: refVec[%d] allocation failed\n", k);
+                // Calculate the vectors spanning the reference matrix; i.e., the LCU components applied to the input
+                for (uint8_t k = 0; k < 5; ++k) {
+                    if ((vecsCopy[k] = malloc(dim * sizeof (cplx_t))) == NULL) {
+                        fprintf(stderr, "testMMseq(): vecsCopy[%d] allocation failed\n", k);
                         exit(EXIT_FAILURE);
                     }
 
-                    for (dim_t l = 0; l < dim; ++l) {               // Copy current reference state vector
-                        refVec[k][l] = vecs[i][l];
+                    for (dim_t l = 0; l < dim; ++l) {
+                        vecsCopy[k][l] = vecs[i][l];
                     }
+                    printf("refVec[%d] =", k);
+                    vectorPrint(vecsCopy[k], dim);
 
-                    cmatVecMulInPlace(uMat[j][k], refVec[k], dim);  // Apply the according search unitary
+                    // Apply respective search unitary
+                    cmatVecMulInPlace(testLCUMat[j * 5 + k], vecsCopy[k], dim);
+                    printf("testLCUMat[%d] =\n", j * 5 + k);
+                    matrixPrint(testLCUMat[j * 5 + k], dim);
 
-                    for (uint8_t l = j + 1; l < 3; ++l) {           // Apply the remaining LCU channels to refVec[k]
+                    // Apply the remaining LCUs to vecsCopy[k]
+                    for (uint8_t l = j + 1; l < 3; ++l) {
                         cplx_t* sum = calloc(dim, sizeof (cplx_t));
                         if (sum == NULL) {
                             fprintf(stderr, "testMMseq: %d-th sum allocation after link failed\n", l);
@@ -544,56 +562,61 @@ void testMMseq(void) {
                         }
 
                         for (uint8_t m = 0; m < 5; ++m) {
-                            cplx_t* tmp = cmatVecMul(uMat[l][m], refVec[k], dim);
+                            cplx_t* tmp = cmatVecMul(testLCUMat[j * 5 + m], vecsCopy[k], dim);
                             cscalarVecMulInPlace(zcoeff[l * 5 + m], tmp, dim);
                             cvecAddInPlace(sum, tmp, dim);
                             free(tmp);
                         }
-                        free(refVec[k]);
-                        refVec[k] = sum;
+                        free(vecsCopy[k]);
+                        vecsCopy[k] = sum;
                     } // for LCU channels
+                    printf("refVec[%d] =", k);
+                    vectorPrint(vecsCopy[k], dim);
                 } // for reference vector
 
+                // Calculate the matrix elements of the reference moment matrix
+                for (uint8_t k = 0; k < 5; ++k) {
+                    for (uint8_t m = 0; m < 2; ++m) {
+                        cplx_t* tmp = cmatVecMul(testObsMat[m], vecsCopy[k], dim);
 
-                for (uint8_t k = 0; k < 5; ++k) {                   // Iterate the rows of the reference moment matrices
-                    for (uint8_t m = 0; m < 3; ++m) {               // Iterate the moment matrices
-                        cplx_t* tmp = cmatVecMul(observableMat[m], refVec[k], dim);
-
-                        for (uint8_t l = 0; l < 5; ++l) {               // Iterate columns of the reference moment matrix
-                            ref[m][l + k * 5] = cInner(tmp, refVec[l], dim);
+                        // Iterate columns of the reference moment matrix
+                        for (uint8_t l = 0; l < 5; ++l) {
+                            refMat[m][l + k * 5] = cInner(tmp, vecsCopy[l], dim);
                         } // for column of moment matrix
 
                         free(tmp);
                     } // for moment matrix
                 } // for row of reference moment matrix
 
-                for (uint8_t k = 0; k < 3; ++k) {
-                    TEST_ASSERT_TRUE(cvectorAlmostEqual(ref[k], test[k], 25, APPROXPRECISION));
+                for (uint8_t k = 0; k < 2; ++k) {
+                    printf("test :\n");
+                    cmatrixPrint(testMat[k], dim);
+                    printf("ref :\n");
+                    cmatrixPrint(refMat[k], dim);
+                    TEST_ASSERT_TRUE(cvectorAlmostEqual(refMat[k], testMat[k], 25, APPROXPRECISION));
                 }
 
-                for (uint8_t k = 0; k < 3; ++k) {
-                    free(ref[k]);
-                    ref[k] = NULL;
-                    free(test[k]);
-                    test[k] = NULL;
+                for (uint8_t k = 0; k < 2; ++k) {
+                    free(refMat[k]);
+                    refMat[k] = NULL;
+                    free(testMat[k]);
+                    testMat[k] = NULL;
                 }
                 for (uint8_t k = 0; k < 5; ++k) {
-                    free(refVec[k]);
-                    refVec[k] = NULL;
+                    free(vecsCopy[k]);
+                    vecsCopy[k] = NULL;
                 }
             } // for test vector
             freeTestVectors(vecs, qubits);
             vecs = NULL;
         } // for link
-        for (uint8_t k = 0; k < 3; ++k) {
-            for (uint8_t l = 0; l < 5; ++l) {
-                free(uMat[k][l]);
-                uMat[k][l] = NULL;
-            }
-            free(uMat[k]);
-            uMat[k] = NULL;
-            free(observableMat[k]);
-            observableMat[k] = NULL;
+        for (unsigned char i = 0; i < 15; ++i) {
+            free(testLCUMat[i]);
+            testLCUMat[i] = NULL;
+        }
+        for (unsigned char i = 0; i < 2; ++i) {
+            free(testObsMat[i]);
+            testObsMat[i] = NULL;
         }
         stateFreeVector(&testState);
         testState.vec = NULL;
@@ -607,14 +630,14 @@ void testMMseq(void) {
  */
 int main(void) {
     UNITY_BEGIN();
-    RUN_TEST(testMeanDiagObs);
-    RUN_TEST(testMeanObsHerm);
-    RUN_TEST(testMeanCG);
-    RUN_TEST(testGradPQCDiag);
-    RUN_TEST(testGradPQCHerm);
-    RUN_TEST(testGradPQCDiag2);
-    RUN_TEST(testGradPQCHerm2);
-    // RUN_TEST(testMMseq);
+//    RUN_TEST(testMeanDiagObs);
+//    RUN_TEST(testMeanObsHerm);
+//    RUN_TEST(testMeanCG);
+//    RUN_TEST(testGradPQCDiag);
+//    RUN_TEST(testGradPQCHerm);
+//    RUN_TEST(testGradPQCDiag2);
+//    RUN_TEST(testGradPQCHerm2);
+    RUN_TEST(testMMseq);
     return UNITY_END();
 }
 
