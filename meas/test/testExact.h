@@ -113,11 +113,15 @@ herm_t testHerm = {                                         // Define the hermit
     .weight = NULL,
 };
 
-double* testVec[2] = {NULL};                                // Define vector valued test results
-double* refVec[2] = {NULL};                                 // Define vector valued reference results
+double* testVec = {NULL};                                   // Define vector valued test results
+double* refVec = {NULL};                                    // Define vector valued reference results
+
+cplx_t* testMat[2] = {NULL};                                // Define matrix valued test results
+cplx_t* refMat[2] = {NULL};                                 // Define matrix valued reference results
 
 cplx_t* testLCUMat[15] = {NULL};                            // Define the matrices for the LCU sequence in testMMseq
-cplx_t* testMomMat[2] = {NULL};                                 // Define the moment matrices
+cplx_t* testMomMat[2] = {NULL};                             // Define the moment matrices
+cplx_t* vecsCopy[5] = {NULL};                               // Vectors to span reference moment matrix
 
 extern inline void cleanup(void) {
     if (testState.vec != NULL) {
@@ -138,16 +142,24 @@ extern inline void cleanup(void) {
         free(testOpMat);
         testOpMat = NULL;
     }
+    if (testVec != NULL) {
+        free(testVec);
+        testVec = NULL;
+    }
+    if (refVec != NULL) {
+        free(refVec);
+        refVec = NULL;
+    }
     for (unsigned char i = 0; i < 2; ++i) {
-        if (testVec[i] != NULL) {
-            free(testVec[i]);
-            testVec[i] = NULL;
+        if (testMat[i] != NULL) {
+            free(testMat[i]);
+            testMat[i] = NULL;
         }
     }
     for (unsigned char i = 0; i < 2; ++i) {
-        if (refVec[i] != NULL) {
-            free(refVec[i]);
-            refVec[i] = NULL;
+        if (refMat[i] != NULL) {
+            free(refMat[i]);
+            refMat[i] = NULL;
         }
     }
     for (unsigned char i = 0; i < 15; ++i) {
@@ -160,6 +172,12 @@ extern inline void cleanup(void) {
         if (testMomMat[i] != NULL) {
             free(testMomMat[i]);
             testMomMat[i] = NULL;
+        }
+    }
+    for (unsigned char i = 0; i < 5; ++i) {
+        if (vecsCopy[i] != NULL) {
+            free(vecsCopy[i]);
+            vecsCopy[i] = NULL;
         }
     }
 }
@@ -975,10 +993,10 @@ matCG genMat[4] = {genRXMat, genRYMat, genRZMat, genRSWAPMat};
  * =====================================================================================================================
  */
 
-inline void applyTestHerm(state_t* state) {                 // Define a function that applies testHerm to a state
+extern inline void applyTestHerm(state_t* state) {              // Define a function that applies testHerm to a state
     apply(state, &testHerm);
 }
-inline void applyDiagObs(const state_t* state) {            // Define a function that applies diagObs to a state
+extern inline void applyDiagObs(state_t* state) {               // Define a function that applies diagObs to a state
     apply(state, diagObs);
 }
 applyCG obs[2] = {applyDiagObs, applyTestHerm};             // For mmseq define the observables as function pointers
@@ -1170,8 +1188,8 @@ extern inline cplx_t* UDiagMat(qubit_t qubits) {
     return evoDiagMat(qubits, randPar[4]);
 }
 
-matCG unitaryMat[3][5] = {{xMat, yMat, zMat, swapMat, diagMat}, {UXMat, UYMat, UZMat, USwapMat, UDiagMat},
-                        {URXMat, URYMat, URZMat, URSwapMat, UDiagMat}};
+matCG unitaryMat[15] = {xMat, yMat, zMat, swapMat, diagMat,UXMat, UYMat, UZMat, USwapMat, UDiagMat, URXMat, URYMat,
+                        URZMat, URSwapMat, UDiagMat};
 
 
 #endif //TESTEXACT_H

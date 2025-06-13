@@ -197,7 +197,7 @@ void mmseq(state_t* state,
 
         // Apply the remaining LCU channels
         for (depth_t k = link + 1; k < circdepth; ++k) {
-            applyLCCG(state, lcu + k);
+            applyLCCG(&ket, lcu + k);
         }
 
         // Calculate the j-th diagonal element for all observables
@@ -220,7 +220,7 @@ void mmseq(state_t* state,
                 lcu[link].comp[i](&bra);
                 // Apply the remaining LCU channels
                 for (depth_t l = link + 1; l < circdepth; ++l) {
-                    applyLCCG(state, lcu + l);
+                    applyLCCG(&bra, lcu + l);
                 }
                 obs[k](&bra);
                 momMat[k][i + j * lcu[link].len] = stateOverlap(bra, ket);
