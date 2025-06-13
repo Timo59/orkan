@@ -105,6 +105,7 @@ state_t testState = {                                       // Define the state 
 
 cplx_t** vecs = NULL;                                       // Define the state vectors for the function tests
 cplx_t* testObsMat = NULL;                                  // Define the matrix representation of the test observable
+cplx_t* testOpMat = NULL;                                   // Define the matrix representation of the test operator
 
 herm_t testHerm = {                                         // Define the hermitian operator struct
     .len = 0,
@@ -127,6 +128,10 @@ extern inline void cleanup(void) {
     if (testObsMat != NULL) {
         free(testObsMat);
         testObsMat = NULL;
+    }
+    if (testOpMat != NULL) {
+        free(testOpMat);
+        testOpMat = NULL;
     }
     if (testVec != NULL) {
         free(testVec);
@@ -943,204 +948,204 @@ extern inline cplx_t* genRSWAPMat(const qubit_t qubits) {
 
 matCG genMat[4] = {genRXMat, genRYMat, genRZMat, genRSWAPMat};
 
-// /*
-//  * =====================================================================================================================
-//  *                                      Parametrized quantum blocks with fixed parameters
-//  * =====================================================================================================================
-//  */
-// extern inline void UX2(state_t* state) {
-//     evoX2(state, randPar[0]);
-// }
-// extern inline void URX2(state_t* state) {
-//     rx2(state, randPar[0]);
-// }
-//
-// extern inline void UY2(state_t* state) {
-//     evoY2(state, randPar[1]);
-// }
-// extern inline void URY2(state_t* state) {
-//     ry2(state, randPar[1]);
-// }
-//
-// extern inline void UZ2(state_t* state) {
-//     evoZ2(state, randPar[2]);
-// }
-// extern inline void URZ2(state_t* state) {
-//     rz2(state, randPar[2]);
-// }
-//
-// extern inline void USwap2(state_t* state) {
-//     evoSwap2(state, randPar[3]);
-// }
-// extern inline void URSwap2(state_t* state) {
-//     rswap2(state, randPar[3]);
-// }
-//
-// extern inline void UDiag(state_t* state) {
-//     evoDiag2(state, randPar[4]);
-// }
-//
-// extern inline void UX3(state_t* state) {
-//     evoX3(state, randPar[0]);
-// }
-// extern inline void URX3(state_t* state) {
-//     rx3(state, randPar[0]);
-// }
-//
-// extern inline void UY3(state_t* state) {
-//     evoY3(state, randPar[1]);
-// }
-// extern inline void URY3(state_t* state) {
-//     ry3(state, randPar[1]);
-// }
-//
-// extern inline void UZ3(state_t* state) {
-//     evoZ3(state, randPar[2]);
-// }
-// extern inline void URZ3(state_t* state) {
-//     rz3(state, randPar[2]);
-// }
-//
-// extern inline void USwap3(state_t* state) {
-//     evoSwap2(state, randPar[3]);
-// }
-// extern inline void URSwap3(state_t* state) {
-//     rswap2(state, randPar[3]);
-// }
-//
-// extern inline void UX4(state_t* state) {
-//     evoX4(state, randPar[0]);
-// }
-// extern inline void URX4(state_t* state) {
-//     rx4(state, randPar[0]);
-// }
-//
-// extern inline void UY4(state_t* state) {
-//     evoY4(state, randPar[1]);
-// }
-// extern inline void URY4(state_t* state) {
-//     ry4(state, randPar[1]);
-// }
-//
-// extern inline void UZ4(state_t* state) {
-//     evoZ4(state, randPar[2]);
-// }
-// extern inline void URZ4(state_t* state) {
-//     rz4(state, randPar[2]);
-// }
-//
-// extern inline void USwap4(state_t* state) {
-//     evoSwap4(state, randPar[3]);
-// }
-// extern inline void URSwap4(state_t* state) {
-//     rswap4(state, randPar[3]);
-// }
-//
-// extern inline void UX5(state_t* state) {
-//     evoX5(state, randPar[0]);
-// }
-// extern inline void URX5(state_t* state) {
-//     rx5(state, randPar[0]);
-// }
-//
-// extern inline void UY5(state_t* state) {
-//     evoY5(state, randPar[1]);
-// }
-// extern inline void URY5(state_t* state) {
-//     ry5(state, randPar[1]);
-// }
-//
-// extern inline void UZ5(state_t* state) {
-//     evoZ5(state, randPar[2]);
-// }
-// extern inline void URZ5(state_t* state) {
-//     rz5(state, randPar[2]);
-// }
-//
-// extern inline void USwap5(state_t* state) {
-//     evoSwap5(state, randPar[3]);
-// }
-// extern inline void URSwap5(state_t* state) {
-//     rswap5(state, randPar[3]);
-// }
-//
-// extern inline void UX6(state_t* state) {
-//     evoX6(state, randPar[0]);
-// }
-// extern inline void URX6(state_t* state) {
-//     rx6(state, randPar[0]);
-// }
-//
-// extern inline void UY6(state_t* state) {
-//     evoY6(state, randPar[1]);
-// }
-// extern inline void URY6(state_t* state) {
-//     ry6(state, randPar[1]);
-// }
-//
-// extern inline void UZ6(state_t* state) {
-//     evoZ6(state, randPar[2]);
-// }
-// extern inline void URZ6(state_t* state) {
-//     rz6(state, randPar[2]);
-// }
-//
-// extern inline void USwap6(state_t* state) {
-//     evoSwap6(state, randPar[3]);
-// }
-// extern inline void URSwap6(state_t* state) {
-//     rswap6(state, randPar[3]);
-// }
-//
-// applyQB obs[15] = {diag, y2, x2, diag, y3, x3, diag, y4, x4, diag, y5, x5, diag, y6, x6};
-//
-// applyQB channel[75] = {x2, y2, z2, swap2, diag, UX2, UY2, UZ2, USwap2, UDiag, URX2, URY2, URZ2, URSwap2, UDiag,
-//                        x3, y3, z3, swap3, diag, UX3, UY3, UZ3, USwap3, UDiag, URX3, URY3, URZ3, URSwap3, UDiag,
-//                        x4, y4, z4, swap4, diag, UX4, UY4, UZ4, USwap4, UDiag, URX4, URY4, URZ4, URSwap4, UDiag,
-//                        x5, y5, z5, swap5, diag, UX5, UY5, UZ5, USwap5, UDiag, URX5, URY5, URZ5, URSwap5, UDiag,
-//                        x6, y6, z6, swap6, diag, UX6, UY6, UZ6, USwap6, UDiag, URX6, URY6, URZ6, URSwap6, UDiag
-// };
-// /*
-//  * =====================================================================================================================
-//  *                          Parametrized quantum blocks with fixed parameters as matrices
-//  * =====================================================================================================================
-//  */
-// extern inline cplx_t* UXMat(qubit_t qubits) {
-//     return evoXMat(qubits, randPar[0]);
-// }
-// extern inline cplx_t* URXMat(qubit_t qubits) {
-//     return rxMat(qubits, randPar[0]);
-// }
-//
-// extern inline cplx_t* UYMat(qubit_t qubits) {
-//     return evoYMat(qubits, randPar[1]);
-// }
-// extern inline cplx_t* URYMat(qubit_t qubits) {
-//     return ryMat(qubits, randPar[1]);
-// }
-//
-// extern inline cplx_t* UZMat(qubit_t qubits) {
-//     return evoZMat(qubits, randPar[2]);
-// }
-// extern inline cplx_t* URZMat(qubit_t qubits) {
-//     return rzMat(qubits, randPar[2]);
-// }
-//
-// extern inline cplx_t* USwapMat(qubit_t qubits) {
-//     return evoSwapMat(qubits, randPar[3]);
-// }
-// extern inline cplx_t* URSwapMat(qubit_t qubits) {
-//     return rSwapMat(qubits, randPar[3]);
-// }
-//
-// extern inline cplx_t* UDiagMat(qubit_t qubits) {
-//     return evoDiagMat(qubits, randPar[4]);
-// }
-//
-// matCG obsMat[3] = {diagMat, yMat, xMat};
-//
-// matCG channelMat[3][5] = {{xMat, yMat, zMat, swapMat, diagMat}, {UXMat, UYMat, UZMat, USwapMat, UDiagMat},
-//                         {URXMat, URYMat, URZMat, URSwapMat, UDiagMat}};
+/*
+ * =====================================================================================================================
+ *                                      Parametrized quantum blocks with fixed parameters
+ * =====================================================================================================================
+ */
+extern inline void UX2(state_t* state) {
+    evoX2(state, randPar[0]);
+}
+extern inline void URX2(state_t* state) {
+    rx2(state, randPar[0]);
+}
+
+extern inline void UY2(state_t* state) {
+    evoY2(state, randPar[1]);
+}
+extern inline void URY2(state_t* state) {
+    ry2(state, randPar[1]);
+}
+
+extern inline void UZ2(state_t* state) {
+    evoZ2(state, randPar[2]);
+}
+extern inline void URZ2(state_t* state) {
+    rz2(state, randPar[2]);
+}
+
+extern inline void USwap2(state_t* state) {
+    evoSwap2(state, randPar[3]);
+}
+extern inline void URSwap2(state_t* state) {
+    rswap2(state, randPar[3]);
+}
+
+extern inline void UDiag(state_t* state) {
+    evoDiag2(state, randPar[4]);
+}
+
+extern inline void UX3(state_t* state) {
+    evoX3(state, randPar[0]);
+}
+extern inline void URX3(state_t* state) {
+    rx3(state, randPar[0]);
+}
+
+extern inline void UY3(state_t* state) {
+    evoY3(state, randPar[1]);
+}
+extern inline void URY3(state_t* state) {
+    ry3(state, randPar[1]);
+}
+
+extern inline void UZ3(state_t* state) {
+    evoZ3(state, randPar[2]);
+}
+extern inline void URZ3(state_t* state) {
+    rz3(state, randPar[2]);
+}
+
+extern inline void USwap3(state_t* state) {
+    evoSwap2(state, randPar[3]);
+}
+extern inline void URSwap3(state_t* state) {
+    rswap2(state, randPar[3]);
+}
+
+extern inline void UX4(state_t* state) {
+    evoX4(state, randPar[0]);
+}
+extern inline void URX4(state_t* state) {
+    rx4(state, randPar[0]);
+}
+
+extern inline void UY4(state_t* state) {
+    evoY4(state, randPar[1]);
+}
+extern inline void URY4(state_t* state) {
+    ry4(state, randPar[1]);
+}
+
+extern inline void UZ4(state_t* state) {
+    evoZ4(state, randPar[2]);
+}
+extern inline void URZ4(state_t* state) {
+    rz4(state, randPar[2]);
+}
+
+extern inline void USwap4(state_t* state) {
+    evoSwap4(state, randPar[3]);
+}
+extern inline void URSwap4(state_t* state) {
+    rswap4(state, randPar[3]);
+}
+
+extern inline void UX5(state_t* state) {
+    evoX5(state, randPar[0]);
+}
+extern inline void URX5(state_t* state) {
+    rx5(state, randPar[0]);
+}
+
+extern inline void UY5(state_t* state) {
+    evoY5(state, randPar[1]);
+}
+extern inline void URY5(state_t* state) {
+    ry5(state, randPar[1]);
+}
+
+extern inline void UZ5(state_t* state) {
+    evoZ5(state, randPar[2]);
+}
+extern inline void URZ5(state_t* state) {
+    rz5(state, randPar[2]);
+}
+
+extern inline void USwap5(state_t* state) {
+    evoSwap5(state, randPar[3]);
+}
+extern inline void URSwap5(state_t* state) {
+    rswap5(state, randPar[3]);
+}
+
+extern inline void UX6(state_t* state) {
+    evoX6(state, randPar[0]);
+}
+extern inline void URX6(state_t* state) {
+    rx6(state, randPar[0]);
+}
+
+extern inline void UY6(state_t* state) {
+    evoY6(state, randPar[1]);
+}
+extern inline void URY6(state_t* state) {
+    ry6(state, randPar[1]);
+}
+
+extern inline void UZ6(state_t* state) {
+    evoZ6(state, randPar[2]);
+}
+extern inline void URZ6(state_t* state) {
+    rz6(state, randPar[2]);
+}
+
+extern inline void USwap6(state_t* state) {
+    evoSwap6(state, randPar[3]);
+}
+extern inline void URSwap6(state_t* state) {
+    rswap6(state, randPar[3]);
+}
+
+applyCG obs[15] = {diag, y2, x2, diag, y3, x3, diag, y4, x4, diag, y5, x5, diag, y6, x6};
+
+applyCG channel[75] = {x2, y2, z2, swap2, diag, UX2, UY2, UZ2, USwap2, UDiag, URX2, URY2, URZ2, URSwap2, UDiag,
+                       x3, y3, z3, swap3, diag, UX3, UY3, UZ3, USwap3, UDiag, URX3, URY3, URZ3, URSwap3, UDiag,
+                       x4, y4, z4, swap4, diag, UX4, UY4, UZ4, USwap4, UDiag, URX4, URY4, URZ4, URSwap4, UDiag,
+                       x5, y5, z5, swap5, diag, UX5, UY5, UZ5, USwap5, UDiag, URX5, URY5, URZ5, URSwap5, UDiag,
+                       x6, y6, z6, swap6, diag, UX6, UY6, UZ6, USwap6, UDiag, URX6, URY6, URZ6, URSwap6, UDiag
+};
+/*
+ * =====================================================================================================================
+ *                          Parametrized quantum blocks with fixed parameters as matrices
+ * =====================================================================================================================
+ */
+extern inline cplx_t* UXMat(qubit_t qubits) {
+    return evoXMat(qubits, randPar[0]);
+}
+extern inline cplx_t* URXMat(qubit_t qubits) {
+    return rxMat(qubits, randPar[0]);
+}
+
+extern inline cplx_t* UYMat(qubit_t qubits) {
+    return evoYMat(qubits, randPar[1]);
+}
+extern inline cplx_t* URYMat(qubit_t qubits) {
+    return ryMat(qubits, randPar[1]);
+}
+
+extern inline cplx_t* UZMat(qubit_t qubits) {
+    return evoZMat(qubits, randPar[2]);
+}
+extern inline cplx_t* URZMat(qubit_t qubits) {
+    return rzMat(qubits, randPar[2]);
+}
+
+extern inline cplx_t* USwapMat(qubit_t qubits) {
+    return evoSwapMat(qubits, randPar[3]);
+}
+extern inline cplx_t* URSwapMat(qubit_t qubits) {
+    return rSwapMat(qubits, randPar[3]);
+}
+
+extern inline cplx_t* UDiagMat(qubit_t qubits) {
+    return evoDiagMat(qubits, randPar[4]);
+}
+
+matCG obsMat[3] = {diagMat, yMat, xMat};
+
+matCG channelMat[3][5] = {{xMat, yMat, zMat, swapMat, diagMat}, {UXMat, UYMat, UZMat, USwapMat, UDiagMat},
+                        {URXMat, URYMat, URZMat, URSwapMat, UDiagMat}};
 
 
 #endif //TESTEXACT_H

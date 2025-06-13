@@ -36,54 +36,6 @@ void testMeanDiagObs(void) {
     }
 }
 
-void testMeanCG(void) {
-    if (atexit(cleanup)) {                                          // Register cleanup function
-            fprintf(stderr, "Failed to register cleanup function\n");
-            exit(EXIT_FAILURE);
-        }
-
-    for (qubit_t qubits = 2; qubits <= MAXQUBITS; qubits++) {
-        const dim_t dim = POW2(qubits, dim_t);
-
-        // Define test state and initialize test state vectors
-        stateInitEmpty(&testState, qubits);
-        vecs = generateTestVectors(qubits);
-
-        // Initialize the array of hermitian composite quantum gates serving as observables
-        applyCG *testObs = cg + 5 * (qubits - 2);
-
-        // Iterate the observables and start by defining their matrix representation
-        for (uint8_t j = 0; j < 4; ++j) {
-            testObsMat = cgMat[j](qubits);
-
-            for (uint8_t i = 0; i < dim + 1; i++) {
-                stateInitVector(&testState, vecs[i]);
-                const double test = meanObs(&testState, testObs[j]);
-
-                cplx_t* tmp = malloc(dim * sizeof(cplx_t));
-                if (tmp == NULL) {
-                    exit(EXIT_FAILURE);
-                }
-                for (dim_t k = 0; k < dim; k++) {
-                    tmp[k] = vecs[i][k];
-                }
-
-                cmatVecMulInPlace(testObsMat, tmp, dim);
-                const double ref = creal(cInner(tmp, vecs[i], dim));
-                free(tmp);
-
-                TEST_ASSERT_TRUE(ralmostEqual(ref, test, PRECISION));
-            }
-            free(testObsMat);
-            testObsMat = NULL;
-        }
-        freeTestVectors(vecs, qubits);
-        vecs = NULL;
-        stateFreeVector(&testState);
-        testState.vec = NULL;
-    }
-}
-
 void testMeanObsHerm(void) {
     if (atexit(cleanup)) {
         fprintf(stderr, "Failed to register cleanup function\n");
@@ -135,6 +87,60 @@ void testMeanObsHerm(void) {
         }
         free(testObsMat);
         testObsMat = NULL;
+        freeTestVectors(vecs, qubits);
+        vecs = NULL;
+        stateFreeVector(&testState);
+        testState.vec = NULL;
+    }
+}
+
+/*
+ * =====================================================================================================================
+ *                                                  testMeanOp
+ * =====================================================================================================================
+ */
+
+void testMeanCG(void) {
+    if (atexit(cleanup)) {                                          // Register cleanup function
+        fprintf(stderr, "Failed to register cleanup function\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (qubit_t qubits = 2; qubits <= MAXQUBITS; qubits++) {
+        const dim_t dim = POW2(qubits, dim_t);
+
+        // Define test state and initialize test state vectors
+        stateInitEmpty(&testState, qubits);
+        vecs = generateTestVectors(qubits);
+
+        // Initialize the array of hermitian composite quantum gates serving as observables
+        const applyCG *testOp = cg + 5 * (qubits - 2);
+
+        // Iterate the observables and start by defining their matrix representation
+        for (uint8_t j = 0; j < 4; ++j) {
+            testObsMat = cgMat[j](qubits);
+
+            for (uint8_t i = 0; i < dim + 1; i++) {
+                stateInitVector(&testState, vecs[i]);
+                const double test = meanCG(&testState, testOp[j]);
+
+                cplx_t* tmp = malloc(dim * sizeof(cplx_t));
+                if (tmp == NULL) {
+                    exit(EXIT_FAILURE);
+                }
+                for (dim_t k = 0; k < dim; k++) {
+                    tmp[k] = vecs[i][k];
+                }
+
+                cmatVecMulInPlace(testObsMat, tmp, dim);
+                const cplx_t ref = cInner(tmp, vecs[i], dim);
+                free(tmp);
+
+                TEST_ASSERT_TRUE(calmostEqual(ref, test, PRECISION));
+            }
+            free(testObsMat);
+            testObsMat = NULL;
+        }
         freeTestVectors(vecs, qubits);
         vecs = NULL;
         stateFreeVector(&testState);
@@ -407,70 +413,26 @@ void testGradPQCHerm2(void) {
     }
 }
 
-// /*
-//  * =====================================================================================================================
-//  *                                                 testMMseq
-//  * =====================================================================================================================
-//  */
-// state_t testState = {                                               // State for the method to be tested
-//     .qubits = 0,
-//     .dim = 0,
-//     .vec = NULL
-// };
-// cplx_t *observableMat[3] = {NULL, NULL, NULL};                      // Matrix representations of observables
-// cplx_t** uMat[3] = {NULL, NULL, NULL};                              // Matrix representations of the channels' unitaries
-// cplx_t** vecs = NULL;                                               // Test state vectors;
-// cplx_t* momMat[3] = {NULL, NULL, NULL};                             // Moment matrices as the result of mmseq
-// cplx_t *test[3] = {NULL, NULL, NULL};                               // Moment matrices in dense row major form
-// cplx_t *ref[3] = {NULL, NULL, NULL};                                // Reference from matrix multiplication
-// cplx_t *refVec[5] = {NULL, NULL, NULL, NULL, NULL};                 // Reference state vecs to determine moment matrix
-//
-// void cleanupTestMMseq(void) {
-//     if (testState.vec != NULL) {
-//         stateFreeVector(&testState);
-//     }
-//     for (uint8_t i = 0; i < 3; ++i) {
-//         if (observableMat[i] != NULL) {
-//             free(observableMat[i]);
-//         }
-//         if (uMat[i] != NULL) {
-//             for (uint8_t j = 0; j < 5; ++j) {
-//                 if (uMat[i][j] != NULL) {
-//                     free(uMat[i][j]);
-//                 }
-//             }
-//             free(uMat[i]);
-//         }
-//         if (momMat[i] != NULL) {
-//             free(momMat[i]);
-//         }
-//         if (test[i] != NULL) {
-//             free(test[i]);
-//         }
-//         if (ref[i] != NULL) {
-//             free(ref[i]);
-//         }
-//     }
-//     if (vecs != NULL) {
-//         freeTestVectors(vecs, testState.qubits);
-//     }
-//     for (uint8_t i = 0; i < 5; ++i) {
-//         if (refVec[i] != NULL) {
-//             free(refVec[i]);
-//         }
-//     }
-//
-// }
-//
+/*
+ * =====================================================================================================================
+ *                                                 testMMseq
+ * =====================================================================================================================
+ */
 // void testMMseq(void) {
-//     if (atexit(cleanupTestMMseq)) {                                 // Register cleanup function
+//     if (atexit(cleanup)) {
 //         fprintf(stderr, "Failed to register cleanup function\n");
 //         exit(EXIT_FAILURE);
 //     }
 //
-//     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {        // Iterate number of qubits
+//     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
 //         const dim_t dim = POW2(qubits, dim_t);
-//         stateInitEmpty(&testState, qubits);                         // Define the quantum state
+//
+//         // Define test state and initialize test state vectors
+//         stateInitEmpty(&testState, qubits);
+//         vecs = generateTestVectors(qubits);
+//
+//         // Define the test observables
+//
 //
 //         const applyQB* observable = obs + 3 * (qubits - 2);         // diagObs, all-Y and rotational SWAP blocks
 //
@@ -627,8 +589,8 @@ void testGradPQCHerm2(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(testMeanDiagObs);
-    RUN_TEST(testMeanCG);
     RUN_TEST(testMeanObsHerm);
+    RUN_TEST(testMeanCG);
     RUN_TEST(testGradPQCDiag);
     RUN_TEST(testGradPQCHerm);
     RUN_TEST(testGradPQCDiag2);

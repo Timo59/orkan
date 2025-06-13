@@ -43,17 +43,6 @@ extern "C" {
 double meanDiagObs(const state_t* state, const double obs[]);
 
 /*
- * @brief This function returns the mean value of a composite quantum gate with respect to the quantum state
- *
- * @param[in]   state   Quantum state
- * @param[in]   obs     Composite quantum gate; i.e, a function applying quantum gates to the quantum state,
- *                      representing the observable
- *
- * @return  The mean value of the composite quantum gate with respect to the quantum state
- */
-double meanCG(const state_t* state, applyCG obs);
-
-/*
  * @brief This function returns the mean value of a hermitian operator with respect to the quantum state
  *
  * @param[in]   state   Quantum state
@@ -80,9 +69,24 @@ double meanObsHerm(const state_t* state, const herm_t* obs);
  */
 #define meanObs(X, Y) _Generic((Y), \
     double*: meanDiagObs,           \
-    applyCG: meanCG,                \
     herm_t*: meanObsHerm            \
     ) (X, Y)
+
+/*
+ * =====================================================================================================================
+ *                                              Operator mean value
+ * =====================================================================================================================
+ */
+/*
+ * @brief This function returns the mean value of a composite quantum gate with respect to the quantum state
+ *
+ * @param[in]   state   Quantum state
+ * @param[in]   obs     Composite quantum gate; i.e, a function applying quantum gates to the quantum state,
+ *                      representing the observable
+ *
+ * @return  The mean value of the composite quantum gate with respect to the quantum state
+ */
+cplx_t meanCG(const state_t* state, applyCG obs);
 
 /*
  * =====================================================================================================================
