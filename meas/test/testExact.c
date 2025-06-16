@@ -173,7 +173,7 @@ void testGradPQCDiag(void) {
         vecs = generateTestVectors(qubits);
 
         // Define the test observable as the diagonal entries of a diagonal hermitian operator
-        double* testObs = diagObs;
+        const double* testObs = diagObs;
 
         // Define the matrix representation of the test observable
         testObsMat[0] = diagMat(qubits);
@@ -302,7 +302,7 @@ void testGradPQCDiag2(void) {
         vecs = generateTestVectors(qubits);
 
         // Define the test observable as the diagonal entries of a diagonal hermitian operator
-        double* testObs = diagObs;
+        const double* testObs = diagObs;
 
         // Define the matrix representation of the test observable
         testObsMat[0] = diagMat(qubits);
