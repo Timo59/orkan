@@ -68,8 +68,8 @@ double meanObsHerm(const state_t* state, const herm_t* obs);
  * @note Ensure that all expected types are accounted for to prevent unexpected behavior or compile-time errors.
  */
 #define meanObs(X, Y) _Generic((Y), \
-    double*: meanDiagObs,           \
-    herm_t*: meanObsHerm            \
+    const double*:  meanDiagObs,    \
+    herm_t*:        meanObsHerm     \
     ) (X, Y)
 
 /*
@@ -147,8 +147,8 @@ double* gradPQCHerm(const state_t* state, const herm_t* obs, depth_t d, const ap
  * @note Ensure that all expected types are accounted for to prevent unexpected behavior or compile-time errors.
  */
 #define gradPQC(X, Y, Z, A, B, C) _Generic((Y), \
-    double*: gradPQCDiag,                       \
-    herm_t*: gradPQCHerm                        \
+    const double*:  gradPQCDiag,                \
+    herm_t*:        gradPQCHerm                 \
     ) (X, Y, Z, A, B, C)
 
 /*
