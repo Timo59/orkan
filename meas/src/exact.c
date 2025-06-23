@@ -185,7 +185,7 @@ void mmseq(state_t* state,
         applyLCCG(state, lcu + k);
     }
 
-#pragma omp parallel for default(none) shared(state, obsc, obs, circdepth, lcu, link, momMat)
+//#pragma omp parallel for default(none) shared(state, obsc, obs, circdepth, lcu, link, momMat)
     // Iterate the moment matrices' columns
     for (depth_t j = 0; j < lcu[link].len; ++j) {
         state_t bra, ket;
