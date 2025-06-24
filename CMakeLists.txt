@@ -68,7 +68,7 @@ target_link_options(OMP_compiler_flags INTERFACE $<${LINUX}:-fopenmp>)
 target_link_directories(OMP_compiler_flags INTERFACE $<${MACOS}:/opt/homebrew/opt/libomp/lib>)
 
 add_library(Q_compiler_flags INTERFACE)                                             # Interface library specifying usage
-target_compile_options(Q_compiler_flags INTERFACE -O0 -g)                           # requirements for all Q dependents
+target_compile_options(Q_compiler_flags INTERFACE -O2 -g)                           # requirements for all Q dependents
 
 add_library(Test_flags INTERFACE)                                                   # Interface library specifying usage
 target_include_directories(Test_flags                                               # requirements for unit tests
