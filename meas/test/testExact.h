@@ -113,8 +113,8 @@ herm_t testHerm = {                                         // Define the hermit
     .weight = NULL,
 };
 
-double* testVec = {NULL};                                   // Define vector valued test results
-double* refVec = {NULL};                                    // Define vector valued reference results
+double* testVec = NULL;                                     // Define vector valued test results
+double* refVec = NULL;                                      // Define vector valued reference results
 
 cplx_t* testMat[2] = {NULL};                                // Define matrix valued test results
 cplx_t* refMat[2] = {NULL};                                 // Define matrix valued reference results

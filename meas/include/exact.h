@@ -105,11 +105,10 @@ cplx_t meanCG(const state_t* state, applyCG obs);
  * @param[in]       pqc[]   Parametrized quantum circuit; i.e., sequence of parametrized unitary quantum operations
  * @param[in]       par[]   Parameter value of the PQC
  * @param[in]       gen[]   Array of the hamiltonians generating the parametrized unitary transformations
- *
- * @return  The gradient vector
+ * @param[in,out]   grad[]  Array of size parc. On exit, holding the PQC's gradient
  */
-double* gradPQCDiag(const state_t* state, const double obs[], depth_t d, const applyPCG pqc[], const double par[],
-    const applyCG gen[]);
+void gradPQCDiag(const state_t* state, const double obs[], depth_t d, const applyPCG pqc[], const double par[],
+    const applyCG gen[], double grad[]);
 
 /*
  * This function returns the gradient of an observable's mean value with respect to a quantum state after the
@@ -122,11 +121,11 @@ double* gradPQCDiag(const state_t* state, const double obs[], depth_t d, const a
  * @param[in]       pqc[]   Parametrized quantum circuit; i.e., sequence of parametrized unitary quantum operations
  * @pram[in]        par[]   Parameter values of the PQC
  * @param[in]       gen[]   Array of the hamiltonians generating the parametrized unitary transformations
+ * @param[in,out]   grad[]  Array of size parc. On exit, holding the PQC's gradient
  *
- * @return  The gradient vector
  */
-double* gradPQCHerm(const state_t* state, const herm_t* obs, depth_t d, const applyPCG pqc[], const double par[],
-    const applyCG gen[]);
+void gradPQCHerm(const state_t* state, const herm_t* obs, depth_t d, const applyPCG pqc[], const double par[],
+    const applyCG gen[], double grad[]);
 
 /*
  * @brief Function polymorphism of calculating the gradient of an observable's mean value with respect to a quantum
@@ -137,19 +136,20 @@ double* gradPQCHerm(const state_t* state, const herm_t* obs, depth_t d, const ap
  * - `double*`  : Calls `gradPQCDiag`, which processes diagonal observables.
  * - `applyQB`  : Calls `gradPQCHerm`, which processes general hermitian operators.
  *
- * @param[in,out]   X   Quantum state. On exit, state after the PQC being applied
- * @param[in]       Y   Type of observable; see above for supported types
- * @param[in]       Z   Number of Parametrized Quantum Blocks in the PQC
- * @param[in]       A   Parametrized quantum circuit; i.e., sequence of parametrized unitary quantum operations
- * @param[in]       B   Parameter values of the PQC
- * @param[in]       C   Array of the hamiltonians generating the parametrized unitary transformations
+ * @param[in,out]   STATE   Quantum state. On exit, state after the PQC being applied
+ * @param[in]       OBS     Type of observable; see above for supported types
+ * @param[in]       DEPTH   Number of Parametrized Quantum Blocks in the PQC
+ * @param[in]       PQC     Parametrized quantum circuit; i.e., sequence of parametrized unitary quantum operations
+ * @param[in]       PAR     Parameter values of the PQC
+ * @param[in]       GEN     Array of the hamiltonians generating the parametrized unitary transformations
+ * @param[in,out]   GRAD    Array of size parc. On exit, holding the PQC's gradient
  *
  * @note Ensure that all expected types are accounted for to prevent unexpected behavior or compile-time errors.
  */
-#define gradPQC(X, Y, Z, A, B, C) _Generic((Y), \
+#define gradPQC(STATE, OBS, DEPTH, PQC, PAR, GEN, GRAD) _Generic((OBS), \
     const double*:  gradPQCDiag,                \
     herm_t*:        gradPQCHerm                 \
-    ) (X, Y, Z, A, B, C)
+    ) (STATE, OBS, DEPTH, PQC, PAR, GEN, GRAD)
 
 /*
  * =====================================================================================================================
