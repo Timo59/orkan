@@ -78,80 +78,88 @@ cplx_t meanCG(const state_t* state, const applyCG obs) {
  * =====================================================================================================================
  */
 
-double* gradPQCDiag(const state_t* state, const double obs[], const depth_t d, const applyPCG pqc[], const double par[],
-    const applyCG gen[]) {
-    double* out = malloc(d * sizeof(double));
-    if (out == NULL) {
-        fprintf(stderr, "gradPQCDiag(): out allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    state_t bra;                                    // Initialized to the input state, evolved with all evolution
-    stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
+void gradPQCDiag(const state_t* state, const double obs[], const depth_t d, const applyPCG pqc[], const double par[],
+    const applyCG gen[], double grad[]) {
+    // Initialized to the input state, evolved with all evolution operators and acted on with the observable
+    state_t bra;
+    stateInitEmpty(&bra, state->qubits);
     stateInitVector(&bra, state->vec);
 
-    for (depth_t i = 0; i < d; ++i){                                // Apply the PQC to bra
+    // Apply the Parametrized Quantum Circuit to bra
+    for (depth_t i = 0; i < d; ++i){
         pqc[i](&bra, par[i]);
     }
-    applyDiag(&bra, obs);                                           // Apply the diagonal observable to bra
 
-#pragma omp parallel for default(none) shared(state, d, pqc, par, gen, bra, out) num_threads(d)
+    // Apply the diagonal observable to bra
+    applyDiag(&bra, obs);
+
+#pragma omp parallel for default(none) shared(state, d, pqc, par, gen, bra, grad) num_threads(d)
+    // Iterate the components of the PQC
     for (depth_t i = 0; i < d; ++i) {
-        // Iterate the components of the PQC
-        state_t ket;                                                // Initialized to the input state; acted on by the
-        stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the i-th parameter
+        // Initialized to the input state; acted on by the generator of the i-th unitary evolution in the PQC
+        state_t ket;
+        stateInitEmpty(&ket, state->qubits);
         stateInitVector(&ket, state->vec);
 
-        for (depth_t j = 0; j < i; ++j) {                           // Apply parametrized blocks up to i-1
-            pqc[j](&ket, par[j]);
-        }
-            gen[i](&ket);                                           // and apply the evolution operator to ket
-        for (depth_t j = i; j < d; ++j) {                           // Evolve ket with rest of the evolution operators
+        // Apply unitary evolutions up to i-1
+        for (depth_t j = 0; j < i; ++j) {
             pqc[j](&ket, par[j]);
         }
 
-        out[i] = cimag(stateOverlap(bra, ket));
+        // Apply the generator of the evolution to ket
+        gen[i](&ket);
+
+        // Evolve ket with the rest of the PQC
+        for (depth_t j = i; j < d; ++j) {
+            pqc[j](&ket, par[j]);
+        }
+
+        grad[i] = cimag(stateOverlap(bra, ket));
         stateFreeVector(&ket);
     }
     stateFreeVector(&bra);
-    return out;
 }
 
-double* gradPQCHerm(const state_t* state, const herm_t* obs, const depth_t d, const applyPCG pqc[], const double par[],
-    const applyCG gen[]) {
-    double* out = malloc(d * sizeof(double));
-    if (out == NULL) {
-        fprintf(stderr, "gradPQCHerm(): out allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    state_t bra;                                    // Initialized to the input state, evolved with all evolution
-    stateInitEmpty(&bra, state->qubits);            // operators and acted on with the observable
+void gradPQCHerm(const state_t* state, const herm_t* obs, const depth_t d, const applyPCG pqc[], const double par[],
+    const applyCG gen[], double grad[]) {
+    // Initialized to the input state, evolved with all evolution operators and acted on with the observable
+    state_t bra;
+    stateInitEmpty(&bra, state->qubits);
     stateInitVector(&bra, state->vec);
 
-    for (depth_t i = 0; i < d; ++i){                                // Apply the PQC to bra
+    // Apply the Parametrized Quantum Circuit to bra
+    for (depth_t i = 0; i < d; ++i){
         pqc[i](&bra, par[i]);
     }
-    applyHerm(&bra, obs);                                           // Apply the diagonal observable to bra
 
-#pragma omp parallel for default(none) shared(state, d, pqc, par, gen, bra, out) num_threads(d)
-    for (depth_t i = 0; i < d; ++i) {                               // Iterate the components of the PQC
-        state_t ket;                                                // Initialized to the input state; acted on by the
-        stateInitEmpty(&ket, state->qubits);                        // derivative of the PQC wrt to the i-th parameter
+    // Apply the hermitian operator to bra
+    applyHerm(&bra, obs);
+
+#pragma omp parallel for default(none) shared(state, d, pqc, par, gen, bra, grad) num_threads(d)
+    // Iterate the components of the PQC
+    for (depth_t i = 0; i < d; ++i) {
+        // Initialized to the input state; acted on by the generator of the i-th unitary evolution in the PQC
+        state_t ket;
+        stateInitEmpty(&ket, state->qubits);
         stateInitVector(&ket, state->vec);
 
-        for (depth_t j = 0; j < i; ++j) {                           // Apply parametrized blocks up to i-1
-            pqc[j](&ket, par[j]);
-        }
-        gen[i](&ket);                                               // and apply the evolution operator to ket
-        for (depth_t j = i; j < d; ++j) {                           // Evolve ket with rest of the evolution operators
+        // Apply unitary evolutions up to i-1
+        for (depth_t j = 0; j < i; ++j) {
             pqc[j](&ket, par[j]);
         }
 
-        out[i] = cimag(stateOverlap(bra, ket));
+        // Apply the generator of the evolution to ket
+        gen[i](&ket);
+
+        // Evolve ket with the rest of the PQC
+        for (depth_t j = i; j < d; ++j) {
+            pqc[j](&ket, par[j]);
+        }
+
+        grad[i] = cimag(stateOverlap(bra, ket));
         stateFreeVector(&ket);
     }
     stateFreeVector(&bra);
-    return out;
 }
 
 /*

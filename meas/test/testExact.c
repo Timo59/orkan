@@ -190,7 +190,12 @@ void testGradPQCDiag(void) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec = gradPQC(&testState, testObs, 5, testPQC, randPar, testGen);
+            testVec = calloc(5, sizeof(double));
+            if (testVec) {
+                gradPQC(&testState, testObs, 5, testPQC, randPar, testGen, testVec);
+            } else {
+                fprintf(stderr, "testGradPQCDiag(): testVec allocation failed\n");
+            }
 
             // Ascertain the reference gradient by finite difference method
             refVec = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 5, randPar);
@@ -262,7 +267,12 @@ void testGradPQCHerm(void) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec = gradPQC(&testState, &testObs, 5, testPQC, randPar, testGen);
+            testVec = calloc(5, sizeof(double));
+            if (testVec) {
+                gradPQC(&testState, &testObs, 5, testPQC, randPar, testGen, testVec);
+            } else {
+                fprintf(stderr, "testGradPQCHerm(): testVec allocation failed\n");
+            }
 
             // Ascertain the reference gradient by finite difference method
             refVec = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 5, randPar);
@@ -319,7 +329,12 @@ void testGradPQCDiag2(void) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec = gradPQC(&testState, testObs, 4, testPQC, randPar, testGen);
+            testVec = calloc(4, sizeof(double));
+            if (testVec) {
+                gradPQC(&testState, testObs, 4, testPQC, randPar, testGen, testVec);
+            } else {
+                fprintf(stderr, "testGradPQCDiag2(): testVec allocation failed\n");
+            }
 
             // Ascertain the reference gradient by finite difference method
             refVec = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 4, randPar);
@@ -390,7 +405,12 @@ void testGradPQCHerm2(void) {
             stateInitVector(&testState, vecs[i]);
 
             // Ascertain the exact gradient by tested method
-            testVec = gradPQC(&testState, &testObs, 4, testPQC, randPar, testGen);
+            testVec = calloc(4, sizeof(double));
+            if (testVec) {
+                gradPQC(&testState, &testObs, 4, testPQC, randPar, testGen, testVec);
+            } else {
+                fprintf(stderr, "testGradPQCHerm2(): testVec allocation failed\n");
+            }
 
             // Ascertain the reference gradient by finite difference method
             refVec = finDiffMeth(vecs[i], qubits, testObsMat[0], testPQCMat, 4, randPar);
