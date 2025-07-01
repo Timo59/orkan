@@ -195,6 +195,7 @@ void testGradPQCDiag(void) {
                 gradPQC(&testState, testObs, 5, testPQC, randPar, testGen, testVec);
             } else {
                 fprintf(stderr, "testGradPQCDiag(): testVec allocation failed\n");
+                exit(EXIT_FAILURE);
             }
 
             // Ascertain the reference gradient by finite difference method
@@ -272,6 +273,7 @@ void testGradPQCHerm(void) {
                 gradPQC(&testState, &testObs, 5, testPQC, randPar, testGen, testVec);
             } else {
                 fprintf(stderr, "testGradPQCHerm(): testVec allocation failed\n");
+                exit(EXIT_FAILURE);
             }
 
             // Ascertain the reference gradient by finite difference method
@@ -334,6 +336,7 @@ void testGradPQCDiag2(void) {
                 gradPQC(&testState, testObs, 4, testPQC, randPar, testGen, testVec);
             } else {
                 fprintf(stderr, "testGradPQCDiag2(): testVec allocation failed\n");
+                exit(EXIT_FAILURE);
             }
 
             // Ascertain the reference gradient by finite difference method
@@ -410,6 +413,7 @@ void testGradPQCHerm2(void) {
                 gradPQC(&testState, &testObs, 4, testPQC, randPar, testGen, testVec);
             } else {
                 fprintf(stderr, "testGradPQCHerm2(): testVec allocation failed\n");
+                exit(EXIT_FAILURE);
             }
 
             // Ascertain the reference gradient by finite difference method
