@@ -365,12 +365,7 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
 
     double rwork[3 * dim - 2];
 
-#ifdef MACOS
-    dim_t n = dim;
-#else
-    int n = (int) dim;
-#endif
-    zheev_(&JOBZ, &UPLO, &n, mColMaj, &n, eig, &work_query, &LWORK, rwork, &INFO);  // Workspace query
+    zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, &work_query, &LWORK, rwork, &INFO);  // Workspace query
 
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
@@ -387,7 +382,7 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
         exit(EXIT_FAILURE);
     }
 
-    zheev_(&JOBZ, &UPLO, &n, mColMaj, &n, eig, work, &LWORK, rwork, &INFO);
+    zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, work, &LWORK, rwork, &INFO);
 
 
     if (INFO < 0) {
