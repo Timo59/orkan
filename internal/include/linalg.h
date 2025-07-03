@@ -20,7 +20,8 @@ typedef __LAPACK_int            dim_t;
 #include <vecLib/cblas_new.h>
 #include <vecLib/lapack.h>
 #else
-#include <openblas-pthread/openblas_config.h>
+#define OPENBLAS_USE64BITINT
+#include <openblas_config.h>
 typedef double complex          cplx_t;
 typedef blasint                 dim_t;
 #include <cblas.h>
