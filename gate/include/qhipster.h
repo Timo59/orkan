@@ -18,6 +18,20 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/*
+ * =====================================================================================================================
+ *                                          Fortran BLAS function zrot_
+ * =====================================================================================================================
+ */
+#ifdef LINUX
+void zrot_(
+    const blasint *n,
+    openblas_complex_double *x, const blasint *incx,
+    openblas_complex_double *y, const blasint *incy,
+    const double *c, const openblas_complex_double *s);
+#endif
+
 /*
  * =====================================================================================================================
  *                                                  Pauli gates

@@ -15,10 +15,10 @@
 #endif
 
 #ifdef MACOS
-#include <vecLib/blas_new.h>
+#include <vecLib/cblas_new.h>
 #include <vecLib/lapack.h>
 #else
-#include <openblas-pthread/f77blas.h>
+#include <cblas.h>
 #endif
 
 #ifndef _STDIO_H_
@@ -48,11 +48,9 @@ void applyX(state_t* state, const qubit_t qubit) {
     const dim_t stepSize = POW2(qubit + 1, dim_t);                  // Number of contiguous elements the linear
                                                                     // combinations induced by the tensor product are
                                                                     // restricted to
-    const dim_t incr = 1;                                           // Increment (needed for BLAS function)
-
-    for (dim_t i = 0; i < state->dim; i += stepSize) {           // Iterate blocks with all qubits left to the
+    for (dim_t i = 0; i < state->dim; i += stepSize) {              // Iterate blocks with all qubits left to the
                                                                     // addressed qubit fixed
-        zswap_(&stride, state->vec + i, &incr, state->vec + i + stride, &incr);
+        cblas_zswap(stride, state->vec + i, 1, state->vec + i + stride, 1);
     }
 }
 
@@ -74,7 +72,7 @@ void applyY(state_t* state, const qubit_t qubit) {
 
     for (dim_t i = 0; i < state->dim; i += stepSize) {
         zrot_(&stride, state->vec + i, &incr, state->vec + i + stride, &incr, &c, &s);
-        zscal_(&stride, &minus, state->vec + i, &incr);
+        cblas_zscal(stride, &minus, state->vec + i, 1);
     }
 }
 
@@ -89,11 +87,10 @@ void applyY(state_t* state, const qubit_t qubit) {
 void applyZ(state_t* state, const qubit_t qubit) {
     const dim_t stride = POW2(qubit, dim_t);
     const dim_t stepSize = POW2(qubit + 1, dim_t);
-    const dim_t incr = 1;
     const cplx_t minus = -1;
 
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-        zscal_(&stride, &minus, state->vec + i + stride, &incr);
+        cblas_zscal(stride, &minus, state->vec + i + stride, 1);
     }
 }
 
@@ -114,10 +111,9 @@ void applyZ(state_t* state, const qubit_t qubit) {
 void applyS(state_t* state, const qubit_t qubit) {
     const dim_t vecSize = POW2(qubit, dim_t);                       // Number of elements multiplied by I
     const dim_t stepSize = POW2(qubit + 1, dim_t);
-    const dim_t incr = 1;
     const cplx_t phase = I;
     for (dim_t i = vecSize; i < state->dim; i += stepSize) {        // Only entries with t=1 obtain a phase
-        zscal_(&vecSize, &phase, state->vec + i, &incr);
+        cblas_zscal(vecSize, &phase, state->vec + i, 1);
     }
 }
 
@@ -133,10 +129,9 @@ void applyS(state_t* state, const qubit_t qubit) {
 void applySdagger(state_t* state, const qubit_t qubit) {
     const dim_t vecSize = POW2(qubit, dim_t);
     const dim_t stride = POW2(qubit + 1, dim_t);
-    const dim_t incr = 1;
     const cplx_t phase = -I;
     for (dim_t i = vecSize; i < state->dim; i += stride) {
-        zscal_(&vecSize, &phase, state->vec + i, &incr);
+        cblas_zscal(vecSize, &phase, state->vec + i, 1);
     }
 }
 
@@ -151,13 +146,12 @@ void applySdagger(state_t* state, const qubit_t qubit) {
 void applyH(state_t* state, const qubit_t qubit) {
     const dim_t stride = POW2(qubit, dim_t);
     const dim_t stepSize = POW2(qubit + 1, dim_t);
-    const dim_t incr = 1;
     const cplx_t minus = -1;
     const double c = INVSQRT2;
     const double s = -INVSQRT2;
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-        zscal_(&stride, &minus, state->vec + i + stride, &incr);
-        zdrot_(&stride, state->vec + i, &incr, state->vec + i + stride, &incr, &c, &s);
+        cblas_zscal(stride, &minus, state->vec + i + stride, 1);
+        cblas_zdrot(stride, state->vec + i, 1, state->vec + i + stride, 1, c, s);
     }                   // Perform a pi/4 rotation in the plane spanned by the vectors with 0 and 1 at position qubit
 }
 
@@ -181,7 +175,7 @@ void applyHy(state_t* state, const qubit_t qubit) {
     const cplx_t s = INVSQRT2 * I;
 
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-        zscal_(&stride, &minus, state->vec + i + stride, &incr);
+        cblas_zscal(stride, &minus, state->vec + i + stride, 1);
         zrot_(&stride, state->vec + i, &incr, state->vec + i + stride, &incr, &c, &s);
     }
 }
@@ -200,11 +194,10 @@ void applyHy(state_t* state, const qubit_t qubit) {
 void applyT(state_t* state, const qubit_t qubit) {
     const dim_t stride = POW2(qubit, dim_t);
     const dim_t stepSize = POW2(qubit + 1, dim_t);
-    const dim_t incr = 1;
     const cplx_t alpha = INVSQRT2 + INVSQRT2 * I;
 
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-        zscal_(&stride, &alpha, state->vec + i + stride, &incr);
+        cblas_zscal(stride, &alpha, state->vec + i + stride, 1);
     }
 }
 
@@ -217,11 +210,10 @@ void applyT(state_t* state, const qubit_t qubit) {
 void applyTdagger(state_t* state, const qubit_t qubit) {
     const dim_t stride = POW2(qubit, dim_t);
     const dim_t stepSize = POW2(qubit + 1, dim_t);
-    const dim_t incr = 1;
     const cplx_t alpha = INVSQRT2 - INVSQRT2 * I;
 
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-        zscal_(&stride, &alpha, state->vec + i + stride, &incr);
+        cblas_zscal(stride, &alpha, state->vec + i + stride, 1);
     }
 }
 
@@ -240,11 +232,10 @@ void applyTdagger(state_t* state, const qubit_t qubit) {
 void applyP(state_t* state, const qubit_t qubit, const double angle) {
     const dim_t stride = POW2(qubit, dim_t);
     const dim_t stepSize = POW2(qubit + 1, dim_t);
-    const dim_t incr = 1;
     const cplx_t alpha = cos(angle) + sin(angle) * I;
 
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-        zscal_(&stride, &alpha, state->vec + i + stride, &incr);
+        cblas_zscal(stride, &alpha, state->vec + i + stride, 1);
     }
 }
 
@@ -297,7 +288,7 @@ void applyRY(state_t* state, const qubit_t qubit, const double angle) {
     const double s = sin(angle / 2.);
 
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-        zdrot_(&stride, state->vec + i + stride, &incr, state->vec + i, &incr, &c, &s);
+        cblas_zdrot(stride, state->vec + i + stride, 1, state->vec + i, 1, c, s);
     }
 }
 
@@ -321,8 +312,8 @@ void applyRZ(state_t* state, const qubit_t qubit, const double angle) {
     const cplx_t plus = cos(angle / 2.) + I * sin(angle / 2.);
 
     for (dim_t i = 0; i < state->dim; i += stepSize) {
-        zscal_(&stride, &minus, state->vec + i, &incr);
-        zscal_(&stride, &plus, state->vec + i + stride, &incr);
+        cblas_zscal(stride, &minus, state->vec + i, 1);
+        cblas_zscal(stride, &plus, state->vec + i + stride, 1);
     }
 }
 
@@ -362,11 +353,10 @@ void applyCX(state_t* state, const qubit_t target, const qubit_t control) {
         return;
     }
     const dim_t stride = POW2(target, dim_t);                       // Stride between elements to be swapped
-    const dim_t incr = 1;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) { // Outer loop ensures that control qubit is active
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zswap_(&vecSize, state->vec + j, &incr, state->vec + j + stride, &incr);
+            cblas_zswap(vecSize, state->vec + j, 1, state->vec + j + stride, 1);
         }
     }
 }
@@ -406,7 +396,7 @@ void applyCY(state_t* state, const qubit_t target, const qubit_t control) {
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
             zrot_(&vecSize, state->vec + j, &incr, state->vec + j + stride, &incr, &c, &s);
-            zscal_(&vecSize, &minus, state->vec + j, &incr);
+            cblas_zscal(vecSize, &minus, state->vec + j, 1);
         }
     }
 }
@@ -438,12 +428,11 @@ void applyCZ(state_t* state, const qubit_t target, const qubit_t control) {
         return;
     }
     const dim_t stride = POW2(target, dim_t);
-    const dim_t incr = 1;
     const cplx_t minus = -1;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zscal_(&vecSize, &minus, state->vec + j + stride, &incr);
+            cblas_zscal(vecSize, &minus, state->vec + j + stride, 1);
         }
     }
 }
@@ -480,13 +469,11 @@ void applyCS(state_t* state, const qubit_t target, const qubit_t control) {
         return;
     }
     const dim_t stride = POW2(target, dim_t);
-    const dim_t incr = 1;
-    const cplx_t minus = -1;
     const cplx_t alpha = I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
+            cblas_zscal(vecSize, &alpha, state->vec + j + stride, 1);
         }
     }
 }
@@ -518,13 +505,11 @@ void applyCSdagger(state_t* state, const qubit_t target, const qubit_t control) 
         return;
     }
     const dim_t stride = POW2(target, dim_t);
-    const dim_t incr = 1;
-    const cplx_t minus = -1;
     const cplx_t alpha = -I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
+            cblas_zscal(vecSize, &alpha, state->vec + j + stride, 1);
         }
     }
 }
@@ -556,15 +541,12 @@ void applyCH(state_t* state, const qubit_t target, const qubit_t control) {
         return;
     }
     const dim_t stride = POW2(target, dim_t);
-    const dim_t incr = 1;
     const cplx_t minus = -1;
-    const double c = INVSQRT2;
-    const double s = -INVSQRT2;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zscal_(&vecSize, &minus, state->vec + j + stride, &incr);
-            zdrot_(&vecSize, state->vec + j, &incr, state->vec + j + stride, &incr, &c, &s);
+            cblas_zscal(vecSize, &minus, state->vec + j + stride, 1);
+            cblas_zdrot(vecSize, state->vec + j, 1, state->vec + j + stride, 1, INVSQRT2, -INVSQRT2);
         }
     }
 }
@@ -608,7 +590,7 @@ void applyCHy(state_t* state, const qubit_t target, const qubit_t control) {
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zscal_(&vecSize, &minus, state->vec + j + stride, &incr);
+            cblas_zscal(vecSize, &minus, state->vec + j + stride, 1);
             zrot_(&vecSize, state->vec + j, &incr, state->vec + j + stride, &incr, &c, &s);
         }
     }
@@ -646,13 +628,11 @@ void applyCT(state_t* state, const qubit_t target, const qubit_t control) {
         return;
     }
     const dim_t stride = POW2(target, dim_t);
-    const dim_t incr = 1;
-    const cplx_t minus = -1;
     const cplx_t alpha = INVSQRT2 + INVSQRT2 * I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
+            cblas_zscal(vecSize, &alpha, state->vec + j + stride, 1);
         }
     }
 }
@@ -684,12 +664,11 @@ void applyCTdagger(state_t* state, const qubit_t target, const qubit_t control) 
         return;
     }
     const dim_t stride = POW2(target, dim_t);
-    const dim_t incr = 1;
     const cplx_t alpha = INVSQRT2 - INVSQRT2 * I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
+            cblas_zscal(vecSize, &alpha, state->vec + j + stride, 1);
         }
     }
 }
@@ -724,12 +703,11 @@ void applyCP(state_t* state, const qubit_t target, const qubit_t control, const 
         return;
     }
     const dim_t stride = POW2(target, dim_t);
-    const dim_t incr = 1;
     const cplx_t alpha = cos(angle) + sin(angle) * I;
 
     for (dim_t i = 1L << control; i < state->dim; i += outerStep) {
         for (dim_t j = i; j < i + innerBound; j += innerStep) {
-            zscal_(&vecSize, &alpha, state->vec + j + stride, &incr);
+            cblas_zscal(vecSize, &alpha, state->vec + j + stride, 1);
         }
     }
 }
@@ -759,13 +737,12 @@ void applySWAP(state_t* state, const qubit_t qubit1, const qubit_t qubit2) {
                                                                     // by the swap (left=0, right=1)
     const dim_t innerStep = POW2(right + 1, dim_t);                 // Range of computational basis states that leave
     const dim_t stride = POW2(right, dim_t);                        // Number of contiguous elements swapped
-    const dim_t incr = 1;
 
     for (dim_t i = 0; i < state->dim; i += outerStep) {             // Iterate basis states with all zeros to the right
                                                                     // of and including left and right=1
         for (dim_t j = i ; j < i + innerBound; j += innerStep) {        // Iterate basis states with fixed qubits to the
                                                                         // left of and including left (left=0)
-            zswap_(&stride, state->vec + j + stride, &incr, state->vec + j + innerBound, &incr);
+            cblas_zswap(stride, state->vec + j + stride, 1, state->vec + j + innerBound, 1);
         }
     }
 }
@@ -794,9 +771,9 @@ void applyRSWAP(state_t* state, qubit_t qubit1, qubit_t qubit2, double angle) {
                                                                     // of and including left and right=1
         for (dim_t j = i ; j < i + innerBound; j += innerStep) {    // Iterate basis states with fixed qubits to the
                                                                     // left of and including left (left=0)
-           zscal_(&stride, &e, state->vec + j, &incr);                          // Multiply bases with q1=0 and q2=0 by
+           cblas_zscal(stride, &e, state->vec + j, 1);                          // Multiply bases with q1=0 and q2=0 by
                                                                                 // e^-i*angle
-           zscal_(&stride, &e, state->vec + j + stride + innerBound, &incr);    // Multiply bases with q1=1 and q2=1 by
+           cblas_zscal(stride, &e, state->vec + j + stride + innerBound, 1);    // Multiply bases with q1=1 and q2=1 by
                                                                                 // e^-i*angle
            zrot_(&stride, state->vec + j + stride, &incr, state->vec + j + innerBound, &incr, &c, &s);
                                                                     // Perform a rotation in the complex plain of bases

@@ -38,7 +38,7 @@ typedef unsigned char               depth_t;
 #else
 #define OPENBLAS_USE64BITINT
 #include <openblas-pthread/openblas_config.h>
-    typedef double complex          cplx_t;
+    typedef openblas_complex_double cplx_t;
     typedef blasint                 dim_t;
 #endif
 typedef enum pauli {
