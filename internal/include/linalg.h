@@ -12,8 +12,8 @@
 #endif
 
 #ifdef MACOS
-#define ACCELERATE_NEW_LAPACK                                       // Required to use cblas_new
-#define ACCELERATE_LAPACK_ILP64                                     // __LAPACK_int is a 64-bit integer
+#define ACCELERATE_NEW_LAPACK                                   // Required to use cblas_new
+#define ACCELERATE_LAPACK_ILP64                                 // __LAPACK_int is a 64-bit integer
 #include <vecLib/lapack_types.h>
 typedef __LAPACK_double_complex cplx_t;
 typedef __LAPACK_int            dim_t;
@@ -21,9 +21,10 @@ typedef __LAPACK_int            dim_t;
 #include <vecLib/lapack.h>
 #else
 #define OPENBLAS_USE64BITINT
-#include <cblas.h>
+#include <openblas-pthread/openblas_config.h>
 typedef double complex          cplx_t;
 typedef blasint                 dim_t;
+#include <cblas.h>
 #endif
 
 /*
