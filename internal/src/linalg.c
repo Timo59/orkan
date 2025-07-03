@@ -15,6 +15,7 @@
 #ifndef _STDLIB_H_
 #include <stdlib.h>
 #endif
+#include <assert.h>
 #include <utils.h>
 
 /*
@@ -344,7 +345,7 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     double complex* mColMaj = malloc(dim * dim * sizeof (double complex));  // Input matrix in column major form
     if (!mColMaj) {
         fprintf(stderr, "zexpm: mColMaj allocation failed\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     for (dim_t i = 0; i < dim; ++i) {                               // Transform input matrix to column major form
@@ -352,6 +353,10 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
             mColMaj[j * dim + i] = m[i * dim + j];
         }
     }
+
+    for (dim_t i = 0; i < dim; ++i)
+        for (dim_t j = 0; j <= i; ++j)
+            assert(cabs(mColMaj[i + j * dim] - conj(mColMaj[j + i * dim])) < 1e-12);
 
     /* Eigenvalue decomposition of m*/
     const char JOBZ = 'V';                                          // Compute eigenvalues and -vectors
@@ -363,21 +368,23 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     dim_t INFO;                                                     // Status of zheev_
 
     double rwork[3 * dim - 2];
+    assert(dim >= 1);
     zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, &work_query, &LWORK, rwork, &INFO);  // Workspace query
 
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
-        return NULL;
+        exit(EXIT_FAILURE);
     }
     if (INFO > 0) {
         fprintf(stderr, "zexpm: zheev_ - the algorithm failed to converge; %ld off-diagonal elements of an intermediate"
                         " tridiagonal form did not converge to zero.\n", INFO);
-        return NULL;
+        exit(EXIT_FAILURE);
     }
+    printf("Queried LWORK: %g\n", creal(work_query));
     LWORK = (dim_t) creal(work_query);                              // Update LWORK to workspace query outcome
     if ((work = malloc(LWORK * sizeof(double complex))) == NULL) {
         fprintf(stderr, "zexpm: work allocation failed\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, work, &LWORK, rwork, &INFO);
@@ -385,12 +392,12 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
 
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
-        return NULL;
+        exit(EXIT_FAILURE);
     }
     if (INFO > 0) {
         fprintf(stderr, "zexpm: zheev_ - the algorithm failed to converge; %ld off-diagonal elements of an intermediate"
                         " tridiagonal form did not converge to zero.\n", INFO);
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     /* Populate the output matrix's diagonal with the exponentiated eigenvalues and reverse the basis transformation */
@@ -398,7 +405,7 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     if ((out = calloc(dim * dim, sizeof(double complex))) == NULL) {
         fprintf(stderr, "zexpm: out allocation failed\n");
         free(work);
-        return NULL;
+        exit(EXIT_FAILURE);
     }
     for (int i = 0; i < dim; i++) {
         out[i * dim + i] = cexp(-a * I * eig[i]);                   // Populate the output's diagonal with exp(a * eig)
