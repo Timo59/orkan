@@ -358,6 +358,7 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
     const char JOBZ = 'V';                                          // Compute eigenvalues and -vectors
     const char UPLO = 'L';                                          // Lower triangle of m is stored
     double eig[dim];                                                // Eigenvalues in ascending order
+#ifdef MACOS
     cplx_t work_query;                                              // Returns optimal LWORK on exit of workspace query
     cplx_t* work;
     dim_t LWORK = -1;                                               // Length of work array; -1 for workspace query
@@ -383,7 +384,9 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
     }
 
     zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, work, &LWORK, rwork, &INFO);
-
+#else
+    dim_t INFO = LAPACKE_zheev(LAPACK_COL_MAJOR, JOBZ, UPLO, dim, mColMaj, dim, eig);
+#endif
 
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
