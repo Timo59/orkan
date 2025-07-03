@@ -341,8 +341,8 @@ complex double* ckronecker(const complex double a[],
     return result;
 }
 
-cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
-    double complex* mColMaj = malloc(dim * dim * sizeof (double complex));  // Input matrix in column major form
+cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
+    cplx_t* mColMaj = malloc(dim * dim * sizeof (cplx_t));  // Input matrix in column major form
     if (mColMaj == NULL) {
         fprintf(stderr, "zexpm: mColMaj allocation failed\n");
         exit(EXIT_FAILURE);
