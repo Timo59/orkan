@@ -358,6 +358,12 @@ void testEvoHerm(void) {
  * =====================================================================================================================
  */
 int main(void) {
+#ifdef OPENBLAS_USE64BITINT
+    printf("Using 64-bit OpenBLAS\n");
+#else
+    printf("Using 32-bit OpenBLAS\n");
+#endif
+    printf("sizeof(dim_t) = %zu\n", sizeof(dim_t));
     UNITY_BEGIN();
     RUN_TEST(testApplyDiag);
     RUN_TEST(testApplyHerm);
