@@ -384,6 +384,7 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
     }
 
     zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, work, &LWORK, rwork, &INFO);
+    free(work);
 #else
     dim_t INFO = LAPACKE_zheev(LAPACK_COL_MAJOR, JOBZ, UPLO, dim, mColMaj, dim, eig);
 #endif
@@ -402,7 +403,6 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
     double complex* out;
     if ((out = calloc(dim * dim, sizeof(double complex))) == NULL) {
         fprintf(stderr, "zexpm: out allocation failed\n");
-        free(work);
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < dim; i++) {
@@ -418,8 +418,6 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
         dim, dim, dim, &ALPHA, mColMaj, dim, out, dim, &BETA, tmp, dim);
     cblas_zgemm(CblasColMajor, CblasNoTrans, CblasConjTrans,
         dim, dim, dim, &ALPHA, tmp, dim, mColMaj, dim, &BETA, out, dim);
-
-    free(work);
 
     for (dim_t j = 0; j < dim; ++ j) {
         for (dim_t i = 0; i < dim; ++i) {
