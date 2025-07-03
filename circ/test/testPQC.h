@@ -86,6 +86,49 @@ const double diagObs[64] = {
 
 /*
  * =====================================================================================================================
+ *                                              Allocated memory and cleanup
+ * =====================================================================================================================
+ */
+state_t testState = {                                       // Define the state the tested function are applied to
+    .qubits = 0,
+    .dim = 0,
+    .vec = NULL
+};
+
+cplx_t** vecs = NULL;                                       // Define the state vectors for the function tests
+cplx_t* testMat = NULL;                                     // Define the matrix representation of the test matrices
+cplx_t* evoMat = NULL;                                      // Define the matrix representation of the test evolution
+
+herm_t testHerm = {                                         // Define the hermitian operator struct
+    .len = 0,
+    .comp = NULL,
+    .weight = NULL,
+};
+
+extern inline void cleanup(void) {
+    if (testState.vec != NULL) {
+        free(testState.vec);
+        testState.vec = NULL;
+    }
+    if (vecs != NULL) {
+        freeTestVectors(vecs, testState.qubits);
+        vecs = NULL;
+    }
+    if (testMat != NULL) {
+        free(testMat);
+    }
+    if (evoMat != NULL) {
+        free(evoMat);
+    }
+    if (testHerm.comp != NULL) {
+        free(testHerm.comp);
+    }
+    if (testHerm.weight != NULL) {
+        free(testHerm.weight);
+    }
+}
+/*
+ * =====================================================================================================================
  *                                                  Quantum blocks
  * =====================================================================================================================
  */

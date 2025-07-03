@@ -16,28 +16,30 @@
  * =====================================================================================================================
  */
 void testApplyDiag(void) {
-    state_t testState;
     for (qubit_t qubits = 2; qubits < MAXQUBITS; ++qubits) {
         const dim_t dim = POW2(qubits, dim_t);
         stateInitEmpty(&testState, qubits);
-        cplx_t** vecs = generateTestVectors(qubits);
+        vecs = generateTestVectors(qubits);
 
         // Define the diagonal hermitian operator's matrix representation
-        cplx_t* mat = diagMat(qubits);
+        testMat = diagMat(qubits);
 
         /* TESTING */
         for (uint8_t i = 0; i < dim + 1; ++i) {
             stateInitVector(&testState, vecs[i]);
             apply(&testState, diagObs);
 
-            cmatVecMulInPlace(mat, vecs[i], dim);
+            cmatVecMulInPlace(testMat, vecs[i], dim);
 
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
 
-        free(mat);
+        free(testMat);
+        testMat = NULL;
         freeTestVectors(vecs, qubits);
+        vecs = NULL;
         stateFreeVector(&testState);
+        testState.vec = NULL;
     }
 }
 
@@ -53,15 +55,13 @@ void testApplyHerm(void) {
         stateInitEmpty(&testState, qubits);
         cplx_t** vecs = generateTestVectors(qubits);
 
-        // Define the hermitian operator struct
-        herm_t testHerm;
+        // Initialize the hermitian operator struct
         testHerm.len = 5;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
         testHerm.comp = cg + testHerm.len * (qubits - 2);
         testHerm.weight = dcoeff;
 
         // Define the hermitian operator's matrix representation
-        cplx_t* testHermMat = calloc(dim * dim, sizeof(cplx_t));
-        if (testHermMat == NULL) {
+        if ((testMat = calloc(dim * dim, sizeof(cplx_t))) == NULL) {
             fprintf(stderr, "testApplyHerm(): testHermMat allocation failed\n");
             exit(EXIT_FAILURE);
         }
@@ -69,8 +69,9 @@ void testApplyHerm(void) {
             cplx_t* tmp = cgMat[i](qubits);
             const cplx_t alpha = dcoeff[i];
             cscalarMatMulInPlace(alpha, tmp, dim);
-            cmatAddInPlace(testHermMat, tmp, dim);
+            cmatAddInPlace(testMat, tmp, dim);
             free(tmp);
+            tmp = NULL;
         }
 
         /* TESTING */
@@ -78,14 +79,17 @@ void testApplyHerm(void) {
             stateInitVector(&testState, vecs[i]);
             apply(&testState, &testHerm);
 
-            cmatVecMulInPlace(testHermMat, vecs[i], dim);
+            cmatVecMulInPlace(testMat, vecs[i], dim);
 
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
 
-        free(testHermMat);
+        free(testMat);
+        testMat = NULL;
         freeTestVectors(vecs, qubits);
+        vecs = NULL;
         stateFreeVector(&testState);
+        testState.vec = NULL;
     }
 }
 
@@ -108,16 +112,16 @@ void testApplyLCCG(void) {
         testLCCG.weight = zcoeff;
 
         // Define the LCCG's matrix representation
-        cplx_t* testLCCGMat = calloc(dim * dim, sizeof (cplx_t));
-        if (testLCCGMat == NULL) {
+        if ((testMat = calloc(dim * dim, sizeof (cplx_t))) == NULL) {
             fprintf(stderr, "testApplyLCQB(): testLCQBMat allocation failed\n");
             exit(EXIT_FAILURE);
         }
         for (uint8_t i = 0; i < 5; ++i) {
             cplx_t* tmp = cgMat[i](qubits);
             cscalarMatMulInPlace(zcoeff[i], tmp, dim);
-            cmatAddInPlace(testLCCGMat, tmp, dim);
+            cmatAddInPlace(testMat, tmp, dim);
             free(tmp);
+            tmp = NULL;
         }
 
         /* TESTING */
@@ -125,13 +129,16 @@ void testApplyLCCG(void) {
             stateInitVector(&testState, vecs[i]);
             apply(&testState, &testLCCG);
 
-            cmatVecMulInPlace(testLCCGMat, vecs[i], dim);
+            cmatVecMulInPlace(testMat, vecs[i], dim);
 
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
-        free(testLCCGMat);
+        free(testMat);
+        testMat = NULL;
         stateFreeVector(&testState);
+        testState.vec = NULL;
         freeTestVectors(vecs, qubits);
+        vecs = NULL;
     }
 }
 
@@ -148,9 +155,10 @@ void testEvoDiag(void) {
         cplx_t** vecs = generateTestVectors(qubits);
         stateInitEmpty(&testState, qubits);
 
-        cplx_t* mat = diagMat(qubits);
-        cplx_t* evoMat = zexpm(mat, randPar[0] / 2., dim);
-        free(mat);
+        testMat = diagMat(qubits);
+        evoMat = zexpm(testMat, randPar[0] / 2., dim);
+        free(testMat);
+        testMat = NULL;
 
         /* TESTING */
         for (dim_t i = 0; i < dim + 1; ++i) {
@@ -163,8 +171,11 @@ void testEvoDiag(void) {
         }
 
         free(evoMat);
+        evoMat = NULL;
         stateFreeVector(&testState);
+        testState.vec = NULL;
         freeTestVectors(vecs, qubits);
+        vecs = NULL;
     }
 }
 
@@ -181,11 +192,15 @@ void testEvoCG(void) {
         cplx_t** vecs = generateTestVectors(qubits);
         const applyCG* testBlock = cg + 5 * (qubits - 2);
 
-        cplx_t* pcgMat[4];                                          // Matrix representations of parametrized composite
+        evoMat = identityMat(qubits);                               // Matrix representations of parametrized composite
         for (uint8_t i = 0; i < 4; ++i) {                           // gates
-            cplx_t* gateMat = cgMat[i](qubits);
-            pcgMat[i] = zexpm(gateMat, dcoeff[i] / 2., dim);
-            free(gateMat);
+            testMat = cgMat[3 - i](qubits);
+            cplx_t* pcgMat = zexpm(testMat, dcoeff[3 - i] / 2., dim);
+            cmatMulInPlace(evoMat, pcgMat, dim);
+            free(testMat);
+            testMat = NULL;
+            free(pcgMat);
+            pcgMat = NULL;
         }
 
         /* TESTING */
@@ -195,18 +210,17 @@ void testEvoCG(void) {
                 evolve(&testState, testBlock[j], dcoeff[j]);         // gates
             }
 
-            for (uint8_t j = 0; j < 4; j++) {                       // Evolve the test vector itself by matrix multi-
-                cmatVecMulInPlace(pcgMat[j], vecs[i], dim);         // plication
-            }
-
+            cmatVecMulInPlace(evoMat, vecs[i], dim);                // Evolve the test vector itself by matrix multi-
+                                                                    // plication
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
 
-        for (uint8_t i = 0; i < 4; ++i) {
-            free(pcgMat[i]);
-        }
+        free(evoMat);
+        evoMat = NULL;
         stateFreeVector(&testState);
+        testState.vec = NULL;
         freeTestVectors(vecs, qubits);
+        vecs = NULL;
     }
 }
 
@@ -223,7 +237,6 @@ void testEvoHerm(void) {
         cplx_t** vecs = generateTestVectors(qubits);
 
         // Define the hermitian operator struct
-        herm_t testHerm;
         testHerm.len = 4;                       // xi, yi, zi, swapi, diag for i = qubits defined in testPQC.h
         testHerm.comp = cg + (testHerm.len + 1) * (qubits - 2);
         testHerm.weight = dcoeff;
@@ -231,13 +244,15 @@ void testEvoHerm(void) {
         // Define the matrix representations of the parametrized composite gates (Since the defined composite quantum
         // gates do not commute pairwise, we have to take the product of the matrix exponentials rather than the
         // exponential of the sum)
-        cplx_t* testHermEvoMat = identityMat(qubits);
+        cplx_t* evoMat = identityMat(qubits);
         for (uint8_t i = 1; i < 5; ++i) {
-            cplx_t* gateMat = cgMat[4 - i](qubits);
-            cplx_t* pqbMat = zexpm(gateMat, randPar[0] * dcoeff[4 - i] / 2., dim);
-            cmatMulInPlace(testHermEvoMat, pqbMat, dim);
-            free(gateMat);
+            testMat = cgMat[4 - i](qubits);
+            cplx_t* pqbMat = zexpm(testMat, randPar[0] * dcoeff[4 - i] / 2., dim);
+            cmatMulInPlace(evoMat, pqbMat, dim);
+            free(testMat);
+            testMat = NULL;
             free(pqbMat);
+            pqbMat = NULL;
         }
 
         /* TESTING */
@@ -245,12 +260,15 @@ void testEvoHerm(void) {
             stateInitVector(&testState, vecs[i]);                   // Initialize testState with the i-th test vector
             evolve(&testState, &testHerm, randPar[0]);
 
-            cmatVecMulInPlace(testHermEvoMat, vecs[i], dim);        // Evolve the test vector by matrix multiplication
+            cmatVecMulInPlace(evoMat, vecs[i], dim);                // Evolve the test vector by matrix multiplication
         }
 
-        free(testHermEvoMat);
+        free(evoMat);
+        evoMat = NULL;
         stateFreeVector(&testState);
+        testState.vec = NULL;
         freeTestVectors(vecs, qubits);
+        vecs = NULL;
     }
 }
 
@@ -340,7 +358,6 @@ void testEvoHerm(void) {
  * =====================================================================================================================
  */
 int main(void) {
-    printf("sizeof(dim_t) = %zu\n", sizeof(dim_t));
     UNITY_BEGIN();
     RUN_TEST(testApplyDiag);
     RUN_TEST(testApplyHerm);
