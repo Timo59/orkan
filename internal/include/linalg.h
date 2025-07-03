@@ -48,7 +48,8 @@ void zheev_(
     openblas_complex_double *a, const blasint *lda,
     const double *w,
     openblas_complex_double *work, const blasint *lwork, const double *rwork,
-    const blasint *info;
+    const blasint *info
+    );
 #endif
 
 /*
