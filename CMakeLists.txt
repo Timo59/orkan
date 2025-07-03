@@ -38,11 +38,12 @@ add_subdirectory(internal)
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)                       # include double has to be called
                                                                                     # manually when building unity lib
 add_library(BLAS_compiler_flags INTERFACE)                                          # Interface library specifying usage
-target_include_directories(BLAS_compiler_flags                                      # of BLAS routines
-        INTERFACE   $<${LINUX}:/usr/local/include>)
-target_link_directories(BLAS_compiler_flags
-        INTERFACE   $<${LINUX}:/usr/local/lib>
-)
+# target_include_directories(BLAS_compiler_flags                                      # of BLAS routines
+#         INTERFACE   $<${LINUX}:/usr/local/include>
+# )
+# target_link_directories(BLAS_compiler_flags
+#         INTERFACE   $<${LINUX}:/usr/local/lib>
+# )
 target_link_libraries(BLAS_compiler_flags INTERFACE
         $<${MACOS}:-lblas>
         $<${LINUX}:-lopenblas>
