@@ -28,9 +28,10 @@
 
 #ifdef MACOS
 #include <vecLib/blas_new.h>
+#include <vecLib/cblas_new.h>
 #include <vecLib/lapack.h>
 #else
-#include <openblas-pthread/f77blas.h>
+#include <cblas.h>
 #endif
 
 /*
@@ -51,7 +52,6 @@ void applyCGwrapper(state_t* state, const applyCG cg) {
 }
 
 void applyHerm(state_t* state, const herm_t* herm) {
-    const dim_t incr = 1;
     cplx_t* out = calloc(state->dim, sizeof(cplx_t));
     if (out == NULL) {
         fprintf(stderr, "applyHerm(): out allocation failed\n");
@@ -59,7 +59,7 @@ void applyHerm(state_t* state, const herm_t* herm) {
     }
 
     // Creates a team of threads each applying one of the hermitian's composite gates to a copy of the input state
-#pragma omp parallel for default(none) shared(state, herm, stderr, incr, out)
+#pragma omp parallel for default(none) shared(state, herm, stderr, out)
     for (unsigned int i = 0; i < herm->len; ++i) {
         state_t tmp;
         tmp.qubits = state->qubits;
@@ -76,7 +76,7 @@ void applyHerm(state_t* state, const herm_t* herm) {
         // To avoid a race condition the resulting state vector is added to the output one by one
 #pragma omp critical(sum)
         {
-            zaxpy_(&state->dim, &ALPHA, tmp.vec, &incr, out, &incr);
+            cblas_zaxpy(state->dim, &ALPHA, tmp.vec, 1, out, 1);
         }
         stateFreeVector(&tmp);
     }
@@ -85,7 +85,6 @@ void applyHerm(state_t* state, const herm_t* herm) {
 }
 
 void applyLCCG(state_t* state, const lccg_t* lccg) {
-    const dim_t incr = 1;
     cplx_t* out = calloc(state->dim, sizeof(cplx_t));
     if (out == NULL) {
         fprintf(stderr, "applyLQCB(): out allocation failed\n");
@@ -94,7 +93,7 @@ void applyLCCG(state_t* state, const lccg_t* lccg) {
 
     // Creates a team of threads each applying one of the linear combination's composite gates to a copy of the input
     // state
-#pragma omp parallel for default(none) shared(state, lccg, stderr, incr, out)
+#pragma omp parallel for default(none) shared(state, lccg, stderr, out)
     for (depth_t i = 0; i < lccg->len; ++i) {
         state_t tmp;
         tmp.qubits = state->qubits;
@@ -110,7 +109,7 @@ void applyLCCG(state_t* state, const lccg_t* lccg) {
         // To avoid a race condition the resulting state vector is added to the output one by one
 #pragma omp critical(sum)
         {
-            zaxpy_(&state->dim, lccg->weight + i, tmp.vec, &incr, out, &incr);
+            cblas_zaxpy(state->dim, lccg->weight + i, tmp.vec, 1, out, 1);
         }
         stateFreeVector(&tmp);
     }
@@ -136,16 +135,17 @@ void evoCG(state_t* state, const applyCG cg, double par) {
     par /= 2.;
     const cplx_t c = cos(par);
     const cplx_t s = - I * sin(par);
-    cplx_t* tmp = malloc(state->dim * sizeof (cplx_t));
-    if(tmp == NULL) {
-        fprintf(stderr, "evoCG(): tmp allocation failed\n");
-        return;
-    }
+    // Initialize temporary state the composite quantum gate is applied to
+    state_t tmp;
+    stateInitEmpty(&tmp, state->qubits);
+    stateInitVector(&tmp, state->vec);
 
-    zcopy_(&state->dim, state->vec, &incr, tmp, &incr);
-    cg(state);
-    zaxpby_(&state->dim, &c, tmp, &incr, &s, state->vec, &incr);    // cos(par)*state - i*sin(par)*qb(state)
-    free(tmp);
+    // Scale the input state with the cosine, apply the composite quantum gate to the temporary state and add the latter
+    // times the negative sine to the former
+    cblas_zscal(state->dim, &c, state->vec, 1);
+    cg(&tmp);
+    cblas_zaxpy(state->dim, &s, tmp.vec, 1, state->vec, 1);
+    stateFreeVector(&tmp);
 }
 
 void evoHerm(state_t* state, const herm_t* herm, double par) {

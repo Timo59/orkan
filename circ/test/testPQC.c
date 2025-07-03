@@ -198,6 +198,7 @@ void testEvoCG(void) {
             for (uint8_t j = 0; j < 4; j++) {                       // Evolve the test vector itself by matrix multi-
                 cmatVecMulInPlace(pcgMat[j], vecs[i], dim);         // plication
             }
+
             TEST_ASSERT_TRUE(cvectorAlmostEqual(vecs[i], testState.vec, dim, PRECISION));
         }
 
