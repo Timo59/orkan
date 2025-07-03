@@ -21,12 +21,12 @@ typedef __LAPACK_int            dim_t;
 #include <vecLib/lapack.h>
 #else
 #define OPENBLAS_USE64BITINT
-#define HAVE_LAPACK_CONFIG_H                                        // Needed for lapacke_config.h to be included
-#define LAPACK_ILP64                                                // Sets lapack_int to int64_t
+\\ #define HAVE_LAPACK_CONFIG_H                                        // Needed for lapacke_config.h to be included
+\\ #define LAPACK_ILP64                                                // Sets lapack_int to int64_t
 typedef double complex          cplx_t;
 typedef blasint                 dim_t;
 #include <cblas.h>
-#include <lapacke.h>
+\\ #include <lapacke.h>
 #endif
 
 /*
