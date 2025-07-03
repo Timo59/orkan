@@ -366,6 +366,7 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
     double rwork[3 * dim - 2];
 
     printf("sizeof(dim_t) = %zu\n", sizeof(dim_t));
+    printf("sizeof(cplx_t) = %zu\n", sizeof(cplx_t));
     printf("dim = %ld (0x%lx)\n", (long)dim, (unsigned long)dim);
     printf("&dim = %p\n", (void*)&dim);
 
