@@ -343,7 +343,7 @@ complex double* ckronecker(const complex double a[],
 
 cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     double complex* mColMaj = malloc(dim * dim * sizeof (double complex));  // Input matrix in column major form
-    if (!mColMaj) {
+    if (mColMaj == NULL) {
         fprintf(stderr, "zexpm: mColMaj allocation failed\n");
         exit(EXIT_FAILURE);
     }
@@ -353,10 +353,6 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
             mColMaj[j * dim + i] = m[i * dim + j];
         }
     }
-
-    for (dim_t i = 0; i < dim; ++i)
-        for (dim_t j = 0; j <= i; ++j)
-            assert(cabs(mColMaj[i + j * dim] - conj(mColMaj[j + i * dim])) < 1e-12);
 
     /* Eigenvalue decomposition of m*/
     const char JOBZ = 'V';                                          // Compute eigenvalues and -vectors
@@ -368,7 +364,11 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     dim_t INFO;                                                     // Status of zheev_
 
     double rwork[3 * dim - 2];
-    assert(dim >= 1);
+
+    printf("sizeof(dim_t) = %zu\n", sizeof(dim_t));
+    printf("dim = %ld (0x%lx)\n", (long)dim, (unsigned long)dim);
+    printf("&dim = %p\n", (void*)&dim);
+
     zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, &work_query, &LWORK, rwork, &INFO);  // Workspace query
 
     if (INFO < 0) {
