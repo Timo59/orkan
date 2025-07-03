@@ -12,8 +12,8 @@
 #endif
 
 #ifdef MACOS
-#define ACCELERATE_NEW_LAPACK                                   // Required to use cblas_new
-#define ACCELERATE_LAPACK_ILP64                                 // __LAPACK_int is a 64-bit integer
+#define ACCELERATE_NEW_LAPACK                                       // Required to use cblas_new
+#define ACCELERATE_LAPACK_ILP64                                     // __LAPACK_int is a 64-bit integer
 #include <vecLib/lapack_types.h>
 typedef __LAPACK_double_complex cplx_t;
 typedef __LAPACK_int            dim_t;
@@ -21,10 +21,12 @@ typedef __LAPACK_int            dim_t;
 #include <vecLib/lapack.h>
 #else
 #define OPENBLAS_USE64BITINT
-#include <openblas-pthread/openblas_config.h>
+#define HAVE_LAPACK_CONFIG_H                                        // Needed for lapacke_config.h to be included
+#define LAPACK_ILP64                                                // Sets lapack_int to int64_t
 typedef double complex          cplx_t;
 typedef blasint                 dim_t;
 #include <cblas.h>
+#include <lapacke.h>
 #endif
 
 /*
@@ -32,10 +34,23 @@ typedef blasint                 dim_t;
  *                                              C++ check
  * =====================================================================================================================
  */
-
-
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+/*
+ * =====================================================================================================================
+ *                                          Fortran LAPACK function zheev
+ * =====================================================================================================================
+ */
+#ifdef LINUX
+void zheev_(
+    const char *jobz, const char *uplo,
+    const blasint *n,
+    openblas_complex_double *a, const blasint *lda,
+    const double *w,
+    openblas_complex_double *work, const blasint *lwork, const double *rwork,
+    const blasint *info;
 #endif
 
 /*
