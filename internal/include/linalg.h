@@ -42,16 +42,16 @@ extern "C" {
  *                                          Fortran LAPACK function zheev
  * =====================================================================================================================
  */
-#ifdef LINUX
-void zheev_(
-    const char *jobz, const char *uplo,
-    const blasint *n,
-    openblas_complex_double *a, const blasint *lda,
-    const double *w,
-    openblas_complex_double *work, const blasint *lwork, const double *rwork,
-    const blasint *info
-    );
-#endif
+// #ifdef LINUX
+// void zheev_(
+//     const char *jobz, const char *uplo,
+//     const blasint *n,
+//     openblas_complex_double *a, const blasint *lda,
+//     const double *w,
+//     openblas_complex_double *work, const blasint *lwork, const double *rwork,
+//     const blasint *info
+//     );
+// #endif
 
 
 /*
