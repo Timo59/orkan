@@ -36,7 +36,8 @@ typedef unsigned char               depth_t;
     typedef __LAPACK_double_complex cplx_t;
     typedef __LAPACK_int            dim_t;
 #else
-#include <openblas-pthread/openblas_config.h>
+#define OPENBLAS_USE64BITINT
+#include <openblas_config.h>
     typedef openblas_complex_double cplx_t;
     typedef blasint                 dim_t;
 #endif
