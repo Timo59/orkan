@@ -20,9 +20,9 @@
 #endif
 
 #ifdef MACOS
-#include <vecLib/blas_new.h>
+#include <vecLib/cblas_new.h>
 #else
-#include <openblas-pthread/f77blas.h>
+#include <cblas.h>
 #endif
 
 /*
@@ -72,7 +72,7 @@ void stateInitPlus(state_t* state, const qubit_t qubits) {
  */
 void stateInitVector(state_t* state, const cplx_t vector[]) {
 	const dim_t inc = 1;
-	zcopy_(&state->dim, vector, &inc, state->vec, &inc);
+	cblas_zcopy(state->dim, vector, inc, state->vec, inc);
 }
 
 /*
@@ -93,12 +93,7 @@ void stateFreeVector(state_t* state) {
 
 cplx_t stateOverlap(const state_t state1, const state_t state2) {
 	const dim_t incr = 1;
-#ifdef MACOS
 	cplx_t out;
-	zdotc_(&out,&state1.dim, state1.vec, &incr, state2.vec, &incr);
+	cblas_zdotc_sub(state1.dim, state1.vec, incr, state2.vec, incr, &out);
 	return out;
-#else
-	return zdotc_(&state1.dim, state1.vec, &incr, state2.vec, &incr);
-#endif
-
 }
