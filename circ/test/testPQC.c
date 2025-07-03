@@ -340,6 +340,7 @@ void testEvoHerm(void) {
  * =====================================================================================================================
  */
 int main(void) {
+    printf("sizeof(dim_t) = %zu\n", sizeof(dim_t));
     UNITY_BEGIN();
     RUN_TEST(testApplyDiag);
     RUN_TEST(testApplyHerm);
