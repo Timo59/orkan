@@ -365,12 +365,12 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
 
     double rwork[3 * dim - 2];
 
-    printf("sizeof(dim_t) = %zu\n", sizeof(dim_t));
-    printf("sizeof(cplx_t) = %zu\n", sizeof(cplx_t));
-    printf("dim = %ld (0x%lx)\n", (long)dim, (unsigned long)dim);
-    printf("&dim = %p\n", (void*)&dim);
-
-    zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, &work_query, &LWORK, rwork, &INFO);  // Workspace query
+#ifdef MACOS
+    dim_t n = dim;
+#else
+    int n = (int) dim;
+#endif
+    zheev_(&JOBZ, &UPLO, &n, mColMaj, &n, eig, &work_query, &LWORK, rwork, &INFO);  // Workspace query
 
     if (INFO < 0) {
         fprintf(stderr, "zexpm: zheev_ - the %ld-th argument had an illegal value\n", -INFO);
@@ -381,14 +381,13 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
                         " tridiagonal form did not converge to zero.\n", INFO);
         exit(EXIT_FAILURE);
     }
-    printf("Queried LWORK: %g\n", creal(work_query));
     LWORK = (dim_t) creal(work_query);                              // Update LWORK to workspace query outcome
     if ((work = malloc(LWORK * sizeof(double complex))) == NULL) {
         fprintf(stderr, "zexpm: work allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
-    zheev_(&JOBZ, &UPLO, &dim, mColMaj, &dim, eig, work, &LWORK, rwork, &INFO);
+    zheev_(&JOBZ, &UPLO, &n, mColMaj, &n, eig, work, &LWORK, rwork, &INFO);
 
 
     if (INFO < 0) {
