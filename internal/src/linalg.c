@@ -409,8 +409,10 @@ cplx_t* zexpm(double complex* m, const double complex a, const dim_t dim) {
     const cplx_t ALPHA = 1.;                                        // Transform the output matrix to the original basis
     const cplx_t BETA = 0.;                                         //          out -> U * out U**H
     double complex tmp[dim * dim];                                  // where U's columns are M's eigenvectors
-    zgemm_(&N, &N, &dim, &dim, &dim, &ALPHA, mColMaj, &dim, out, &dim, &BETA, tmp, &dim);
-    zgemm_(&N, &C, &dim, &dim, &dim, &ALPHA, tmp, &dim, mColMaj, &dim, &BETA, out, &dim);
+    cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
+        dim, dim, dim, &ALPHA, mColMaj, dim, out, dim, &BETA, tmp, dim);
+    cblas_zgemm(CblasColMajor, CblasNoTrans, CblasConjTrans,
+        dim, dim, dim, &ALPHA, tmp, dim, mColMaj, dim, &BETA, out, dim);
 
     free(work);
 
