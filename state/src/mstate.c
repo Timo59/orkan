@@ -63,7 +63,6 @@ void stateInitEmpty(state_t* state, const qubit_t qubits) {
  * @returns	This function has no return value; alters the state in place
  */
 void stateInitPlus(state_t* state, const qubit_t qubits) {
-    stateInitEmpty(state, qubits);
     const double prefactor = 1. / state->dim;
     for (dim_t i = 0; i < state->dim; ++i) {
         state->vec[i] = prefactor;
