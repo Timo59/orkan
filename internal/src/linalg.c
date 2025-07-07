@@ -409,8 +409,6 @@ cplx_t* zexpm(cplx_t* m, const double complex a, const dim_t dim) {
         out[i * dim + i] = cexp(-a * I * eig[i]);                   // Populate the output's diagonal with exp(a * eig)
     }
 
-    const char N = 'N';
-    const char C = 'C';
     const cplx_t ALPHA = 1.;                                        // Transform the output matrix to the original basis
     const cplx_t BETA = 0.;                                         //          out -> U * out U**H
     double complex tmp[dim * dim];                                  // where U's columns are M's eigenvectors
