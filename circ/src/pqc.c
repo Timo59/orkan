@@ -85,6 +85,13 @@ void applyHerm(state_t* state, const herm_t* herm) {
 }
 
 void applyLCCG(state_t* state, const lccg_t* lccg) {
+
+    printf("state = [");
+    for (dim_t i = 0; i < state->dim; ++i) {
+        printf("%f +i(%f), ", creal(state->vec[i]), cimag(state->vec[i]));
+    }
+    printf("]\n");
+
     cplx_t* out = calloc(state->dim, sizeof(cplx_t));
     if (out == NULL) {
         fprintf(stderr, "applyLQCB(): out allocation failed\n");
@@ -99,7 +106,7 @@ void applyLCCG(state_t* state, const lccg_t* lccg) {
         tmp.qubits = state->qubits;
         tmp.dim = state->dim;
         if ((tmp.vec = malloc(tmp.dim * sizeof(cplx_t))) == NULL) {
-            fprintf(stderr, "applyHerm(): tmp allocation failed\n");
+            fprintf(stderr, "applyLCCG(): tmp allocation failed\n");
             free(out);
             exit(EXIT_FAILURE);
         }
@@ -110,6 +117,8 @@ void applyLCCG(state_t* state, const lccg_t* lccg) {
 #pragma omp critical(sum)
         {
             cblas_zaxpy(state->dim, lccg->weight + i, tmp.vec, 1, out, 1);
+            printf("weight[%d] = %f + i(%f)\n", i, creal(*(lccg->weight + i)), cimag(*(lccg->weight + i)));
+            printf("||state[%d]||**2 = %f\n", i, cblas_dznrm2(state->dim, out, 1));
         }
         stateFreeVector(&tmp);
     }
