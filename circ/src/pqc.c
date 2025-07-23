@@ -132,7 +132,6 @@ void evoDiag(const state_t* state, const double diag[], double par) {
 }
 
 void evoCG(state_t* state, const applyCG cg, double par) {
-    const dim_t incr = 1;
     par /= 2.;
     const cplx_t c = cos(par);
     const cplx_t s = - I * sin(par);

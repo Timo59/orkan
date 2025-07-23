@@ -25,6 +25,7 @@ typedef __LAPACK_int            dim_t;
 typedef double complex          cplx_t;
 typedef blasint                 dim_t;
 #include <cblas.h>
+#define LAPACK_ILP64
 #include <lapacke.h>
 #endif
 
