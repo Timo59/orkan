@@ -14,7 +14,7 @@
 #endif
 
 #ifndef QTYPES_H
-#include "qTypes.h"
+#include "q_types.h"
 #endif
 
 #ifndef _STDIO_H_
