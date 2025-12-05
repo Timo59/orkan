@@ -11,7 +11,7 @@
 #endif
 
 #ifndef PSTATE_H
-#include "pstate.h"
+#include "../../include/state.h"
 #endif
 
 #ifdef MACOS

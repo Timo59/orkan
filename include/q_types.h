@@ -5,16 +5,19 @@
 
 /*
  * =====================================================================================================================
- *                                                      includes
+ * Includes
  * =====================================================================================================================
  */
-#ifndef __COMPLEX_H__
-#include <complex.h>
+
+#if defined(__APPLE__)
+    #include <vecLib/lapack_types.h>
+#elif defined(__linux__)
+    #include <openblas_config.h>
 #endif
 
 /*
  * =====================================================================================================================
- *                                                      C++ check
+ *  C++ check
  * =====================================================================================================================
  */
 
@@ -24,34 +27,23 @@ extern "C" {
 
 /*
  * =====================================================================================================================
- *                                                  type definitions
+ *  Type definitions
  * =====================================================================================================================
  */
-typedef unsigned long long          complength_t;
-typedef unsigned char               depth_t;
-#ifdef MACOS
-#define ACCELERATE_NEW_LAPACK                                   // Required to use cblas_new
-#define ACCELERATE_LAPACK_ILP64                                 // __LAPACK_int is a 64-bit integer
-#include <vecLib/lapack_types.h>
+
+typedef unsigned char               qubit_t;    // Qubit identifier
+
+#if defined(__APPLE__)
     typedef __LAPACK_double_complex cplx_t;
     typedef __LAPACK_int            dim_t;
-#else
-#define OPENBLAS_USE64BITINT
-#include <openblas_config.h>
+#elif defined(__linux__)
     typedef openblas_complex_double cplx_t;
     typedef blasint                 dim_t;
 #endif
-typedef enum pauli {
-    ID,
-    X,
-    Y,
-    Z
-} pauli_t;
-typedef unsigned char           qubit_t;
 
 /*
  * =====================================================================================================================
- *                                                      Macros
+ * Macros
  * =====================================================================================================================
  */
 
@@ -68,12 +60,6 @@ typedef unsigned char           qubit_t;
 
 #define SETREAL(a, b)           (*((double*) &(a)) = (b))
 #define SETIMAG(a, b)           (*(((double*) &(a)) + 1) = (b))
-
-/*
- * =====================================================================================================================
- *                                                      Wrapper
- * =====================================================================================================================
- */
 
 #ifdef __cplusplus
 }

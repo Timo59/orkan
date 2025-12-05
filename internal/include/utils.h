@@ -14,7 +14,7 @@
 #include <math.h>
 
 #ifndef QTYPES_H
-#include "qTypes.h"
+#include "q_types.h"
 #endif
 
 #ifndef __STDBOOL_H
