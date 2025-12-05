@@ -1,3 +1,4 @@
+// test.h - Functions and objects to check library
 #ifndef Q_TEST_H
 #define Q_TEST_H
 
@@ -6,24 +7,19 @@
  * includes
  * =====================================================================================================================
  */
+
 #ifndef _COMPLEX_H_
 #include <complex.h>
 #endif
 
 #if defined(__APPLE__)
-    typedef __LAPACK_double_complex cplx_t;
-    typedef __LAPACK_int            dim_t;
+    #include <vecLib/lapack_types.h>
 #elif defined(__linux__)
-    typedef openblas_complex_double cplx_t;
-    typedef blasint                 dim_t;
+    #include <openblas_config.h>
 #endif
 
 #ifndef _STDIO_H_
 #include <stdio.h>
-#endif
-
-#ifndef _STDLIB_H_
-#include <stdlib.h>
 #endif
 
 #ifndef UNITY_FRAMEWORK_H
@@ -46,11 +42,26 @@ extern "C" {
  * =====================================================================================================================
  */
 
-#define SQRT2        1.4142135623730951
-#define INVSQRT2     0.7071067811865475
-#define INVSQRT4     0.5
-#define INVSQRT8     0.3535533905932738
-#define INVSQRT16    0.25
+#define MAXQUBITS   4
+#define SQRT2       1.4142135623730951
+#define INVSQRT2    0.7071067811865475
+#define INVSQRT4    0.5
+#define INVSQRT8    0.3535533905932738
+#define INVSQRT16   0.25
+
+/*
+ * =====================================================================================================================
+ * Type definitions
+ * =====================================================================================================================
+ */
+
+#if defined(__APPLE__)
+    typedef __LAPACK_double_complex cplx_t;
+    typedef __LAPACK_int            dim_t;
+#elif defined(__linux__)
+    typedef openblas_complex_double cplx_t;
+    typedef blasint                 dim_t;
+#endif
 
 
 /*
@@ -164,6 +175,7 @@ const static cplx_t state_pure_two_qubits_plus[4] = {
     INVSQRT4 + I*0.0, INVSQRT4 + I*0.0, INVSQRT4 + I*0.0, INVSQRT4 + I*0.0
 };
 const static cplx_t state_pure_two_qubits_ghz[4] = {INVSQRT2 + I*0.0, 0.0 + I*0.0, 0.0 + I*0.0, INVSQRT2 + I*0.0};
+
 const static cplx_t *states_pure_two_qubits[6] = {
     state_pure_two_qubits_zero,
     state_pure_two_qubits_one,
@@ -334,6 +346,13 @@ const static cplx_t* states_pure_four_qubits[18] = {
     state_pure_four_qubits_plus,
     state_pure_four_qubits_ghz,
 };
+
+// Array of the pure state instances per qubit count and their respective number
+cplx_t* states_pure[4] = {
+    states_pure_one_qubit, states_pure_two_qubits, states_pure_three_qubits, states_pure_four_qubits
+};
+
+unsigned nstates_pure[4] = {3, 6, 10, 18};
 
 #ifdef __cplusplus
 }

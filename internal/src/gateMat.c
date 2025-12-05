@@ -1,7 +1,3 @@
-//
-// Created by Timo Ziegler on 18.09.24.
-//
-
 #include "gateMat.h"
 
 #ifndef _STDLIB_H_
