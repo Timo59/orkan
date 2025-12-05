@@ -9,7 +9,9 @@ endif ()
 
 # Source files for test_q
 set(TEST_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/test_state.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/test.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/test_state.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/test_qhipster.c"
         "${UNITY_DIR}/unity.c"
 )
 
