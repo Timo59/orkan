@@ -1,1 +1,76 @@
 # Dependencies.cmake - Handle all external dependencies
+
+# Option to use system OpenBLAS (must have ILP64 support)
+option(USE_SYSTEM_OPENBLAS "Use system OpenBLAS instead of bundled (must have ILP64 support)" OFF)
+
+# BLAS/LAPACK configuration
+if(APPLE)
+    # Apple Accelerate framework has guaranteed ILP64 support with ACCELERATE_LAPACK_ILP64
+    message(STATUS "Using Apple Accelerate framework (ILP64 native)")
+    set(QSIM_BLAS_LIBRARIES "-framework Accelerate")
+    set(QSIM_BLAS_INCLUDE_DIRS "")
+
+elseif(UNIX)
+    # Linux: Bundle OpenBLAS with ILP64 by default
+    if(USE_SYSTEM_OPENBLAS)
+        message(STATUS "Using system OpenBLAS (ILP64 support required)")
+        message(WARNING
+            "You have enabled USE_SYSTEM_OPENBLAS. This requires OpenBLAS built with INTERFACE64=1.\n"
+            "If you encounter issues, rebuild with: cmake -DUSE_SYSTEM_OPENBLAS=OFF ..")
+
+        # Try to find system OpenBLAS
+        find_library(OPENBLAS_LIB
+            NAMES openblas64 openblas
+            PATHS /usr/lib /usr/local/lib /opt/OpenBLAS/lib
+            DOC "OpenBLAS library with ILP64 support"
+        )
+
+        if(NOT OPENBLAS_LIB)
+            message(FATAL_ERROR
+                "System OpenBLAS not found. Either:\n"
+                "  1. Install: sudo apt install libopenblas-dev\n"
+                "  2. Build with: cmake -DUSE_SYSTEM_OPENBLAS=OFF .. (uses bundled OpenBLAS)")
+        endif()
+
+        message(STATUS "Found OpenBLAS: ${OPENBLAS_LIB}")
+        set(QSIM_BLAS_LIBRARIES ${OPENBLAS_LIB})
+        set(QSIM_BLAS_INCLUDE_DIRS "/usr/include" "/usr/local/include")
+
+    else()
+        # Use bundled OpenBLAS with ILP64 support
+        message(STATUS "Using bundled OpenBLAS with ILP64 support")
+        message(STATUS "Note: First build will take 10-30 minutes to compile OpenBLAS")
+
+        include(FetchContent)
+        FetchContent_Declare(
+            openblas
+            URL https://github.com/xianyi/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27.tar.gz
+            URL_HASH SHA256=aa2d68b1564fe2b13bc292672608e9cdeeeb6dc34995512e65c3b10f4599e897
+        )
+
+        # OpenBLAS build options
+        set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
+        set(BUILD_STATIC_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+        set(INTERFACE64 1 CACHE STRING "Use 64-bit integers (ILP64)" FORCE)
+        set(DYNAMIC_ARCH ON CACHE BOOL "Build for multiple CPU architectures" FORCE)
+        set(BUILD_TESTING OFF CACHE BOOL "Disable OpenBLAS tests" FORCE)
+        set(BUILD_WITHOUT_LAPACK OFF CACHE BOOL "Include LAPACK" FORCE)
+
+        FetchContent_MakeAvailable(openblas)
+
+        # OpenBLAS creates the target 'openblas'
+        set(QSIM_BLAS_LIBRARIES openblas)
+        # Get the include directory from the fetched content
+        FetchContent_GetProperties(openblas SOURCE_DIR OPENBLAS_SOURCE_DIR)
+        set(QSIM_BLAS_INCLUDE_DIRS "${OPENBLAS_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated")
+    endif()
+
+else()
+    message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}")
+endif()
+
+# Export variables for use in other CMake files
+set(QSIM_BLAS_LIBRARIES ${QSIM_BLAS_LIBRARIES} PARENT_SCOPE)
+set(QSIM_BLAS_INCLUDE_DIRS ${QSIM_BLAS_INCLUDE_DIRS} PARENT_SCOPE)
+
+message(STATUS "BLAS configuration complete")

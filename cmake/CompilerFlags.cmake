@@ -27,17 +27,12 @@ target_link_libraries(${PROJECT_COMPILER_FLAGS}
 # Interface library to specify usage of BLAS routines
 add_library(blas_compiler_flags INTERFACE)
 
-target_include_directories(blas_compiler_flags
-        INTERFACE $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:/usr/local/include>
-)
-target_link_directories(blas_compiler_flags
-        INTERFACE $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:/usr/local/lib>
-)
-target_link_libraries(blas_compiler_flags
-        INTERFACE
-            $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lopenblas>
-            $<$<BOOL:${APPLE}>:"-framework Accelerate">
-)
+# Use BLAS configuration from Dependencies.cmake
+if(QSIM_BLAS_INCLUDE_DIRS)
+    target_include_directories(blas_compiler_flags INTERFACE ${QSIM_BLAS_INCLUDE_DIRS})
+endif()
+
+target_link_libraries(blas_compiler_flags INTERFACE ${QSIM_BLAS_LIBRARIES})
 
 # Interface library to specify usage of OpenMP routines
 add_library(omp_compiler_flags INTERFACE)
