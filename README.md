@@ -1,93 +1,152 @@
 # qSim
 
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.uni-hannover.de/timo.ziegler/qsim.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.uni-hannover.de/timo.ziegler/qsim/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
+A quantum computer simulator library written in C for representing, manipulating, and working with quantum states.
 
 ## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+qSim is a quantum computing simulation library focused on efficient quantum state representation and manipulation using industry-standard numerical libraries. The library supports both pure states (represented as statevectors) and mixed states (represented as density matrices).
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Features
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+- **Quantum State Representation**
+  - Pure states as statevectors
+  - Mixed states as density matrices (lower triangle representation)
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+- **State Manipulation Operations**
+  - Initialize quantum states
+  - Create uniform superposition (plus state)
+  - Deep copy states
+  - Efficient memory management
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+- **High-Performance Computing**
+  - CBLAS (Basic Linear Algebra Subprograms) integration for optimized operations
+  - OpenMP support for parallel computation
+  - Cross-platform support (macOS and Linux)
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+- **Platform-Specific Optimizations**
+  - macOS: Apple Accelerate framework (vecLib/LAPACK)
+  - Linux: OpenBLAS for BLAS operations
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Requirements
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+- CMake 3.27 or higher
+- C17-compatible compiler
+- OpenMP (optional, for parallel computation)
+- BLAS library with **64-bit integer support (ILP64)**:
+  - macOS: Accelerate framework (built-in, ILP64 native)
+  - Linux: **Bundled OpenBLAS** (default, built with ILP64 automatically)
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+### BLAS Configuration
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+qSim requires BLAS/LAPACK libraries with **64-bit integer (ILP64)** support. By default:
 
-## License
-For open source projects, say how it is licensed.
+- **macOS**: Uses Apple Accelerate framework with native ILP64 support
+- **Linux**: Automatically downloads and builds OpenBLAS 0.3.27 with ILP64 support
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+**Note**: The first build on Linux takes 10-30 minutes to compile OpenBLAS, but subsequent builds are fast as it's cached.
+
+## Building
+
+```bash
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
+### Build Options
+
+- `CMAKE_BUILD_TYPE`: Set to `Debug` or `Release`
+- `USE_SYSTEM_OPENBLAS`: Use system OpenBLAS instead of bundled version (default: `OFF`)
+- `ENABLE_ASAN`: Enable AddressSanitizer for memory debugging (default: `OFF`)
+
+### Using System OpenBLAS (Advanced)
+
+If you have OpenBLAS installed with ILP64 support, you can use it instead of the bundled version:
+
+```bash
+cmake -DUSE_SYSTEM_OPENBLAS=ON ..
+cmake --build .
+```
+
+**Warning**: Most system OpenBLAS installations use 32-bit integers (LP64) and are **not compatible**. Only enable this if you're certain your OpenBLAS was built with `INTERFACE64=1`.
+
+To verify your system BLAS has ILP64 support:
+
+```bash
+# Compile the verification tool
+cd tools
+gcc -o verify_ilp64 verify_ilp64.c -lopenblas -DOPENBLAS_USE64BITINT -I/usr/include
+
+# Run verification
+./verify_ilp64
+```
+
+Expected output: `✓ ILP64 support detected (sizeof(blasint) = 8)`
+
+If verification fails, use the bundled OpenBLAS (default behavior).
+
+## Project Structure
+
+```
+qsim/
+├── CMakeLists.txt          # Main build configuration
+├── README.md               # Project documentation
+├── src/                    # Source implementation
+│   ├── state.c            # State manipulation implementation
+│   └── CMakeLists.txt     # Source build rules
+├── include/               # Public headers
+│   ├── q_types.h          # Type definitions
+│   ├── state.h            # State structures and functions
+│   └── qlib.h             # Main library header
+├── test/                  # Test suite
+│   ├── test_state.c       # State tests
+│   ├── test.h             # Test utilities
+│   ├── test_qhipster.h    # QHipster tests
+│   └── CMakeLists.txt     # Test build rules
+├── cmake/                 # CMake modules
+│   ├── PlatformConfig.cmake    # OS-specific configuration
+│   ├── CompilerFlags.cmake     # Compiler and linker flags
+│   └── Dependencies.cmake      # External dependencies
+└── extern/                # External dependencies
+    └── Unity/             # Testing framework (submodule)
+```
+
+## Core Components
+
+### q_types.h
+Fundamental type definitions for the quantum simulator:
+- `qubit_t`: Qubit identifier
+- `cplx_t`: Complex number representation
+- `dim_t`: Dimension type
+- Utility macros for common operations
+
+### state.h
+Quantum state structures and manipulation functions:
+- `state_type_t`: Enum for PURE or MIXED state types
+- `state_t`: Main state structure containing type, data array, and qubit count
+- State manipulation functions:
+  - `state_free()`: Free allocated memory
+  - `state_len()`: Get array size for state representation
+  - `state_init()`: Initialize a quantum state
+  - `state_plus()`: Initialize uniform superposition
+  - `state_cp()`: Create a deep copy of a state
+
+### qlib.h
+Main library header that includes all core components.
+
+## Testing
+
+The project uses the Unity testing framework (included as a git submodule).
+
+```bash
+# Run tests from build directory
+ctest
+```
+
+## Project Status
+
+The project is in active development. Current focus is on implementing core quantum state representation and manipulation. Additional modules are planned:
+- Circuit operations
+- Gate implementations
+- Measurement operations
