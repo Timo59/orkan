@@ -19,10 +19,10 @@
 #include <stdlib.h>
 #endif
 
-#ifdef MACOS
-#include <vecLib/cblas_new.h>
-#else
-#include <cblas.h>
+#if defined(__APPLE__)
+    #include <vecLib/cblas_new.h>
+#elif defined(__linux__)
+    #include <cblas.h>
 #endif
 
 /*
