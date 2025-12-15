@@ -20,9 +20,9 @@
 #endif
 
 #if defined(__APPLE__)
-#include <vecLib/cblas_new.h>
+    #include <vecLib/cblas_new.h>
 #elif defined(__linux__)
-#include <cblas.h>
+    #include <cblas.h>
 #endif
 
 /*

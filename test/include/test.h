@@ -12,14 +12,16 @@
 #include <complex.h>
 #endif
 
-#if defined(__APPLE__)
-    #include <vecLib/lapack_types.h>
-#elif defined(__linux__)
-    #include <openblas_config.h>
+#ifndef QTYPES_H
+#include  "q_types.h"
 #endif
 
 #ifndef _STDIO_H_
 #include <stdio.h>
+#endif
+
+#ifndef _STDLIB_H_
+#include <stdlib.h>
 #endif
 
 #ifndef UNITY_FRAMEWORK_H
@@ -48,20 +50,6 @@ extern "C" {
 #define INVSQRT4    0.5
 #define INVSQRT8    0.3535533905932738
 #define INVSQRT16   0.25
-
-/*
- * =====================================================================================================================
- * Type definitions
- * =====================================================================================================================
- */
-
-#if defined(__APPLE__)
-    typedef __LAPACK_double_complex cplx_t;
-    typedef __LAPACK_int            dim_t;
-#elif defined(__linux__)
-    typedef openblas_complex_double cplx_t;
-    typedef blasint                 dim_t;
-#endif
 
 
 /*
@@ -156,14 +144,6 @@ extern "C" {
  * Pure quantum test states
  * =====================================================================================================================
  */
-
-/*
- * @brief   Returns state vectors of selected pure quantum states
- *
- * @param[in]   nqubits Number of qubits in the multi-qubit state
- *
- * @returns Array of size 2**(nqubits) + 2 of addresses to double complex arrays representing pure quantum states. The
- *          state
 
 // 1-qubit pure states (size = 2 amplitudes)
 const static cplx_t state_pure_one_qubit_zero[2] = {1.0 + I*0.0, 0.0 + I*0.0};
