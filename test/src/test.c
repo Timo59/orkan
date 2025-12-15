@@ -6,16 +6,17 @@
  * =====================================================================================================================
  */
 
-#ifndef Q_TEST_H
-#include "test.h"
+#ifndef __MATH__
+#include <math.h>
 #endif
 
 #ifndef _STDLIB_H_
 #include <stdlib.h>
 #endif
-#include <stdio.h>
 
-#include "q_types.h"
+#ifndef Q_TEST_H
+#include "test.h"
+#endif
 
 /*
  * =====================================================================================================================
@@ -61,7 +62,7 @@ cplx_t** test_cb_pure(const unsigned nqubits) {
 
 cplx_t** test_xb_pure(const unsigned nqubits) {
     cplx_t** out = NULL;
-    const cplx_t ampl = sqrt()
+    const cplx_t ampl = (cplx_t) pow(INVSQRT2, nqubits);
 
     // Allocate the pointers to all Hadamard basis states
     const unsigned dim = 1 << nqubits;  // Hilbert space dimension
@@ -88,10 +89,8 @@ cplx_t** test_xb_pure(const unsigned nqubits) {
                 parity >>= 1;
             }
 
-
+            out[i][j] = sign * ampl;
         }
-
-        out[i][i] = 1.0 + I*0.0;
     }
 
     return out;
@@ -110,7 +109,41 @@ cplx_t** test_xb_pure(const unsigned nqubits) {
 }
 
 
-cplx_t** test_yb_pure(const unsigned nqubits);
+cplx_t** test_yb_pure(const unsigned nqubits) {
+    cplx_t** out = NULL;
+    const cplx_t ampl = (cplx_t) pow(INVSQRT2, nqubits);
+
+    // Allocate the pointers to all circular basis states
+    const unsigned dim = 1 << nqubits;  // Hilbert space dimension
+    if (!((out = calloc(dim, sizeof (*out))))) {
+        fprintf(stderr, "test_cb_pure: out allocation failed\n");
+        return out;
+    }
+
+    // Initialize the circular basis states; the j-th circular basis state is
+    // H_y |j> = H_y |j_n-1...j_1 j_0> = (|0> + (-1)**(j_n-1) i |1>) ... (|0> + (-1)**j_1 i |1>) (|0> + (-1)**j_0 i |1>)
+    for (unsigned i = 0; i < dim; ++i) {
+        if (!((out[i] = calloc(dim, sizeof (*out[i]))))) {
+            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n");
+            goto cleanup;
+        }
+
+        // The j-th amplitude gets multiplied by 'i' for each bit set in j and, additionally, by '-1' if that bit is
+        // set in i as well
+        for (unsigned j = 0; j < dim; ++j) {
+            cplx_t sign = 1.0 + I*0.0;
+
+            for (unsigned k = 0; k < nqubits; ++k) {
+                if (j & (1 << k)) {
+                    sign *= I*1.0;
+                    if (i & (1 << k)) sign *= -1.0;
+                }
+            }
+
+            out[i][j] = sign * ampl;
+        }
+    }
+}
 
 
 cplx_t** test_gen_states_pure(const unsigned nqubits) {
