@@ -20,10 +20,6 @@
 #include <stdio.h>
 #endif
 
-#ifndef _STDLIB_H_
-#include <stdlib.h>
-#endif
-
 #ifndef UNITY_FRAMEWORK_H
 #include "unity.h"
 #endif
