@@ -10,12 +10,8 @@
 #include <complex.h>
 #endif
 
-#if defined(__APPLE__)
-    typedef __LAPACK_double_complex cplx_t;
-    typedef __LAPACK_int            dim_t;
-#elif defined(__linux__)
-    typedef openblas_complex_double cplx_t;
-    typedef blasint                 dim_t;
+#ifndef QTYPES_H
+#include  "q_types.h"
 #endif
 
 #ifndef _STDIO_H_

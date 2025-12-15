@@ -31,3 +31,12 @@
 **/.dSYM
 **/.idea
 **/cmake-build-debug
+
+# Keep old code only locally
+**/archive
+
+# Under construction
+**/circ
+**/gate
+**/internal
+**/meas
