@@ -145,6 +145,48 @@ extern "C" {
  * =====================================================================================================================
  */
 
+/*
+ * @brief   Returns all computational basis states (eigenstates of Pauli-Z) of a system with <nqubits> qubits
+ *
+ * @param[in]   nqubits     Number of qubits
+ *
+ * @returns Array of size 2**<nqubits> of COMPLEX DOUBLE arrays; the state vectors of all computational basis states.
+ */
+cplx_t** test_cb_pure(unsigned nqubits);
+
+
+/*
+ * @brief   Returns all Hadamard basis states (eigenstates of Pauli-X) of a system with <nqubits> qubits in the
+ *          computational basis
+ *
+ * @param[in]   nqubits     Number of qubits
+ *
+ * @returns Array of size 2**<nqubits> of COMPLEX DOUBLE arrays; the state vectors of all Hadamard basis states.
+ */
+cplx_t** test_xb_pure(unsigned nqubits);
+
+
+/*
+ * @brief   Returns all circular basis states (eigenstates of Pauli-Y) of a system with <nqubits> qubits in the
+ *          computational basis
+ *
+ * @param[in]   nqubits     Number of qubits
+ *
+ * @returns Array of size 2**<nqubits> of COMPLEX DOUBLE arrays; the state vectors of all circular basis states.
+ */
+cplx_t** test_yb_pure(unsigned nqubits);
+
+
+/*
+ * @brief   Returns a variety of quantum test states with <nqubits> qubits
+ *
+ * @param[in]   nqubits     Number of qubits
+ *
+ * @returns Array of size <...> of COMPLEX DOUBLE arrays; the state vectors of quantum test states.
+ */
+cplx_t** test_gen_states_pure(unsigned nqubits);
+
+
 // 1-qubit pure states (size = 2 amplitudes)
 const static cplx_t state_pure_one_qubit_zero[2] = {1.0 + I*0.0, 0.0 + I*0.0};
 const static cplx_t state_pure_one_qubit_one[2] = {0.0 + I*0.0, 0.0 + I*1.0};
