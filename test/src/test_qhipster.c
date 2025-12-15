@@ -4,8 +4,18 @@
 #include "test_qhipster.h"
 #endif
 
+#ifndef STATE_H
+#include "state.h"
+#endif
+
 #ifndef _STDLIB_H_
 #include <stdlib.h>
+#endif
+
+#if defined(__APPLE__)
+#include <vecLib/cblas_new.h>
+#elif defined(__linux__)
+#include <cblas.h>
 #endif
 
 /*
@@ -28,13 +38,31 @@ void tearDown(void) {}
  * @brief   Unit test of the Pauli-X gate on each qubit of a multi-qubit state of up MAXQUBITS qubits
  */
 void testApplyX(void) {
+    // Pure test state
+    state_t test = {0};
+    test.type = PURE;
+
+    // Matrix representation of the single-qubit gate
+    cplx_t *gateMat = NULL;
+
     for (unsigned nqubits= 1; nqubits <= MAXQUBITS; ++nqubits) {
+        // Hilbert space dimension
+        dim_t dim = 1 << nqubits;
 
+        // Iterate all possible target qubits
+        for (unsigned pos = 0; pos < nqubits; ++pos) {
+            if (!((gateMat = mat_single_qubit_gate(nqubits, XMAT, pos)))) goto cleanup;
 
-        for (qubit_t pos = 0; pos < qubits; ++pos) {                    // For each target qubit from the right:
-            cplx_t* gateMat = singleQubitGateMat(XMAT, qubits, pos);    // generate the matrix representation from the
-            // Kronecker product
-            for (dim_t i = 0; i < dim + 1; ++i) {                       // For each state vector:
+            // Iterate the test state vectors
+            for (unsigned i = 0; i < nstates_pure[nqubits - 1]; ++i) {
+                // Copy the state vector to the heap and initialize the test state
+                cplx_t *data = malloc(dim * sizeof(*data));
+                if (!data) {
+                    fprintf(stderr, "testApplyX(): data allocation failed\n");
+                    goto cleanup;
+                }
+                cblas_zcopy(dim, )
+
                 stateInitVector(&testState, vecs[i]);                   // Copy state vector to testState's vector,
                 applyX(&testState, pos);                                // apply test function
                 cplx_t* ref = cmatVecMul(gateMat, vecs[i], dim);    // Matrix multiplication as reference
@@ -46,6 +74,11 @@ void testApplyX(void) {
         stateFreeVector(&testState);
         freeTestVectors(vecs, qubits);
     }
+
+    cleanup:
+        free(gateMat);
+        gateMat = NULL;
+        state_free(&test);
 }
 
 
