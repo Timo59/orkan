@@ -1,4 +1,4 @@
-// test_qhipster.c - Unit tests for functions from qhipster.c
+// test_qhipster.c - Unit tests for representations of quantum gates on pure states
 
 #ifndef Q_TEST_QHIPSTER_H
 #include "test_qhipster.h"
