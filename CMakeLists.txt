@@ -48,7 +48,7 @@ if (BUILD_TESTS AND EXISTS "${CMAKE_SOURCE_DIR}/test")
             COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
     )
 
-    add_dependencies(install check)
+    # add_dependencies(install check)
 endif ()
 
 if(BUILD_EXAMPLES AND EXISTS "${CMAKE_SOURCE_DIR}/examples")

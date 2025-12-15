@@ -1,3 +1,4 @@
+// test.h - Functions and objects to check library
 #ifndef Q_TEST_H
 #define Q_TEST_H
 
@@ -6,6 +7,7 @@
  * includes
  * =====================================================================================================================
  */
+
 #ifndef _COMPLEX_H_
 #include <complex.h>
 #endif
@@ -42,11 +44,12 @@ extern "C" {
  * =====================================================================================================================
  */
 
-#define SQRT2        1.4142135623730951
-#define INVSQRT2     0.7071067811865475
-#define INVSQRT4     0.5
-#define INVSQRT8     0.3535533905932738
-#define INVSQRT16    0.25
+#define MAXQUBITS   4
+#define SQRT2       1.4142135623730951
+#define INVSQRT2    0.7071067811865475
+#define INVSQRT4    0.5
+#define INVSQRT8    0.3535533905932738
+#define INVSQRT16   0.25
 
 
 /*
@@ -160,6 +163,7 @@ const static cplx_t state_pure_two_qubits_plus[4] = {
     INVSQRT4 + I*0.0, INVSQRT4 + I*0.0, INVSQRT4 + I*0.0, INVSQRT4 + I*0.0
 };
 const static cplx_t state_pure_two_qubits_ghz[4] = {INVSQRT2 + I*0.0, 0.0 + I*0.0, 0.0 + I*0.0, INVSQRT2 + I*0.0};
+
 const static cplx_t *states_pure_two_qubits[6] = {
     state_pure_two_qubits_zero,
     state_pure_two_qubits_one,
@@ -330,6 +334,13 @@ const static cplx_t* states_pure_four_qubits[18] = {
     state_pure_four_qubits_plus,
     state_pure_four_qubits_ghz,
 };
+
+// Array of the pure state instances per qubit count and their respective number
+const cplx_t * const * states_pure[4] = {
+    states_pure_one_qubit, states_pure_two_qubits, states_pure_three_qubits, states_pure_four_qubits
+};
+
+unsigned nstates_pure[4] = {3, 6, 10, 18};
 
 #ifdef __cplusplus
 }
