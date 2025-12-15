@@ -41,7 +41,7 @@ add_subdirectory(src)
 
 if (BUILD_TESTS AND EXISTS "${CMAKE_SOURCE_DIR}/test")
     enable_testing()
-    add_subdirectory(tests)
+    add_subdirectory(test)
 
     # Require tests to pass before install
     add_custom_target(check
