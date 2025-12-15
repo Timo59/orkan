@@ -20,6 +20,16 @@
 
 /*
  * =====================================================================================================================
+ *                                                  setUp and tearDown
+ * =====================================================================================================================
+ */
+
+void setUp(void) {}
+
+void tearDown(void) {}
+
+/*
+ * =====================================================================================================================
  * Pure quantum test states
  * =====================================================================================================================
  */
@@ -37,7 +47,7 @@ cplx_t** test_cb_pure(const unsigned nqubits) {
     // Initialize the computational basis states
     for (unsigned i = 0; i < dim; ++i) {
         if (!((out[i] = calloc(dim, sizeof (*out[i]))))) {
-            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n");
+            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n", i);
             goto cleanup;
         }
 
@@ -47,11 +57,9 @@ cplx_t** test_cb_pure(const unsigned nqubits) {
     return out;
 
     cleanup:
-        if (out) {
-            for (unsigned i = 0; i < dim; ++i) {
-                free(out);
-                out = NULL;
-            }
+        for (unsigned i = 0; i < dim; ++i) {
+            free(out);
+            out = NULL;
         }
         free(out);
         out = NULL;
@@ -75,7 +83,7 @@ cplx_t** test_xb_pure(const unsigned nqubits) {
     // H |i> = H |i_n-1...i_1 i_0> = (|0> + (-1)**(i_n-1) |1>) ... (|0> + (-1)**i_1 |1>) (|0> + (-1)**i_0 |1>)
     for (unsigned i = 0; i < dim; ++i) {
         if (!((out[i] = calloc(dim, sizeof (*out[i]))))) {
-            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n");
+            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n", i);
             goto cleanup;
         }
 
@@ -96,11 +104,9 @@ cplx_t** test_xb_pure(const unsigned nqubits) {
     return out;
 
     cleanup:
-        if (out) {
-            for (unsigned i = 0; i < dim; ++i) {
-                free(out);
-                out = NULL;
-            }
+        for (unsigned i = 0; i < dim; ++i) {
+            free(out);
+            out = NULL;
         }
     free(out);
     out = NULL;
@@ -124,7 +130,7 @@ cplx_t** test_yb_pure(const unsigned nqubits) {
     // H_y |j> = H_y |j_n-1...j_1 j_0> = (|0> + (-1)**(j_n-1) i |1>) ... (|0> + (-1)**j_1 i |1>) (|0> + (-1)**j_0 i |1>)
     for (unsigned i = 0; i < dim; ++i) {
         if (!((out[i] = calloc(dim, sizeof (*out[i]))))) {
-            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n");
+            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n", i);
             goto cleanup;
         }
 
@@ -143,6 +149,18 @@ cplx_t** test_yb_pure(const unsigned nqubits) {
             out[i][j] = sign * ampl;
         }
     }
+
+    return out;
+
+    cleanup:
+        for (unsigned i = 0; i < dim; ++i) {
+            free(out);
+            out = NULL;
+        }
+    free(out);
+    out = NULL;
+
+    return out;
 }
 
 
@@ -150,15 +168,15 @@ cplx_t** test_gen_states_pure(const unsigned nqubits) {
     cplx_t** out = NULL;
 
     // Allocate the pointers for all test states
-    unsigned nvecs = 1 << nqubits;  // Number of test states
+    const unsigned dim = 1 << nqubits;
+    unsigned nvecs = 3 * dim;  // Number of test states
     if (!((out = calloc(nvecs, sizeof (*out))))) {
         fprintf(stderr, "test_gen_states_pure: out allocation failed\n");
         return out;
     }
 
-    // Copy pointers to computational basis states
+    // Copy pointers from computational basis states
     cplx_t **tmp = test_cb_pure(nqubits);
-    const unsigned dim = 1 << nqubits;
     if (!tmp) {
         fprintf(stderr, "test_gen_states_pure: Error in test_cb_pure\n");
         goto cleanup;
@@ -167,13 +185,56 @@ cplx_t** test_gen_states_pure(const unsigned nqubits) {
         out[i] = tmp[i];
     }
 
+    free(tmp);
+    tmp = NULL;
+
+    // Copy pointers from the Hadamard basis states
+    tmp = test_xb_pure(nqubits);
+    if (!tmp) {
+        fprintf(stderr, "test_gen_states_pure: Error in test_cb_pure\n");
+        goto cleanup;
+    }
+    for (unsigned i = 0; i < dim; ++i) {
+        out[dim + i] = tmp[i];
+    }
+
+    free(tmp);
+    tmp = NULL;
+
+    // Copy pointers from the Hadamard basis states
+    tmp = test_yb_pure(nqubits);
+    if (!tmp) {
+        fprintf(stderr, "test_gen_states_pure: Error in test_cb_pure\n");
+        goto cleanup;
+    }
+    for (unsigned i = 0; i < dim; ++i) {
+        out[2 * dim + i] = tmp[i];
+    }
+
+    free(tmp);
+    tmp = NULL;
+
     cleanup:
-        if (out) {
-            for (unsigned i = 0; i < nvecs; ++i) {
-                free(out[i]);
-                out[i] = NULL;
-            }
+        for (unsigned i = 0; i < nvecs; ++i) {
+            free(out[i]);
+            out[i] = NULL;
         }
 
     return out;
+}
+
+
+void test_rm_states_pure(const unsigned nqubits, cplx_t** states) {
+    const unsigned dim = 1 << nqubits;
+    const unsigned nvecs = 3 * dim;
+
+    if (states) {
+        for (unsigned i = 0; i < nvecs; ++i) {
+            free(states[i]);
+            states[i] = NULL;
+        }
+    }
+
+    free(states);
+    states = NULL;
 }
