@@ -157,6 +157,14 @@ extern "C" {
  * =====================================================================================================================
  */
 
+/*
+ * @brief   Returns state vectors of selected pure quantum states
+ *
+ * @param[in]   nqubits Number of qubits in the multi-qubit state
+ *
+ * @returns Array of size 2**(nqubits) + 2 of addresses to double complex arrays representing pure quantum states. The
+ *          state
+
 // 1-qubit pure states (size = 2 amplitudes)
 const static cplx_t state_pure_one_qubit_zero[2] = {1.0 + I*0.0, 0.0 + I*0.0};
 const static cplx_t state_pure_one_qubit_one[2] = {0.0 + I*0.0, 0.0 + I*1.0};
@@ -348,7 +356,7 @@ const static cplx_t* states_pure_four_qubits[18] = {
 };
 
 // Array of the pure state instances per qubit count and their respective number
-cplx_t* states_pure[4] = {
+const cplx_t * const * states_pure[4] = {
     states_pure_one_qubit, states_pure_two_qubits, states_pure_three_qubits, states_pure_four_qubits
 };
 
