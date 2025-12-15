@@ -7,28 +7,31 @@
 #endif
 
 int main(void) {
-    cplx_t **cb = test_cb_pure(2);
-    cplx_t **xb = test_xb_pure(2);
-    cplx_t **yb = test_yb_pure(2);
+    const unsigned nqubits = 2;
+    cplx_t **vecs = test_gen_states_pure(nqubits);
 
     // Print the Pauli-Z, -X, -Y basis states
-    const unsigned dim = 1 << 2;
+    const unsigned dim = 1 << nqubits;
 
     printf("Computational basis states:\n");
     printf("---------------------------\n");
     for (unsigned i = 0; i < dim; i++) {
-        vprint(cb[i]);
+        vprint(vecs[i], dim);
     }
+    printf("\n");
 
     printf("Hadamard basis states:\n");
     printf("----------------------\n");
     for (unsigned i = 0; i < dim; i++) {
-        vprint(xb[i]);
+        vprint(vecs[dim + i], dim);
     }
+    printf("\n");
 
     printf("Circular basis states:\n");
     printf("---------------------\n");
     for (unsigned i = 0; i < dim; i++) {
-        vprint(yb[i]);
+        vprint(vecs[2 * dim + i], dim);
     }
+
+    test_rm_states_pure(nqubits, vecs);
 }

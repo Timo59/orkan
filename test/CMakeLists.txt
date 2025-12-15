@@ -1,5 +1,5 @@
 # Initialize submodule if not present
-if (NOT EXISTS PATHS "${CMAKE_SOURCE_DIR}/extern/Unity/src/unity.h")
+if (NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/Unity/src/unity.h")
     find_package(Git QUIET)
     if(GIT_FOUND)
         message(STATUS "Initializing Unity submodule...")
