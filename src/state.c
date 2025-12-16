@@ -1,24 +1,12 @@
-/*
- * =====================================================================================================================
- * includes
- * =====================================================================================================================
- */
-
-#ifndef __MATH__
 #include <math.h>
-#endif
 
 #ifndef STATE_H
 #include "state.h"
 #endif
 
-#ifndef _STDIO_H_
 #include <stdio.h>
-#endif
 
-#ifndef _STDLIB_H_
 #include <stdlib.h>
-#endif
 
 #if defined(__APPLE__)
     #include <vecLib/cblas_new.h>
