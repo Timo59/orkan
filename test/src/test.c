@@ -177,7 +177,7 @@ cplx_t** test_gen_states_pure(const unsigned nqubits, unsigned *nvecs) {
     // Copy pointers from the Hadamard basis states
     tmp = test_xb_pure(nqubits);
     if (!tmp) {
-        fprintf(stderr, "test_gen_states_pure: Error in test_cb_pure\n");
+        fprintf(stderr, "test_gen_states_pure: Initialization of Hadamard basis states failed\n");
         goto cleanup;
     }
     for (unsigned i = 0; i < dim; ++i) {
@@ -190,7 +190,7 @@ cplx_t** test_gen_states_pure(const unsigned nqubits, unsigned *nvecs) {
     // Copy pointers from the Hadamard basis states
     tmp = test_yb_pure(nqubits);
     if (!tmp) {
-        fprintf(stderr, "test_gen_states_pure: Error in test_cb_pure\n");
+        fprintf(stderr, "test_gen_states_pure: Initialization of Circular basis states failed\n");
         goto cleanup;
     }
     for (unsigned i = 0; i < dim; ++i) {
