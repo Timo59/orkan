@@ -100,34 +100,43 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
                 // Compare state vectors
                 TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref, test_state.data, dim, PRECISION);
 
-                // Free state struct and reference vector
-                state_free(&test_state);
+                // Free reference vector
                 free(ref);
                 ref = NULL;
             }
+
+            // Free matrix representation
             free(gateMat);
             gateMat = NULL;
-        }
-    }
 
-    return;
+            // Free test state vectors
+            test_rm_states_pure(nqubits, test_vecs);
+        }
+
+        // Free reference state vectors
+        test_rm_states_pure(nqubits, ref_vecs);
+    }
 
     cleanup:
         // Free reference state vectors
         if (ref_vecs) {
             for (unsigned i = 0; i < nvecs; ++i) {
                 free(ref_vecs[i]);
+                ref_vecs[i] = NULL;
             }
         }
         free(ref_vecs);
+        ref_vecs = NULL;
 
         // Free test state vectors
         if (test_vecs) {
             for (unsigned i = 0; i < nvecs; ++i) {
                 free(test_vecs[i]);
+                test_vecs[i] = NULL;
             }
         }
         free(test_vecs);
+        test_vecs = NULL;
 
         // Free gate matrix representation
         free(gateMat);
