@@ -6,27 +6,13 @@
  * =====================================================================================================================
  */
 
-#ifndef __MATH__
 #include <math.h>
-#endif
 
-#ifndef _STDLIB_H_
 #include <stdlib.h>
-#endif
 
 #ifndef Q_TEST_H
 #include "test.h"
 #endif
-
-/*
- * =====================================================================================================================
- *                                                  setUp and tearDown
- * =====================================================================================================================
- */
-
-void setUp(void) {}
-
-void tearDown(void) {}
 
 /*
  * =====================================================================================================================
@@ -58,7 +44,7 @@ cplx_t** test_cb_pure(const unsigned nqubits) {
 
     cleanup:
         for (unsigned i = 0; i < dim; ++i) {
-            free(out);
+            free(out[i]);
             out = NULL;
         }
         free(out);
@@ -75,7 +61,7 @@ cplx_t** test_xb_pure(const unsigned nqubits) {
     // Allocate the pointers to all Hadamard basis states
     const unsigned dim = 1 << nqubits;  // Hilbert space dimension
     if (!((out = calloc(dim, sizeof (*out))))) {
-        fprintf(stderr, "test_cb_pure: out allocation failed\n");
+        fprintf(stderr, "test_xb_pure: out allocation failed\n");
         return out;
     }
 
@@ -83,7 +69,7 @@ cplx_t** test_xb_pure(const unsigned nqubits) {
     // H |i> = H |i_n-1...i_1 i_0> = (|0> + (-1)**(i_n-1) |1>) ... (|0> + (-1)**i_1 |1>) (|0> + (-1)**i_0 |1>)
     for (unsigned i = 0; i < dim; ++i) {
         if (!((out[i] = calloc(dim, sizeof (*out[i]))))) {
-            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n", i);
+            fprintf(stderr, "test_xb_pure: out[%u] allocation failed\n", i);
             goto cleanup;
         }
 
@@ -105,7 +91,7 @@ cplx_t** test_xb_pure(const unsigned nqubits) {
 
     cleanup:
         for (unsigned i = 0; i < dim; ++i) {
-            free(out);
+            free(out[i]);
             out = NULL;
         }
     free(out);
@@ -122,7 +108,7 @@ cplx_t** test_yb_pure(const unsigned nqubits) {
     // Allocate the pointers to all circular basis states
     const unsigned dim = 1 << nqubits;  // Hilbert space dimension
     if (!((out = calloc(dim, sizeof (*out))))) {
-        fprintf(stderr, "test_cb_pure: out allocation failed\n");
+        fprintf(stderr, "test_yb_pure: out allocation failed\n");
         return out;
     }
 
@@ -130,7 +116,7 @@ cplx_t** test_yb_pure(const unsigned nqubits) {
     // H_y |j> = H_y |j_n-1...j_1 j_0> = (|0> + (-1)**(j_n-1) i |1>) ... (|0> + (-1)**j_1 i |1>) (|0> + (-1)**j_0 i |1>)
     for (unsigned i = 0; i < dim; ++i) {
         if (!((out[i] = calloc(dim, sizeof (*out[i]))))) {
-            fprintf(stderr, "test_cb_pure: out[%u] allocation failed\n", i);
+            fprintf(stderr, "test_yb_pure: out[%u] allocation failed\n", i);
             goto cleanup;
         }
 
@@ -154,7 +140,7 @@ cplx_t** test_yb_pure(const unsigned nqubits) {
 
     cleanup:
         for (unsigned i = 0; i < dim; ++i) {
-            free(out);
+            free(out[i]);
             out = NULL;
         }
     free(out);
@@ -164,13 +150,13 @@ cplx_t** test_yb_pure(const unsigned nqubits) {
 }
 
 
-cplx_t** test_gen_states_pure(const unsigned nqubits) {
+cplx_t** test_gen_states_pure(const unsigned nqubits, unsigned *nvecs) {
     cplx_t** out = NULL;
 
     // Allocate the pointers for all test states
-    const unsigned dim = 1 << nqubits;
-    unsigned nvecs = 3 * dim;  // Number of test states
-    if (!((out = calloc(nvecs, sizeof (*out))))) {
+    const unsigned dim = 1 << nqubits;  // Hilbert space dimension
+    *nvecs = 3 * dim;  // Number of test states
+    if (!((out = calloc(*nvecs, sizeof (*out))))) {
         fprintf(stderr, "test_gen_states_pure: out allocation failed\n");
         return out;
     }
@@ -214,8 +200,10 @@ cplx_t** test_gen_states_pure(const unsigned nqubits) {
     free(tmp);
     tmp = NULL;
 
+    return out;
+
     cleanup:
-        for (unsigned i = 0; i < nvecs; ++i) {
+        for (unsigned i = 0; i < *nvecs; ++i) {
             free(out[i]);
             out[i] = NULL;
         }

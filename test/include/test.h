@@ -8,17 +8,13 @@
  * =====================================================================================================================
  */
 
-#ifndef _COMPLEX_H_
 #include <complex.h>
-#endif
 
 #ifndef QTYPES_H
 #include  "q_types.h"
 #endif
 
-#ifndef _STDIO_H_
 #include <stdio.h>
-#endif
 
 #ifndef UNITY_FRAMEWORK_H
 #include "unity.h"
@@ -41,6 +37,7 @@ extern "C" {
  */
 
 #define MAXQUBITS   4
+#define PRECISION   1e-8
 #define SQRT2       1.4142135623730951
 #define INVSQRT2    0.7071067811865475
 #define INVSQRT4    0.5
@@ -83,7 +80,7 @@ extern "C" {
             if (_fail) { \
                 char _msg[256]; \
                 snprintf(_msg, sizeof(_msg), \
-                    "Element %zu Expected %.7g, Was %.7g"; _i, _expected, _actual); \
+                    "Element %zu Expected %.7g, Was %.7g", _i, _expected, _actual); \
                     UNITY_TEST_FAIL(__LINE__, _msg); \
             } \
         } \
@@ -174,13 +171,14 @@ cplx_t** test_yb_pure(unsigned nqubits);
 
 
 /*
- * @brief   Returns a variety of quantum test states with <nqubits> qubits
+ * @brief   Returns a variety of state vectors with <nqubits> qubits
  *
- * @param[in]   nqubits     Number of qubits
+ * @param[in]       nqubits     Number of qubits
+ * @param[in,out]   nvecs       Unsigned integer passed by reference. On exit, the number of state vectors
  *
  * @returns Array of size <...> of COMPLEX DOUBLE arrays; the state vectors of quantum test states.
  */
-cplx_t** test_gen_states_pure(unsigned nqubits);
+cplx_t** test_gen_states_pure(unsigned nqubits, unsigned *nvecs);
 
 
 /*

@@ -3,6 +3,7 @@
 # Collect source files
 set(Q_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/state.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/qhipster.c"
 )
 
 # Include directory

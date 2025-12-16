@@ -1,16 +1,10 @@
 // test_qhipster.c - Unit tests for representations of quantum gates on pure states
 
-#ifndef Q_TEST_QHIPSTER_H
+#ifndef TEST_QHIPSTER_H
 #include "test_qhipster.h"
 #endif
 
-#ifndef STATE_H
-#include "state.h"
-#endif
-
-#ifndef _STDLIB_H_
 #include <stdlib.h>
-#endif
 
 #if defined(__APPLE__)
 #include <vecLib/cblas_new.h>
@@ -28,57 +22,119 @@ void setUp(void) {}
 
 void tearDown(void) {}
 
+void test_apply_x(void) {testSingleQubitGate(applyX, XMAT);}
+void test_apply_y(void) {testSingleQubitGate(applyY, YMAT);}
+void test_apply_z(void) {testSingleQubitGate(applyZ, ZMAT);}
+
 /*
  * =====================================================================================================================
- * Pauli gates
+ *                                                      main
  * =====================================================================================================================
  */
 
+int main(void) {
+    UNITY_BEGIN();
+    RUN_TEST(test_apply_x);
+    RUN_TEST(test_apply_y);
+    RUN_TEST(test_apply_z);
+    return UNITY_END();
+}
+
 /*
- * @brief   Unit test of the Pauli-X gate on each qubit of a multi-qubit state of up MAXQUBITS qubits
+ * =====================================================================================================================
+ * Single qubit gates
+ * =====================================================================================================================
  */
-void testApplyX(void) {
-    // Pure test state
-    state_t test = {0};
-    test.type = PURE;
 
-    // Matrix representation of the single-qubit gate
-    cplx_t *gateMat = NULL;
+void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
+    state_t test_state = {0}; // Pure test state
+    test_state.type = PURE;
+    cplx_t **ref_vecs = {0}, **test_vecs = {0}; // Reference and test state vectors
+    unsigned nvecs = 0;    // Number of test state vectors
+    cplx_t *gateMat = NULL; // Matrix representation of the quantum gate
 
+    // Iterate the number of qubits
     for (unsigned nqubits= 1; nqubits <= MAXQUBITS; ++nqubits) {
-        // Hilbert space dimension
-        dim_t dim = 1 << nqubits;
+        const unsigned dim = POW2(nqubits, dim_t);
 
-        // Iterate all possible target qubits
+        // Generate reference state vectors (not touched by the functions)
+        if (!((ref_vecs = test_gen_states_pure(nqubits, &nvecs)))) {
+            fprintf(stderr, "testSingleQubitGate(): ref_vecs initialization failed\n");
+            goto cleanup;
+        }
+
+        // Iterate target qubits
         for (unsigned pos = 0; pos < nqubits; ++pos) {
-            if (!((gateMat = mat_single_qubit_gate(nqubits, XMAT, pos)))) goto cleanup;
+            // Generate test state vectors
+            if (!((test_vecs = test_gen_states_pure(nqubits, &nvecs)))) {
+                fprintf(stderr, "testSingleQubitGate(): test_vecs initialization failed\n");
+                goto cleanup;
+            }
+
+            // Initialize matrix with a Pauli-X acting on the target qubit
+            if (!((gateMat = mat_single_qubit_gate(nqubits, mat, pos)))) goto cleanup;
 
             // Iterate the test state vectors
-            for (unsigned i = 0; i < nstates_pure[nqubits - 1]; ++i) {
-                // Copy the state vector to the heap and initialize the test state
-                cplx_t *data = malloc(dim * sizeof(*data));
-                if (!data) {
-                    fprintf(stderr, "testApplyX(): data allocation failed\n");
+            for (unsigned i = 0; i < nvecs; ++i) {
+                // Initialize test state with i-th state vector
+                state_init(&test_state, nqubits, test_vecs[i]);
+                if (!test_state.data) {
+                    fprintf(stderr, "testSingleQubitGate(): test state data initialization failed\n");
                     goto cleanup;
                 }
-                cblas_zcopy(dim, )
 
-                stateInitVector(&testState, vecs[i]);                   // Copy state vector to testState's vector,
-                applyX(&testState, pos);                                // apply test function
-                cplx_t* ref = cmatVecMul(gateMat, vecs[i], dim);    // Matrix multiplication as reference
-                TEST_ASSERT_TRUE(cvectorAlmostEqual(ref, testState.vec, dim, PRECISION));
+                // Apply test function
+                gate(&test_state, pos);
+                if (!test_state.data) {
+                    fprintf(stderr, "testSingleQubitGate(): gate application failed\n");
+                    goto cleanup;
+                }
+
+                // Reference state vector by matrix-vector multiplication
+                cplx_t* ref = mv(dim, gateMat, ref_vecs[i]);
+                if (!ref) {
+                    fprintf(stderr, "testSingleQubitGate(): matrix-vector multiplication failed\n");
+                    goto cleanup;
+                }
+
+                // Compare state vectors
+                TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref, test_state.data, dim, PRECISION);
+
+                // Free state struct and reference vector
+                state_free(&test_state);
                 free(ref);
+                ref = NULL;
             }
             free(gateMat);
+            gateMat = NULL;
         }
-        stateFreeVector(&testState);
-        freeTestVectors(vecs, qubits);
     }
 
+    return;
+
     cleanup:
+        // Free reference state vectors
+        if (ref_vecs) {
+            for (unsigned i = 0; i < nvecs; ++i) {
+                free(ref_vecs[i]);
+            }
+        }
+        free(ref_vecs);
+
+        // Free test state vectors
+        if (test_vecs) {
+            for (unsigned i = 0; i < nvecs; ++i) {
+                free(test_vecs[i]);
+            }
+        }
+        free(test_vecs);
+
+        // Free gate matrix representation
         free(gateMat);
         gateMat = NULL;
-        state_free(&test);
+
+        // Free test state
+        state_free(&test_state);
 }
 
 
@@ -87,6 +143,25 @@ void testApplyX(void) {
  * Linear algebra
  * =====================================================================================================================
  */
+
+cplx_t* mv(const unsigned n, const cplx_t *m, const cplx_t *v) {
+    cplx_t *out = NULL;
+
+    // Allocate memory for the output
+    if (!((out = malloc(n * sizeof (*out))))) {
+        fprintf(stderr, "mv(): out allocation failed\n");
+        return out;
+    }
+
+    // Define multipliers: w = ALPHA*M.v + BETA*w
+    const dim_t N = (dim_t) n;
+    const cplx_t ALPHA = 1.0 + I*0.0;
+    const cplx_t BETA = 0.0 + I*0.0;
+    cblas_zgemv(CblasColMajor, CblasNoTrans, N, N, &ALPHA, m, N, v, 1, &BETA, out, 1);
+
+    return out;
+}
+
 
 cplx_t* kron(const unsigned k, const unsigned l, const cplx_t A[],
              const unsigned m, const unsigned n, const cplx_t B[]) {
@@ -109,7 +184,9 @@ cplx_t* kron(const unsigned k, const unsigned l, const cplx_t A[],
                 for (unsigned b_row = 0; b_row < m; ++b_row) {
                     // b_row is the row in the a_row-th block of rows with each block comprising m rows
                     // b_col is the column in the a_col-th block of columns with each block comprising n columns
-                    out[b_row + (a_row + (b_col + a_col * n) + k) * m] = a * B[b_row + b_col * m];
+                    const unsigned col = b_col + a_col * n;
+                    const unsigned row = b_row + a_row * m;
+                    out[row + col * k * m] = a * B[b_row + b_col * m];
                 }   // b_row
             }   // b_col
         }   // a_row
@@ -141,7 +218,7 @@ cplx_t* mat_id(const unsigned nqubits) {
     return out;
 }
 
-cplx_t* mat_single_qubit_gate(const unsigned nqubits, const cplx_t gate[], const unsigned target) {
+cplx_t* mat_single_qubit_gate(const unsigned nqubits, const cplx_t *gate, const unsigned target) {
     // Check that target is in scope
     if (target >= nqubits) {
         fprintf(stderr, "mat_single_qubit_gate(): target is out of scope; Expected %u, Was %u\n", nqubits, target);
@@ -165,10 +242,10 @@ cplx_t* mat_single_qubit_gate(const unsigned nqubits, const cplx_t gate[], const
     id = NULL;
 
     // Identity matrix for all qubits to the right of target
-    if (!((id = mat_id(target - 1)))) goto cleanup;
+    if (!((id = mat_id(target)))) goto cleanup;
 
     // Kronecker product with right identity
-    const unsigned dim_right = 1ULL << (target - 1);
+    const unsigned dim_right = 1ULL << target;
     out = kron(dim_left, dim_left, tmp, dim_right, dim_right, id);
 
     cleanup:
