@@ -31,6 +31,7 @@
 **/.dSYM
 **/.idea
 **/cmake-build-debug
+**/build
 
 # Keep old code only locally
 **/archive
