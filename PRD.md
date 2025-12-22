@@ -1,5 +1,9 @@
 # Product Requirements Document: qSim
 
+**Author:** [Your Name]
+**Status:** Draft
+**Last Updated:** 2025-12-22
+
 ## Purpose
 
 qSim is a quantum state simulator designed to evaluate variational quantum algorithms for combinatorial optimization research. It provides the computational feedback a noise-free quantum computer would deliver—state evolution under quantum gates and measurement outcomes—without implementing optimization routines. All optimization algorithms operate externally to the library, using qSim solely as an oracle for quantum state queries.
