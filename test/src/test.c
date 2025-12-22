@@ -212,7 +212,7 @@ cplx_t** test_gen_states_pure(const unsigned nqubits, unsigned *nvecs) {
 }
 
 
-void test_rm_states_pure(const unsigned nqubits, cplx_t** states) {
+void test_rm_states_pure(const unsigned nqubits, cplx_t **states) {
     const unsigned dim = 1 << nqubits;
     const unsigned nvecs = 3 * dim;
 
@@ -222,7 +222,4 @@ void test_rm_states_pure(const unsigned nqubits, cplx_t** states) {
             states[i] = NULL;
         }
     }
-
-    free(states);
-    states = NULL;
 }

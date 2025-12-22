@@ -186,7 +186,7 @@ cplx_t** test_gen_states_pure(unsigned nqubits, unsigned *nvecs);
  *
  * @param[in]   nqubits     Number of qubits
  */
-void test_rm_states_pure(unsigned nqubits, cplx_t** states);
+void test_rm_states_pure(unsigned nqubits, cplx_t **states);
 
 
 #ifdef __cplusplus
