@@ -3,20 +3,28 @@
 **Document Version:** 1.2
 **Last Updated:** 2025-12-22
 **Status:** Draft
-**Owner:** [To be assigned]
-**Stakeholders:** [To be defined]
+**Owner:** Timo Ziegler
 
 ---
 
 ## Executive Summary
 
-qSim is a high-performance quantum computing simulation library written in C, designed to accelerate quantum algorithm conception by enabling quantum information theorists and algorithm designers to work at the ideal operation level—deferring hardware implementation complexity until algorithmic benefits are proven.
+qSim is a high-performance quantum computing simulation library written in C, designed to accelerate quantum algorithm 
+conception by enabling quantum information theorists and algorithm designers to work at the ideal operation 
+level—deferring hardware implementation complexity until algorithmic benefits are proven.
 
-**The Problem:** Existing simulators (Qiskit, Cirq, etc.) mimic quantum hardware behavior, forcing algorithm designers to prematurely address implementation overhead. This creates a conception bottleneck: computing gradients requires parameter shifts, obtaining N samples requires N circuit executions, and operations like Linear Combination of Unitaries (LCU) need awkward workarounds—despite being implementable on real devices.
+**The Problem:** Existing simulators (Qiskit, Cirq, etc.) mimic quantum hardware behavior, forcing algorithm designers
+to prematurely address implementation overhead. This creates a conception bottleneck: Obtaining N samples requires N
+circuit executions, performing non-physical operations, despite being implementable on real devices, like Linear 
+Combination of Unitaries (LCU), and computing advanced quantities like the gradient of a parametrised quantum circuit
+require awkward workarounds.
 
-**The Solution:** qSim provides simulator-native capabilities that exploit mathematical structures uniquely available in simulation: (1) direct non-physical operations (LCU, state manipulation), (2) exact computation of gradients and transition matrix elements, (3) one-time execution with unlimited sampling, and (4) dual state representations (pure/mixed) with optimized storage.
+**The Solution:** qSim provides simulator-native capabilities that exploit linear algebra uniquely available in
+simulation: (1) dual state representations (pure/mixed) with optimized storage, (2) direct non-physical operations
+(3) exact computation of observable quantities, and (4) one-time execution with unlimited sampling.
 
-**Target:** Workstation-scale systems (up to 30 qubits pure states, 15 qubits mixed states) with cross-platform support (macOS, Linux, x86, ARM).
+**Target:** Workstation-scale systems (up to 30 qubits pure states, 15 qubits mixed states) with cross-platform support
+(macOS, Linux, x86, ARM).
 
 ---
 
@@ -25,14 +33,21 @@ qSim is a high-performance quantum computing simulation library written in C, de
 ### 1.1 Key Differentiator
 
 qSim explicitly distinguishes between capabilities that are:
-1. **Simulator-native** (direct, efficient): Gradients, LCU, amplitude access, matrix elements
-2. **Hardware-implementable with overhead**: All simulator-native operations *can* be implemented on real quantum computers, but require additional resources (ancilla qubits, repeated measurements, circuit decomposition)
+1. **Simulator-native** (direct, efficient): Fundamental operations act on the quantum state representation, i.e., a 
+complex-valued array. As the native gate set of most quantum computers mainly comprises local operations, these can be
+implemented using a form of sparse matrix multiplication. Composite operations like sums or products can be established
+using basic linear algebra. Measurements of a quantum state are samples drawn from a probability distribution given
+by the absolute squares of the state's amplitudes in the measurement basis.
+2. **Hardware-implementable with overhead**: All simulator-native operations *can* be implemented on real quantum 
+computers, but require additional resources (ancilla qubits, repeated/mid-circuit measurements, circuit decomposition).
+N measurements of the output state of a quantum circuits requires N circuit executions.
+
 
 This enables a two-phase workflow:
 - **Phase 1 (qSim)**: Validate algorithm at ideal operation level, prove value
 - **Phase 2 (Hardware)**: Add implementation overhead, test robustness
 
-**Impact**: Algorithm designers iterate 10-100× faster during conception.
+**Impact**: Algorithm designers discard non-promising quantum algorithms 3-5x faster.
 
 ---
 
@@ -41,7 +56,7 @@ This enables a two-phase workflow:
 ### 2.1 Primary Goals
 
 1. Enable quantum algorithm designers to work at the ideal operation level without premature hardware constraints
-2. Provide simulator-native capabilities for gradients, LCU operations, and matrix elements
+2. Provide simulator-native capabilities for hardware-implementable operations which are not hardware-native
 3. Achieve competitive performance (workstation-scale, up to 30 qubits)
 4. Ensure cross-platform portability (macOS, Linux, x86, ARM)
 
@@ -49,7 +64,6 @@ This enables a two-phase workflow:
 
 | Metric | Target |
 |--------|--------|
-| Gradient computation overhead | < 10% vs. circuit execution |
 | Sampling efficiency | 1000× faster than circuit re-execution |
 | Memory efficiency | ≤ 2× theoretical minimum |
 | Execution speed | Competitive with Qiskit Aer (within 3×) |
@@ -65,8 +79,9 @@ This enables a two-phase workflow:
 **Quantum Algorithm Researchers**
 - PhD/Postdoc researchers developing and optimizing quantum algorithms (VQE, QAOA, novel approaches)
 - Graduate students in quantum computing research
-- **Key Needs**: Rapid prototyping without hardware overhead, direct access to gradients/amplitudes/matrix elements, fast iteration cycles
-- **Pain Points**: Existing simulators force premature hardware constraints, gradient computation overhead, inefficient sampling workflow
+- **Key Needs**: Rapid prototyping without hardware overhead, direct access to key quantities and operations, fast
+iteration cycles
+- **Pain Points**: Existing simulators force premature hardware constraints and inefficient sampling workflow
 
 ### 3.2 Secondary Audience
 
@@ -81,7 +96,8 @@ This enables a two-phase workflow:
 
 **As a** quantum algorithm theorist,
 **I want** to apply linear combinations of unitaries directly to quantum states,
-**So that** I can prototype LCU-based algorithms naturally without manual decomposition into physically implementable gates.
+**So that** I can prototype LCU-based algorithms naturally without manual decomposition into physically implementable 
+gates.
 
 **As a** variational algorithm researcher,
 **I want** exact gradients of parametrized circuits computed automatically,
@@ -109,87 +125,15 @@ This enables a two-phase workflow:
 
 ---
 
-## 5. Feature Requirements
+## 5. Key Feature Requirements
 
 ### 5.1 Must-Have Features (P0): Core Algorithm Design Enablers
 
-#### 5.1.1 Direct Computation of Inaccessible Quantities
-
-**Gradient Computation:**
-- **REQ-001**: Automatic differentiation for parametrized quantum circuits
-- **REQ-002**: Compute exact gradient ∂⟨H⟩/∂θ for Hamiltonian expectation values
-- **REQ-003**: Support multiple parameter gradients in single execution
-- **REQ-004**: Gradient computation overhead < 10% vs. circuit execution time
-
-**Amplitude and Phase Access:**
-- **REQ-005**: Direct read access to state vector amplitudes α_i
-- **REQ-006**: Compute amplitude magnitude |α_i| and phase arg(α_i)
-- **REQ-007**: Extract probability distribution P(i) = |α_i|² from state
-- **REQ-008**: Access amplitudes for arbitrary basis states
-
-**Transition Matrix Elements:**
-- **REQ-009**: Compute matrix elements ⟨ψ_i|O|ψ_j⟩ for arbitrary operators
-- **REQ-010**: Calculate observable moment matrices in custom bases (via unitary)
-- **REQ-011**: Support batch computation of matrix element sets
-
-#### 5.1.2 Non-Physical Operations
-
-**Linear Combination of Unitaries:**
-- **REQ-020**: Apply LCU: |ψ⟩ → ∑ᵢ α_i U_i |ψ⟩ (non-normalized)
-- **REQ-021**: Apply normalized LCU with probability coefficients
-- **REQ-022**: Support arbitrary unitary matrices as LCU components
-- **REQ-023**: Validate LCU coefficients and unitarity of components
-
-**Direct State Manipulation:**
-- **REQ-024**: Apply arbitrary unitary operators (from matrix representation)
-- **REQ-025**: Apply non-unitary operations for algorithm prototyping
-- **REQ-026**: Direct modification of state amplitudes (with validation)
-- **REQ-027**: State projection onto subspaces
-
-#### 5.1.3 Efficient Sampling
-
-**One-Time Execution, Unlimited Sampling:**
-- **REQ-030**: Execute circuit once to obtain full quantum state
-- **REQ-031**: Store probability distribution from state amplitudes
-- **REQ-032**: Sample N measurement outcomes from stored distribution
-- **REQ-033**: Configurable shot budget for sampling (1 to 10^9+ shots)
-- **REQ-034**: Sampling performance independent of circuit complexity
-
-**Dual Measurement Modes:**
-- **REQ-035**: Exact expectation value computation: ⟨O⟩ = ⟨ψ|O|ψ⟩ (shot-noise free)
-- **REQ-036**: Sampled expectation value with configurable shots
-- **REQ-037**: Return both exact and sampled results for comparison
-- **REQ-038**: Statistical analysis tools (variance, confidence intervals)
-
-#### 5.1.4 Quantum State Management
-- **REQ-040**: Support pure state (statevector) representation up to 30 qubits
-- **REQ-041**: Support mixed state (density matrix) representation up to 15 qubits with memory-optimized lower-triangle storage
-- **REQ-042**: Initialize states in computational basis and superposition
-- **REQ-043**: Deep copy, normalize, and validate states
-- **REQ-044**: Compute state purity for mixed states
-
-#### 5.1.5 Core Quantum Gate Operations
-- **REQ-050**: Implement single-qubit Pauli gates (X, Y, Z)
-- **REQ-051**: Implement Hadamard gate (H)
-- **REQ-052**: Implement phase gates (S, T, S†, T†)
-- **REQ-053**: Implement rotation gates (Rx, Ry, Rz) with arbitrary angles
-- **REQ-054**: Implement CNOT (controlled-X) gate
-- **REQ-055**: Implement SWAP gate
-- **REQ-056**: Implement Toffoli (CCNOT) gate
-- **REQ-057**: Support controlled variants of single-qubit gates
-
-#### 5.1.6 Circuit Construction and Execution
-- **REQ-060**: Provide API to create parametrized circuits
-- **REQ-061**: Append gates to circuit with parameter tracking
-- **REQ-062**: Validate circuit operations (qubit bounds, parameter ranges)
-- **REQ-063**: Execute complete circuit on quantum state
-- **REQ-064**: Support sequential circuit composition
-- **REQ-065**: Parameter update without circuit reconstruction
-
-#### 5.1.7 Memory Management & API
-- **REQ-070**: Automatic memory allocation/deallocation for states and circuits
-- **REQ-071**: Clear ownership semantics and error codes in API
-- **REQ-072**: No memory leaks (validated by AddressSanitizer)
+- **REQ-001**: Support pure state (statevector) and mixed state (density matrix) representation
+- **REQ-002**: Implement native set of quantum gates (single- and two-qubit) efficiently
+- **REQ-003**: Apply compositions directly, e.g., products and linear combinations
+- **REQ-004**: Compute quantities subject to measurements exactly, e.g., expectation values and gradients of PQCs
+- **REQ-005**: Sample from output quantum state efficiently by accessing the amplitude's squares
 
 ### 5.2 Should-Have Features (P1)
 - **REQ-080**: OpenMP parallelization for large circuits
