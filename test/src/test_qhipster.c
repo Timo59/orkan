@@ -76,8 +76,8 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
 
             // Iterate the test state vectors
             for (unsigned i = 0; i < nvecs; ++i) {
-                // Initialize test state with i-th state vector
-                state_init(&test_state, nqubits, test_vecs[i]);
+                // Initialize test state with i-th state vector (previous state vector gets freed inside state_init() )
+                state_init(&test_state, nqubits, &test_vecs[i]);
                 if (!test_state.data) {
                     fprintf(stderr, "testSingleQubitGate(): test state data initialization failed\n");
                     goto cleanup;
@@ -109,12 +109,15 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
             free(gateMat);
             gateMat = NULL;
 
-            // Free test state vectors
-            test_rm_states_pure(nqubits, test_vecs);
+            // Free test vectors' array
+            free(test_vecs);
+            test_vecs = NULL;
         }
 
         // Free reference state vectors
         test_rm_states_pure(nqubits, ref_vecs);
+        free(ref_vecs);
+        ref_vecs = NULL;
     }
 
     cleanup:

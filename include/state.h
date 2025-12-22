@@ -70,7 +70,7 @@ dim_t state_len(const state_t *state);
  * @param[in]		qubits	Number of qubits
  * @param[in]       data    Representation of the initial state (if NULL; state is set to zero)
  */
-void state_init(state_t *state, qubit_t qubits, cplx_t *data);
+void state_init(state_t *state, qubit_t qubits, cplx_t **data);
 
 /*
  * @brief   Initialize a quantum state to the uniform superposition of all computational basis states (plus state)

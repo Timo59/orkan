@@ -40,17 +40,19 @@ dim_t state_len(const state_t *state) {
 }
 
 
-void state_init(state_t *state, const qubit_t qubits, cplx_t *data) {
+void state_init(state_t *state, const qubit_t qubits, cplx_t **data) {
     // If state has been initialized before, reset it
     if (state->data) {
         free(state->data);
+        state->data = NULL;
     }
 
 	state->qubits = qubits;
 
     // Initialize state representation to the passed representation or to all zero if the latter is NULL
     if (data) {
-        state->data = data;
+        state->data = *data;
+        *data = NULL;
     } else {
         const dim_t len = state_len(state); // Size of the array representing the quantum state
         if(!((state->data = calloc(len, sizeof(*state->data))))) {
@@ -83,7 +85,7 @@ void state_plus(state_t *state, const qubit_t qubits) {
     }
 
     // Pass the data array to state_init() to initialize the quantum state
-    state_init(state, qubits, data);
+    state_init(state, qubits, &data);
 }
 
 
