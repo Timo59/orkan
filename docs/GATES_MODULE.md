@@ -68,77 +68,101 @@ Reference implementations use full matrix representation with hardcoded Kronecke
 
 ---
 
-## Implementation Status
+## Test Infrastructure Status
 
-### Helper Functions
+### State Generators
 
-| Function | Purpose | Status |
-|----------|---------|--------|
-| `density_unpack()` | Packed lower-triangle → full Hermitian matrix | 🔲 TODO |
-| `density_pack()` | Full Hermitian matrix → packed storage | 🔲 TODO |
-| `apply_full_matrix_pure()` | Reference: U\|ψ⟩ via zgemv() | 🔲 TODO |
-| `apply_conjugation_mixed()` | Reference: UρU† via zgemm() | 🔲 TODO |
-| `kronecker_product()` | Hardcoded I⊗U⊗I constructions | 🔲 TODO |
+| Function | Generates | Location | Status |
+|----------|-----------|----------|--------|
+| `test_cb_pure()` | Computational basis states | `test.c` | ✅ Complete |
+| `test_xb_pure()` | Hadamard basis states | `test.c` | ✅ Complete |
+| `test_yb_pure()` | Circular basis states | `test.c` | ✅ Complete |
+| `test_gen_states_pure()` | Combined: all three bases | `test.c` | ✅ Complete |
+| `test_rm_states_pure()` | Cleanup: free test states | `test.c` | ✅ Complete |
+| `test_bell_states()` | 4 Bell states | `test.c` | 🔲 TODO |
+| `test_ghz_state()` | n-qubit GHZ | `test.c` | 🔲 TODO |
+| `test_w_state()` | n-qubit W | `test.c` | 🔲 TODO |
+| `test_maximally_mixed()` | I/2ⁿ | `test.c` | 🔲 TODO |
+| `test_thermal_mixed()` | Thermal state (bias) | `test.c` | 🔲 TODO |
+| `test_werner_state()` | Werner state | `test.c` | 🔲 TODO |
 
-### State Generators (Test Utilities)
+### Test Harness Functions
 
-| Function | Generates | Status |
-|----------|-----------|--------|
-| `test_cb_pure()` | Computational basis states | ✅ Complete |
-| `test_xb_pure()` | Hadamard basis states | ✅ Complete |
-| `test_yb_pure()` | Circular basis states | ✅ Complete |
-| `test_bell_states()` | 4 Bell states | 🔲 TODO |
-| `test_ghz_state()` | n-qubit GHZ | 🔲 TODO |
-| `test_w_state()` | n-qubit W | 🔲 TODO |
-| `test_maximally_mixed()` | I/2ⁿ | 🔲 TODO |
-| `test_thermal_mixed()` | Thermal state (bias) | 🔲 TODO |
-| `test_werner_state()` | Werner state | 🔲 TODO |
+| Function | Purpose | Location | Status |
+|----------|---------|----------|--------|
+| `testSingleQubitGate()` | Validates single-qubit gates on pure states | `test_qhipster.c` | ✅ Complete |
+| `testSingleQubitGateMixed()` | Validates single-qubit gates on mixed states | `test_qhipster.c` | 🔲 TODO |
+| `testTwoQubitGate()` | Validates two-qubit gates on pure states | `test_qhipster.c` | 🔲 TODO |
+| `testTwoQubitGateMixed()` | Validates two-qubit gates on mixed states | `test_qhipster.c` | 🔲 TODO |
+| `testThreeQubitGate()` | Validates three-qubit gates on pure states | `test_qhipster.c` | 🔲 TODO |
+| `testThreeQubitGateMixed()` | Validates three-qubit gates on mixed states | `test_qhipster.c` | 🔲 TODO |
+
+### Test Helper Functions
+
+| Function | Purpose | Location | Status |
+|----------|---------|----------|--------|
+| `mv()` | Matrix-vector multiplication via `zgemv()` | `test_qhipster.c` | ✅ Complete |
+| `kron()` | Kronecker product A⊗B | `test_qhipster.c` | ✅ Complete |
+| `mat_id()` | Identity matrix I(2ⁿ×2ⁿ) | `test_qhipster.c` | ✅ Complete |
+| `mat_single_qubit_gate()` | Full matrix I⊗...⊗U⊗...⊗I for single-qubit gate | `test_qhipster.c` | ✅ Complete |
+| `mat_two_qubit_gate()` | Full matrix for two-qubit gate | `test_qhipster.c` | 🔲 TODO |
+| `mat_three_qubit_gate()` | Full matrix for three-qubit gate | `test_qhipster.c` | 🔲 TODO |
+| `density_unpack()` | Packed lower-triangle → full Hermitian matrix | `test_qhipster.c` | 🔲 TODO |
+| `density_pack()` | Full Hermitian matrix → packed storage | `test_qhipster.c` | 🔲 TODO |
+
+**Note**: Test files include predefined gate matrices (XMAT, YMAT, ZMAT, HMAT, SMAT, TMAT, SWAPMAT, etc.) in `test/include/test_qhipster.h`.
+
+---
+
+## Production Code Implementation Status
+
+**Location**: `src/qhipster.c`, `include/qhipster.h`
 
 ### Single-Qubit Gate Implementations
 
-| Gate | Description | Status |
-|------|-------------|--------|
-| `applyX()` | Pauli-X | ✅ Complete |
-| `applyY()` | Pauli-Y | ✅ Complete |
-| `applyZ()` | Pauli-Z | ✅ Complete |
-| `applyH()` | Hadamard | 🔲 TODO |
-| `applyS()` | Phase gate | 🔲 TODO |
-| `applySdagger()` | S† | 🔲 TODO |
-| `applyT()` | π/8 gate | 🔲 TODO |
-| `applyTdagger()` | T† | 🔲 TODO |
-| `applyHy()` | Hadamard-Y | 🔲 TODO |
-| `applyP()` | Phase rotation P(θ) | 🔲 TODO |
-| `applyPdagger()` | P†(θ) | 🔲 TODO |
-| `applyRX()` | X-rotation RX(θ) | 🔲 TODO |
-| `applyRXdagger()` | RX†(θ) | 🔲 TODO |
-| `applyRY()` | Y-rotation RY(θ) | 🔲 TODO |
-| `applyRYdagger()` | RY†(θ) | 🔲 TODO |
-| `applyRZ()` | Z-rotation RZ(θ) | 🔲 TODO |
-| `applyRZdagger()` | RZ†(θ) | 🔲 TODO |
+| Gate | Description | Location | Status |
+|------|-------------|----------|--------|
+| `applyX()` | Pauli-X | `qhipster.c` | ✅ Complete |
+| `applyY()` | Pauli-Y | `qhipster.c` | ✅ Complete |
+| `applyZ()` | Pauli-Z | `qhipster.c` | ✅ Complete |
+| `applyH()` | Hadamard | `qhipster.c` | 🔲 TODO |
+| `applyS()` | Phase gate | `qhipster.c` | 🔲 TODO |
+| `applySdagger()` | S† | `qhipster.c` | 🔲 TODO |
+| `applyT()` | π/8 gate | `qhipster.c` | 🔲 TODO |
+| `applyTdagger()` | T† | `qhipster.c` | 🔲 TODO |
+| `applyHy()` | Hadamard-Y | `qhipster.c` | 🔲 TODO |
+| `applyP()` | Phase rotation P(θ) | `qhipster.c` | 🔲 TODO |
+| `applyPdagger()` | P†(θ) | `qhipster.c` | 🔲 TODO |
+| `applyRX()` | X-rotation RX(θ) | `qhipster.c` | 🔲 TODO |
+| `applyRXdagger()` | RX†(θ) | `qhipster.c` | 🔲 TODO |
+| `applyRY()` | Y-rotation RY(θ) | `qhipster.c` | 🔲 TODO |
+| `applyRYdagger()` | RY†(θ) | `qhipster.c` | 🔲 TODO |
+| `applyRZ()` | Z-rotation RZ(θ) | `qhipster.c` | 🔲 TODO |
+| `applyRZdagger()` | RZ†(θ) | `qhipster.c` | 🔲 TODO |
 
 ### Two-Qubit Gate Implementations
 
-| Gate | Description | Status |
-|------|-------------|--------|
-| `applyCX()` | CNOT | 🔲 TODO |
-| `applyCY()` | Controlled-Y | 🔲 TODO |
-| `applyCZ()` | Controlled-Z | 🔲 TODO |
-| `applyCS()` | Controlled-S | 🔲 TODO |
-| `applyCSdagger()` | Controlled-S† | 🔲 TODO |
-| `applyCH()` | Controlled-H | 🔲 TODO |
-| `applyCHy()` | Controlled-Hy | 🔲 TODO |
-| `applyCT()` | Controlled-T | 🔲 TODO |
-| `applyCTdagger()` | Controlled-T† | 🔲 TODO |
-| `applyCP()` | Controlled-P(θ) | 🔲 TODO |
-| `applyCPdagger()` | Controlled-P†(θ) | 🔲 TODO |
-| `applySWAP()` | SWAP | 🔲 TODO |
-| `applyRSWAP()` | Rotated SWAP | 🔲 TODO |
+| Gate | Description | Location | Status |
+|------|-------------|----------|--------|
+| `applyCX()` | CNOT | `qhipster.c` | 🔲 TODO |
+| `applyCY()` | Controlled-Y | `qhipster.c` | 🔲 TODO |
+| `applyCZ()` | Controlled-Z | `qhipster.c` | 🔲 TODO |
+| `applyCS()` | Controlled-S | `qhipster.c` | 🔲 TODO |
+| `applyCSdagger()` | Controlled-S† | `qhipster.c` | 🔲 TODO |
+| `applyCH()` | Controlled-H | `qhipster.c` | 🔲 TODO |
+| `applyCHy()` | Controlled-Hy | `qhipster.c` | 🔲 TODO |
+| `applyCT()` | Controlled-T | `qhipster.c` | 🔲 TODO |
+| `applyCTdagger()` | Controlled-T† | `qhipster.c` | 🔲 TODO |
+| `applyCP()` | Controlled-P(θ) | `qhipster.c` | 🔲 TODO |
+| `applyCPdagger()` | Controlled-P†(θ) | `qhipster.c` | 🔲 TODO |
+| `applySWAP()` | SWAP | `qhipster.c` | 🔲 TODO |
+| `applyRSWAP()` | Rotated SWAP | `qhipster.c` | 🔲 TODO |
 
 ### Three-Qubit Gate Implementations
 
-| Gate | Description | Status |
-|------|-------------|--------|
-| `applyToffoli()` | Toffoli (CCNOT) | 🔲 TODO |
+| Gate | Description | Location | Status |
+|------|-------------|----------|--------|
+| `applyToffoli()` | Toffoli (CCNOT) | `qhipster.c` | 🔲 TODO |
 
 ### Mixed State Gate Implementations
 
@@ -146,24 +170,6 @@ All gates above require mixed state (density matrix) support:
 - Pure state implementation (operate on statevector)
 - Mixed state implementation (operate on packed density matrix via UρU†)
 - **Status**: X, Y, Z pure-only; all mixed implementations TODO
-
-### Unit Tests
-
-| Test Suite | Target | Status |
-|------------|--------|--------|
-| `test_pauli_gates_pure()` | X, Y, Z on pure states | 🔲 TODO |
-| `test_pauli_gates_mixed()` | X, Y, Z on mixed states | 🔲 TODO |
-| `test_clifford_gates_pure()` | H, S, T on pure states | 🔲 TODO |
-| `test_clifford_gates_mixed()` | H, S, T on mixed states | 🔲 TODO |
-| `test_rotation_gates_pure()` | RX, RY, RZ on pure states | 🔲 TODO |
-| `test_rotation_gates_mixed()` | RX, RY, RZ on mixed states | 🔲 TODO |
-| `test_controlled_gates_pure()` | CX, CZ, etc. on pure states | 🔲 TODO |
-| `test_controlled_gates_mixed()` | CX, CZ, etc. on mixed states | 🔲 TODO |
-| `test_toffoli_pure()` | Toffoli on pure states | 🔲 TODO |
-| `test_toffoli_mixed()` | Toffoli on mixed states | 🔲 TODO |
-| `test_gate_invariants()` | Normalization, hermiticity | 🔲 TODO |
-
-**Test file**: `test/src/test_gates.c` (not yet created)
 
 ---
 
