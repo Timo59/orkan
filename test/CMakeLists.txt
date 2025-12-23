@@ -27,23 +27,22 @@ if (NOT UNITY_SRC)
 endif ()
 
 # Source files for test_q
-set(TEST_SOURCES
+set(TEST_STATE_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/src/test.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/test_state.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/test_qhipster.c"
         "${UNITY_SRC}/unity.c"
 )
 
-add_executable(test_q ${TEST_SOURCES})
-target_compile_definitions(test_q
+add_executable(test_state ${TEST_STATE_SOURCES})
+target_compile_definitions(test_state
         PRIVATE
             UNITY_INCLUDE_DOUBLE
             UNITY_SUPPORT_64
 )
-target_include_directories(test_q
+target_include_directories(test_state
         PRIVATE
             ${UNITY_SRC}
             "${CMAKE_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
-target_link_libraries(test_q PRIVATE q)
+target_link_libraries(test_state PRIVATE q)

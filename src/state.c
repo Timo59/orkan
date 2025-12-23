@@ -14,6 +14,10 @@
     #include <cblas.h>
 #endif
 
+#ifndef UTILS_H
+#include "utils.h"
+#endif
+
 /*
  * =====================================================================================================================
  * State manipulation
@@ -67,25 +71,23 @@ void state_plus(state_t *state, const qubit_t qubits) {
     // Normalization constant
     cplx_t prefactor;
     if (state->type == PURE) {
-        prefactor = (cplx_t) sqrt(1 << qubits);
+        prefactor = 1.0 / sqrt(1 << qubits) + I*0.0;
     } else {
-        prefactor = (cplx_t) (1 << qubits);
+        prefactor = 1.0 / (1 << qubits) + I*0.0;
     }
 
-    // Initialize the array representing the quantum state
-    const dim_t len = state_len(state); // Size of the array representing the quantum state
-    cplx_t *data = malloc(len * sizeof(*state->data));
-    if (!data) {
-        fprintf(stderr, "state_plus(): data allocation failed\n");
-        state_free(state);
+    // Initialize empty quantum state
+    state_init(state, qubits, NULL);
+    if (!state->data) {
+        fprintf(stderr, "state_plus(): state_init() failed\n");
         return;
     }
-    for (dim_t i = 0; i < len; ++i) {
-        data[i] = prefactor;
-    }
 
-    // Pass the data array to state_init() to initialize the quantum state
-    state_init(state, qubits, &data);
+    // Fill array with normalization constant
+    const dim_t len = state_len(state); // Size of the array representing the quantum state
+    for (dim_t i = 0; i < len; ++i) {
+        state->data[i] = prefactor;
+    }
 }
 
 
@@ -95,7 +97,7 @@ state_t state_cp(const state_t* state) {
 
     // Deep copy of the representation
     const dim_t len = state_len(&out);  // Size of the array representing the quantum state
-    if (!((out.data = malloc(len * sizeof(cplx_t))))) {
+    if (!((out.data = malloc(len * sizeof(*out.data))))) {
         fprintf(stderr, "state_cp(): out.data allocation failed\n");
         state_free(&out);
         return out;
