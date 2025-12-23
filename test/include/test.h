@@ -133,6 +133,19 @@ extern "C" {
     } while (0)
 
 /*
+ * @brief   Check whether two pointers are not equal
+ */
+#define TEST_ASSERT_NOT_EQUAL_PTR(expected, actual) \
+    do { \
+        if ((expected) == (actual)) { \
+            char _msg[256]; \
+            snprintf(_msg, sizeof(_msg), \
+                "Pointers should not be equal. Both are %p", (void*)(actual)); \
+            UNITY_TEST_FAIL(__LINE__, _msg); \
+        } \
+    } while (0)
+
+/*
  * =====================================================================================================================
  * Pure quantum test states
  * =====================================================================================================================
