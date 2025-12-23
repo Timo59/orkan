@@ -6,7 +6,7 @@
 
 ## Purpose
 
-qSim is a quantum state simulator designed to evaluate variational quantum algorithms for combinatorial optimization research. It provides the computational feedback a noise-free quantum computer would deliver—state evolution under quantum gates and measurement outcomes—without implementing optimization routines. All optimization algorithms operate externally to the library, using qSim solely as an oracle for quantum state queries.
+qSim is a high-level quantum simulator for algorithm conception from first principles, built on optimized linear algebra primitives. It eliminates hardware workarounds required on real quantum computers—block encoding for linear combinations of unitaries, repeated circuit execution for statistics—by providing direct access to state vectors and density matrices for exact computation of observables and statistical quantities. Native gates exploit the sparse, local structure of quantum operations to act directly on state arrays, outperforming generic matrix multiplication. Dual state representation (pure and mixed states) supports algorithm design unconstrained by hardware limitations.
 
 ## Core Principles
 
