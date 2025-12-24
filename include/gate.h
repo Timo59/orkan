@@ -1,7 +1,7 @@
 // qhipster.c - Functions representing native (locally acting) quantum gates
 
-#ifndef QHIPSTER_H
-#define QHIPSTER_H
+#ifndef GATE_H
+#define GATE_H
 
 /*
  * =====================================================================================================================
@@ -207,4 +207,4 @@ void applyToffoli(state_t* state, qubit_t target, qubit_t control1, qubit_t cont
 }
 #endif
 
-#endif /* QHIPSTER_H */
+#endif // GATE_H

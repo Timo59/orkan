@@ -1,7 +1,7 @@
-// qhipster.c - Functions representing native (locally acting) quantum gates
+// qhipster.c - Functions representing fundamental quantum gates applied to pure states, i.e., Hilbert space vectors
 
-#ifndef QHIPSTER_H
-#include "qhipster.h"
+#ifndef GATE_H
+#include "gate.h"
 #endif
 
 #include <math.h>
