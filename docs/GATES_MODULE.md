@@ -7,39 +7,42 @@
 
 ---
 
-## Test Strategy
+## Unit Tests
 
 ### Verification Approach
 
 Gate functions validated against reference implementations:
-- **Pure states**: `|ψ'⟩ = U|ψ⟩` via `zgemv()`
-- **Mixed states**: `ρ' = UρU†` via `zgemm()`
+- **Pure states**: $ \lvert \psi^{\prime} \rangle = U \lvert \psi \rangle $ via matrix-vector multiplication (`zgemv()`)
+- **Mixed states**: $ \rho^{\prime} = U \rho U^{\ast} $ via matrix-matrix multiplication (`zgemm()`)
 
 Reference implementations use full matrix representation with hardcoded Kronecker products (I⊗...⊗U⊗...⊗I). Production implementations exploit sparse local structure and operate directly on packed arrays.
 
 ### Test State Basis
 
 **Single-qubit informationally complete set (6 states)**:
-- Computational: |0⟩, |1⟩
-- Hadamard: |+⟩, |-⟩
-- Circular: |+i⟩, |-i⟩
+- Computational: $ \lvert 0 \rangle, \ \lvert 1 \rangle $
+- Hadamard: $ \lvert + \rangle, \ \lvert - \rangle $
+- Circular: $ \lvert +i \rangle, \ \lvert -i \rangle $
 
 **Rationale**: Detects amplitude errors (computational), real phase errors (Hadamard), complex phase errors (circular).
 
 **Multi-qubit pure states**:
 - Tensor products of single-qubit bases
-- Bell states (n=2): |Φ⁺⟩, |Φ⁻⟩, |Ψ⁺⟩, |Ψ⁻⟩
-- GHZ states (n≥3): (|0...0⟩ + |1...1⟩)/√2
-- W states (n≥3): Equal superposition of single-excitation states
+- Bell states (n=2): $ \frac{1}{\sqrt{2}} (\lvert 00 \rangle + \lvert 11 \rangle) $,
+$ \frac{1}{\sqrt{2}} (\lvert 00 \rangle - \lvert 11 \rangle) $,
+$ \frac{1}{\sqrt{2}} (\lvert 01 \rangle + \lvert 10 \rangle) $,
+$ \frac{1}{\sqrt{2}} (\lvert 01 \rangle - \lvert 10 \rangle) $
+- GHZ states (n≥3): $ \frac{1}{\sqrt{2}} (\lvert 0 \dots 0 \rangle + \lvert 1 \dots 1 \rangle) $
+- W states (n≥3): $\frac{1}{\sqrt{n}}(\lvert 100\dots0 \rangle + \lvert 010\dots0 \rangle + \lvert 000\dots1\rangle)$
 
 **Rationale**: Bell/GHZ/W test entanglement propagation and multi-partite correlations.
 
 **Mixed states**:
-- Pure-as-mixed: All pure states as density matrices |ψ⟩⟨ψ|
-- Maximally mixed: I/2ⁿ
-- Rank>1 examples:
-  - Thermal: (3|0⟩⟨0| + |1⟩⟨1|)/4
-  - Werner (n=2): p|Φ⁺⟩⟨Φ⁺| + (1-p)I/4
+- Pure-as-mixed: All pure states as density matrices $ \lvert \psi \rangle \langle \psi \rvert $
+- Maximally mixed: $ I/2^{n} $
+- Rank > 1 examples:
+  - Thermal: $ (3 \lvert 0 \rangle \langle 0 \rvert + \lvert 1 \rangle \langle 1 \rvert )/4 $
+    - Werner (n=2): $ p \lvert \phi{+} \rangle \langle \phi^{+} \rvert + \frac{(1-p)}{4} I $
   - Separable mixtures
 
 **Rationale**: Rank>1 states verify conjugation operates on full density matrix, not just extracted pure components.
