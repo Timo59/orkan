@@ -8,7 +8,7 @@
  */
 
 #ifndef QHIPSTER_H
-#include "qhipster.h"
+#include "gate.h"
 #endif
 
 #ifndef Q_TEST_H
