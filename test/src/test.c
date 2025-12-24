@@ -150,6 +150,125 @@ cplx_t** test_yb_pure(const unsigned nqubits) {
 }
 
 
+cplx_t** test_bell_states(void) {
+    cplx_t** out = NULL;
+    const cplx_t ampl = INVSQRT2 + I*0.0;
+
+    const unsigned dim = 4;  // Hilbert space dimension for 2 qubits
+
+    // Allocate the pointers to all 4 Bell states
+    if (!((out = calloc(4, sizeof (*out))))) {
+        fprintf(stderr, "test_bell_states: out allocation failed\n");
+        return out;
+    }
+
+    // Initialize all 4 Bell states
+    for (unsigned i = 0; i < 4; ++i) {
+        if (!((out[i] = calloc(dim, sizeof (*out[i]))))) {
+            fprintf(stderr, "test_bell_states: out[%u] allocation failed\n", i);
+            goto cleanup;
+        }
+    }
+
+    // |Φ⁺⟩ = (|00⟩ + |11⟩)/√2
+    out[0][0] = ampl;   // |00⟩
+    out[0][3] = ampl;   // |11⟩
+
+    // |Φ⁻⟩ = (|00⟩ - |11⟩)/√2
+    out[1][0] = ampl;   // |00⟩
+    out[1][3] = -ampl;  // |11⟩
+
+    // |Ψ⁺⟩ = (|01⟩ + |10⟩)/√2
+    out[2][1] = ampl;   // |01⟩
+    out[2][2] = ampl;   // |10⟩
+
+    // |Ψ⁻⟩ = (|01⟩ - |10⟩)/√2
+    out[3][1] = ampl;   // |01⟩
+    out[3][2] = -ampl;  // |10⟩
+
+    return out;
+
+    cleanup:
+        for (unsigned i = 0; i < 4; ++i) {
+            free(out[i]);
+            out[i] = NULL;
+        }
+        free(out);
+        out = NULL;
+
+    return out;
+}
+
+
+cplx_t** test_ghz_state(const unsigned nqubits) {
+    cplx_t** out = NULL;
+    const cplx_t ampl = INVSQRT2 + I*0.0;
+
+    // GHZ states defined for n >= 2 qubits
+    if (nqubits < 2) {
+        fprintf(stderr, "test_ghz_state: GHZ states require at least 2 qubits\n");
+        return NULL;
+    }
+
+    const unsigned dim = 1 << nqubits;  // Hilbert space dimension
+
+    // Allocate pointer for single GHZ state
+    if (!((out = calloc(1, sizeof (*out))))) {
+        fprintf(stderr, "test_ghz_state: out allocation failed\n");
+        return out;
+    }
+
+    // Allocate the GHZ state vector
+    if (!((out[0] = calloc(dim, sizeof (*out[0]))))) {
+        fprintf(stderr, "test_ghz_state: out[0] allocation failed\n");
+        free(out);
+        return NULL;
+    }
+
+    // |GHZ⟩ = (|0...0⟩ + |1...1⟩)/√2
+    out[0][0] = ampl;           // |00...0⟩
+    out[0][dim - 1] = ampl;     // |11...1⟩
+
+    return out;
+}
+
+
+cplx_t** test_w_state(const unsigned nqubits) {
+    cplx_t** out = NULL;
+    const cplx_t ampl = (cplx_t) (1.0 / sqrt((double)nqubits)) + I*0.0;
+
+    // W states defined for n >= 3 qubits
+    if (nqubits < 3) {
+        fprintf(stderr, "test_w_state: W states require at least 3 qubits\n");
+        return NULL;
+    }
+
+    const unsigned dim = 1 << nqubits;  // Hilbert space dimension
+
+    // Allocate pointer for single W state
+    if (!((out = calloc(1, sizeof (*out))))) {
+        fprintf(stderr, "test_w_state: out allocation failed\n");
+        return out;
+    }
+
+    // Allocate the W state vector
+    if (!((out[0] = calloc(dim, sizeof (*out[0]))))) {
+        fprintf(stderr, "test_w_state: out[0] allocation failed\n");
+        free(out);
+        return NULL;
+    }
+
+    // |W⟩ = (|100...0⟩ + |010...0⟩ + ... + |00...01⟩)/√n
+    // Each basis state with exactly one bit set gets amplitude 1/√n
+    for (unsigned k = 0; k < nqubits; ++k) {
+        unsigned index = 1 << k;  // Basis state with only k-th bit set
+        out[0][index] = ampl;
+    }
+
+    return out;
+}
+
+
 cplx_t** test_gen_states_pure(const unsigned nqubits, unsigned *nvecs) {
     cplx_t** out = NULL;
 
