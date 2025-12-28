@@ -78,7 +78,7 @@ void test_state_init_pure_null_data(void) {
     TEST_ASSERT_NOT_NULL(state.data);
 
     // Verify zero initialization
-    dim_t len = state_len(&state);
+    const dim_t len = state_len(&state);
     for (dim_t i = 0; i < len; i++) {
         TEST_ASSERT_COMPLEX_WITHIN(0.0 + 0.0*I, state.data[i], PRECISION);
     }
