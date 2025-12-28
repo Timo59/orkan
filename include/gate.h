@@ -1,4 +1,4 @@
-// qhipster.c - Functions representing native (locally acting) quantum gates
+// gate.h   - Functions representing the action of local quantum gates to a general quantum state
 
 #ifndef GATE_H
 #define GATE_H
@@ -48,12 +48,7 @@ void zrot_(
  * @param[in,out]   state     Quantum state
  * @param[in]       qubit     Index of the qubit (counted from the tight)
  */
-void x_pure(state_t *state, qubit_t target);
-void x_mixed(state_t *state, qubit_t target);
-inline void x(state_t* state, const qubit_t target) {
-    if (state->type == PURE) x_pure(state, target);
-    else x_mixed(state, target);
-}
+void x(state_t* state, qubit_t target);
 
 
 #ifdef __cplusplus

@@ -123,7 +123,7 @@ void test_state_init_mixed_null_data(void) {
     TEST_ASSERT_NOT_NULL(state.data);
 
     // Verify zero initialization
-    dim_t len = state_len(&state);
+    const dim_t len = state_len(&state);
     for (dim_t i = 0; i < len; i++) {
         TEST_ASSERT_COMPLEX_WITHIN(0.0 + 0.0*I, state.data[i], PRECISION);
     }
@@ -175,7 +175,7 @@ void test_state_init_reinitialization(void) {
     TEST_ASSERT_NOT_NULL(state.data);
 
     // Verify new allocation (different pointer or at least different size)
-    dim_t len = state_len(&state);
+    const dim_t len = state_len(&state);
     TEST_ASSERT_EQUAL_INT64(8, len);
 
     // Verify zero initialization of new array
@@ -237,15 +237,15 @@ void test_state_plus_pure_normalization(void) {
 
     state_plus(&state, 3);
 
-    dim_t len = state_len(&state);
+    const dim_t len = state_len(&state);
     TEST_ASSERT_EQUAL_INT64(8, len);
 
-    double expected_amplitude = 1.0 / sqrt(8.0);
+    const double expected_amplitude = 1.0 / sqrt(8.0);
 
     // Check all amplitudes
     for (dim_t i = 0; i < len; i++) {
-        double real_part = creal(state.data[i]);
-        double imag_part = cimag(state.data[i]);
+        const double real_part = creal(state.data[i]);
+        const double imag_part = cimag(state.data[i]);
         TEST_ASSERT_DOUBLE_WITHIN(PRECISION, expected_amplitude, real_part);
         TEST_ASSERT_DOUBLE_WITHIN(PRECISION, 0.0, imag_part);
     }
@@ -253,7 +253,7 @@ void test_state_plus_pure_normalization(void) {
     // Verify normalization
     double norm_sq = 0.0;
     for (dim_t i = 0; i < len; i++) {
-        double mag = cabs(state.data[i]);
+        const double mag = cabs(state.data[i]);
         norm_sq += mag * mag;
     }
     TEST_ASSERT_DOUBLE_WITHIN(PRECISION, 1.0, norm_sq);
@@ -266,15 +266,15 @@ void test_state_plus_mixed_trace(void) {
 
     state_plus(&state, 2);
 
-    dim_t dim = POW2(2, dim_t);  // Dimension = 4
-    double expected_entry = 1.0 / (double)dim;  // 1/4
+    const dim_t dim = POW2(2, dim_t);  // Dimension = 4
+    const double expected_entry = 1.0 / (double)dim;  // 1/4
 
     // For mixed state, all entries should be 1/4
-    dim_t len = state_len(&state);
+    const dim_t len = state_len(&state);
     TEST_ASSERT_EQUAL_INT64(10, len);
     for (dim_t i = 0; i < len; i++) {
-        double real_part = creal(state.data[i]);
-        double imag_part = cimag(state.data[i]);
+        const double real_part = creal(state.data[i]);
+        const double imag_part = cimag(state.data[i]);
         TEST_ASSERT_DOUBLE_WITHIN(PRECISION, expected_entry, real_part);
         TEST_ASSERT_DOUBLE_WITHIN(PRECISION, 0.0, imag_part);
     }
@@ -303,7 +303,7 @@ void test_state_cp_pure_deep_copy(void) {
     TEST_ASSERT_NOT_EQUAL_PTR(original.data, copy.data);
 
     // Verify values identical
-    dim_t len = state_len(&original);
+    const dim_t len = state_len(&original);
     for (dim_t i = 0; i < len; i++) {
         TEST_ASSERT_COMPLEX_WITHIN(original.data[i], copy.data[i], PRECISION);
     }
@@ -312,7 +312,7 @@ void test_state_cp_pure_deep_copy(void) {
     original.data[0] = 99.0 + 99.0*I;
 
     // Verify copy unchanged
-    double expected = 1.0 / sqrt(4.0);
+    const double expected = 1.0 / sqrt(4.0);
     TEST_ASSERT_DOUBLE_WITHIN(PRECISION, expected, creal(copy.data[0]));
 
     state_free(&original);
@@ -334,7 +334,7 @@ void test_state_cp_mixed_deep_copy(void) {
     TEST_ASSERT_NOT_EQUAL_PTR(original.data, copy.data);
 
     // Verify values identical
-    dim_t len = state_len(&original);
+    const dim_t len = state_len(&original);
     for (dim_t i = 0; i < len; i++) {
         TEST_ASSERT_COMPLEX_WITHIN(original.data[i], copy.data[i], PRECISION);
     }
@@ -369,8 +369,7 @@ void test_state_single_qubit(void) {
     pure.data[1] = 0.0 + 0.0*I;
 
     // Verify normalization
-    double norm_sq = cabs(pure.data[0]) * cabs(pure.data[0]) +
-                      cabs(pure.data[1]) * cabs(pure.data[1]);
+    const double norm_sq = cabs(pure.data[0]) * cabs(pure.data[0]) + cabs(pure.data[1]) * cabs(pure.data[1]);
     TEST_ASSERT_DOUBLE_WITHIN(PRECISION, 1.0, norm_sq);
 
     state_free(&pure);
@@ -393,7 +392,7 @@ void test_state_many_qubits(void) {
 
     TEST_ASSERT_EQUAL_UINT8(10, pure.qubits);
 
-    dim_t expected_len = POW2(10, dim_t);  // 1024
+    const dim_t expected_len = POW2(10, dim_t);  // 1024
     TEST_ASSERT_EQUAL_INT64(expected_len, state_len(&pure));
 
     // Verify allocation succeeded
@@ -407,8 +406,8 @@ void test_state_many_qubits(void) {
 
     TEST_ASSERT_EQUAL_UINT8(5, mixed.qubits);
 
-    dim_t dim = POW2(5, dim_t);  // 32
-    dim_t expected_mixed_len = dim * (dim + 1) / 2;  // 32*33/2 = 528
+    const dim_t dim = POW2(5, dim_t);  // 32
+    const dim_t expected_mixed_len = dim * (dim + 1) / 2;  // 32*33/2 = 528
     TEST_ASSERT_EQUAL_INT64(expected_mixed_len, state_len(&mixed));
 
     // Verify allocation succeeded
