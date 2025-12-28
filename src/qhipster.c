@@ -21,7 +21,7 @@
  * =====================================================================================================================
  */
 
-void applyX(state_t* state, const qubit_t target) {
+void x_pure(state_t* state, const qubit_t target) {
     // Check that target is in the system's scope
     if (target >= state->qubits) {
         fprintf(stderr, "applyX(): Target is out of scope; Expected %u, Was %u", state->qubits, target);
@@ -36,48 +36,5 @@ void applyX(state_t* state, const qubit_t target) {
     // Iterate blocks with all qubits left to the addressed qubit fixed
     for (dim_t i = 0; i < dim; i += step) {
         cblas_zswap(stride, state->data + i, 1, state->data + i + stride, 1);
-    }
-}
-
-
-void applyY(state_t* state, const qubit_t target) {
-    // Check that target is in the system's scope
-    if (target >= state->qubits) {
-        fprintf(stderr, "applyY(): Target is out of scope; Expected %u, Was %u", state->qubits, target);
-        state_free(state);
-    }
-
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-
-    const dim_t incr = 1;   // Increment for qubits right to the target
-    const cplx_t minus = -1;
-    const double c = 0;
-    const cplx_t s = I;
-
-    // |...0...> --> -i |...1...> and |...1...> --> i |...0...>
-    for (dim_t i = 0; i < dim; i += step) {
-        zrot_(&stride, state->data + i, &incr, state->data + i + stride, &incr, &c, &s);
-        cblas_zscal(stride, &minus, state->data + i, 1);
-    }
-}
-
-
-void applyZ(state_t* state, const qubit_t target) {
-    // Check that target is in the system's scope
-    if (target >= state->qubits) {
-        fprintf(stderr, "applyX(): Target is out of scope; Expected %u, Was %u", state->qubits, target);
-        state_free(state);
-    }
-
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    const cplx_t minus = -1;
-
-    // |...0...> --> |...0...> and |...1...> --> - |...1...>
-    for (dim_t i = 0; i < dim; i += step) {
-        cblas_zscal(stride, &minus, state->data + i + stride, 1);
     }
 }
