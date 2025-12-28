@@ -30,7 +30,7 @@ void applyX(state_t* state, const qubit_t target) {
 
     // Swap entries with target = 0 and 1 but all other qubits fixed
     const dim_t dim = POW2(state->qubits, dim_t);   // Number of entries in the state vector
-    const dim_t stride = POW2(target, dim_t);    // Stride between elements only differing in the targeted qubit
+    const dim_t stride = POW2(target, dim_t);    // Distance between elements only differing in the targeted qubit
     const dim_t step = POW2(target + 1, dim_t);  // Size of the mutually independent blocks
 
     // Iterate blocks with all qubits left to the addressed qubit fixed

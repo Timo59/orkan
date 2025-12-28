@@ -48,7 +48,12 @@ void zrot_(
  * @param[in,out]   state     Quantum state
  * @param[in]       qubit     Index of the qubit (counted from the tight)
  */
-void applyX(state_t* state, qubit_t target);
+void x_pure(state_t *state, qubit_t target);
+void x_mixed(state_t *state, qubit_t target);
+inline void x(state_t* state, const qubit_t target) {
+    if (state->type == PURE) x_pure(state, target);
+    else x_mixed(state, target);
+}
 
 
 /*
