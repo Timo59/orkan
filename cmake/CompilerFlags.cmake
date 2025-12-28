@@ -6,14 +6,6 @@ set(PROJECT_COMPILER_FLAGS "${PROJECT_NAME}_compiler_flags")
 # Interface library for project compiler flags
 add_library(${PROJECT_COMPILER_FLAGS} INTERFACE)
 
-target_compile_definitions(${PROJECT_COMPILER_FLAGS}
-        INTERFACE
-            $<$<BOOL:${APPLE}>:ACCELERATE_NEW_LAPACK>   # Required to use cblas_new
-            $<$<BOOL:${APPLE}>:ACCELERATE_LAPACK_ILP64> # __LAPACK_int is 64-bit
-            # WARNING: Exposes ILP64 prototypes in header files. OpenBLAS chooses 32-bit vs 64-bit at build time; Ensure
-            # OpenBLAS library was built with --INTERFACE64=1
-            $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:OPENBLAS_USE64BITINT>  # blasint is 64-bit
-)
 target_compile_options(${PROJECT_COMPILER_FLAGS}
         INTERFACE
             -O2
@@ -29,7 +21,7 @@ add_library(blas_compiler_flags INTERFACE)
 
 # Use BLAS configuration from Dependencies.cmake
 if(QSIM_BLAS_COMPILE_DEFINITIONS)
-    target_compile_definitions(blas_compiler_flags INTERFACE ${QSIM_COMPILE_DEFINITIONS})
+    target_compile_definitions(blas_compiler_flags INTERFACE ${QSIM_BLAS_COMPILE_DEFINITIONS})
 endif()
 
 if(QSIM_BLAS_INCLUDE_DIRS)

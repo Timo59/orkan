@@ -25,7 +25,6 @@ find_path(UNITY_SRC
 if (NOT UNITY_SRC)
     message(FATAL_ERROR "Unity source directory not found.")
 endif ()
-set(TEST_SRC "${UNITY_SRC}/unity.c")
 
 # Set source directories
 set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
@@ -36,12 +35,13 @@ set(TEST_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 #=======================================================================================================================
 
 # Source files for test_state
-list(APPEND TEST_SRC
+set(TEST_STATE_SRC
         "${SRC_DIR}/state.c"
         "${TEST_SRC_DIR}/test_state.c"
+        "${UNITY_SRC}/unity.c"
 )
 
-add_executable(test_state ${TEST_SRC})
+add_executable(test_state ${TEST_STATE_SRC})
 target_compile_definitions(test_state
         PRIVATE
             UNITY_INCLUDE_DOUBLE
@@ -55,6 +55,7 @@ target_include_directories(test_state
 )
 target_link_libraries(test_state
         PRIVATE
+            blas_compiler_flags
             ${PROJECT_COMPILER_FLAGS}
 )
 
@@ -63,7 +64,8 @@ target_link_libraries(test_state
 #=======================================================================================================================
 
 # Source files required for test_gate
-list(APPEND TEST_SRC
+set(TEST_GATE_SRC
+        "${SRC_DIR}/state.c"
         "${SRC_DIR}/gate.c"
         "${SRC_DIR}/qhipster.c"
         "${SRC_DIR}/mhipster.c"
@@ -74,7 +76,7 @@ list(APPEND TEST_SRC
         "${UNITY_SRC}/unity.c"
 )
 
-add_executable(test_gate ${TEST_SRC})
+add_executable(test_gate ${TEST_GATE_SRC})
 target_compile_definitions(test_gate
         PRIVATE
             UNITY_INCLUDE_DOUBLE
@@ -88,6 +90,6 @@ target_include_directories(test_gate
 )
 target_link_libraries(test_gate
         PRIVATE
-            q
             blas_compiler_flags
+            ${PROJECT_COMPILER_FLAGS}
 )
