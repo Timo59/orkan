@@ -3,6 +3,15 @@
 
 /*
  * =====================================================================================================================
+ * includes
+ * =====================================================================================================================
+ */
+
+#include <complex.h>
+#include <stdio.h>
+
+/*
+ * =====================================================================================================================
  * C++ check
  * =====================================================================================================================
  */
@@ -18,12 +27,12 @@ extern "C" {
  */
 
 // Print double number with 7 digits after the decimal point
-void dnprint(const double x) {
+inline void dnprint(const double x) {
     printf("%.7f", x);
 }
 
 // Print double complex number with 7 digits after the decimal point
-void znprint(const double complex x) {
+inline void znprint(const double complex x) {
     printf("%.7f", creal(x));
     cimag(x) >= 0 ? printf("+i%.7f", cimag(x)) : printf("-i%.7f", fabs(cimag(x)));
 }

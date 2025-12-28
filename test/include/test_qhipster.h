@@ -1,3 +1,6 @@
+// test_qhipster.h  - Unit tests for representations of quantum gates on pure states. The reference is given by matrix
+//                    vector multiplication of the state vector with the matrix representation of the quantum gate.
+
 #ifndef TEST_QHIPSTER_H
 #define TEST_QHIPSTER_H
 
@@ -7,7 +10,7 @@
  * =====================================================================================================================
  */
 
-#ifndef QHIPSTER_H
+#ifndef GATE_H
 #include "gate.h"
 #endif
 
@@ -110,65 +113,12 @@ static const cplx_t SWAPMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 
  */
 void testSingleQubitGate(single_qubit_gate gate, const cplx_t *mat);
 
-
-/*
- * =====================================================================================================================
- * Linear algebra
- * =====================================================================================================================
- */
-
-/*
- * @brief   Returns the result of the matrix-vector multiplication w = M.v
- *
- * @param[in]   n   Unsigned integer; the number of rows and columns of M
- * @param[in]   m   Double complex array of size n*n; the matrix M in column major format
- * @param[in]   x   Double complex array of size n; the vector w
- *
- * @returns Double complex array of size n; The result of the matrix vector multiplication
- */
-cplx_t* mv(unsigned n, const cplx_t *m, const cplx_t *v);
-
-
-/*
- * @brief   Returns the Kronecker product of the k-by-l matrix A and the m-by-n matrix B
- *
- * @param[in]   k   Unsigned integer; the number of rows in A
- * @param[in]   l   Unsigned integer; the number of columns in A
- * @param[in]   A   Double complex array of size k*l; represents the matrix A in column major format
- * @param[in]   m   Unsigned integer; the number of rows in B
- * @param[in]   n   Unsigned integer; the number of columns in B in column major format
- * @param[in]   B   Double complex array of size m*n; represents the matrix B in column major format
- *
- * @returns Double complex array of size (k*m)*(l*n); The (k*m)-by-(l*n) matrix which is the Kronecker product of the
- *          matrices A and B in column major format
- */
-cplx_t* kron(unsigned k, unsigned l, const cplx_t A[], unsigned m, unsigned n, const cplx_t B[]);
-
 /*
  * =====================================================================================================================
  * Multiqubit gates
  * =====================================================================================================================
  */
 
-/*
- * @brief   Returns the matrix representing the application of the identity gate to a multiqubit state
- *
- * @param[in]   nqubits Number of qubits in the multiqubit state
- */
-cplx_t* mat_id(unsigned nqubits);
-
-
-/*
- * @brief   Returns the matrix representing the application of a single-qubit gate to a multiqubit statevector
- *
- * @param[in]   nqubits Number of qubits in the multiqubit state
- * @param[in]   gate    Double complex array of size 2-by-2; matrix representation of the single qubit gate
- * @param[in]   target  Targeted qubit; counted from the RIGHT
- *
- * @returns Double complex array of size 4**(nqubits); the 2**(nqubits)-by-2**(nqubits) matrix which is the Kronecker
- *          product of identities for all inactive qubits with the single-qubit gate matrix on the target.
- */
-cplx_t* mat_single_qubit_gate(unsigned nqubits, const cplx_t *gate, unsigned target);
 
 
 

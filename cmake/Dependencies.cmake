@@ -7,6 +7,10 @@ option(USE_SYSTEM_OPENBLAS "Use system OpenBLAS instead of bundled (must have IL
 if(APPLE)
     # Apple Accelerate framework has guaranteed ILP64 support with ACCELERATE_LAPACK_ILP64
     message(STATUS "Using Apple Accelerate framework (ILP64 native)")
+    set(QSIM_COMPILE_DEFINITIONS
+            ACCELERATE_NEW_LAPACK # Required to use cblas_new
+            ACCELERATE_LAPACK_ILP64  # __LAPACK_int is 64-bit
+    )
     set(QSIM_BLAS_LIBRARIES "-framework Accelerate")
     set(QSIM_BLAS_INCLUDE_DIRS "")
 

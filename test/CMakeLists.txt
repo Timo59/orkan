@@ -16,7 +16,7 @@ if (NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/Unity/src/unity.h")
     endif()
 endif()
 
-# Find unity.h
+# Find unity source directory
 find_path(UNITY_SRC
         NAMES unity.h
         PATHS "${CMAKE_SOURCE_DIR}/extern/Unity/src"
@@ -25,19 +25,23 @@ find_path(UNITY_SRC
 if (NOT UNITY_SRC)
     message(FATAL_ERROR "Unity source directory not found.")
 endif ()
+set(TEST_SRC "${UNITY_SRC}/unity.c")
+
+# Set source directories
+set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
+set(TEST_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 #=======================================================================================================================
 # test_state
 #=======================================================================================================================
 
 # Source files for test_state
-set(TEST_STATE_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/test.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/test_state.c"
-        "${UNITY_SRC}/unity.c"
+list(APPEND TEST_SRC
+        "${SRC_DIR}/state.c"
+        "${TEST_SRC_DIR}/test_state.c"
 )
 
-add_executable(test_state ${TEST_STATE_SOURCES})
+add_executable(test_state ${TEST_SRC})
 target_compile_definitions(test_state
         PRIVATE
             UNITY_INCLUDE_DOUBLE
@@ -49,4 +53,41 @@ target_include_directories(test_state
             "${CMAKE_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
-target_link_libraries(test_state PRIVATE q)
+target_link_libraries(test_state
+        PRIVATE
+            ${PROJECT_COMPILER_FLAGS}
+)
+
+#=======================================================================================================================
+# test_gate
+#=======================================================================================================================
+
+# Source files required for test_gate
+list(APPEND TEST_SRC
+        "${SRC_DIR}/gate.c"
+        "${SRC_DIR}/qhipster.c"
+        "${SRC_DIR}/mhipster.c"
+        "${TEST_SRC_DIR}/test_qhipster.c"
+        "${TEST_SRC_DIR}/test_pure_states.c"
+        "${TEST_SRC_DIR}/gatemat.c"
+        "${TEST_SRC_DIR}/linalg.c"
+        "${UNITY_SRC}/unity.c"
+)
+
+add_executable(test_gate ${TEST_SRC})
+target_compile_definitions(test_gate
+        PRIVATE
+            UNITY_INCLUDE_DOUBLE
+            UNITY_SUPPORT_64
+)
+target_include_directories(test_gate
+        PRIVATE
+        ${UNITY_SRC}
+            "${CMAKE_SOURCE_DIR}/include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+target_link_libraries(test_gate
+        PRIVATE
+            q
+            blas_compiler_flags
+)

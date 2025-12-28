@@ -1,4 +1,4 @@
-// test.c - Functions and objects to check library
+// test_pure.c  - Create and destroy state vectors for testing quantum circuits
 
 /*
  * =====================================================================================================================
@@ -16,7 +16,7 @@
 
 /*
  * =====================================================================================================================
- * Pure quantum test states
+ * Function definitions
  * =====================================================================================================================
  */
 
@@ -269,7 +269,7 @@ cplx_t** test_w_state(const unsigned nqubits) {
 }
 
 
-cplx_t** test_gen_states_pure(const unsigned nqubits, unsigned *nvecs) {
+cplx_t** test_mk_states_pure(const unsigned nqubits, unsigned *nvecs) {
     cplx_t** out = NULL;
 
     // Allocate the pointers for all test states
