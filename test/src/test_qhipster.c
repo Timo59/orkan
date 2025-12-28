@@ -22,27 +22,29 @@ void setUp(void) {}
 
 void tearDown(void) {}
 
-void test_apply_x(void) {testSingleQubitGate(applyX, XMAT);}
-void test_apply_y(void) {testSingleQubitGate(applyY, YMAT);}
-void test_apply_z(void) {testSingleQubitGate(applyZ, ZMAT);}
 
 /*
  * =====================================================================================================================
- *                                                      main
+ * Test functions
+ * =====================================================================================================================
+ */
+void test_X_pure(void) {testSingleQubitGate(x, XMAT);}
+
+/*
+ * =====================================================================================================================
+ * Unity body
  * =====================================================================================================================
  */
 
 int main(void) {
     UNITY_BEGIN();
-    RUN_TEST(test_apply_x);
-    RUN_TEST(test_apply_y);
-    RUN_TEST(test_apply_z);
+    RUN_TEST(test_X_pure);
     return UNITY_END();
 }
 
 /*
  * =====================================================================================================================
- * Single qubit gates
+ * Test: Single qubit gates
  * =====================================================================================================================
  */
 

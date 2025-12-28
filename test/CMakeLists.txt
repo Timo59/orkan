@@ -26,7 +26,11 @@ if (NOT UNITY_SRC)
     message(FATAL_ERROR "Unity source directory not found.")
 endif ()
 
-# Source files for test_q
+#=======================================================================================================================
+# test_state
+#=======================================================================================================================
+
+# Source files for test_state
 set(TEST_STATE_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/src/test.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/test_state.c"
