@@ -390,4 +390,5 @@ void test_rm_states_pure(const unsigned nqubits, cplx_t **states) {
             states[i] = NULL;
         }
     }
+    free(states);
 }

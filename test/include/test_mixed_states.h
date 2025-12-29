@@ -62,9 +62,11 @@ cplx_t** test_yb_mixed(unsigned nqubits);
 /*
  * @brief   Returns all 4 Bell states as density matrices
  *
+ * @param[in]   nqubits     Number of qubits (must be 2)
+ *
  * @returns Array of size 4 of density matrices in packed lower-triangular storage
  */
-cplx_t** test_bell_states_mixed(void);
+cplx_t** test_bell_mixed(unsigned nqubits);
 
 
 /*
@@ -74,7 +76,7 @@ cplx_t** test_bell_states_mixed(void);
  *
  * @returns Array of size 1 containing the GHZ density matrix, or NULL if nqubits < 2
  */
-cplx_t** test_ghz_state_mixed(unsigned nqubits);
+cplx_t** test_ghz_mixed(unsigned nqubits);
 
 
 /*
@@ -84,7 +86,7 @@ cplx_t** test_ghz_state_mixed(unsigned nqubits);
  *
  * @returns Array of size 1 containing the W density matrix, or NULL if nqubits < 3
  */
-cplx_t** test_w_state_mixed(unsigned nqubits);
+cplx_t** test_w_mixed(unsigned nqubits);
 
 
 /*
@@ -100,13 +102,13 @@ cplx_t** test_maximally_mixed(unsigned nqubits);
 /*
  * @brief   Generates random statistical mixture ρ = Σᵢ pᵢ|ψᵢ⟩⟨ψᵢ| with random probabilities
  *
- * @param[in]   nqubits         Number of qubits
- * @param[in]   num_components  Number of components in the mixture (rank of ρ)
- * @param[in]   seed            Random seed for reproducibility
+ * @param[in]   nqubits     Number of qubits
  *
  * @returns Array of size 1 containing the random mixture density matrix, or NULL on failure
+ *
+ * @note    Number of components and random seed are hardcoded internally for reproducibility
  */
-cplx_t** test_random_mixture(unsigned nqubits, unsigned num_components, unsigned seed);
+cplx_t** test_random_mixture(unsigned nqubits);
 
 
 /*
@@ -123,6 +125,7 @@ cplx_t** test_random_mixture(unsigned nqubits, unsigned num_components, unsigned
  *          - Circular basis states as density matrices
  *          - Maximally mixed state
  *          - Random statistical mixtures
+ *          - Entangled states: 4 Bell states (n=2) or GHZ + W states (n>2)
  */
 cplx_t** test_mk_states_mixed(unsigned nqubits, unsigned* nmixed);
 

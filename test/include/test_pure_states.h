@@ -66,7 +66,7 @@ cplx_t** test_yb_pure(unsigned nqubits);
  *
  * @returns Array of size 4 of COMPLEX DOUBLE arrays; the state vectors of all Bell states (|Φ⁺⟩, |Φ⁻⟩, |Ψ⁺⟩, |Ψ⁻⟩).
  */
-cplx_t** test_bell_states(void);
+cplx_t** test_bell_pure(void);
 
 
 /*
@@ -76,7 +76,7 @@ cplx_t** test_bell_states(void);
  *
  * @returns Array of size 1 containing the GHZ state vector, or NULL if nqubits < 2.
  */
-cplx_t** test_ghz_state(unsigned nqubits);
+cplx_t** test_ghz_pure(unsigned nqubits);
 
 
 /*
@@ -86,7 +86,7 @@ cplx_t** test_ghz_state(unsigned nqubits);
  *
  * @returns Array of size 1 containing the W state vector, or NULL if nqubits < 3.
  */
-cplx_t** test_w_state(unsigned nqubits);
+cplx_t** test_w_pure(unsigned nqubits);
 
 
 /*
