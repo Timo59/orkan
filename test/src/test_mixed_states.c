@@ -112,7 +112,7 @@ cplx_t** test_cb_mixed(const unsigned nqubits) {
 
     // Get pure computational basis states
     if (!((pure_states = test_cb_pure(nqubits)))) {
-        fprintf(stderr, "test_cb_mixed(): test_cb_pure failed\n");
+        fprintf(stderr, "test_cb_mixed(): test_cb_pure() failed\n");
         return NULL;
     }
 
@@ -164,20 +164,20 @@ cplx_t** test_xb_mixed(const unsigned nqubits) {
 
     // Get pure Hadamard basis states
     if (!((pure_states = test_xb_pure(nqubits)))) {
-        fprintf(stderr, "test_xb_mixed: test_xb_pure failed\n");
+        fprintf(stderr, "test_xb_mixed(): test_xb_pure() failed\n");
         return NULL;
     }
 
     // Allocate array of pointers to density matrices
     if (!((out = calloc(dim, sizeof(*out))))) {
-        fprintf(stderr, "test_xb_mixed: out allocation failed\n");
+        fprintf(stderr, "test_xb_mixed(): out allocation failed\n");
         goto cleanup_pure;
     }
 
     // Convert each pure state to density matrix
     for (unsigned i = 0; i < dim; ++i) {
         if (!((out[i] = pure_to_density(pure_states[i], dim)))) {
-            fprintf(stderr, "test_xb_mixed: conversion of state %u failed\n", i);
+            fprintf(stderr, "test_xb_mixed(): conversion of state %u failed\n", i);
             goto cleanup;
         }
     }
@@ -216,20 +216,20 @@ cplx_t** test_yb_mixed(const unsigned nqubits) {
 
     // Get pure circular basis states
     if (!((pure_states = test_yb_pure(nqubits)))) {
-        fprintf(stderr, "test_yb_mixed: test_yb_pure failed\n");
+        fprintf(stderr, "test_yb_mixed(): test_yb_pure() failed\n");
         return NULL;
     }
 
     // Allocate array of pointers to density matrices
     if (!((out = calloc(dim, sizeof(*out))))) {
-        fprintf(stderr, "test_yb_mixed: out allocation failed\n");
+        fprintf(stderr, "test_yb_mixed(): out allocation failed\n");
         goto cleanup_pure;
     }
 
     // Convert each pure state to density matrix
     for (unsigned i = 0; i < dim; ++i) {
         if (!((out[i] = pure_to_density(pure_states[i], dim)))) {
-            fprintf(stderr, "test_yb_mixed: conversion of state %u failed\n", i);
+            fprintf(stderr, "test_yb_mixed(): conversion of state %u failed\n", i);
             goto cleanup;
         }
     }
@@ -260,28 +260,34 @@ cleanup_pure:
 }
 
 
-cplx_t** test_bell_states_mixed(void) {
+cplx_t** test_bell_mixed(const unsigned nqubits) {
     cplx_t** out = NULL;
     cplx_t** pure_states = NULL;
+
+    // Bell states only defined for n=2 qubits
+    if (nqubits != 2) {
+        fprintf(stderr, "test_bell_mixed(): Bell states only defined for 2 qubits\n");
+        return NULL;
+    }
 
     const unsigned dim = 4;  // 2 qubits
 
     // Get pure Bell states
-    if (!((pure_states = test_bell_states()))) {
-        fprintf(stderr, "test_bell_states_mixed: test_bell_states failed\n");
+    if (!((pure_states = test_bell_pure(nqubits)))) {
+        fprintf(stderr, "test_bell_mixed(): test_bell_pure() failed\n");
         return NULL;
     }
 
     // Allocate array of pointers to density matrices (4 Bell states)
     if (!((out = calloc(4, sizeof(*out))))) {
-        fprintf(stderr, "test_bell_states_mixed: out allocation failed\n");
+        fprintf(stderr, "test_bell_mixed(): out allocation failed\n");
         goto cleanup_pure;
     }
 
     // Convert each Bell state to density matrix
     for (unsigned i = 0; i < 4; ++i) {
         if (!((out[i] = pure_to_density(pure_states[i], dim)))) {
-            fprintf(stderr, "test_bell_states_mixed: conversion of state %u failed\n", i);
+            fprintf(stderr, "test_bell_mixed(): conversion of state %u failed\n", i);
             goto cleanup;
         }
     }
@@ -312,26 +318,26 @@ cleanup_pure:
 }
 
 
-cplx_t** test_ghz_state_mixed(const unsigned nqubits) {
+cplx_t** test_ghz_mixed(const unsigned nqubits) {
     cplx_t** out = NULL;
     cplx_t** pure_state = NULL;
 
     if (nqubits < 2) {
-        fprintf(stderr, "test_ghz_state_mixed: GHZ states require at least 2 qubits\n");
+        fprintf(stderr, "test_ghz_mixed(): GHZ states require at least 2 qubits\n");
         return NULL;
     }
 
     const unsigned dim = 1 << nqubits;
 
     // Get pure GHZ state
-    if (!((pure_state = test_ghz_state(nqubits)))) {
-        fprintf(stderr, "test_ghz_state_mixed: test_ghz_state failed\n");
+    if (!((pure_state = test_ghz_pure(nqubits)))) {
+        fprintf(stderr, "test_ghz_mixed(): test_ghz_pure() failed\n");
         return NULL;
     }
 
     // Allocate array for single density matrix
     if (!((out = calloc(1, sizeof(*out))))) {
-        fprintf(stderr, "test_ghz_state_mixed: out allocation failed\n");
+        fprintf(stderr, "test_ghz_mixed(): out allocation failed\n");
         free(pure_state[0]);
         free(pure_state);
         return NULL;
@@ -339,7 +345,7 @@ cplx_t** test_ghz_state_mixed(const unsigned nqubits) {
 
     // Convert to density matrix
     if (!((out[0] = pure_to_density(pure_state[0], dim)))) {
-        fprintf(stderr, "test_ghz_state_mixed: conversion failed\n");
+        fprintf(stderr, "test_ghz_mixed(): conversion failed\n");
         free(out);
         free(pure_state[0]);
         free(pure_state);
@@ -354,26 +360,26 @@ cplx_t** test_ghz_state_mixed(const unsigned nqubits) {
 }
 
 
-cplx_t** test_w_state_mixed(const unsigned nqubits) {
+cplx_t** test_w_mixed(const unsigned nqubits) {
     cplx_t** out = NULL;
     cplx_t** pure_state = NULL;
 
     if (nqubits < 3) {
-        fprintf(stderr, "test_w_state_mixed: W states require at least 3 qubits\n");
+        fprintf(stderr, "test_w_mixed(): W states require at least 3 qubits\n");
         return NULL;
     }
 
     const unsigned dim = 1 << nqubits;
 
     // Get pure W state
-    if (!((pure_state = test_w_state(nqubits)))) {
-        fprintf(stderr, "test_w_state_mixed: test_w_state failed\n");
+    if (!((pure_state = test_w_pure(nqubits)))) {
+        fprintf(stderr, "test_w_mixed(): test_w_pure() failed\n");
         return NULL;
     }
 
     // Allocate array for single density matrix
     if (!((out = calloc(1, sizeof(*out))))) {
-        fprintf(stderr, "test_w_state_mixed: out allocation failed\n");
+        fprintf(stderr, "test_w_mixed(): out allocation failed\n");
         free(pure_state[0]);
         free(pure_state);
         return NULL;
@@ -381,7 +387,7 @@ cplx_t** test_w_state_mixed(const unsigned nqubits) {
 
     // Convert to density matrix
     if (!((out[0] = pure_to_density(pure_state[0], dim)))) {
-        fprintf(stderr, "test_w_state_mixed: conversion failed\n");
+        fprintf(stderr, "test_w_mixed(): conversion failed\n");
         free(out);
         free(pure_state[0]);
         free(pure_state);
@@ -401,17 +407,17 @@ cplx_t** test_maximally_mixed(const unsigned nqubits) {
 
     const unsigned dim = 1 << nqubits;  // Hilbert space dimension: 2^n
     const unsigned packed_size = (dim * (dim + 1)) / 2;
-    const double diag_val = 1.0 / (double)dim;  // I/2^n has diagonal entries 1/2^n
+    const double diag_val = 1.0 / (double) dim;  // I/2^n has diagonal entries 1/2^n
 
     // Allocate array of one density matrix pointer
     if (!((out = calloc(1, sizeof(*out))))) {
-        fprintf(stderr, "test_maximally_mixed: out allocation failed\n");
+        fprintf(stderr, "test_maximally_mixed(): out allocation failed\n");
         return NULL;
     }
 
     // Allocate packed density matrix (initialized to zero by calloc)
     if (!((out[0] = calloc(packed_size, sizeof(*out[0]))))) {
-        fprintf(stderr, "test_maximally_mixed: out[0] allocation failed\n");
+        fprintf(stderr, "test_maximally_mixed(): out[0] allocation failed\n");
         free(out);
         return NULL;
     }
@@ -426,41 +432,46 @@ cplx_t** test_maximally_mixed(const unsigned nqubits) {
 }
 
 
-cplx_t** test_random_mixture(const unsigned nqubits, const unsigned num_components, const unsigned seed) {
+cplx_t** test_random_mixture(const unsigned nqubits) {
     cplx_t** out = NULL;
     cplx_t** pure_states = NULL;
     double* probabilities = NULL;
     unsigned num_pure = 0;
 
-    if (num_components == 0) {
-        fprintf(stderr, "test_random_mixture: num_components must be > 0\n");
-        return NULL;
-    }
+    // Static counter to generate different mixtures on each call (reproducible sequence)
+    static unsigned call_count = 0;
 
-    const unsigned dim = 1 << nqubits;  // Hilbert space dimension
+    // Hardcoded parameters for random mixture generation
+    const unsigned dim = 1 << nqubits;
+    const unsigned max_components = (3 * dim < 10) ? 3 * dim : 10;
+    const unsigned num_components = 2 + (call_count % (max_components - 1));  // Varies with call
+    const unsigned seed = 1000 + call_count;  // Deterministic seed based on call count
+
+    call_count++;  // Increment for next call
+
     const unsigned packed_size = (dim * (dim + 1)) / 2;
 
     // Generate pure basis states to mix
     if (!((pure_states = test_mk_states_pure(nqubits, &num_pure)))) {
-        fprintf(stderr, "test_random_mixture: test_mk_states_pure failed\n");
+        fprintf(stderr, "test_random_mixture(): test_mk_states_pure failed\n");
         return NULL;
     }
 
     if (num_components > num_pure) {
-        fprintf(stderr, "test_random_mixture: num_components (%u) exceeds available pure states (%u)\n",
+        fprintf(stderr, "test_random_mixture(): num_components (%u) exceeds available pure states (%u)\n",
                 num_components, num_pure);
         goto cleanup_pure;
     }
 
     // Allocate array for single density matrix
     if (!((out = calloc(1, sizeof(*out))))) {
-        fprintf(stderr, "test_random_mixture: out allocation failed\n");
+        fprintf(stderr, "test_random_mixture(): out allocation failed\n");
         goto cleanup_pure;
     }
 
     // Allocate density matrix (initialized to zero)
     if (!((out[0] = calloc(packed_size, sizeof(*out[0]))))) {
-        fprintf(stderr, "test_random_mixture: rho allocation failed\n");
+        fprintf(stderr, "test_random_mixture(): rho allocation failed\n");
         free(out);
         out = NULL;
         goto cleanup_pure;
@@ -468,7 +479,7 @@ cplx_t** test_random_mixture(const unsigned nqubits, const unsigned num_componen
 
     // Generate random probabilities that sum to 1
     if (!((probabilities = malloc(num_components * sizeof(*probabilities))))) {
-        fprintf(stderr, "test_random_mixture: probabilities allocation failed\n");
+        fprintf(stderr, "test_random_mixture(): probabilities allocation failed\n");
         goto cleanup;
     }
 
@@ -545,19 +556,22 @@ cplx_t** test_mk_states_mixed(const unsigned nqubits, unsigned* nmixed) {
     // - Circular basis: dim states
     // - 1 maximally mixed state
     // - 10 random mixtures (as specified in GATES_MODULE.md)
+    // - Entangled states: 4 Bell states (n=2) or 2 states (GHZ + W for n>2)
     const unsigned num_random = 10;
     *nmixed = 3 * dim + 1 + num_random;
+    if (nqubits == 2) *nmixed += 4;  // Bell states
+    else if (nqubits > 2) *nmixed += 2;  // GHZ + W states
 
     // Allocate array of pointers
     if (!((out = calloc(*nmixed, sizeof(*out))))) {
-        fprintf(stderr, "test_mk_states_mixed: out allocation failed\n");
+        fprintf(stderr, "test_mk_states_mixed(): out allocation failed\n");
         return NULL;
     }
 
     // 1. Add computational basis states as density matrices
     cplx_t** cb_mixed = test_cb_mixed(nqubits);
     if (!cb_mixed) {
-        fprintf(stderr, "test_mk_states_mixed: test_cb_mixed failed\n");
+        fprintf(stderr, "test_mk_states_mixed(): test_cb_mixed failed\n");
         goto cleanup;
     }
     for (unsigned i = 0; i < dim; ++i) {
@@ -568,7 +582,7 @@ cplx_t** test_mk_states_mixed(const unsigned nqubits, unsigned* nmixed) {
     // 2. Add Hadamard basis states as density matrices
     cplx_t** xb_mixed = test_xb_mixed(nqubits);
     if (!xb_mixed) {
-        fprintf(stderr, "test_mk_states_mixed: test_xb_mixed failed\n");
+        fprintf(stderr, "test_mk_states_mixed(): test_xb_mixed failed\n");
         goto cleanup;
     }
     for (unsigned i = 0; i < dim; ++i) {
@@ -579,7 +593,7 @@ cplx_t** test_mk_states_mixed(const unsigned nqubits, unsigned* nmixed) {
     // 3. Add circular basis states as density matrices
     cplx_t** yb_mixed = test_yb_mixed(nqubits);
     if (!yb_mixed) {
-        fprintf(stderr, "test_mk_states_mixed: test_yb_mixed failed\n");
+        fprintf(stderr, "test_mk_states_mixed(): test_yb_mixed failed\n");
         goto cleanup;
     }
     for (unsigned i = 0; i < dim; ++i) {
@@ -590,7 +604,7 @@ cplx_t** test_mk_states_mixed(const unsigned nqubits, unsigned* nmixed) {
     // 4. Add maximally mixed state
     cplx_t** max_mixed = test_maximally_mixed(nqubits);
     if (!max_mixed) {
-        fprintf(stderr, "test_mk_states_mixed: test_maximally_mixed failed\n");
+        fprintf(stderr, "test_mk_states_mixed(): test_maximally_mixed failed\n");
         goto cleanup;
     }
     out[current_idx++] = max_mixed[0];
@@ -598,18 +612,45 @@ cplx_t** test_mk_states_mixed(const unsigned nqubits, unsigned* nmixed) {
 
     // 5. Add random mixtures
     for (unsigned i = 0; i < num_random; ++i) {
-        // Use different number of components for variety (2 to min(10, 3*dim))
-        unsigned max_components = (3 * dim < 10) ? 3 * dim : 10;
-        unsigned num_components = 2 + (i % (max_components - 1));
-        unsigned seed = 1000 + i;  // Deterministic seeds for reproducibility
-
-        cplx_t** random_mix = test_random_mixture(nqubits, num_components, seed);
+        cplx_t** random_mix = test_random_mixture(nqubits);
         if (!random_mix) {
-            fprintf(stderr, "test_mk_states_mixed: test_random_mixture %u failed\n", i);
+            fprintf(stderr, "test_mk_states_mixed(): test_random_mixture %u failed\n", i);
             goto cleanup;
         }
         out[current_idx++] = random_mix[0];
         free(random_mix);
+    }
+
+    // 6. Add entangled states (Bell, GHZ, W)
+    if (nqubits == 2) {
+        // Add Bell states
+        cplx_t** bell_mixed = test_bell_mixed(nqubits);
+        if (!bell_mixed) {
+            fprintf(stderr, "test_mk_states_mixed(): test_bell_mixed failed\n");
+            goto cleanup;
+        }
+        for (unsigned i = 0; i < 4; ++i) {
+            out[current_idx++] = bell_mixed[i];
+        }
+        free(bell_mixed);
+    } else if (nqubits > 2) {
+        // Add GHZ state
+        cplx_t** ghz_mixed = test_ghz_mixed(nqubits);
+        if (!ghz_mixed) {
+            fprintf(stderr, "test_mk_states_mixed(): test_ghz_mixed failed\n");
+            goto cleanup;
+        }
+        out[current_idx++] = ghz_mixed[0];
+        free(ghz_mixed);
+
+        // Add W state
+        cplx_t** w_mixed = test_w_mixed(nqubits);
+        if (!w_mixed) {
+            fprintf(stderr, "test_mk_states_mixed(): test_w_mixed failed\n");
+            goto cleanup;
+        }
+        out[current_idx++] = w_mixed[0];
+        free(w_mixed);
     }
 
     return out;
@@ -628,7 +669,9 @@ cleanup:
 void test_rm_states_mixed(const unsigned nqubits, cplx_t** states) {
     const unsigned dim = 1 << nqubits;
     const unsigned num_random = 10;
-    const unsigned nmixed = 3 * dim + 1 + num_random;
+    unsigned nmixed = 3 * dim + 1 + num_random;
+    if (nqubits == 2) nmixed += 4;  // Bell states
+    else if (nqubits > 2) nmixed += 2;  // GHZ + W states
 
     if (states) {
         for (unsigned i = 0; i < nmixed; ++i) {
@@ -636,4 +679,5 @@ void test_rm_states_mixed(const unsigned nqubits, cplx_t** states) {
             states[i] = NULL;
         }
     }
+    free(states);
 }

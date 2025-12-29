@@ -3,7 +3,7 @@
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
 **Implementation:** `src/qhipster.c`
-**Last Updated:** 2025-12-24
+**Last Updated:** 2025-12-29
 
 ---
 
@@ -17,7 +17,7 @@ Kronecker products.
 **Key design characteristics:**
 - **Position-dependent implementation**: Stride between elements depends on target qubit index—different
   positions exercise different code paths
-- **Unified API**: Single `applyX(state, target)` function dispatches to pure or mixed implementation
+- **Unified API**: Single `x(state, target)` function dispatches to pure or mixed implementation
   based on `state->type` enum
 - **Direct packed operations**: Mixed state gates operate directly on lower-triangular packed storage
   (no unpacking required)
@@ -130,64 +130,77 @@ gate.
 
 ### Current Status
 
-**Single-qubit pure state testing: COMPLETE ✅**
+**Phase 0: Mixed State Testing Infrastructure - COMPLETE ✅**
+
+All infrastructure for testing single-qubit gates on mixed states is implemented:
+- Pure state generators (computational, Hadamard, circular bases)
+- Mixed state generators (pure-as-mixed, maximally mixed, random mixtures)
+- Entangled state generators (Bell, GHZ, W states) for both pure and mixed
+- Comprehensive state generation via `test_mk_states_mixed()`
+
+**Pure state testing infrastructure - COMPLETE ✅**
 
 The `testSingleQubitGate()` harness provides complete infrastructure:
 - Function pointer + 2×2 matrix → automated testing
-- Loops through n=1,...,4 qubits
-- Tests all target positions per system size
+- Tests all positions on n=1,2,3,4 qubit systems
 - Builds full unitary via Kronecker products
-- Generates test vectors (passed to qHiPSTER function)
-- Generates reference vectors (multiplied by full matrix)
-- Compares outputs with numerical tolerance
+- Validates outputs against BLAS reference implementation
 
-**Example usage:**
-```c
-testSingleQubitGate(applyX, XMAT, num_qubits, target);
-```
-
-This architecture is clean, lean, and proven. Mixed state and multi-qubit testing will follow the
-same pattern.
+**Next: Phase 1 - Complete first single-qubit gate end-to-end (pure + mixed)**
 
 ### State Generators
 
-| Function | Generates | Location | Status |
-|----------|-----------|----------|--------|
-| `test_cb_pure()` | Computational basis states | `test.c` | ✅ Complete |
-| `test_xb_pure()` | Hadamard basis states | `test.c` | ✅ Complete |
-| `test_yb_pure()` | Circular basis states | `test.c` | ✅ Complete |
-| `test_gen_states_pure()` | Combined: all three bases | `test.c` | ✅ Complete |
-| `test_rm_states_pure()` | Cleanup: free test states | `test.c` | ✅ Complete |
-| `test_pure_as_mixed()` | Convert pure states → density matrices | `test.c` | 🔲 Phase 0 |
-| `test_maximally_mixed()` | I/2ⁿ | `test.c` | 🔲 Phase 0 |
-| `test_random_mixture()` | Random mixtures ρ=Σpᵢ\|ψᵢ⟩⟨ψᵢ\| | `test.c` | 🔲 Phase 0 |
-| `test_bell_states()` | 4 Bell states | `test.c` | 🔲 Phase 3 |
-| `test_ghz_state()` | n-qubit GHZ | `test.c` | 🔲 Phase 3 |
-| `test_w_state()` | n-qubit W | `test.c` | 🔲 Phase 3 |
+**Pure state generators** (location: `test/src/test_pure_states.c`):
+
+| Function | Generates | Status |
+|----------|-----------|--------|
+| `test_cb_pure()` | Computational basis states | ✅ Complete |
+| `test_xb_pure()` | Hadamard basis states | ✅ Complete |
+| `test_yb_pure()` | Circular basis states | ✅ Complete |
+| `test_bell_pure()` | 4 Bell states (n=2) | ✅ Complete |
+| `test_ghz_pure()` | n-qubit GHZ state (n≥2) | ✅ Complete |
+| `test_w_pure()` | n-qubit W state (n≥3) | ✅ Complete |
+| `test_mk_states_pure()` | All pure test states | ✅ Complete |
+| `test_rm_states_pure()` | Cleanup: free pure states | ✅ Complete |
+
+**Mixed state generators** (location: `test/src/test_mixed_states.c`):
+
+| Function | Generates | Status |
+|----------|-----------|--------|
+| `test_cb_mixed()` | Computational basis as density matrices | ✅ Complete |
+| `test_xb_mixed()` | Hadamard basis as density matrices | ✅ Complete |
+| `test_yb_mixed()` | Circular basis as density matrices | ✅ Complete |
+| `test_bell_mixed()` | 4 Bell states as density matrices (n=2) | ✅ Complete |
+| `test_ghz_mixed()` | GHZ state as density matrix (n≥2) | ✅ Complete |
+| `test_w_mixed()` | W state as density matrix (n≥3) | ✅ Complete |
+| `test_maximally_mixed()` | Maximally mixed state I/2ⁿ | ✅ Complete |
+| `test_random_mixture()` | Random mixture ρ=Σpᵢ\|ψᵢ⟩⟨ψᵢ\| | ✅ Complete |
+| `test_mk_states_mixed()` | All mixed test states | ✅ Complete |
+| `test_rm_states_mixed()` | Cleanup: free mixed states | ✅ Complete |
 
 ### Test Harness Functions
 
-| Function | Purpose | Location | Status |
-|----------|---------|----------|--------|
-| `testSingleQubitGate()` | Validates single-qubit gates on pure states | `test_qhipster.c` | ✅ Complete |
-| `testSingleQubitGateMixed()` | Validates single-qubit gates on mixed states | `test_qhipster.c` | 🔲 Phase 0 |
-| `testTwoQubitGate()` | Validates two-qubit gates on pure states | `test_qhipster.c` | 🔲 Phase 4 |
-| `testTwoQubitGateMixed()` | Validates two-qubit gates on mixed states | `test_qhipster.c` | 🔲 Phase 4 |
-| `testThreeQubitGate()` | Validates three-qubit gates on pure states | `test_qhipster.c` | 🔲 Phase 5 |
-| `testThreeQubitGateMixed()` | Validates three-qubit gates on mixed states | `test_qhipster.c` | 🔲 Phase 5 |
+| Function | Purpose | Status |
+|----------|---------|--------|
+| `testSingleQubitGate()` | Validates single-qubit gates on pure states | ✅ Complete |
+| `testSingleQubitGateMixed()` | Validates single-qubit gates on mixed states | 🔲 Phase 1 |
+| `testTwoQubitGate()` | Validates two-qubit gates on pure states | 🔲 Phase 4 |
+| `testTwoQubitGateMixed()` | Validates two-qubit gates on mixed states | 🔲 Phase 4 |
+| `testThreeQubitGate()` | Validates three-qubit gates on pure states | 🔲 Phase 5 |
+| `testThreeQubitGateMixed()` | Validates three-qubit gates on mixed states | 🔲 Phase 5 |
 
 ### Test Helper Functions
 
-| Function | Purpose | Location | Status |
-|----------|---------|----------|--------|
-| `mv()` | Matrix-vector multiplication via `zgemv()` | `test_qhipster.c` | ✅ Complete |
-| `kron()` | Kronecker product A⊗B | `test_qhipster.c` | ✅ Complete |
-| `mat_id()` | Identity matrix I(2ⁿ×2ⁿ) | `test_qhipster.c` | ✅ Complete |
-| `mat_single_qubit_gate()` | Full matrix I⊗...⊗U⊗...⊗I for single-qubit gate | `test_qhipster.c` | ✅ Complete |
-| `density_pack()` | Full Hermitian matrix → packed storage | `test_qhipster.c` | 🔲 Phase 0 |
-| `density_unpack()` | Packed lower-triangle → full Hermitian matrix | `test_qhipster.c` | 🔲 Phase 0 |
-| `mat_two_qubit_gate()` | Full matrix for two-qubit gate | `test_qhipster.c` | 🔲 Phase 4 |
-| `mat_three_qubit_gate()` | Full matrix for three-qubit gate | `test_qhipster.c` | 🔲 Phase 5 |
+| Function | Purpose | Location             | Status |
+|----------|---------|----------------------|--------|
+| `mv()` | Matrix-vector multiplication via `zgemv()` | `test/src/linalg.c` | ✅ Complete |
+| `kron()` | Kronecker product A⊗B | `test/src/linalg.c`  | ✅ Complete |
+| `mat_id()` | Identity matrix I(2ⁿ×2ⁿ) | `test/src/gatemat.c` | ✅ Complete |
+| `mat_single_qubit_gate()` | Full matrix I⊗...⊗U⊗...⊗I for single-qubit gate | `test/src/gatemat.c` | ✅ Complete |
+| `density_pack()` | Full Hermitian matrix → packed storage | `test/src/test_mhipster.c` | 🔲 Phase 1 |
+| `density_unpack()` | Packed lower-triangle → full Hermitian matrix | `test/src/test_mhipster.c` | 🔲 Phase 1 |
+| `mat_two_qubit_gate()` | Full matrix for two-qubit gate | `test/src/gatemat.c` | 🔲 Phase 4 |
+| `mat_three_qubit_gate()` | Full matrix for three-qubit gate | `test/src/gatemat.c` | 🔲 Phase 5 |
 
 **Note**: Test files include predefined gate matrices (XMAT, YMAT, ZMAT, HMAT, SMAT, TMAT, SWAPMAT,
 etc.) in `test/include/test_qhipster.h`.
@@ -200,49 +213,49 @@ etc.) in `test/include/test_qhipster.h`.
 
 ### Single-Qubit Gate Implementations
 
-| Gate | Description | Pure State | Mixed State | Phase |
-|------|-------------|------------|-------------|-------|
-| `applyX()` | Pauli-X | ✅ Complete | 🔲 TODO | 1 |
-| `applyY()` | Pauli-Y | ✅ Complete | 🔲 TODO | 1 |
-| `applyZ()` | Pauli-Z | ✅ Complete | 🔲 TODO | 1 |
-| `applyH()` | Hadamard | 🔲 TODO | 🔲 TODO | 2 |
-| `applyS()` | Phase gate | 🔲 TODO | 🔲 TODO | 2 |
-| `applySdagger()` | S† | 🔲 TODO | 🔲 TODO | 2 |
-| `applyT()` | π/8 gate | 🔲 TODO | 🔲 TODO | 2 |
-| `applyTdagger()` | T† | 🔲 TODO | 🔲 TODO | 2 |
-| `applyHy()` | Hadamard-Y | 🔲 TODO | 🔲 TODO | 2 |
-| `applyP()` | Phase rotation P(θ) | 🔲 TODO | 🔲 TODO | 2 |
-| `applyPdagger()` | P†(θ) | 🔲 TODO | 🔲 TODO | 2 |
-| `applyRX()` | X-rotation RX(θ) | 🔲 TODO | 🔲 TODO | 2 |
-| `applyRXdagger()` | RX†(θ) | 🔲 TODO | 🔲 TODO | 2 |
-| `applyRY()` | Y-rotation RY(θ) | 🔲 TODO | 🔲 TODO | 2 |
-| `applyRYdagger()` | RY†(θ) | 🔲 TODO | 🔲 TODO | 2 |
-| `applyRZ()` | Z-rotation RZ(θ) | 🔲 TODO | 🔲 TODO | 2 |
-| `applyRZdagger()` | RZ†(θ) | 🔲 TODO | 🔲 TODO | 2 |
+| Gate     | Description         | Pure State | Mixed State | Phase |
+|----------|---------------------|------------|-------------|-------|
+| `x()`    | Pauli-X             | ✅ Complete | 🔲 TODO | 1 |
+| `y()`    | Pauli-Y             | 🔲 TODO | 🔲 TODO | 1 |
+| `z()`    | Pauli-Z             | 🔲 TODO | 🔲 TODO | 1 |
+| `h()`    | Hadamard            | 🔲 TODO | 🔲 TODO | 2 |
+| `s()`    | Phase gate          | 🔲 TODO | 🔲 TODO | 2 |
+| `sdg()`  | S†                  | 🔲 TODO | 🔲 TODO | 2 |
+| `t()`    | π/8 gate            | 🔲 TODO | 🔲 TODO | 2 |
+| `tdg()`  | T†                  | 🔲 TODO | 🔲 TODO | 2 |
+| `hy()`   | Hadamard-Y          | 🔲 TODO | 🔲 TODO | 2 |
+| `p()`    | Phase rotation P(θ) | 🔲 TODO | 🔲 TODO | 2 |
+| `pdg()`  | P†(θ)               | 🔲 TODO | 🔲 TODO | 2 |
+| `rx()`   | X-rotation RX(θ)    | 🔲 TODO | 🔲 TODO | 2 |
+| `rxdg()` | RX†(θ)              | 🔲 TODO | 🔲 TODO | 2 |
+| `ry()`   | Y-rotation RY(θ)    | 🔲 TODO | 🔲 TODO | 2 |
+| `rydg()` | RY†(θ)              | 🔲 TODO | 🔲 TODO | 2 |
+| `rz()`   | Z-rotation RZ(θ)    | 🔲 TODO | 🔲 TODO | 2 |
+| `rzdg()` | RZ†(θ)              | 🔲 TODO | 🔲 TODO | 2 |
 
 ### Two-Qubit Gate Implementations
 
 | Gate | Description | Pure State | Mixed State | Phase |
 |------|-------------|------------|-------------|-------|
-| `applyCX()` | CNOT | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCY()` | Controlled-Y | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCZ()` | Controlled-Z | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCS()` | Controlled-S | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCSdagger()` | Controlled-S† | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCH()` | Controlled-H | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCHy()` | Controlled-Hy | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCT()` | Controlled-T | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCTdagger()` | Controlled-T† | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCP()` | Controlled-P(θ) | 🔲 TODO | 🔲 TODO | 4 |
-| `applyCPdagger()` | Controlled-P†(θ) | 🔲 TODO | 🔲 TODO | 4 |
-| `applySWAP()` | SWAP | 🔲 TODO | 🔲 TODO | 4 |
-| `applyRSWAP()` | Rotated SWAP | 🔲 TODO | 🔲 TODO | 4 |
+| `cx()` | CNOT | 🔲 TODO | 🔲 TODO | 4 |
+| `cy()` | Controlled-Y | 🔲 TODO | 🔲 TODO | 4 |
+| `cz()` | Controlled-Z | 🔲 TODO | 🔲 TODO | 4 |
+| `cs()` | Controlled-S | 🔲 TODO | 🔲 TODO | 4 |
+| `csdg()` | Controlled-S† | 🔲 TODO | 🔲 TODO | 4 |
+| `ch()` | Controlled-H | 🔲 TODO | 🔲 TODO | 4 |
+| `chy()` | Controlled-Hy | 🔲 TODO | 🔲 TODO | 4 |
+| `ct()` | Controlled-T | 🔲 TODO | 🔲 TODO | 4 |
+| `ctdg()` | Controlled-T† | 🔲 TODO | 🔲 TODO | 4 |
+| `cp()` | Controlled-P(θ) | 🔲 TODO | 🔲 TODO | 4 |
+| `cpdg()` | Controlled-P†(θ) | 🔲 TODO | 🔲 TODO | 4 |
+| `swap()` | SWAP | 🔲 TODO | 🔲 TODO | 4 |
+| `rswap()` | Rotated SWAP | 🔲 TODO | 🔲 TODO | 4 |
 
 ### Three-Qubit Gate Implementations
 
 | Gate | Description | Pure State | Mixed State | Phase |
 |------|-------------|------------|-------------|-------|
-| `applyToffoli()` | Toffoli (CCNOT) | 🔲 TODO | 🔲 TODO | 5 |
+| `ccx()` | Toffoli (CCNOT) | 🔲 TODO | 🔲 TODO | 5 |
 
 ---
 
@@ -250,234 +263,92 @@ etc.) in `test/include/test_qhipster.h`.
 
 ### Position-Dependent Stride Logic
 
-**Why different positions matter:**
-qHiPSTER implementation uses stride-based indexing where stride depends on target qubit index:
-```c
-// Simplified example for single-qubit gate
-stride = 1ULL << target;  // 2^target
-for (i = 0; i < (1ULL << n); i++) {
-    if ((i & stride) == 0) {
-        // Operate on amplitude pair: state[i] and state[i + stride]
-    }
-}
-```
-
-Different target qubits → different strides → different memory access patterns → genuinely different
-code execution paths.
-
-**Testing implication**: Must validate all qubit positions to ensure stride calculations are correct.
+qHiPSTER uses stride-based indexing where stride = 2^target. Different target qubits exercise different memory access patterns and code paths, requiring validation of all qubit positions.
 
 ### Numerical Precision
 
-**Test tolerance**: ε = 1e-12 for comparing production implementations against BLAS reference matrix
-multiplication.
-
-**Rationale**: Accounts for double-precision arithmetic (machine epsilon ~1e-16) plus accumulated
-rounding errors over O(2^n) sparse operations.
-
-**Numerical stability advantage**: Sparse operations accumulate errors through O(2^n) operations per
-gate vs O(2^3n) for dense matrix multiplication—better stability at scale.
+**Test tolerance**: ε = 1e-12 accounts for double-precision arithmetic plus accumulated rounding errors over O(2^n) sparse operations. Sparse operations provide better numerical stability than dense matrix multiplication (O(2^3n) operations).
 
 ### Packed Storage for Mixed States
 
-**Production**: Gates operate directly on lower-triangular packed format (no unpacking)
-- Generalized qHiPSTER algorithms for packed density matrices
-- 50% memory savings critical for n=16 mixed states (32GB vs 64GB)
+**Production**: Gates operate directly on lower-triangular packed format achieving 50% memory savings (critical for n=16: 32GB vs 64GB).
 
-**Testing**: Unpack → full matrix BLAS operations (UρU†) → repack
-- Simple, verifiable reference implementation
-- Isolates pack/unpack logic from gate logic
-- Systematic failures → packing bugs; gate-specific failures → gate bugs
+**Testing**: Reference implementation unpacks → applies UρU† via BLAS → repacks, isolating pack/unpack logic from gate logic.
 
-### State Representation
+### Unified State Representation
 
-**Unified `state_t` structure:**
-```c
-typedef struct {
-    type_t type;  // PURE or MIXED
-    int n;        // number of qubits
-    cplx_t* data; // amplitudes (pure) or packed density matrix (mixed)
-} state_t;
-```
+Single `x(state, target)` API dispatches to `x_pure()` or `x_mixed()` based on `state->type` enum. Type-safe at runtime with optimized per-type implementations.
 
-**API design**: Single function per gate dispatches based on type
-```c
-int applyX(state_t* state, int target) {
-    return (state->type == PURE)
-        ? applyX_pure(state, target)
-        : applyX_mixed(state, target);
-}
-```
+### Thread Safety
 
-**Benefits**: Type-safe at runtime, single API for users, internal implementations optimized per type.
-
-### Thread Safety and Parallelization
-
-**State objects**: Not thread-safe for concurrent mutation of same object. Users can create separate
-state objects for parallel circuit evaluation.
-
-**Empirical parallelization results** (OpenMP):
-- Gate-level: ~3× speedup on 10 cores (memory bandwidth limited)
-- Circuit-level: ~5× speedup
-- Algorithm-level: Best scaling but RAM-constrained at target qubit counts
-
-**Library scope**: Provides thread-safe object creation. Algorithm-level parallelization implemented
-by users external to library.
+State objects not thread-safe for concurrent mutation. Users can create separate state objects for parallel evaluation. Gate operations are memory-bandwidth limited (~3× speedup on 10 cores with OpenMP).
 
 ---
 
 ## Implementation Workflow
 
-### Overview
+**Iterative development strategy**: Build one gate end-to-end (pure + mixed, tested) before moving to next gate. This validates infrastructure early and establishes clear patterns.
 
-**Iterative development strategy**: Build one gate end-to-end (pure + mixed, tested) before moving to
-next gate. Discover infrastructure needs organically rather than big-design-up-front.
-
-**Rationale**:
-- Early validation of test infrastructure
-- Discover design issues sooner
-- Clear "done" criteria per phase
-- Working gates immediately available
-- Common patterns emerge through iteration
-
-### Phase 0: Mixed State Testing Infrastructure
-**Goal**: Enable testing of single-qubit gates on mixed states
+### Phase 1: Complete First Single-Qubit Gate (Pure + Mixed)
+**Goal**: First fully validated gate demonstrating complete workflow
 
 **Deliverables**:
-- `density_pack()`: Full Hermitian matrix → packed lower-triangular storage
-- `density_unpack()`: Packed storage → full Hermitian matrix
-- `testSingleQubitGateMixed()`: Test harness analogous to `testSingleQubitGate()`
-  - Function pointer + 2×2 matrix → automated testing
-  - Unpack density matrix → apply UρU† via BLAS → repack
-  - Compare with production implementation output
-- Mixed state generators:
-  - `test_pure_as_mixed()`: Convert existing pure states to density matrices
-  - `test_maximally_mixed()`: Generate I/2^n
-  - `test_random_mixture()`: Generate ρ = Σpᵢ|ψᵢ⟩⟨ψᵢ| with random weights
+- `density_pack()` and `density_unpack()` helper functions
+- `testSingleQubitGateMixed()` test harness
+- Implement mixed state version of one gate (suggested: X or H)
+  - Direct operation on packed density matrix using qHiPSTER stride logic
+- Validate against test harness
 
-**Exit criteria**: Can test arbitrary single-qubit gate on mixed states using same pattern as pure
-state testing.
-
-### Phase 1: Complete One Single-Qubit Gate End-to-End
-**Goal**: First fully validated gate (pure + mixed) demonstrating complete workflow
-
-**Suggested gate**: X or H (simple, well-understood)
-
-**Deliverables**:
-- Implement mixed state version of chosen gate
-  - Direct operation on packed density matrix
-  - Use generalized qHiPSTER stride logic
-- Validate against test harness (uses Phase 0 infrastructure)
-- Document any issues or patterns discovered
-
-**Exit criteria**:
-- Both pure and mixed implementations pass all tests
-- Clear implementation pattern established for remaining gates
-
-**Learning outcomes**:
-- Validate Phase 0 infrastructure works as intended
-- Identify any missing test cases or helper functions
-- Establish code patterns for subsequent gates
+**Exit criteria**: Both pure and mixed implementations pass all tests, establishing clear pattern for remaining gates
 
 ### Phase 2: Remaining Single-Qubit Gates
 **Goal**: Complete single-qubit gate library
 
-**Deliverables**:
-- Implement all remaining single-qubit gates (H, S, T, rotations, daggers)
-- Both pure and mixed versions
-- Follow pattern established in Phase 1
-- Mostly copy-paste-modify with different 2×2 matrices
+**Deliverables**: Implement all remaining single-qubit gates (H, S, T, rotations, daggers) for both pure and mixed states following Phase 1 pattern
 
 **Exit criteria**: All single-qubit gates pass tests (pure + mixed)
 
-**Expected discoveries**:
-- Common helper functions needed
-- Opportunities for code reuse
-- Edge cases in rotation gates (small angles, boundary values)
-
-### Phase 3: Entangled State Generators
+### Phase 3: Two-Qubit Gate Test Infrastructure
 **Goal**: Enable testing of two-qubit gates
 
 **Deliverables**:
-- `test_bell_states()`: Generate 4 Bell states
-- `test_ghz_state()`: Generate n-qubit GHZ states
-- `test_w_state()`: Generate n-qubit W states
+- `mat_two_qubit_gate()`: Build full matrix via Kronecker products (4×4 → 2^n×2^n)
+- `testTwoQubitGate()` and `testTwoQubitGateMixed()`: Test harnesses with (target, control) pair loops
 
-**Rationale**: Two-qubit gates (especially CNOT) require entangled test states to validate entanglement
-propagation.
+**Exit criteria**: Infrastructure ready for two-qubit gate implementation
 
-**Exit criteria**: Can generate entangled states for n=2,3,4 qubit systems.
+**Note**: Entangled state generators (Bell, GHZ, W) already complete from Phase 0
 
 ### Phase 4: Two-Qubit Gates
 **Goal**: Complete two-qubit gate library
 
-**Deliverables**:
-- `mat_two_qubit_gate()`: Build full matrix for two-qubit gates via Kronecker products
-- `testTwoQubitGate()`: Pure state test harness for two-qubit gates
-  - Loop through (target, control) pairs
-  - Generate full matrix, compare outputs
-- `testTwoQubitGateMixed()`: Mixed state test harness
-- Implement all two-qubit gates (CNOT, CZ, SWAP, controlled operations)
-  - Pure and mixed versions
-  - Iterate one gate at a time
+**Deliverables**: Implement all two-qubit gates (CNOT, CZ, SWAP, controlled operations) for both pure and mixed states
 
 **Exit criteria**: All two-qubit gates pass tests (pure + mixed)
-
-**Challenges**:
-- More complex Kronecker product construction (4×4 → 2^n×2^n)
-- Two index parameters (target, control)
-- Control qubit logic validation
 
 ### Phase 5: Three-Qubit Gates
 **Goal**: Complete Toffoli gate
 
 **Deliverables**:
-- `mat_three_qubit_gate()`: Build full matrix for three-qubit gates
-- `testThreeQubitGate()` and `testThreeQubitGateMixed()`: Test harnesses
-- Implement Toffoli (pure + mixed)
+- `mat_three_qubit_gate()` and test harnesses
+- Toffoli implementation (pure + mixed)
 
-**Exit criteria**: Toffoli passes all tests
-
-**Final milestone**: Complete gate library with comprehensive test coverage
+**Exit criteria**: Toffoli passes all tests - complete gate library with comprehensive test coverage
 
 ---
 
-## Validation and Quality Assurance
+## Quality Assurance
 
 ### Build-Time Testing
+- **Runtime**: All tests complete in <2 minutes
+- **Coverage**: All gates tested across all positions, system sizes (n=1-4), state types, and basis states
+- **CI/CD**: Tests run on every build, abort on failure
 
-**Requirement**: All tests complete in <2 minutes
-
-**CI/CD integration**: Tests run on every build, abort on failure
-
-**Coverage verification**: Automated check ensures all gates tested across:
-- All qubit positions
-- All system sizes (n=1,2,3,4)
-- All state types (pure, mixed)
-- All basis states and entangled states
-
-### Memory Leak Testing
-
-**Strategy**: Regular checks during development
-
-**Tools**: Platform-specific (valgrind on Linux, Instruments on macOS)
-
-**Discipline**: Manual verification during iterative development
-
-### Numerical Validation
-
-**Tolerance**: ε = 1e-12
-
-**Checks per test**:
-- Output state matches reference within tolerance
-- Norm preservation (pure states): |⟨ψ'|ψ'⟩ - 1| < ε
-- Trace preservation (mixed states): |Tr(ρ') - Tr(ρ)| < ε
-- Hermiticity (mixed states): verified by storage format
-
-**Failure analysis**: Distinguish between:
-- Systematic failures (infrastructure bugs)
-- Gate-specific failures (implementation bugs)
-- Numerical precision issues (tolerance too tight)
+### Validation Checks
+- Output matches reference within ε = 1e-12
+- Norm preservation (pure): |⟨ψ'|ψ'⟩ - 1| < ε
+- Trace preservation (mixed): |Tr(ρ') - Tr(ρ)| < ε
+- Memory leak testing via valgrind/Instruments during development
 
 ---
 

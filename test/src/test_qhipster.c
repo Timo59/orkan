@@ -135,7 +135,6 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
 
         // Free reference state vectors
         test_rm_states_pure(nqubits, ref_vecs);
-        free(ref_vecs);
         ref_vecs = NULL;
     }
 
