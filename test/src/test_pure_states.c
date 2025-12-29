@@ -150,22 +150,28 @@ cplx_t** test_yb_pure(const unsigned nqubits) {
 }
 
 
-cplx_t** test_bell_states(void) {
+cplx_t** test_bell_pure(const unsigned nqubits) {
     cplx_t** out = NULL;
     const cplx_t ampl = INVSQRT2 + I*0.0;
+
+    // Bell states only defined for n=2 qubits
+    if (nqubits != 2) {
+        fprintf(stderr, "test_bell_pure(): Bell states only defined for 2 qubits\n");
+        return NULL;
+    }
 
     const unsigned dim = 4;  // Hilbert space dimension for 2 qubits
 
     // Allocate the pointers to all 4 Bell states
     if (!((out = calloc(4, sizeof (*out))))) {
-        fprintf(stderr, "test_bell_states: out allocation failed\n");
+        fprintf(stderr, "test_bell_pure(): out allocation failed\n");
         return out;
     }
 
     // Initialize all 4 Bell states
     for (unsigned i = 0; i < 4; ++i) {
         if (!((out[i] = calloc(dim, sizeof (*out[i]))))) {
-            fprintf(stderr, "test_bell_states: out[%u] allocation failed\n", i);
+            fprintf(stderr, "test_bell_pure(): out[%u] allocation failed\n", i);
             goto cleanup;
         }
     }
@@ -200,13 +206,13 @@ cplx_t** test_bell_states(void) {
 }
 
 
-cplx_t** test_ghz_state(const unsigned nqubits) {
+cplx_t** test_ghz_pure(const unsigned nqubits) {
     cplx_t** out = NULL;
     const cplx_t ampl = INVSQRT2 + I*0.0;
 
     // GHZ states defined for n >= 2 qubits
     if (nqubits < 2) {
-        fprintf(stderr, "test_ghz_state: GHZ states require at least 2 qubits\n");
+        fprintf(stderr, "test_ghz_pure(): GHZ states require at least 2 qubits\n");
         return NULL;
     }
 
@@ -214,13 +220,13 @@ cplx_t** test_ghz_state(const unsigned nqubits) {
 
     // Allocate pointer for single GHZ state
     if (!((out = calloc(1, sizeof (*out))))) {
-        fprintf(stderr, "test_ghz_state: out allocation failed\n");
+        fprintf(stderr, "test_ghz_pure(): out allocation failed\n");
         return out;
     }
 
     // Allocate the GHZ state vector
     if (!((out[0] = calloc(dim, sizeof (*out[0]))))) {
-        fprintf(stderr, "test_ghz_state: out[0] allocation failed\n");
+        fprintf(stderr, "test_ghz_pure(): out[0] allocation failed\n");
         free(out);
         return NULL;
     }
@@ -233,13 +239,13 @@ cplx_t** test_ghz_state(const unsigned nqubits) {
 }
 
 
-cplx_t** test_w_state(const unsigned nqubits) {
+cplx_t** test_w_pure(const unsigned nqubits) {
     cplx_t** out = NULL;
     const cplx_t ampl = (cplx_t) (1.0 / sqrt((double)nqubits)) + I*0.0;
 
     // W states defined for n >= 3 qubits
     if (nqubits < 3) {
-        fprintf(stderr, "test_w_state: W states require at least 3 qubits\n");
+        fprintf(stderr, "test_w_pure(): W states require at least 3 qubits\n");
         return NULL;
     }
 
@@ -247,13 +253,13 @@ cplx_t** test_w_state(const unsigned nqubits) {
 
     // Allocate pointer for single W state
     if (!((out = calloc(1, sizeof (*out))))) {
-        fprintf(stderr, "test_w_state: out allocation failed\n");
+        fprintf(stderr, "test_w_pure(): out allocation failed\n");
         return out;
     }
 
     // Allocate the W state vector
     if (!((out[0] = calloc(dim, sizeof (*out[0]))))) {
-        fprintf(stderr, "test_w_state: out[0] allocation failed\n");
+        fprintf(stderr, "test_w_pure(): out[0] allocation failed\n");
         free(out);
         return NULL;
     }
@@ -274,16 +280,18 @@ cplx_t** test_mk_states_pure(const unsigned nqubits, unsigned *nvecs) {
 
     // Allocate the pointers for all test states
     const unsigned dim = 1 << nqubits;  // Hilbert space dimension
-    *nvecs = 3 * dim;  // Number of test states
+    *nvecs = 3 * dim;   // Number of basis states
+    if (nqubits == 2) *nvecs += 4;   // Number of Bell states
+    else if (nqubits > 2) *nvecs += 2;   // Number of GHZ + W-state
     if (!((out = calloc(*nvecs, sizeof (*out))))) {
-        fprintf(stderr, "test_gen_states_pure: out allocation failed\n");
+        fprintf(stderr, "test_mk_states_pure(): out allocation failed\n");
         return out;
     }
 
     // Copy pointers from computational basis states
     cplx_t **tmp = test_cb_pure(nqubits);
     if (!tmp) {
-        fprintf(stderr, "test_gen_states_pure: Error in test_cb_pure\n");
+        fprintf(stderr, "test_mk_states_pure(): Error in test_cb_pure\n");
         goto cleanup;
     }
     for (unsigned i = 0; i < dim; ++i) {
@@ -296,7 +304,7 @@ cplx_t** test_mk_states_pure(const unsigned nqubits, unsigned *nvecs) {
     // Copy pointers from the Hadamard basis states
     tmp = test_xb_pure(nqubits);
     if (!tmp) {
-        fprintf(stderr, "test_gen_states_pure: Initialization of Hadamard basis states failed\n");
+        fprintf(stderr, "test_mk_states_pure(): Initialization of Hadamard basis states failed\n");
         goto cleanup;
     }
     for (unsigned i = 0; i < dim; ++i) {
@@ -306,10 +314,10 @@ cplx_t** test_mk_states_pure(const unsigned nqubits, unsigned *nvecs) {
     free(tmp);
     tmp = NULL;
 
-    // Copy pointers from the Hadamard basis states
+    // Copy pointers from the circular basis states
     tmp = test_yb_pure(nqubits);
     if (!tmp) {
-        fprintf(stderr, "test_gen_states_pure: Initialization of Circular basis states failed\n");
+        fprintf(stderr, "test_mk_states_pure(): Initialization of Circular basis states failed\n");
         goto cleanup;
     }
     for (unsigned i = 0; i < dim; ++i) {
@@ -318,6 +326,45 @@ cplx_t** test_mk_states_pure(const unsigned nqubits, unsigned *nvecs) {
 
     free(tmp);
     tmp = NULL;
+
+    // Copy pointers from the Bell states
+    if (nqubits == 2) {
+        tmp = test_bell_pure(nqubits);
+        if (!tmp) {
+            fprintf(stderr, "test_mk_states_pure(): Initialization of Bell states failed\n");
+            goto cleanup;
+        }
+        for (unsigned i = 0; i < 4; ++i) {
+            out[3 * dim + i] = tmp[i];
+        }
+
+        free(tmp);
+        tmp = NULL;
+    }
+
+    else if (nqubits > 2) {
+        // Copy pointer from the GHZ state
+        tmp = test_ghz_pure(nqubits);
+        if (!tmp) {
+            fprintf(stderr, "test_mk_states_pure(): Initialization of GHZ state failed\n");
+            goto cleanup;
+        }
+        out[3 * dim] = tmp[0];
+
+        free(tmp);
+        tmp = NULL;
+
+        // Copy pointer from the W-state
+        tmp = test_w_pure(nqubits);
+        if (!tmp) {
+            fprintf(stderr, "test_mk_states_pure(): Initialization of W-state failed\n");
+            goto cleanup;
+        }
+        out[3 * dim + 1] = tmp[0];
+
+        free(tmp);
+        tmp = NULL;
+    }
 
     return out;
 
@@ -333,7 +380,9 @@ cplx_t** test_mk_states_pure(const unsigned nqubits, unsigned *nvecs) {
 
 void test_rm_states_pure(const unsigned nqubits, cplx_t **states) {
     const unsigned dim = 1 << nqubits;
-    const unsigned nvecs = 3 * dim;
+    unsigned nvecs = 3 * dim;
+    if (nqubits == 2) nvecs += 4;
+    else if (nqubits > 2) nvecs += 2;
 
     if (states) {
         for (unsigned i = 0; i < nvecs; ++i) {

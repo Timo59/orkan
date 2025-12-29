@@ -23,6 +23,10 @@
 #include "test_pure_states.h"
 #endif
 
+#ifndef UTILS_H
+#include "utils.h"
+#endif
+
 #include <stdlib.h>
 
 /*
