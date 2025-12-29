@@ -51,8 +51,8 @@ void state_init(state_t *state, const qubit_t qubits, cplx_t **data) {
 
     // Initialize state representation to the passed representation or to all zero if the latter is NULL
     if (data) {
-        state->data = *data;
-        *data = NULL;
+        state->data = *data;    // Transfer ownership of state vector
+        *data = NULL;           // Nullify source
     } else {
         const dim_t len = state_len(state); // Size of the array representing the quantum state
         if(!((state->data = calloc(len, sizeof(*state->data))))) {
