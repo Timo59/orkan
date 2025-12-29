@@ -68,19 +68,12 @@ int main(void) {
 void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
     state_t test_state = {0}; // Pure test state
     test_state.type = PURE;
-    cplx_t **ref_vecs = {0}, **test_vecs = {0}; // Reference and test state vectors
+    cplx_t **test_vecs = NULL, *gateMat = NULL;  // Test state vectors, matrix representation of the quantum gate
     unsigned nvecs = 0;    // Number of test state vectors
-    cplx_t *gateMat = NULL; // Matrix representation of the quantum gate
 
     // Iterate the number of qubits
-    for (unsigned nqubits= 1; nqubits <= MAXQUBITS; ++nqubits) {
+    for (unsigned nqubits = 1; nqubits <= MAXQUBITS; ++nqubits) {
         const unsigned dim = POW2(nqubits, dim_t);
-
-        // Generate reference state vectors (not touched by the functions)
-        if (!((ref_vecs = test_mk_states_pure(nqubits, &nvecs)))) {
-            fprintf(stderr, "testSingleQubitGate(): ref_vecs initialization failed\n");
-            goto cleanup;
-        }
 
         // Iterate target qubits
         for (unsigned pos = 0; pos < nqubits; ++pos) {
@@ -90,12 +83,19 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
                 goto cleanup;
             }
 
-            // Initialize matrix with a Pauli-X acting on the target qubit
+            // Initialize matrix representation of the gate acting on the target qubit
             if (!((gateMat = mat_single_qubit_gate(nqubits, mat, pos)))) goto cleanup;
 
             // Iterate the test state vectors
             for (unsigned i = 0; i < nvecs; ++i) {
-                // Initialize test state with i-th state vector (previous state vector gets freed inside state_init() )
+                // Reference state vector by matrix-vector multiplication
+                cplx_t* ref = zmv(dim, gateMat, test_vecs[i]);
+                if (!ref) {
+                    fprintf(stderr, "testSingleQubitGate(): matrix-vector multiplication failed\n");
+                    goto cleanup;
+                }
+
+                // Initialize test state with the state vector (previous state vector gets freed inside state_init())
                 state_init(&test_state, nqubits, &test_vecs[i]);
                 if (!test_state.data) {
                     fprintf(stderr, "testSingleQubitGate(): test state data initialization failed\n");
@@ -109,46 +109,31 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
                     goto cleanup;
                 }
 
-                // Reference state vector by matrix-vector multiplication
-                cplx_t* ref = zmv(dim, gateMat, ref_vecs[i]);
-                if (!ref) {
-                    fprintf(stderr, "testSingleQubitGate(): matrix-vector multiplication failed\n");
-                    goto cleanup;
-                }
-
                 // Compare state vectors
                 TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref, test_state.data, dim, PRECISION);
 
-                // Free reference vector
+                // Free the reference result
                 free(ref);
                 ref = NULL;
+
+                // Free test state vector
+                free(test_state.data);
+                test_state.data = NULL;
             }
 
             // Free matrix representation
             free(gateMat);
             gateMat = NULL;
 
-            // Free test vectors' array
+            // Free test vector array
             free(test_vecs);
             test_vecs = NULL;
         }
-
-        // Free reference state vectors
-        test_rm_states_pure(nqubits, ref_vecs);
-        ref_vecs = NULL;
     }
 
-    cleanup:
-        // Free reference state vectors
-        if (ref_vecs) {
-            for (unsigned i = 0; i < nvecs; ++i) {
-                free(ref_vecs[i]);
-                ref_vecs[i] = NULL;
-            }
-        }
-        free(ref_vecs);
-        ref_vecs = NULL;
+    return;
 
+    cleanup:
         // Free test state vectors
         if (test_vecs) {
             for (unsigned i = 0; i < nvecs; ++i) {
