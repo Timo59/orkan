@@ -525,7 +525,7 @@ cplx_t** test_random_mixture(const unsigned nqubits) {
 
     free(probabilities);
     test_rm_states_pure(nqubits, pure_states);
-    free(pure_states);
+    pure_states = NULL;
 
     return out;
 

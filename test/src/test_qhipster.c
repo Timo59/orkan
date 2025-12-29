@@ -1,5 +1,5 @@
-// test_qhipster.c  - Unit tests for representations of quantum gates on pure states. The reference is given by matrix
-//                    vector multiplication of the state vector with the matrix representation of the quantum gate.
+// test_qhipster.c  - Test harness for quantum gates on pure states. The reference is given by matrix-vector
+//                    multiplication of the state vector with the matrix representation of the quantum gate.
 
 /*
  * =====================================================================================================================
@@ -7,8 +7,8 @@
  * =====================================================================================================================
  */
 
-#ifndef TEST_QHIPSTER_H
-#include "test_qhipster.h"
+#ifndef TEST_GATE_H
+#include "test_gate.h"
 #endif
 
 #ifndef GATEMAT_H
@@ -28,36 +28,6 @@
 #endif
 
 #include <stdlib.h>
-
-/*
- * =====================================================================================================================
- * Unity: setUp and tearDown
- * =====================================================================================================================
- */
-
-void setUp(void) {}
-
-void tearDown(void) {}
-
-
-/*
- * =====================================================================================================================
- * Test functions
- * =====================================================================================================================
- */
-void test_X_pure(void) {testSingleQubitGate(x, XMAT);}
-
-/*
- * =====================================================================================================================
- * Unity body
- * =====================================================================================================================
- */
-
-int main(void) {
-    UNITY_BEGIN();
-    RUN_TEST(test_X_pure);
-    return UNITY_END();
-}
 
 /*
  * =====================================================================================================================

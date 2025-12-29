@@ -1,8 +1,7 @@
-// test_qhipster.h  - Unit tests for representations of quantum gates on pure states. The reference is given by matrix
-//                    vector multiplication of the state vector with the matrix representation of the quantum gate.
+// test_gates.h  - Unit tests for quantum gate operations on pure and mixed states
 
-#ifndef TEST_QHIPSTER_H
-#define TEST_QHIPSTER_H
+#ifndef TEST_GATE_H
+#define TEST_GATE_H
 
 /*
  * =====================================================================================================================
@@ -101,17 +100,25 @@ static const cplx_t SWAPMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 
 
 /*
  * =====================================================================================================================
- * Single qubit gates
+ * Test harness function declarations
  * =====================================================================================================================
  */
 
 /*
- * @brief   Unit test of the single qubit gate on each qubit of a multi-qubit state of up to MAXQUBITS qubits
+ * @brief   Unit test of the single qubit gate on pure states for each qubit of a multi-qubit state
  *
  * @param[in]   gate    Function representing the single qubit gate
- * @param[in]   mat     Matrix representation of the single qubit operation
+ * @param[in]   mat     Matrix representation of the single qubit operation (2×2)
  */
 void testSingleQubitGate(single_qubit_gate gate, const cplx_t *mat);
+
+/*
+ * @brief   Unit test of the single qubit gate on mixed states for each qubit of a multi-qubit state
+ *
+ * @param[in]   gate    Function representing the single qubit gate
+ * @param[in]   mat     Matrix representation of the single qubit operation (2×2)
+ */
+void testSingleQubitGateMixed(single_qubit_gate gate, const cplx_t *mat);
 
 /*
  * =====================================================================================================================
@@ -126,4 +133,4 @@ void testSingleQubitGate(single_qubit_gate gate, const cplx_t *mat);
 }
 #endif
 
-#endif // TEST_QHIPSTER_H
+#endif // TEST_GATE_H

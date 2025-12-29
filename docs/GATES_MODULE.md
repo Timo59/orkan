@@ -130,23 +130,25 @@ gate.
 
 ### Current Status
 
-**Phase 0: Mixed State Testing Infrastructure - COMPLETE ✅**
+**Phase 0: Testing Infrastructure - COMPLETE ✅**
 
-All infrastructure for testing single-qubit gates on mixed states is implemented:
-- Pure state generators (computational, Hadamard, circular bases)
-- Mixed state generators (pure-as-mixed, maximally mixed, random mixtures)
-- Entangled state generators (Bell, GHZ, W states) for both pure and mixed
-- Comprehensive state generation via `test_mk_states_mixed()`
+All infrastructure for testing gates on both pure and mixed states is complete:
+- **Pure state generators**: Computational, Hadamard, circular bases
+- **Mixed state generators**: Pure-as-mixed, maximally mixed, random mixtures
+- **Entangled state generators**: Bell, GHZ, W states (both pure and mixed)
+- **Pure state test harness**: `testSingleQubitGate()` in `test/src/test_qhipster.c`
+- **Mixed state test harness**: `testSingleQubitGateMixed()` in `test/src/test_mhipster.c`
+- **Packed storage utilities**: `density_pack()` and `density_unpack()` (static in test_mhipster.c)
+- **BLAS helper**: `zumu()` computes U*M*U† for reference comparisons
+- **Unified test file**: `test/src/test_gates.c` with single main() for all gate tests
 
-**Pure state testing infrastructure - COMPLETE ✅**
-
-The `testSingleQubitGate()` harness provides complete infrastructure:
+**Test harness features:**
 - Function pointer + 2×2 matrix → automated testing
 - Tests all positions on n=1,2,3,4 qubit systems
 - Builds full unitary via Kronecker products
-- Validates outputs against BLAS reference implementation
+- Validates outputs against BLAS reference implementations
 
-**Next: Phase 1 - Complete first single-qubit gate end-to-end (pure + mixed)**
+**Next: Phase 1 - Implement first single-qubit gate for mixed states (pure X already complete)**
 
 ### State Generators
 
@@ -180,30 +182,57 @@ The `testSingleQubitGate()` harness provides complete infrastructure:
 
 ### Test Harness Functions
 
-| Function | Purpose | Status |
-|----------|---------|--------|
-| `testSingleQubitGate()` | Validates single-qubit gates on pure states | ✅ Complete |
-| `testSingleQubitGateMixed()` | Validates single-qubit gates on mixed states | 🔲 Phase 1 |
-| `testTwoQubitGate()` | Validates two-qubit gates on pure states | 🔲 Phase 4 |
-| `testTwoQubitGateMixed()` | Validates two-qubit gates on mixed states | 🔲 Phase 4 |
-| `testThreeQubitGate()` | Validates three-qubit gates on pure states | 🔲 Phase 5 |
-| `testThreeQubitGateMixed()` | Validates three-qubit gates on mixed states | 🔲 Phase 5 |
+| Function | Purpose | Location | Status |
+|----------|---------|----------|--------|
+| `testSingleQubitGate()` | Validates single-qubit gates on pure states | `test/src/test_qhipster.c` | ✅ Complete |
+| `testSingleQubitGateMixed()` | Validates single-qubit gates on mixed states | `test/src/test_mhipster.c` | ✅ Complete |
+| `testTwoQubitGate()` | Validates two-qubit gates on pure states | TBD | 🔲 Phase 4 |
+| `testTwoQubitGateMixed()` | Validates two-qubit gates on mixed states | TBD | 🔲 Phase 4 |
+| `testThreeQubitGate()` | Validates three-qubit gates on pure states | TBD | 🔲 Phase 5 |
+| `testThreeQubitGateMixed()` | Validates three-qubit gates on mixed states | TBD | 🔲 Phase 5 |
 
 ### Test Helper Functions
 
 | Function | Purpose | Location             | Status |
 |----------|---------|----------------------|--------|
-| `mv()` | Matrix-vector multiplication via `zgemv()` | `test/src/linalg.c` | ✅ Complete |
-| `kron()` | Kronecker product A⊗B | `test/src/linalg.c`  | ✅ Complete |
+| `zmv()` | Matrix-vector multiplication M*v via `zgemv()` | `test/src/linalg.c` | ✅ Complete |
+| `zumu()` | Similarity transformation U*M*U† via `zgemm()` | `test/src/linalg.c` | ✅ Complete |
+| `zkron()` | Kronecker product A⊗B | `test/src/linalg.c`  | ✅ Complete |
 | `mat_id()` | Identity matrix I(2ⁿ×2ⁿ) | `test/src/gatemat.c` | ✅ Complete |
 | `mat_single_qubit_gate()` | Full matrix I⊗...⊗U⊗...⊗I for single-qubit gate | `test/src/gatemat.c` | ✅ Complete |
-| `density_pack()` | Full Hermitian matrix → packed storage | `test/src/test_mhipster.c` | 🔲 Phase 1 |
-| `density_unpack()` | Packed lower-triangle → full Hermitian matrix | `test/src/test_mhipster.c` | 🔲 Phase 1 |
+| `density_pack()` | Full Hermitian matrix → packed storage (static) | `test/src/test_mhipster.c` | ✅ Complete |
+| `density_unpack()` | Packed lower-triangle → full Hermitian matrix (static) | `test/src/test_mhipster.c` | ✅ Complete |
 | `mat_two_qubit_gate()` | Full matrix for two-qubit gate | `test/src/gatemat.c` | 🔲 Phase 4 |
 | `mat_three_qubit_gate()` | Full matrix for three-qubit gate | `test/src/gatemat.c` | 🔲 Phase 5 |
 
-**Note**: Test files include predefined gate matrices (XMAT, YMAT, ZMAT, HMAT, SMAT, TMAT, SWAPMAT,
-etc.) in `test/include/test_qhipster.h`.
+### Test File Organization
+
+**Unified header approach** minimizes file overhead while maintaining clear separation of concerns:
+
+**Headers:**
+- `test/include/test_gates.h` - Single unified header containing:
+  - `single_qubit_gate` typedef (shared by both pure and mixed harnesses)
+  - Gate matrix constants (XMAT, YMAT, ZMAT, HMAT, SMAT, TMAT, P0MAT, P1MAT, SWAPMAT)
+  - Declarations for `testSingleQubitGate()` and `testSingleQubitGateMixed()`
+
+**Source files:**
+- `test/src/test_qhipster.c` - Pure state test harness implementation only
+  - Contains `testSingleQubitGate()` function
+  - No test functions or main()
+- `test/src/test_mhipster.c` - Mixed state test harness implementation only
+  - Contains `testSingleQubitGateMixed()` function
+  - Contains static `density_pack()` and `density_unpack()` helpers
+  - No test functions or main()
+- `test/src/test_gates.c` - **All gate test definitions**
+  - Contains `setUp()`, `tearDown()`, and `main()`
+  - Contains all test functions: `test_X_pure()`, `test_X_mixed()`, etc.
+  - Single executable for all gate tests (pure + mixed)
+
+**Benefits:**
+- Single source of truth for typedef and gate matrices
+- Infrastructure (harnesses) separated from test definitions
+- Easy to add new gates: just add test functions to test_gates.c
+- Minimal compilation overhead: one test executable
 
 ---
 
@@ -292,14 +321,21 @@ State objects not thread-safe for concurrent mutation. Users can create separate
 ### Phase 1: Complete First Single-Qubit Gate (Pure + Mixed)
 **Goal**: First fully validated gate demonstrating complete workflow
 
-**Deliverables**:
-- `density_pack()` and `density_unpack()` helper functions
-- `testSingleQubitGateMixed()` test harness
-- Implement mixed state version of one gate (suggested: X or H)
-  - Direct operation on packed density matrix using qHiPSTER stride logic
-- Validate against test harness
+**Status**: Test infrastructure complete ✅ | Gate implementation in progress 🔲
 
-**Exit criteria**: Both pure and mixed implementations pass all tests, establishing clear pattern for remaining gates
+**Completed deliverables**:
+- ✅ `density_pack()` and `density_unpack()` helper functions (static in test_mhipster.c)
+- ✅ `testSingleQubitGateMixed()` test harness
+- ✅ `zumu()` BLAS helper for U*M*U† computation
+- ✅ Pure state X gate implementation
+
+**Remaining deliverables**:
+- 🔲 Implement mixed state version of X gate in `src/qhipster.c`
+  - Direct operation on packed density matrix using qHiPSTER stride logic
+  - Must handle both pure and mixed dispatch via `state->type` enum
+- 🔲 Validate both pure and mixed X implementations pass all tests
+
+**Exit criteria**: Both pure and mixed X implementations pass all tests, establishing clear pattern for remaining gates
 
 ### Phase 2: Remaining Single-Qubit Gates
 **Goal**: Complete single-qubit gate library

@@ -64,6 +64,13 @@ void state_free(state_t *state);
 dim_t state_len(const state_t *state);
 
 /*
+ * @brief   Prints the information about the state
+ *
+ * @param[in]       state   Quantum state
+ */
+void state_print(const state_t *state);
+
+/*
  * @brief   Initialize a quantum state with the specified number of qubits and the passed representation
  *
  * @param[in,out]	state	Quantum state

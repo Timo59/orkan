@@ -29,7 +29,7 @@ cplx_t* zmv(const unsigned n, const cplx_t *m, const cplx_t *v) {
 
     // Allocate memory for the output
     if (!((out = malloc(n * sizeof (*out))))) {
-        fprintf(stderr, "mv(): out allocation failed\n");
+        fprintf(stderr, "zmv(): out allocation failed\n");
         return out;
     }
 
@@ -38,6 +38,41 @@ cplx_t* zmv(const unsigned n, const cplx_t *m, const cplx_t *v) {
     const cplx_t ALPHA = 1.0 + I*0.0;
     const cplx_t BETA = 0.0 + I*0.0;
     cblas_zgemv(CblasColMajor, CblasNoTrans, N, N, &ALPHA, m, N, v, 1, &BETA, out, 1);
+
+    return out;
+}
+
+
+cplx_t* zumu(const unsigned n, const cplx_t *u, const cplx_t *m) {
+    cplx_t *out = NULL, *tmp = NULL;
+
+    // Allocate memory for temporary matrix
+    if (!((tmp = malloc(n * n * sizeof(*tmp))))) {
+        fprintf(stderr, "zumu(): tmp allocation failed\n");
+        return tmp;
+    }
+
+    // Allocate memory for the output
+    if (!((out = malloc(n * n * sizeof(*out))))) {
+        fprintf(stderr, "zumu(): out allocation failed\n");
+        free(tmp);
+        return out;
+    }
+
+    // Define multipliers
+    const dim_t N = (dim_t) n;
+    const cplx_t ALPHA = 1.0 + I*0.0;
+    const cplx_t BETA = 0.0 + I*0.0;
+
+    // Step 1: tmp = U * M
+    cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, N, N, N,
+                &ALPHA, u, N, m, N, &BETA, tmp, N);
+
+    // Step 2: out = tmp * U† = U * M * U†
+    cblas_zgemm(CblasColMajor, CblasNoTrans, CblasConjTrans, N, N, N,
+                &ALPHA, tmp, N, u, N, &BETA, out, N);
+
+    free(tmp);
 
     return out;
 }
