@@ -8,6 +8,10 @@
 
 #include <stdlib.h>
 
+#ifndef UTILS_H
+#include "utils.h"
+#endif
+
 #if defined(__APPLE__)
     #include <vecLib/cblas_new.h>
 #elif defined(__linux__)
@@ -37,6 +41,20 @@ dim_t state_len(const state_t *state) {
 
     // Length of lower triangle for a density matrix on the Hilbert space
     return dim * (dim + 1) / 2;
+}
+
+
+void state_print(const state_t *state) {
+    printf("Type: ");
+    if (state->type == PURE) printf("PURE");
+    else if (state->type == MIXED) printf("MIXED");
+
+    printf("\nQubits: %u\n", state->qubits);
+
+    dim_t dim = POW2(state->qubits, dim_t);
+
+    if (state->type == PURE) vprint(state->data, dim);
+    else if (state->type == MIXED) mprint_packed(state->data, dim);
 }
 
 

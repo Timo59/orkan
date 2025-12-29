@@ -41,6 +41,17 @@ extern "C" {
 cplx_t* zmv(unsigned n, const cplx_t *m, const cplx_t *v);
 
 /*
+ * @brief   Returns the similarity transformation U*M*U†
+ *
+ * @param[in]   n   Order of the square matrices
+ * @param[in]   u   Double complex array of size n*n; the matrix U in column major format
+ * @param[in]   m   Double complex array of size n*n; the matrix M in column major format
+ *
+ * @returns Double complex array of size n*n; the result R=U*M*U† in column major format
+ */
+cplx_t* zumu(unsigned n, const cplx_t *u, const cplx_t *m);
+
+/*
  * @brief   Returns the Kronecker product of the k-by-l matrix A with the m-by-n matrix B.
  *
  * @param[in]   k   Number of rows in A

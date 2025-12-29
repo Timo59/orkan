@@ -33,13 +33,36 @@ void x_mixed(state_t *state, const qubit_t target) {
     const dim_t incr = POW2(target, dim_t); // Index distance between elements only differing in the targeted qubit
     const dim_t subdim = POW2(target + 1, dim_t);   // Invariant subspace dimension
 
+    /*
+    printf("\n");
+    for (unsigned i = 0; i < 60; ++i) printf("#");
+    printf("\nINSIDE GATE\n");
+    for (unsigned i = 0; i < 60; ++i) printf("#");
+    printf("\n");
+
+    printf("\nStarting state:\n");
+    state_print(state);
+    printf("Hilbert space dimension: %ld\n", dim);
+    printf("Invariant subspace dimension: %ld\n", subdim);
+    printf("Increment: %ld\n", incr);
+    */
+
     // Iterate the invariant column blocks; col_block is the first column in the block
     for (dim_t col_block = 0; col_block < dim; col_block += subdim) {
-        dim_t offset = col_block * (2 * dim - col_block + 1);   // Number of elements before current block
-        dim_t stride = incr * (2 * (dim - col_block) - incr + 1); // Distance between elements (i,j) and (i+incr,j+incr)
+        // Number of elements before current block
+        dim_t offset = col_block * (2 * dim - col_block + 1);
+
+        // Distance between elements (i,j) and (i+incr,j+incr)
+        dim_t stride = incr * (2 * (dim - col_block) - incr + 1) / 2;
 
         // Iterate the single columns with j_a=0
         for (dim_t col = col_block; col < incr; ++col) {
+            /*
+            printf("\nColumn: %ld\n", col);
+            printf("Offset: %ld\n", offset);
+            printf("Stride: %ld\n", stride);
+            */
+
             // Iterate the invariant row blocks; row_block is the first row in the block
             for (dim_t row_block = 0; row_block < dim - col_block; row_block += subdim) {
                 cplx_t *data = state->data + row_block + offset;    // First element in column block and row block
@@ -63,4 +86,12 @@ void x_mixed(state_t *state, const qubit_t target) {
             stride -= incr;
         }
     }
+
+    /*
+    printf("\n");
+    for (unsigned i = 0; i < 60; ++i) printf("#");
+    printf("\nGATE FINISHED\n");
+    for (unsigned i = 0; i < 60; ++i) printf("#");
+    printf("\n\n");
+    */
 }

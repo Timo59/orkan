@@ -66,7 +66,7 @@ cplx_t** test_yb_pure(unsigned nqubits);
  *
  * @returns Array of size 4 of COMPLEX DOUBLE arrays; the state vectors of all Bell states (|Φ⁺⟩, |Φ⁻⟩, |Ψ⁺⟩, |Ψ⁻⟩).
  */
-cplx_t** test_bell_pure(void);
+cplx_t** test_bell_pure(unsigned nqubits);
 
 
 /*

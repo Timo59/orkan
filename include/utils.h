@@ -69,6 +69,28 @@ inline void znprint(const double complex x) {
         printf("]\n"); \
     } while(0)
 
+#define mprint_packed(_packed, _n) \
+    do { \
+        printf("["); \
+        for (unsigned _row = 0; _row < (_n); ++_row) { \
+            if (_row != 0) printf(" "); \
+            printf("["); \
+            for (unsigned _col = 0; _col < (_n); ++_col) { \
+                if (_col <= _row) { \
+                    unsigned _idx = (_col) * (_n) - (_col) * ((_col) + 1) / 2 + (_row); \
+                    nprint((_packed)[_idx]); \
+                } else { \
+                    unsigned _idx = (_row) * (_n) - (_row) * ((_row) + 1) / 2 + (_col); \
+                    nprint(conj((_packed)[_idx])); \
+                } \
+                if (_col < (_n) - 1) printf(", "); \
+            } \
+            printf("]"); \
+            if (_row < (_n) - 1) printf("\n"); \
+        } \
+        printf("]\n"); \
+    } while(0)
+
 #ifdef __cplusplus
 }
 #endif
