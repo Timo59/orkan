@@ -46,8 +46,8 @@
  *          Element A(i,j) with i >= j is at position: i - j + j*(2n - j + 1)/2
  */
 static inline unsigned packed_index(unsigned n, unsigned row, unsigned col) {
-    assert(row >= col && "packed_index: row must be >= col for lower-triangular storage");
-    assert(row < n && col < n && "packed_index: indices out of bounds");
+    assert(row >= col && "packed_index(): row must be >= col for lower-triangular storage");
+    assert(row < n && col < n && "packed_index(): indices out of bounds");
     return row - col + (col * (2 * n - col + 1)) / 2;
 }
 
@@ -62,7 +62,7 @@ static inline unsigned packed_index(unsigned n, unsigned row, unsigned col) {
  */
 static cplx_t* pure_to_density(const cplx_t* psi, unsigned dim) {
     if (!psi) {
-        fprintf(stderr, "pure_to_density: psi is NULL\n");
+        fprintf(stderr, "pure_to_density(): psi is NULL\n");
         return NULL;
     }
 
@@ -71,7 +71,7 @@ static cplx_t* pure_to_density(const cplx_t* psi, unsigned dim) {
 
     // Allocate packed density matrix
     if (!((rho = calloc(packed_size, sizeof(*rho))))) {
-        fprintf(stderr, "pure_to_density: rho allocation failed\n");
+        fprintf(stderr, "pure_to_density(): rho allocation failed\n");
         return NULL;
     }
 
@@ -112,20 +112,20 @@ cplx_t** test_cb_mixed(const unsigned nqubits) {
 
     // Get pure computational basis states
     if (!((pure_states = test_cb_pure(nqubits)))) {
-        fprintf(stderr, "test_cb_mixed: test_cb_pure failed\n");
+        fprintf(stderr, "test_cb_mixed(): test_cb_pure failed\n");
         return NULL;
     }
 
     // Allocate array of pointers to density matrices
     if (!((out = calloc(dim, sizeof(*out))))) {
-        fprintf(stderr, "test_cb_mixed: out allocation failed\n");
+        fprintf(stderr, "test_cb_mixed(): out allocation failed\n");
         goto cleanup_pure;
     }
 
     // Convert each pure state to density matrix
     for (unsigned i = 0; i < dim; ++i) {
         if (!((out[i] = pure_to_density(pure_states[i], dim)))) {
-            fprintf(stderr, "test_cb_mixed: conversion of state %u failed\n", i);
+            fprintf(stderr, "test_cb_mixed(): conversion of state %u failed\n", i);
             goto cleanup;
         }
     }
