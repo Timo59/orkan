@@ -34,12 +34,6 @@ void x_mixed(state_t *state, const qubit_t target) {
     const dim_t incr = POW2(target, dim_t); // Index distance between elements only differing in the targeted qubit
     const dim_t subdim = POW2(target + 1, dim_t);   // Invariant subspace dimension
 
-    printf("\nInput state:\n");
-    state_print(state);
-    printf("Hilbert space dimension: %ld\n", dim);
-    printf("Invariant subspace dimension: %ld\n", subdim);
-    printf("Increment: %ld\n", incr);
-
     // Iterate the invariant column blocks; col_block is the first column in the block
     for (dim_t col_block = 0; col_block < dim; col_block += subdim) {
         // Number of elements before current block
@@ -50,16 +44,12 @@ void x_mixed(state_t *state, const qubit_t target) {
 
         // Iterate the single columns with j_a=0
         for (dim_t col = col_block; col < col_block + incr; ++col) {
-            printf("\nColumn: %ld\n", col);
-            printf("Offset: %ld\n", offset);
-            printf("Stride: %ld\n", stride);
 
             // First row block of each column needs special treatment
             cplx_t *data = state->data + offset;    // First element in the current column
 
             // Due to row>=col, not all entries with row_a=col_a=0 are part of the array
             dim_t n_rows = incr - (col - col_block);    // Number of rows in col with row<col_block+2**a
-            printf("n_rows: %ld\n", n_rows);
 
             // Swap entries with row_a=col_a=0 and row_a=col_a=1 and row<col+2**a, starting from row=col
             cblas_zswap(n_rows, data, 1, data + stride, 1);
@@ -95,7 +85,4 @@ void x_mixed(state_t *state, const qubit_t target) {
             stride -= incr;
         }
     }
-
-    printf("\nOutput state:\n");
-    state_print(state);
 }
