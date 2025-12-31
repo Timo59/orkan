@@ -142,18 +142,12 @@ void testSingleQubitGateMixed(const single_qubit_gate gate, const cplx_t *mat) {
                     goto cleanup;
                 }
 
-                printf("\033[2J\033[H");
-                printf("\nQubits: %u\nPosition: %u\n", nqubits, pos);
-
                 // Apply test function
                 gate(&test_state, pos);
                 if (!test_state.data) {
                     fprintf(stderr, "testSingleQubitGateMixed(): gate application failed\n");
                     goto cleanup;
                 }
-
-                printf("\nReference state:\n");
-                mprint_packed(ref, dim);
 
                 // Compare density matrices in packed format
                 const unsigned packed_len = dim * (dim + 1) / 2;
