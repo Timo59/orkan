@@ -54,22 +54,35 @@ void x_mixed(state_t *state, const qubit_t target) {
             printf("Offset: %ld\n", offset);
             printf("Stride: %ld\n", stride);
 
+            // First row block of each column needs special treatment
+            cplx_t *data = state->data + offset;    // First element in the current column
+
+            // Due to row>=col, not all entries with i_a=j_a=0 are part of the array
+            dim_t n_rows = incr - (col - col_block);
+            printf("n_rows: %ld\n", n_rows);
+            cblas_zswap(n_rows, data, 1, data + stride, 1);
+
+            // For the first block, i<j+2**a, therefore take the conjugate of the transpose value
+            dim_t step = 0;
+            data += n_rows;
+            for (dim_t k = col - col_block; k < incr; ++k) {
+                cplx_t tmp = data[k];
+                data[k] = conj(data[k + step]);
+                data[k + step] = conj(tmp);
+                step += dim - (k + col_block + 2);
+            }
+            data += incr;
+
             // Iterate the invariant row blocks; row_block is the first row in the block
-            for (dim_t row_block = 0; row_block < dim - col_block; row_block += subdim) {
-                cplx_t *data = state->data + row_block + offset;    // First element in column block and row block
-
-                // Due to row >= col (i_a=j_a=0), only a portion of the first row block contributes
-                dim_t n_rows;
-                if (row_block == 0) n_rows = incr - (col - col_block);
-                else n_rows = incr;
-
+            for (dim_t row_block = subdim; row_block < dim - col_block; row_block += subdim) {
                 // Swap entries in the row block with i_a=j_a=0 and i_a=j_a=1
-                cblas_zswap(n_rows, data, 1, data + stride, 1);
+                cblas_zswap(incr, data, 1, data + stride, 1);
 
                 // Complex conjugation of entries with i_a=1 and j_a=0
-                for (dim_t k = incr; k < subdim; ++k) {
-                    *(data + k) = conj(*(data + k));
-                }
+                data += incr;
+                cblas_zswap(incr, data, 1, data + stride - subdim, 1);
+
+                data += incr;
             }
 
             // Add to the offset/Subtract from the stride the number of entries in current column
