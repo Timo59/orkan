@@ -143,7 +143,7 @@ void testSingleQubitGateMixed(const single_qubit_gate gate, const cplx_t *mat) {
                 }
 
                 printf("\033[2J\033[H");
-                printf("Qubits: %u\nPosition: %u\n", nqubits, pos);
+                printf("\nQubits: %u\nPosition: %u\n", nqubits, pos);
 
                 // Apply test function
                 gate(&test_state, pos);
