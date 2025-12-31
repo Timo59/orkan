@@ -57,14 +57,17 @@ void x_mixed(state_t *state, const qubit_t target) {
             // First row block of each column needs special treatment
             cplx_t *data = state->data + offset;    // First element in the current column
 
-            // Due to row>=col, not all entries with i_a=j_a=0 are part of the array
-            dim_t n_rows = incr - (col - col_block);
+            // Due to row>=col, not all entries with row_a=col_a=0 are part of the array
+            dim_t n_rows = incr - (col - col_block);    // Number of rows in col with row<col_block+2**a
             printf("n_rows: %ld\n", n_rows);
+
+            // Swap entries with row_a=col_a=0 and row_a=col_a=1 and row<col+2**a, starting from row=col
             cblas_zswap(n_rows, data, 1, data + stride, 1);
 
             // For the first block, i<j+2**a, therefore take the conjugate of the transpose value
-            dim_t step = 0;
-            data += n_rows;
+            dim_t step = 0; // Distance between entries (col+2**a,row) and (row+2**a,col)
+            data += n_rows; // Data points to the first element in col with row_a=1
+            // Iterate rows with row-2**a >= col
             for (dim_t k = col - col_block; k < incr; ++k) {
                 cplx_t tmp = data[k];
                 data[k] = conj(data[k + step]);
@@ -74,7 +77,8 @@ void x_mixed(state_t *state, const qubit_t target) {
             data += incr;
 
             // Iterate the invariant row blocks; row_block is the first row in the block
-            for (dim_t row_block = subdim; row_block < dim - col_block; row_block += subdim) {
+            dim_t row_block = col_block + subdim;
+            while (row_block < dim) {
                 // Swap entries in the row block with i_a=j_a=0 and i_a=j_a=1
                 cblas_zswap(incr, data, 1, data + stride, 1);
 
@@ -83,6 +87,7 @@ void x_mixed(state_t *state, const qubit_t target) {
                 cblas_zswap(incr, data, 1, data + stride - subdim, 1);
 
                 data += incr;
+                row_block += subdim;
             }
 
             // Add to the offset/Subtract from the stride the number of entries in current column
