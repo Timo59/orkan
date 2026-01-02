@@ -22,12 +22,6 @@
  */
 
 void x_pure(state_t* state, const qubit_t target) {
-    // Check that target is in the system's scope
-    if (target >= state->qubits) {
-        fprintf(stderr, "applyX(): Target is out of scope; Expected %u, Was %u", state->qubits, target);
-        state_free(state);
-    }
-
     // Swap entries with target = 0 and 1 but all other qubits fixed
     const dim_t dim = POW2(state->qubits, dim_t);   // Number of entries in the state vector
     const dim_t stride = POW2(target, dim_t);    // Distance between elements only differing in the targeted qubit
