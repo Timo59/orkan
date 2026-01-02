@@ -2,8 +2,8 @@
 
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
-**Implementation:** `src/qhipster.c`
-**Last Updated:** 2025-12-29
+**Implementation:** `src/qhipster.c`, `src/mhipster.c`, `src/gate.c`
+**Last Updated:** 2026-01-02
 
 ---
 
@@ -140,7 +140,7 @@ All infrastructure for testing gates on both pure and mixed states is complete:
 - **Mixed state test harness**: `testSingleQubitGateMixed()` in `test/src/test_mhipster.c`
 - **Packed storage utilities**: `density_pack()` and `density_unpack()` (static in test_mhipster.c)
 - **BLAS helper**: `zumu()` computes U*M*U† for reference comparisons
-- **Unified test file**: `test/src/test_gates.c` with single main() for all gate tests
+- **Unified test file**: `test/src/test_gate.c` with single main() for all gate tests
 
 **Test harness features:**
 - Function pointer + 2×2 matrix → automated testing
@@ -148,7 +148,17 @@ All infrastructure for testing gates on both pure and mixed states is complete:
 - Builds full unitary via Kronecker products
 - Validates outputs against BLAS reference implementations
 
-**Next: Phase 1 - Implement first single-qubit gate for mixed states (pure X already complete)**
+**Phase 1: First Single-Qubit Gate - COMPLETE ✅**
+
+Pauli-X gate fully implemented and tested for both pure and mixed states:
+- ✅ `x_pure()` in `src/qhipster.c` - Pure state implementation
+- ✅ `x_mixed()` in `src/mhipster.c` - Mixed state implementation with packed storage
+- ✅ `x()` dispatcher in `src/gate.c` with input validation (NULL checks, range checks)
+- ✅ Function documentation with @brief, @param, and @note tags
+- ✅ Comprehensive inline documentation of packed storage algorithm
+- ✅ All tests passing (2/2 tests in test_gate)
+
+**Next: Phase 2 - Implement remaining single-qubit gates (Y, Z, H, S, T, rotations)**
 
 ### State Generators
 
@@ -238,13 +248,13 @@ All infrastructure for testing gates on both pure and mixed states is complete:
 
 ## Production Code Implementation Status
 
-**Location**: `src/qhipster.c`, `include/gate.h`
+**Location**: `src/qhipster.c`, `src/mhipster.c`, `src/gate.c`, `include/gate.h`
 
 ### Single-Qubit Gate Implementations
 
 | Gate     | Description         | Pure State | Mixed State | Phase |
 |----------|---------------------|------------|-------------|-------|
-| `x()`    | Pauli-X             | ✅ Complete | 🔲 TODO | 1 |
+| `x()`    | Pauli-X             | ✅ Complete | ✅ Complete | 1 |
 | `y()`    | Pauli-Y             | 🔲 TODO | 🔲 TODO | 1 |
 | `z()`    | Pauli-Z             | 🔲 TODO | 🔲 TODO | 1 |
 | `h()`    | Hadamard            | 🔲 TODO | 🔲 TODO | 2 |
@@ -318,31 +328,51 @@ State objects not thread-safe for concurrent mutation. Users can create separate
 
 **Iterative development strategy**: Build one gate end-to-end (pure + mixed, tested) before moving to next gate. This validates infrastructure early and establishes clear patterns.
 
-### Phase 1: Complete First Single-Qubit Gate (Pure + Mixed)
+### Phase 1: Complete First Single-Qubit Gate (Pure + Mixed) - COMPLETE ✅
 **Goal**: First fully validated gate demonstrating complete workflow
 
-**Status**: Test infrastructure complete ✅ | Gate implementation in progress 🔲
+**Status**: COMPLETE ✅
 
-**Completed deliverables**:
+**Deliverables**:
 - ✅ `density_pack()` and `density_unpack()` helper functions (static in test_mhipster.c)
 - ✅ `testSingleQubitGateMixed()` test harness
 - ✅ `zumu()` BLAS helper for U*M*U† computation
-- ✅ Pure state X gate implementation
-
-**Remaining deliverables**:
-- 🔲 Implement mixed state version of X gate in `src/qhipster.c`
+- ✅ Pure state X gate implementation in `src/qhipster.c`
+- ✅ Mixed state X gate implementation in `src/mhipster.c`
   - Direct operation on packed density matrix using qHiPSTER stride logic
-  - Must handle both pure and mixed dispatch via `state->type` enum
-- 🔲 Validate both pure and mixed X implementations pass all tests
+  - Handles both pure and mixed dispatch via `state->type` enum in `src/gate.c`
+- ✅ Input validation in `x()` dispatcher (NULL checks, range checks)
+- ✅ Function-level and inline documentation
+- ✅ All tests passing (test_X_pure and test_X_mixed)
 
-**Exit criteria**: Both pure and mixed X implementations pass all tests, establishing clear pattern for remaining gates
+**Exit criteria met**: Both pure and mixed X implementations pass all tests, establishing clear pattern for remaining gates
 
-### Phase 2: Remaining Single-Qubit Gates
+**Key achievements**:
+- Established pattern for unified gate API with type-based dispatch
+- Validated packed storage approach for mixed states
+- Demonstrated correct error handling without corrupting caller's state
+- Proved qHiPSTER stride indexing works correctly for packed lower-triangular storage
+
+### Phase 2: Remaining Single-Qubit Gates - IN PROGRESS 🔄
 **Goal**: Complete single-qubit gate library
 
-**Deliverables**: Implement all remaining single-qubit gates (H, S, T, rotations, daggers) for both pure and mixed states following Phase 1 pattern
+**Status**: Ready to begin - pattern established from Phase 1
 
-**Exit criteria**: All single-qubit gates pass tests (pure + mixed)
+**Deliverables**: Implement all remaining single-qubit gates for both pure and mixed states following Phase 1 pattern:
+- Pauli gates: Y, Z
+- Clifford gates: H (Hadamard), S, S†
+- Non-Clifford: T, T†, Hy (Hadamard-Y)
+- Rotation gates: RX(θ), RY(θ), RZ(θ), P(θ) and their daggers
+
+**Implementation pattern per gate** (established from X gate):
+1. Implement `{gate}_pure()` in `src/qhipster.c`
+2. Implement `{gate}_mixed()` in `src/mhipster.c` with packed storage
+3. Add unified `{gate}()` dispatcher in `src/gate.c` with input validation
+4. Add function documentation (@brief, @param, @note)
+5. Add test functions in `test/src/test_gate.c`
+6. Verify all tests pass
+
+**Exit criteria**: All single-qubit gates pass tests (pure + mixed) - ~30 gates × ~11,800 tests/gate = ~355k tests total
 
 ### Phase 3: Two-Qubit Gate Test Infrastructure
 **Goal**: Enable testing of two-qubit gates
