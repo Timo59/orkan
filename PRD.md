@@ -1,208 +1,600 @@
-# Product Requirements Document: qSim
+# Design Specification: Quantum State Simulation Library
 
-**Author:** [Your Name]
-**Status:** Draft
-**Last Updated:** 2025-12-24
+## 1. Purpose and Scope
 
-## Motivation
+### 1.1 Purpose
 
-Existing quantum frameworks (Qiskit, Cirq, PennyLane) simulate hardware abstractions—measurement
-statistics, post-selection for linear combinations of unitaries (LCU), parameter shift rules for
-gradients. These constraints make sense for hardware-focused development but introduce unnecessary
-overhead for fundamental algorithm research.
+A C library for studying the **performance and scalability of quantum heuristics**, particularly QAOA and related variational algorithms. This is a research tool (emulator), not a hardware simulator — it directly computes quantities that would be difficult on actual quantum hardware.
 
-qSim provides **direct mathematical access** to quantum state evolution:
-- LCU implemented as complex-valued array operations (not post-selection)
-- Gradients computed analytically from state derivatives (not parameter shift)
-- Mixed states (density matrices) with efficient packed storage
-- Direct state access for algorithm analysis and debugging
+### 1.2 Primary Use Cases
 
-**Primary use case**: Variational algorithm research using LCU and mixed-state dynamics, where
-mathematical operations on states matter more than hardware-realistic execution.
+- Classical simulation cost analysis (memory, time scaling)
+- Quantum algorithm behavior studies (solution quality vs circuit depth, parameter optimization)
+- Comparison of algorithmic strategies (e.g., QAOA vs LCU-enhanced QAOA)
 
-## Purpose
+### 1.3 In Scope
 
-qSim is a quantum simulation library providing **exact analytical access** to quantum state
-evolution. Users prepare states, apply circuits, and retrieve quantities (expectation values,
-gradients, matrix elements, probability amplitudes) through direct computation rather than
-statistical sampling. This enables rapid algorithm prototyping without hardware constraints like
-repeated circuit execution or measurement limitations.
+| Feature | Description |
+|---------|-------------|
+| State representations | State vector (pure), density matrix lower-triangle (mixed) |
+| Evolution picture | Schrödinger (evolve states/density matrices forward) |
+| Gates/Channels | Hardcoded optimized gates, arbitrary Kraus channels, LCU |
+| Parameterized circuits | Product circuits (QAOA/VQE) and sum circuits (LCU) via function pointers |
+| Observables | Diagonal Hamiltonians, sparse Pauli sums |
+| Measurements | Expectation values, gradients (adjoint method), shot-based sampling |
+| Noise | Runtime-toggled noise on gates |
+| Parallelism | Shared-memory (OpenMP), cache optimization, SIMD |
+| Utilities | State copy, save/load to disk |
 
-qSim provides a **complementary computational model** to quantum hardware for algorithm development.
-Within simulator qubit limits (n≤32), it enables exact analytical access to quantum states—computing
-gradients, expectation values, and matrix elements directly rather than through measurement
-statistics. This eliminates **prototyping overhead** (block encoding for linear combinations,
-repeated circuit execution for sampling) at the cost of classical exponential scaling.
+### 1.4 Out of Scope
 
-Built on the qHiPSTER architecture with extensions for density matrix simulation, qSim exploits the
-sparse, local structure of quantum operations to:
-- **Avoid exponential memory overhead**: No Kronecker product construction (infeasible beyond n≈15)
-- **Minimize error accumulation**: O(2^n) local operations vs O(2^3n) dense matrix multiplication
-- **Enable exact computation**: Direct analytical access to amplitudes, gradients, and observables
+- Stabilizer/Clifford simulation
+- Visualization / plotting
+- Predefined error-correction circuits (custom LCU protocols supported)
 
-External optimization algorithms integrate via clean C API.
+### 1.5 Scalability Targets
 
-## Target Users
+| Representation | Max qubits | Memory required |
+|----------------|------------|-----------------|
+| Pure state | n = 32 | 64 GB RAM |
+| Mixed state | n = 16 | 32 GB (packed storage) |
 
-**Primary**: Algorithm researchers developing variational quantum algorithms requiring direct state
-manipulation, LCU operations, and mixed-state dynamics.
+**Performance targets:**
+- Runtime: <48h for typical optimization campaigns
+- Test suite: <2 minutes for all gate tests
 
-**Typical workflow**: Algorithm prototyping at scales (n≤32 qubits) where exact simulation enables
-analytical validation before hardware deployment.
+**Design constraint:** RAM-limited rather than compute-limited. Packed storage and direct sparse operations avoid constructing full gate matrices via Kronecker products.
 
-**Not intended for**: Hardware-realistic simulation, large-scale distributed computing, or
-production quantum applications.
+### 1.6 Implementation Order
 
-## Core Principles
+1. Pure state simulation (noise-free)
+2. Mixed state simulation (noise-free)
+3. Full QAOA circuit support
+4. Noise channels (runtime toggle)
 
-1. **Exact analytical computation**: Direct access to state vectors and density matrices for
-   computing observables, gradients, and matrix elements without statistical sampling
-2. **Dual state representation**: Supports pure states (state vectors) and mixed states (density
-   matrices with packed lower-triangular storage for memory efficiency)
-3. **Direct sparse operations**: Quantum gates implemented as functions acting directly on state
-   arrays, exploiting locality to avoid constructing full gate matrices
-4. **Library not application**: Provides primitives (gates, observables, gradients, measurements)
-   for building variational algorithms; optimization layer is external
+### 1.7 Outlook (Future Extensions)
 
-## Scope
+**Performance optimizations:**
+- GPU acceleration
+- Distributed memory (MPI)
+- Blocked memory layout for cache optimization
+- Split complex representation for enhanced SIMD
 
-### In Scope
-- Pure state representation (state vectors) and manipulation
-- Mixed state representation (density matrices with packed lower-triangular storage)
-- Fundamental single-qubit gates (Pauli-X/Y/Z, Hadamard, phase gates, rotations)
-- Fundamental two-qubit gates (CNOT, CZ, SWAP, controlled rotations)
-- Three-qubit gates (Toffoli)
-- Exact computation of observable expectation values
-- Gradient computation for parameterized gates
-- Matrix element calculation for observables
-- Measurement outcome sampling from state amplitudes
-- C API with BLAS/LAPACK backend for performance
-- Comprehensive unit tests for all modules
-- API documentation and usage examples
+**Heisenberg picture (observable evolution):**
 
-### Out of Scope
-- Optimization algorithms (external to library)
-- Circuit optimization and compilation
-- Hardware backend integration
-- Noise models (planned for future after noise-free version is complete)
-- Error mitigation techniques
-- Quantum error correction
-- Multi-node distributed simulation
-- Visualization tools
-- Algorithm-level parallelization (users implement externally)
+Evolve observables backward through circuits: O → U†OU. This enables efficient computation of moment matrices for advanced protocols like nested LCU parameter optimization.
 
-## Scalability Targets
+*Use case:* For layered LCU circuits (LCU_1 → ... → LCU_p), updating parameters of layer k requires:
+```
+M_ij = tr[ U_i · ρ_k · U_j† · C_k ]
 
-**Qubit capacity**:
-- Pure states: n=32 qubits (64GB RAM required)
-- Mixed states: n=16 qubits (32GB packed storage, 64-128GB workstation recommended)
+where:
+  ρ_k = LCU_{k-1}(...LCU_1(ρ))      [forward evolved state]
+  C_k = LCU_p†(...LCU_{k+1}†(C))    [backward evolved observable]
+```
 
-**Performance envelope**:
-- Typical use case: Overnight optimization campaigns (<48h runtime)
-- Target: Algorithm prototyping and hyperparameter exploration on workstation hardware
+This dual evolution approach is O(p·m + m²) vs O(p·m³) for naive branching, providing 10-1000× speedup for typical m (number of LCU terms).
 
-**Design constraint**: RAM-limited rather than compute-limited. Packed storage and direct sparse
-operations avoid constructing full gate matrices via Kronecker products, which becomes infeasible
-beyond n≈15 qubits (2GB+ per matrix). This approach pushes simulator capacity to hardware memory
-ceiling.
-
-## Success Criteria
-
-1. **Correctness**: All unit tests pass with numerical tolerance ≤1e-12
-   - Pure states: Norm preservation, gate unitarity
-   - Mixed states: Hermiticity, trace preservation
-   - Observable computation matches analytical results
-
-2. **Scalability**: Successfully simulate within memory constraints
-   - Pure states: n=32 qubits (64GB RAM)
-   - Mixed states: n=16 qubits (32GB packed storage)
-   - Runtime: <48h for typical optimization campaigns
-   - Test suite: <2 minutes for all gate tests
-
-3. **Reliability**: Error handling
-   - All functions return status codes (0=success, negative=error)
-   - Memory allocation failures handled gracefully
-   - No undefined behavior or crashes on valid inputs
-
-4. **Documentation**:
-   - API fully documented (function signatures, parameters, return codes)
-   - Usage examples for core workflows (state preparation, circuit application, observable
-     computation)
-   - Technical specifications for each module
-
-5. **Performance baseline**:
-   - Functional correctness prioritized over optimization
-   - Competitive with research-grade simulators for n≤20
-   - (Formal benchmarks deferred to post-v1.0)
-
-## Technical Architecture
-
-### Implementation
-
-Implementation in C with BLAS/LAPACK for numerical operations. State representations use
-complex-valued arrays (`cplx_t`) with platform-specific optimizations (Apple Accelerate on macOS,
-OpenBLAS on Linux). All operations leverage 64-bit integer support (ILP64) for large state spaces.
-
-Built on qHiPSTER architecture (cite: Intel-QS) with extensions for density matrix simulation.
-
-### Sparse Operations Design
-
-Gates operate directly on state arrays by exploiting locality—a single-qubit gate affects only
-2^(n-1) amplitude pairs regardless of position. This avoids constructing full 2^n × 2^n gate
-matrices via Kronecker products, which becomes infeasible beyond n≈15 qubits (2GB+ per matrix).
-
-**For n=20 qubits:**
-- Sparse approach: ~1M operations, ~16MB state
-- Dense approach: Build 1M×1M matrix = 1TB memory + 1 trillion operations (impossible)
-
-**For n=32 qubits:**
-- Sparse approach: ~4B operations, ~64GB state
-- Dense approach: Requires >16 exabytes (physically impossible)
-
-### Packed Density Matrix Storage
-
-Mixed states use packed lower-triangular storage for Hermitian density matrices (50% memory
-reduction). Gates operate directly on packed format via generalized qHiPSTER algorithms—no unpacking
-required in production code.
-
-**Memory savings critical at target scales:**
-- n=16 mixed state: Full matrix 64GB → Packed 32GB
-- Enables n=16 on 64GB workstations; full storage would require 128GB+
-
-### Numerical Precision
-
-Double-precision complex arithmetic (IEEE 754) via BLAS. Sparse gate operations with local structure
-provide superior numerical stability compared to dense matrix methods—errors accumulate through
-O(2^n) operations per gate rather than O(2^3n) for full matrix multiplication.
-
-Test tolerance: ~1e-12 (BLAS precision with margin for accumulated errors). Formal error analysis
-deferred pending empirical validation.
-
-### Error Handling
-
-Functions return integer status codes (0 = success, negative = error). Minimal input validation for
-performance—callers responsible for providing valid parameters. No assertions or program termination
-on errors.
-
-Error code definitions maintained in technical specifications.
-
-### Parallelization Characteristics
-
-Gate operations are memory-bandwidth limited rather than compute-limited. Empirical tests show
-gate-level parallelization (OpenMP) achieves ~3× speedup on 10 cores—limited by memory access
-patterns in O(2^n) streaming operations.
-
-**RAM constraints:**
-- Large problems (n=32 pure, n=16 mixed) consume most/all available memory
-- Multiple parallel instances infeasible at target qubit counts
-- Smaller problems allow users to instantiate multiple state objects for parallel evaluation
-
-**Library scope**: Provides thread-safe state object creation. Algorithm-level parallelization
-(running multiple circuit evaluations concurrently) implemented by users external to library.
-
-**Future consideration**: GPU acceleration may improve memory-bandwidth-limited operations.
+*Required additions:*
+- `hermitian_t` type with lower-triangle storage for evolved observables
+- `apply_gate_heisenberg(hermitian_t* obs, ...)` for backward evolution
+- `trace_product(hermitian_t* A, hermitian_t* B)` for moment matrix entries
 
 ---
 
-Detailed technical specifications, architecture decisions, and API documentation are maintained in
-separate technical documents.
+## 2. Architecture
+
+### 2.1 Module Structure
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Public API                                │
+├─────────────────────────────────────────────────────────────────┤
+│  Module A          Module B           Module C        Module D   │
+│  ──────────        ──────────         ──────────      ────────── │
+│  State             Gates/Channels     Measurement     Utilities  │
+│  - Allocation      - Unitary gates    - Expectation   - Memory   │
+│  - Initialization  - Parameterized    - Gradients     - I/O      │
+│  - Copy            - Noise channels   - Sampling      - Parallel │
+│  - Serialization   - LCU operations   - Pauli sums    - RNG      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Design Principles
+
+1. **Modularity**: Each module is independently testable. Gates receive states and operate on them without knowledge of initialization. Measurements receive states without knowledge of circuit history.
+
+2. **Type dispatch**: A quantum state can be pure or mixed. Gates dispatch to the appropriate implementation (`gate_pure()` or `gate_mixed()`) based on state type.
+
+3. **Separation of concerns**: States evolve through circuits (Schrödinger picture). Observables are used only at measurement time and are not evolved. (Heisenberg picture is a future extension — see Outlook.)
+
+4. **Simulation type fixed at init**: Pure or mixed is chosen at allocation time and remains constant.
+
+---
+
+## 3. Data Structures
+
+### 3.1 Quantum State
+
+```c
+typedef enum {
+    STATE_PURE,
+    STATE_MIXED
+} state_type_t;
+
+typedef struct {
+    int n_qubits;
+    state_type_t type;
+    double complex* amp;    // Amplitude array
+    // STATE_PURE:  size 2^n
+    // STATE_MIXED: size 2^n * (2^n + 1) / 2 (lower triangle)
+} state_t;
+```
+
+**Index type:** Use `size_t` for all state array indices. For n=32 qubits, 2³² exceeds `INT_MAX`, requiring 64-bit indices. On 64-bit systems (target platform), `size_t` is 64-bit.
+
+For BLAS interoperability, use a typedef `blasint` matching the BLAS library's integer type (ILP32 or ILP64).
+
+### 3.2 Memory Layout
+
+**State vector (pure):**
+- Contiguous array of `double complex`, size 2ⁿ
+- Little-endian qubit convention: |bₙ₋₁...b₁b₀⟩ has index Σᵢ bᵢ2ⁱ
+- Qubit 0 is rightmost (least significant bit)
+
+**Density matrix (mixed):**
+- Lower triangle, column-major order
+- Exploits Hermiticity: ρᵢⱼ = ρⱼᵢ* for i < j
+- Index formula: `(i, j) → j*N - j*(j-1)/2 + (i-j)` for i ≥ j, where N = 2ⁿ
+
+```
+Matrix (N=4):                  Linear storage:
+┌──────────────────────┐
+│ r00                  │       [0]: r00  ┐
+│ r10  r11             │       [1]: r10  │ Column 0
+│ r20  r21  r22        │       [2]: r20  │
+│ r30  r31  r32  r33   │       [3]: r30  ┘
+└──────────────────────┘       [4]: r11  ┐
+                               [5]: r21  │ Column 1
+(rij = density matrix          [6]: r31  ┘
+ element at row i, col j)      [7]: r22  ┐ Column 2
+                               [8]: r32  ┘
+                               [9]: r33    Column 3
+```
+
+### 3.3 Observables
+
+**Diagonal Hamiltonian** (for combinatorial optimization):
+```c
+// Array of 2^n real values: H_diag[i] = ⟨i|H|i⟩
+double* H_diag;
+```
+
+**Sparse Pauli Sum** (for general observables):
+```c
+typedef enum { PAULI_I = 0, PAULI_X = 1, PAULI_Y = 2, PAULI_Z = 3 } pauli_t;
+
+typedef struct {
+    double coeff;           // Real coefficient (observables are Hermitian)
+    pauli_t* ops;           // Array of n_qubits Pauli operators
+} pauli_term_t;
+
+typedef struct {
+    int n_terms;
+    int n_qubits;
+    pauli_term_t* terms;
+} pauli_sum_t;
+```
+
+### 3.4 Parameterized Circuits
+
+```c
+// Function pointer type for parameterized circuits
+// Works for both product circuits (QAOA/VQE) and sum circuits (LCU)
+typedef void (*circuit_fn)(
+    state_t* s,
+    const double* params,
+    int n_params,
+    void* ctx              // User context (e.g., graph structure)
+);
+```
+
+---
+
+## 4. Public API
+
+### 4.1 State Management
+
+```c
+// Allocation (return NULL on OOM)
+state_t* state_alloc_pure(int n_qubits);
+state_t* state_alloc_mixed(int n_qubits);
+void     state_free(state_t* s);
+
+// Initialization
+qs_error_t state_init_plus(state_t* s);                              // |+⟩^⊗n
+qs_error_t state_init_mixed_max(state_t* s);                         // I/2^n (mixed only)
+qs_error_t state_init_from_array(state_t* s, const double complex* data);
+
+// Copy (returns NULL on OOM)
+state_t* state_copy(const state_t* s);
+
+// Serialization
+qs_error_t state_save(const state_t* s, const char* filename);
+state_t*   state_load(const char* filename);  // Returns NULL on error
+```
+
+### 4.2 Gates
+
+```c
+// Single-qubit gates
+qs_error_t apply_X(state_t* s, int q);
+qs_error_t apply_Y(state_t* s, int q);
+qs_error_t apply_Z(state_t* s, int q);
+qs_error_t apply_H(state_t* s, int q);
+qs_error_t apply_S(state_t* s, int q);
+qs_error_t apply_T(state_t* s, int q);
+
+// Parameterized single-qubit gates
+qs_error_t apply_Rx(state_t* s, int q, double theta);
+qs_error_t apply_Ry(state_t* s, int q, double theta);
+qs_error_t apply_Rz(state_t* s, int q, double theta);
+
+// Two-qubit gates
+qs_error_t apply_CX(state_t* s, int ctrl, int tgt);   // CNOT
+qs_error_t apply_CY(state_t* s, int ctrl, int tgt);
+qs_error_t apply_CZ(state_t* s, int ctrl, int tgt);
+qs_error_t apply_SWAP(state_t* s, int q1, int q2);
+
+// Parameterized two-qubit gates
+qs_error_t apply_CRz(state_t* s, int ctrl, int tgt, double theta);
+qs_error_t apply_RZZ(state_t* s, int q1, int q2, double theta);  // For QAOA
+
+// General channel (Kraus operators)
+qs_error_t apply_channel(state_t* s, int n_kraus,
+                         const double complex** kraus_ops, int n_qubits_affected,
+                         const int* qubits);
+```
+
+### 4.3 Noise
+
+```c
+// Runtime noise toggle
+qs_error_t set_noise_enabled(int enabled);     // 0 = off, 1 = on
+qs_error_t get_noise_enabled(int* enabled);
+
+qs_error_t set_noise_param(double p);          // Noise strength parameter
+```
+
+### 4.4 Measurement
+
+```c
+// Expectation values (result via pointer)
+qs_error_t expect_diag(const state_t* s, const double* H_diag, double* result);
+qs_error_t expect_pauli(const state_t* s, const pauli_sum_t* H, double* result);
+
+// Shot-based measurement
+qs_error_t expect_diag_shots(const state_t* s, const double* H_diag,
+                             int n_shots, double* result);
+qs_error_t expect_pauli_shots(const state_t* s, const pauli_sum_t* H,
+                              int n_shots, double* result);
+
+// Gradients (method auto-selected by library)
+qs_error_t grad_expect_diag(
+    circuit_fn circuit,
+    const double* params,
+    int n_params,
+    void* ctx,
+    state_t* initial_state,
+    const double* H_diag,
+    double* grad_out           // Output: array of n_params gradients
+);
+```
+
+### 4.5 LCU (Parameterized Sum Circuits)
+
+LCU circuits use the same `circuit_fn` interface as product circuits. The user implements the sum structure in their circuit function using internal state arithmetic primitives.
+
+---
+
+## 5. Internal Design
+
+### 5.1 Gate Implementation Pattern
+
+```c
+// Public dispatcher
+qs_error_t apply_X(state_t* s, int q) {
+    if (s == NULL) return QS_ERR_NULL;
+    if (q < 0 || q >= s->n_qubits) return QS_ERR_QUBIT;
+
+    qs_error_t err;
+    if (s->type == STATE_PURE) {
+        err = apply_X_pure(s, q);
+    } else {
+        err = apply_X_mixed(s, q);
+    }
+    if (err != QS_OK) return err;
+
+    int noise_on;
+    get_noise_enabled(&noise_on);
+    if (noise_on) {
+        err = apply_noise_1q(s, q);
+    }
+    return err;
+}
+
+// Internal implementations (static)
+static qs_error_t apply_X_pure(state_t* s, int q);
+static qs_error_t apply_X_mixed(state_t* s, int q);
+```
+
+### 5.2 Stride-Based Amplitude Access
+
+For qubit q, amplitudes pair with stride 2^q:
+```c
+int stride = 1 << q;
+for (int i = 0; i < (1 << n_qubits); i += 2 * stride) {
+    for (int j = 0; j < stride; j++) {
+        int idx0 = i + j;           // Qubit q = 0
+        int idx1 = i + j + stride;  // Qubit q = 1
+        // Apply 2x2 gate matrix to (amp[idx0], amp[idx1])
+    }
+}
+```
+
+### 5.3 Gradient Computation
+
+Two methods supported, auto-selected based on memory and parameter count:
+
+**Method 1: Adjoint (backpropagation)**
+
+Best when memory is available and many parameters exist.
+
+| Variant | Memory | Time |
+|---------|--------|------|
+| Full caching | O(d × 2ⁿ) | O(d × 2ⁿ) |
+| Checkpointing | O(√d × 2ⁿ) | O(d × 2ⁿ) |
+
+*Full caching:*
+1. Forward pass: apply gates, cache all intermediate states
+2. Backward pass: propagate gradients through cached states
+
+*Checkpointing:*
+1. Forward pass: apply gates, cache only √d checkpoints
+2. Backward pass: recompute intermediates between checkpoints
+
+**Method 2: Parameter-shift rule**
+
+Best when memory is severely constrained (large n).
+
+| Memory | Time |
+|--------|------|
+| O(2ⁿ) | O(p × d × 2ⁿ) |
+
+For each parameter θ in gate e^{-iθG/2}:
+```
+∂⟨H⟩/∂θ = ½(⟨H⟩|_{θ+π/2} - ⟨H⟩|_{θ-π/2})
+```
+
+Requires 2p circuit evaluations but only one state in memory at a time.
+
+**Auto-selection criteria:**
+- Available memory vs √d × 2ⁿ requirement
+- Number of parameters p vs √d tradeoff
+- Library always selects optimal method automatically
+
+### 5.4 Parallelization Strategy
+
+**Branch-level vs simulation-level parallelism:**
+- n ≤ ~14: Prefer branch-level (run different states in parallel)
+- n > ~14: Prefer simulation-level (parallelize 2ⁿ operations per gate)
+- Auto-selected based on n and detected core count
+
+**Within-gate parallelism (OpenMP):**
+```c
+#pragma omp parallel for
+for (int i = 0; i < (1 << (n_qubits - 1)); i++) {
+    // Process amplitude pair
+}
+```
+
+### 5.5 Thread Safety
+
+Runtime toggle via `set_thread_safe_mode(int enabled)`:
+- **Single-threaded mode** (enabled=0): Global RNG, shared workspace (faster)
+- **Thread-safe mode** (enabled=1): Thread-local RNG, no shared mutable state
+
+---
+
+## 6. Serialization Format
+
+### 6.1 Binary Format (Primary)
+
+```
+Header (32 bytes):
+  [0-3]   Magic: "QSIM"
+  [4-7]   Version: uint32
+  [8-11]  n_qubits: uint32
+  [12-15] type: uint32 (0=pure, 1=mixed)
+  [16-19] endianness: uint32 (0x01020304 for detection)
+  [20-31] Reserved
+
+Body:
+  Amplitudes as double complex array
+  - Pure:  2^n entries
+  - Mixed: 2^n * (2^n + 1) / 2 entries (lower triangle)
+```
+
+### 6.2 Text Format (Debug)
+
+Optional human-readable export for debugging small states.
+
+---
+
+## 7. Error Handling
+
+### 7.1 Strategy
+
+All functions return integer status codes. No assertions or program termination on errors — the caller is responsible for checking return codes and handling errors gracefully.
+
+| Return value | Meaning |
+|--------------|---------|
+| 0 | Success |
+| Negative | Error (see error codes below) |
+
+### 7.2 Error Codes
+
+```c
+typedef enum {
+    QS_OK           =  0,   // Success
+    QS_ERR_NULL     = -1,   // Null pointer argument
+    QS_ERR_OOM      = -2,   // Out of memory
+    QS_ERR_QUBIT    = -3,   // Invalid qubit index
+    QS_ERR_TYPE     = -4,   // Invalid state type for operation
+    QS_ERR_FILE     = -5,   // File I/O error
+    QS_ERR_FORMAT   = -6,   // Invalid file format
+    QS_ERR_PARAM    = -7,   // Invalid parameter value
+} qs_error_t;
+```
+
+### 7.3 Return Conventions
+
+- **Allocation functions**: Return `NULL` on failure (caller checks for NULL)
+- **All other functions**: Return `qs_error_t` status code
+- **Output values**: Passed via pointer parameters
+
+```c
+// Example: function returns error code, result via pointer
+qs_error_t expect_diag(const state_t* s, const double* H_diag, double* result);
+
+// Usage:
+double energy;
+qs_error_t err = expect_diag(state, hamiltonian, &energy);
+if (err != QS_OK) {
+    // Handle error
+}
+```
+
+### 7.4 Debug Builds
+
+Assertions may be enabled in debug builds (`-DDEBUG`) for development, but are disabled in release builds.
+
+---
+
+## 8. Dependencies
+
+| Dependency | Purpose | Required |
+|------------|---------|----------|
+| CBLAS | Linear algebra primitives | Yes |
+| LAPACK | Matrix operations (for unit tests) | Yes |
+| complex.h | C99 complex numbers | Yes |
+| OpenMP | Shared-memory parallelism | Yes |
+| Unity | Unit testing framework | Testing only |
+| CMake | Build system | Yes |
+
+---
+
+## 9. Build System
+
+### 9.1 CMake Structure
+
+```
+qlib/
+├── CMakeLists.txt
+├── src/
+│   ├── state.c
+│   ├── gate.c
+│   ├── measure.c
+│   └── util.c
+├── include/
+│   └── qlib.h          # Public API header
+├── tests/
+│   ├── test_state.c
+│   ├── test_gate.c
+│   └── test_measure.c
+└── examples/
+    └── qaoa_maxcut.c
+```
+
+### 9.2 Build Outputs
+
+- `libqlib.a` — Static library
+- `libqlib.so` / `libqlib.dylib` — Shared library (optional)
+- Test executables
+
+---
+
+## 10. Testing Strategy
+
+### 10.1 Unit Tests (Priority 1)
+
+| Module | Tests |
+|--------|-------|
+| State | Allocation, initialization, index calculations, copy |
+| Gates | Each gate against known matrix multiplication |
+| Measurement | Expectation values against analytical results |
+
+### 10.2 Integration Tests (Priority 2)
+
+- Small circuits with known outputs
+- Pure vs mixed giving same ⟨O⟩ for pure states lifted to density matrices
+- LCU circuits producing correct weighted superpositions
+
+### 10.3 Gradient Tests (Priority 3)
+
+- Compare adjoint-method gradients to finite differences
+- Tolerance: relative error < 1e-6
+
+### 10.4 Numerical Tolerance
+
+- Standard: 1e-12 for double precision
+- Runtime checks: optional norm/trace verification after operations
+
+---
+
+## 11. Appendix: Qubit Convention
+
+**Little-endian convention:**
+
+For n qubits, basis state |bₙ₋₁ bₙ₋₂ ... b₁ b₀⟩ has array index:
+
+```
+index = Σᵢ bᵢ × 2ⁱ = b₀ + 2b₁ + 4b₂ + ... + 2^(n-1) × bₙ₋₁
+```
+
+Qubit 0 is the **rightmost** (least significant) bit.
+
+**Example (3 qubits):**
+```
+|000⟩ → index 0
+|001⟩ → index 1    (qubit 0 = 1)
+|010⟩ → index 2    (qubit 1 = 1)
+|011⟩ → index 3
+|100⟩ → index 4    (qubit 2 = 1)
+|101⟩ → index 5
+|110⟩ → index 6
+|111⟩ → index 7
+```
+
+**Gate stride:** A gate on qubit q accesses pairs with stride 2^q.
+
+---
+
+## 12. Glossary
+
+| Term | Definition |
+|------|------------|
+| Adjoint method | Gradient computation via backward propagation through circuit |
+| Heisenberg picture | Observables evolve (O → U†OU), states fixed. *Future extension.* |
+| Kraus operators | Matrices {Kᵢ} defining a quantum channel: ρ → Σᵢ Kᵢ ρ Kᵢ† |
+| LCU | Linear Combination of Unitaries: Σᵢ cᵢ Uᵢ |
+| Pauli string | Tensor product of Pauli matrices: σᵢ₁ ⊗ σᵢ₂ ⊗ ... ⊗ σᵢₙ |
+| Product circuit | Sequential application of parameterized unitaries |
+| Schrödinger picture | States evolve (|ψ⟩ → U|ψ⟩), observables fixed. *Current implementation.* |
+| Shot noise | Statistical fluctuations from finite measurement samples |
+| Sum circuit | Weighted sum of unitaries (LCU) |
+
+---
+
+*Document generated via Socratic design process.*
+*Last updated: 2026-01-19 (clarified Heisenberg picture scope)*

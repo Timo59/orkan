@@ -46,7 +46,7 @@ void zrot_(
  *                                      X = |       |
  *                                          | 1   0 |
  * @param[in,out]   state     Quantum state
- * @param[in]       qubit     Index of the qubit (counted from the tight)
+ * @param[in]       qubit     Index of the qubit (counted from the right)
  */
 void x(state_t* state, qubit_t target);
 
