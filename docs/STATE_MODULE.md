@@ -3,7 +3,7 @@
 **Module:** State Representation
 **Header:** `include/state.h`
 **Implementation:** `src/state.c`
-**Last Updated:** 2025-12-22
+**Last Updated:** 2026-01-19
 
 ---
 
@@ -48,24 +48,24 @@ Storage format: LAPACK Hermitian packed (column-major), compatible with `zhpmv()
 
 | Test Function | Status | Target | Coverage |
 |---------------|--------|--------|----------|
-| `test_state_len_pure()` | 🔲 TODO | state_len() | Verify 2^n for n=1,2,3,4 |
-| `test_state_len_mixed()` | 🔲 TODO | state_len() | Verify d(d+1)/2 for n=1,2,3 |
-| `test_state_init_pure_null_data()` | 🔲 TODO | state_init() | Zero initialization |
-| `test_state_init_pure_with_data()` | 🔲 TODO | state_init() | Ownership transfer verification |
-| `test_state_init_mixed_null_data()` | 🔲 TODO | state_init() | Zero initialization |
-| `test_state_init_mixed_with_data()` | 🔲 TODO | state_init() | Ownership transfer verification |
-| `test_state_init_reinitialization()` | 🔲 TODO | state_init() | Memory leak check on reinit |
-| `test_state_free_pure()` | 🔲 TODO | state_free() | Deallocation and reset |
-| `test_state_free_mixed()` | 🔲 TODO | state_free() | Double-free safety |
-| `test_state_plus_pure_normalization()` | 🔲 TODO | state_plus() | Verify 1/√(2^n), sum\|a\|²=1 |
-| `test_state_plus_mixed_trace()` | 🔲 TODO | state_plus() | Verify Tr(ρ)=1, all entries=1/2^n |
-| `test_state_cp_pure_deep_copy()` | 🔲 TODO | state_cp() | Independent allocations |
-| `test_state_cp_mixed_deep_copy()` | 🔲 TODO | state_cp() | Independent allocations |
-| `test_state_single_qubit()` | 🔲 TODO | Edge cases | 1-qubit correctness |
-| `test_state_many_qubits()` | 🔲 TODO | Edge cases | Large n, overflow check |
+| `test_state_len_pure()` | ✅ Complete | state_len() | Verify 2^n for n=1,2,3,4 |
+| `test_state_len_mixed()` | ✅ Complete | state_len() | Verify d(d+1)/2 for n=1,2,3 |
+| `test_state_init_pure_null_data()` | ✅ Complete | state_init() | Zero initialization |
+| `test_state_init_pure_with_data()` | ✅ Complete | state_init() | Ownership transfer verification |
+| `test_state_init_mixed_null_data()` | ✅ Complete | state_init() | Zero initialization |
+| `test_state_init_mixed_with_data()` | ✅ Complete | state_init() | Ownership transfer verification |
+| `test_state_init_reinitialization()` | ✅ Complete | state_init() | Memory leak check on reinit |
+| `test_state_free_pure()` | ✅ Complete | state_free() | Deallocation and reset |
+| `test_state_free_mixed()` | ✅ Complete | state_free() | Double-free safety |
+| `test_state_plus_pure_normalization()` | ✅ Complete | state_plus() | Verify 1/√(2^n), sum\|a\|²=1 |
+| `test_state_plus_mixed_trace()` | ✅ Complete | state_plus() | Verify Tr(ρ)=1, all entries=1/2^n |
+| `test_state_cp_pure_deep_copy()` | ✅ Complete | state_cp() | Independent allocations |
+| `test_state_cp_mixed_deep_copy()` | ✅ Complete | state_cp() | Independent allocations |
+| `test_state_single_qubit()` | ✅ Complete | Edge cases | 1-qubit correctness |
+| `test_state_many_qubits()` | ✅ Complete | Edge cases | Large n, overflow check |
 
-**Total:** 15 tests
-**File:** `test/src/test_state.c` (currently 9 lines, nearly empty)
+**Total:** 15 tests — ALL PASSING ✅
+**File:** `test/src/test_state.c`
 
 ---
 
@@ -128,10 +128,24 @@ Storage format: LAPACK Hermitian packed (column-major), compatible with `zhpmv()
 | Topic | Current | Question | Status |
 |-------|---------|----------|--------|
 | Memory ownership | Transfer via `**data` | Add non-transfer init? | 🔲 Undecided |
-| Error handling | stderr + invalid state | Add error codes? | 🔲 Undecided |
+| Error handling | `qs_error_t` return codes | — | ✅ Implemented |
 | Thread safety | Not thread-safe | Document guarantees? | 🔲 Undecided |
 | Qubit limits | 255 (unsigned char) | Sufficient? | 🔲 Undecided |
 | Normalization | Manual | Auto-normalize gates? | 🔲 Undecided |
+
+**Error Codes** (defined in `q_types.h`):
+```c
+typedef enum {
+    QS_OK           =  0,   // Success
+    QS_ERR_NULL     = -1,   // Null pointer argument
+    QS_ERR_OOM      = -2,   // Out of memory
+    QS_ERR_QUBIT    = -3,   // Invalid qubit index
+    QS_ERR_TYPE     = -4,   // Invalid state type for operation
+    QS_ERR_FILE     = -5,   // File I/O error
+    QS_ERR_FORMAT   = -6,   // Invalid file format
+    QS_ERR_PARAM    = -7,   // Invalid parameter value
+} qs_error_t;
+```
 
 ---
 

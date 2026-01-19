@@ -3,7 +3,7 @@
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
 **Implementation:** `src/qhipster.c`, `src/mhipster.c`, `src/gate.c`
-**Last Updated:** 2026-01-02
+**Last Updated:** 2026-01-19
 
 ---
 
@@ -148,7 +148,7 @@ All infrastructure for testing gates on both pure and mixed states is complete:
 - Builds full unitary via Kronecker products
 - Validates outputs against BLAS reference implementations
 
-**Phase 1: First Single-Qubit Gate - COMPLETE ✅**
+**Phase 1: First Single-Qubit Gate + Error Handling - COMPLETE ✅**
 
 Pauli-X gate fully implemented and tested for both pure and mixed states:
 - ✅ `x_pure()` in `src/qhipster.c` - Pure state implementation
@@ -156,7 +156,13 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 - ✅ `x()` dispatcher in `src/gate.c` with input validation (NULL checks, range checks)
 - ✅ Function documentation with @brief, @param, and @note tags
 - ✅ Comprehensive inline documentation of packed storage algorithm
-- ✅ All tests passing (2/2 tests in test_gate)
+- ✅ All tests passing (5/5 tests in test_gate)
+
+**Error Handling Infrastructure - COMPLETE ✅**
+- ✅ `qs_error_t` enum added to `q_types.h` with standard error codes
+- ✅ Gate functions return `qs_error_t` instead of `void`
+- ✅ Error handling tests: `test_error_null_state`, `test_error_null_data`, `test_error_qubit_out_of_range`
+- ✅ Test harnesses updated to verify `QS_OK` return codes
 
 **Next: Phase 2 - Implement remaining single-qubit gates (Y, Z, H, S, T, rotations)**
 
@@ -220,8 +226,8 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 **Unified header approach** minimizes file overhead while maintaining clear separation of concerns:
 
 **Headers:**
-- `test/include/test_gates.h` - Single unified header containing:
-  - `single_qubit_gate` typedef (shared by both pure and mixed harnesses)
+- `test/include/test_gate.h` - Single unified header containing:
+  - `single_qubit_gate` typedef: `qs_error_t (*)(state_t*, qubit_t)` (returns error code)
   - Gate matrix constants (XMAT, YMAT, ZMAT, HMAT, SMAT, TMAT, P0MAT, P1MAT, SWAPMAT)
   - Declarations for `testSingleQubitGate()` and `testSingleQubitGateMixed()`
 
@@ -255,8 +261,8 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 | Gate     | Description         | Pure State | Mixed State | Phase |
 |----------|---------------------|------------|-------------|-------|
 | `x()`    | Pauli-X             | ✅ Complete | ✅ Complete | 1 |
-| `y()`    | Pauli-Y             | 🔲 TODO | 🔲 TODO | 1 |
-| `z()`    | Pauli-Z             | 🔲 TODO | 🔲 TODO | 1 |
+| `y()`    | Pauli-Y             | 🔄 In Progress | 🔄 In Progress | 2 |
+| `z()`    | Pauli-Z             | 🔄 In Progress | 🔄 In Progress | 2 |
 | `h()`    | Hadamard            | 🔲 TODO | 🔲 TODO | 2 |
 | `s()`    | Phase gate          | 🔲 TODO | 🔲 TODO | 2 |
 | `sdg()`  | S†                  | 🔲 TODO | 🔲 TODO | 2 |
@@ -318,6 +324,15 @@ qHiPSTER uses stride-based indexing where stride = 2^target. Different target qu
 
 Single `x(state, target)` API dispatches to `x_pure()` or `x_mixed()` based on `state->type` enum. Type-safe at runtime with optimized per-type implementations.
 
+### Error Handling
+
+All gate functions return `qs_error_t` (defined in `q_types.h`):
+- `QS_OK` (0): Success
+- `QS_ERR_NULL` (-1): Null state or null data pointer
+- `QS_ERR_QUBIT` (-3): Target qubit index out of range
+
+Internal implementations (`x_pure`, `x_mixed`, etc.) trust validated inputs and do not perform additional checks.
+
 ### Thread Safety
 
 State objects not thread-safe for concurrent mutation. Users can create separate state objects for parallel evaluation. Gate operations are memory-bandwidth limited (~3× speedup on 10 cores with OpenMP).
@@ -356,7 +371,11 @@ State objects not thread-safe for concurrent mutation. Users can create separate
 ### Phase 2: Remaining Single-Qubit Gates - IN PROGRESS 🔄
 **Goal**: Complete single-qubit gate library
 
-**Status**: Ready to begin - pattern established from Phase 1
+**Status**: Y and Z gates in progress
+- ✅ Y gate: Declaration in `gate.h`, dispatcher in `gate.c`, tests added
+- ✅ Z gate: Declaration in `gate.h`, dispatcher in `gate.c`, tests added
+- 🔄 Y gate: Pure/mixed implementations pending
+- 🔄 Z gate: Pure/mixed implementations pending
 
 **Deliverables**: Implement all remaining single-qubit gates for both pure and mixed states following Phase 1 pattern:
 - Pauli gates: Y, Z
@@ -365,11 +384,11 @@ State objects not thread-safe for concurrent mutation. Users can create separate
 - Rotation gates: RX(θ), RY(θ), RZ(θ), P(θ) and their daggers
 
 **Implementation pattern per gate** (established from X gate):
-1. Implement `{gate}_pure()` in `src/qhipster.c`
-2. Implement `{gate}_mixed()` in `src/mhipster.c` with packed storage
-3. Add unified `{gate}()` dispatcher in `src/gate.c` with input validation
-4. Add function documentation (@brief, @param, @note)
-5. Add test functions in `test/src/test_gate.c`
+1. Add tests in `test/src/test_gate.c` (TDD approach)
+2. Add declaration in `include/gate.h` with documentation
+3. Add dispatcher in `src/gate.c` with input validation (returns `qs_error_t`)
+4. Implement `{gate}_pure()` in `src/qhipster.c`
+5. Implement `{gate}_mixed()` in `src/mhipster.c` with packed storage
 6. Verify all tests pass
 
 **Exit criteria**: All single-qubit gates pass tests (pure + mixed) - ~30 gates × ~11,800 tests/gate = ~355k tests total
