@@ -41,14 +41,43 @@ void zrot_(
  */
 
 /*
- * @brief   Applies the Pauli-X gate to the qubit <qubit> in the quantum state <state>
+ * @brief   Applies the Pauli-X gate to the qubit <target> in the quantum state <state>
  *                                          | 0   1 |
  *                                      X = |       |
  *                                          | 1   0 |
  * @param[in,out]   state     Quantum state
- * @param[in]       qubit     Index of the qubit (counted from the right)
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
  */
-void x(state_t* state, qubit_t target);
+qs_error_t x(state_t* state, qubit_t target);
+
+/*
+ * @brief   Applies the Pauli-Y gate to the qubit <target> in the quantum state <state>
+ *                                          | 0  -i |
+ *                                      Y = |       |
+ *                                          | i   0 |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t y(state_t* state, qubit_t target);
+
+/*
+ * @brief   Applies the Pauli-Z gate to the qubit <target> in the quantum state <state>
+ *                                          | 1   0 |
+ *                                      Z = |       |
+ *                                          | 0  -1 |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t z(state_t* state, qubit_t target);
 
 
 #ifdef __cplusplus

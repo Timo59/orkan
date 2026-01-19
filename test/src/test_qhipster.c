@@ -73,7 +73,8 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
                 }
 
                 // Apply test function
-                gate(&test_state, pos);
+                qs_error_t err = gate(&test_state, pos);
+                TEST_ASSERT_EQUAL_INT(QS_OK, err);
                 if (!test_state.data) {
                     fprintf(stderr, "testSingleQubitGate(): gate application failed\n");
                     goto cleanup;

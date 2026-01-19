@@ -34,7 +34,7 @@ extern "C" {
  */
 
 // Function representing a qubit gate that acts locally on one qubit
-typedef void (*single_qubit_gate)(state_t *state, qubit_t target);
+typedef qs_error_t (*single_qubit_gate)(state_t *state, qubit_t target);
 
 /*
  * =====================================================================================================================

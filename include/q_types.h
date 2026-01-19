@@ -27,6 +27,23 @@ extern "C" {
 
 /*
  * =====================================================================================================================
+ *  Error codes
+ * =====================================================================================================================
+ */
+
+typedef enum {
+    QS_OK           =  0,   // Success
+    QS_ERR_NULL     = -1,   // Null pointer argument
+    QS_ERR_OOM      = -2,   // Out of memory
+    QS_ERR_QUBIT    = -3,   // Invalid qubit index
+    QS_ERR_TYPE     = -4,   // Invalid state type for operation
+    QS_ERR_FILE     = -5,   // File I/O error
+    QS_ERR_FORMAT   = -6,   // Invalid file format
+    QS_ERR_PARAM    = -7,   // Invalid parameter value
+} qs_error_t;
+
+/*
+ * =====================================================================================================================
  *  Type definitions
  * =====================================================================================================================
  */

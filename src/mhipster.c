@@ -49,7 +49,7 @@ void x_mixed(state_t *state, const qubit_t target) {
             // First row block, i.e., row in [`col`,`col_block`+`incr`], of each column needs special treatment:
             // Only those entries whose row index binary representation is zero in the targeted bit and >=`col` is in
             // the range of the data array
-            dim_t n_rows = incr - (col - col_block);    // Number of rows in [`col`,`col_block`+`incr`]
+            const dim_t n_rows = incr - (col - col_block);  // Number of rows in [`col`,`col_block`+`incr`]
 
             // Swap entries whose row AND `col` index binary representation is zero in the targeted bit and entries
             // whose row and `col` representation is one in the targeted bit.
@@ -106,6 +106,101 @@ void x_mixed(state_t *state, const qubit_t target) {
 
             // Subtract the difference between the number of entries in the current column and the number of entries in
             // the (current + `incr`) column to update the stride
+            stride -= incr;
+        }
+    }
+}
+
+
+void y_mixed(state_t *state, const qubit_t target) {
+    const dim_t dim = POW2(state->qubits, dim_t);   // Hilbert space dimension; Order of density matrix
+    const dim_t incr = POW2(target, dim_t); // Distance between indices only differing in the targeted qubit
+    const dim_t subdim = POW2(target + 1, dim_t);   // Invariant subspace dimension
+
+    for (dim_t col_block = 0; col_block < dim; col_block += subdim) {
+        dim_t offset = col_block * (2 * dim - col_block + 1) / 2;
+        dim_t stride = incr * (2 * (dim - col_block) - incr + 1) / 2;
+
+        for (dim_t col = col_block; col < col_block + incr; ++col) {
+            cplx_t *data = state->data + offset;    // First element in the current column
+
+            const dim_t n_rows = incr - (col - col_block);    // Number of rows in [`col`,`col_block`+`incr`]
+
+            const cplx_t alpha = -1.0;
+            cblas_zswap(n_rows, data, 1, data + stride, 1);
+
+            data += n_rows; // First element in `col` whose index binary representation is one at the targeted bit
+            dim_t step = 0; // First element updated to complex conjugate of itself (row=`col`)
+
+            for (dim_t k = col - col_block; k < incr; ++k) {
+                cplx_t tmp = data[k];
+                data[k] = alpha * conj(data[k + step]);
+                data[k + step] = alpha * conj(tmp);
+
+                step += dim - (k + col_block + 2);
+            }
+
+            data += incr;
+
+            dim_t row_block = col_block + subdim;
+            while (row_block < dim) {
+                cblas_zswap(incr, data, 1, data + stride, 1);
+
+                data += incr;   // First element in `row_block` whose index is one at the targeted bit
+
+                cblas_zswap(incr, data, 1, data + stride - subdim, 1);
+                cblas_zscal(incr, &alpha, data, 1);
+                cblas_zscal(incr, &alpha, data + stride - subdim, 1);
+
+                data += incr;   // First element in subsequent row_block
+                row_block += subdim; // Index of the first element in subsequent row_block
+            }
+
+            offset += dim - col;
+
+            stride -= incr;
+        }
+    }
+}
+
+
+void z_mixed(state_t *state, const qubit_t target) {
+    const dim_t dim = POW2(state->qubits, dim_t);   // Hilbert space dimension; Order of density matrix
+    const dim_t incr = POW2(target, dim_t); // Distance between indices only differing in the targeted qubit
+    const dim_t subdim = POW2(target + 1, dim_t);   // Invariant subspace dimension
+
+    for (dim_t col_block = 0; col_block < dim; col_block += subdim) {
+        dim_t offset = col_block * (2 * dim - col_block + 1) / 2;
+        dim_t stride = incr * (2 * (dim - col_block) - incr + 1) / 2;
+
+        for (dim_t col = col_block; col < col_block + incr; ++col) {
+            cplx_t *data = state->data + offset;    // First element in the current column
+
+            const dim_t n_rows = incr - (col - col_block);    // Number of rows in [`col`,`col_block`+`incr`]
+
+            const cplx_t alpha = -1.0;
+
+            data += n_rows; // First element in `col` whose index binary representation is one at the targeted bit
+            dim_t step = 0; // First element updated to complex conjugate of itself (row=`col`)
+
+            cblas_zscal(incr, &alpha, data, 1); // Multiply phase to entries in current column (j_a=0)
+
+            data += incr;
+
+            dim_t row_block = col_block + subdim;
+            while (row_block < dim) {
+
+                data += incr;   // First element in `row_block` whose index is one at the targeted bit
+
+                cblas_zscal(incr, &alpha, data, 1);
+                cblas_zscal(incr, &alpha, data + stride - subdim, 1);
+
+                data += incr;   // First element in subsequent row_block
+                row_block += subdim; // Index of the first element in subsequent row_block
+            }
+
+            offset += dim - col;
+
             stride -= incr;
         }
     }
