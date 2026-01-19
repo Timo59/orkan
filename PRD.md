@@ -212,12 +212,14 @@ state_t* state_alloc_mixed(int n_qubits);
 void     state_free(state_t* s);
 
 // Initialization
-qs_error_t state_init_plus(state_t* s);                              // |+⟩^⊗n
+qs_error_t state_init_zero(state_t* s);                              // |0⟩^⊗n (pure) or |0⟩⟨0|^⊗n (mixed)
+qs_error_t state_init_plus(state_t* s);                              // |+⟩^⊗n (pure) or |+⟩⟨+|^⊗n (mixed)
 qs_error_t state_init_mixed_max(state_t* s);                         // I/2^n (mixed only)
 qs_error_t state_init_from_array(state_t* s, const double complex* data);
 
-// Copy (returns NULL on OOM)
-state_t* state_copy(const state_t* s);
+// Copy
+state_t* state_copy(const state_t* s);                           // Allocate and copy (returns NULL on OOM)
+qs_error_t state_copy_into(state_t* dest, const state_t* src);   // Copy into existing state
 
 // Serialization
 qs_error_t state_save(const state_t* s, const char* filename);
@@ -256,14 +258,17 @@ qs_error_t apply_channel(state_t* s, int n_kraus,
                          const int* qubits);
 ```
 
-### 4.3 Noise
+### 4.3 Runtime Configuration
 
 ```c
-// Runtime noise toggle
+// Noise toggle
 qs_error_t set_noise_enabled(int enabled);     // 0 = off, 1 = on
 qs_error_t get_noise_enabled(int* enabled);
-
 qs_error_t set_noise_param(double p);          // Noise strength parameter
+
+// Thread safety mode
+qs_error_t set_thread_safe_mode(int enabled);  // 0 = single-threaded (faster), 1 = thread-safe
+qs_error_t get_thread_safe_mode(int* enabled);
 ```
 
 ### 4.4 Measurement
@@ -289,11 +294,50 @@ qs_error_t grad_expect_diag(
     const double* H_diag,
     double* grad_out           // Output: array of n_params gradients
 );
+
+qs_error_t grad_expect_pauli(
+    circuit_fn circuit,
+    const double* params,
+    int n_params,
+    void* ctx,
+    state_t* initial_state,
+    const pauli_sum_t* H,
+    double* grad_out           // Output: array of n_params gradients
+);
 ```
 
 ### 4.5 LCU (Parameterized Sum Circuits)
 
-LCU circuits use the same `circuit_fn` interface as product circuits. The user implements the sum structure in their circuit function using internal state arithmetic primitives.
+LCU circuits implement linear combinations of unitaries: Σᵢ cᵢ Uᵢ. Users build LCU circuits using state arithmetic primitives:
+
+```c
+// State arithmetic for LCU construction
+qs_error_t state_scale(state_t* s, double complex c);           // s → c·s
+qs_error_t state_add(state_t* dest, const state_t* src);        // dest → dest + src
+qs_error_t state_add_scaled(state_t* dest, const state_t* src,
+                            double complex c);                   // dest → dest + c·src
+
+// Workspace management for LCU
+state_t* state_alloc_like(const state_t* s);                    // Allocate with same type/size
+```
+
+LCU circuits use the same `circuit_fn` interface as product circuits. Example pattern:
+```c
+void my_lcu_circuit(state_t* s, const double* params, int n_params, void* ctx) {
+    state_t* temp = state_alloc_like(s);
+    state_t* accum = state_alloc_like(s);
+    state_init_zero(accum);  // Zero accumulator
+
+    for (int i = 0; i < n_terms; i++) {
+        state_copy_into(temp, s);           // temp = input state
+        apply_unitary_i(temp, params, ctx); // temp = Uᵢ|ψ⟩
+        state_add_scaled(accum, temp, coeffs[i]); // accum += cᵢ·Uᵢ|ψ⟩
+    }
+    state_copy_into(s, accum);  // s = Σᵢ cᵢ Uᵢ|ψ⟩
+    state_free(temp);
+    state_free(accum);
+}
+```
 
 ---
 
@@ -316,8 +360,9 @@ qs_error_t apply_X(state_t* s, int q) {
     if (err != QS_OK) return err;
 
     int noise_on;
-    get_noise_enabled(&noise_on);
-    if (noise_on) {
+    err = get_noise_enabled(&noise_on);
+    if (err != QS_OK) return err;
+    if (noise_on && s->type == STATE_MIXED) {
         err = apply_noise_1q(s, q);
     }
     return err;
@@ -328,15 +373,18 @@ static qs_error_t apply_X_pure(state_t* s, int q);
 static qs_error_t apply_X_mixed(state_t* s, int q);
 ```
 
+**Noise and pure states:** Noise channels (Kraus operators) produce mixed states and are only applied when `s->type == STATE_MIXED`. For pure state simulations, enable noise by allocating a mixed state and initializing it as a pure density matrix (e.g., via `state_init_zero()`).
+
 ### 5.2 Stride-Based Amplitude Access
 
 For qubit q, amplitudes pair with stride 2^q:
 ```c
-int stride = 1 << q;
-for (int i = 0; i < (1 << n_qubits); i += 2 * stride) {
-    for (int j = 0; j < stride; j++) {
-        int idx0 = i + j;           // Qubit q = 0
-        int idx1 = i + j + stride;  // Qubit q = 1
+size_t stride = (size_t)1 << q;
+size_t dim = (size_t)1 << n_qubits;
+for (size_t i = 0; i < dim; i += 2 * stride) {
+    for (size_t j = 0; j < stride; j++) {
+        size_t idx0 = i + j;           // Qubit q = 0
+        size_t idx1 = i + j + stride;  // Qubit q = 1
         // Apply 2x2 gate matrix to (amp[idx0], amp[idx1])
     }
 }
@@ -344,7 +392,9 @@ for (int i = 0; i < (1 << n_qubits); i += 2 * stride) {
 
 ### 5.3 Gradient Computation
 
-Two methods supported, auto-selected based on memory and parameter count:
+Two methods supported, auto-selected based on memory and parameter count.
+
+**Notation:** Let *d* denote circuit depth (total number of gate layers), *p* denote the number of parameters, and *n* denote the number of qubits.
 
 **Method 1: Adjoint (backpropagation)**
 
@@ -400,7 +450,7 @@ for (int i = 0; i < (1 << (n_qubits - 1)); i++) {
 
 ### 5.5 Thread Safety
 
-Runtime toggle via `set_thread_safe_mode(int enabled)`:
+Controlled via `set_thread_safe_mode()` (see Section 4.3):
 - **Single-threaded mode** (enabled=0): Global RNG, shared workspace (faster)
 - **Thread-safe mode** (enabled=1): Thread-local RNG, no shared mutable state
 
@@ -597,4 +647,4 @@ Qubit 0 is the **rightmost** (least significant) bit.
 ---
 
 *Document generated via Socratic design process.*
-*Last updated: 2026-01-19 (clarified Heisenberg picture scope)*
+*Last updated: 2026-01-19 (consistency fixes: index types, API completeness, LCU primitives, noise clarification)*
