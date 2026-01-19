@@ -35,21 +35,74 @@ extern void x_pure(state_t *state, qubit_t target);
  */
 extern void x_mixed(state_t *state, qubit_t target);
 
-void x(state_t *state, const qubit_t target) {
+/*
+ * @brief   Applies Pauli-Y gate to pure state (internal implementation)
+ */
+extern void y_pure(state_t *state, qubit_t target);
+
+/*
+ * @brief   Applies Pauli-Y gate to mixed state in packed storage (internal implementation)
+ */
+extern void y_mixed(state_t *state, qubit_t target);
+
+/*
+ * @brief   Applies Pauli-Z gate to pure state (internal implementation)
+ */
+extern void z_pure(state_t *state, qubit_t target);
+
+/*
+ * @brief   Applies Pauli-Z gate to mixed state in packed storage (internal implementation)
+ */
+extern void z_mixed(state_t *state, qubit_t target);
+
+qs_error_t x(state_t *state, const qubit_t target) {
     // Input validation: state points to valid address and is initialized, target is in range
     if (!state) {
-        fprintf(stderr, "x(): state is NULL\n");
-        return;
+        return QS_ERR_NULL;
     }
     if (!state->data) {
-        fprintf(stderr, "x(): state data is NULL\n");
-        return;
+        return QS_ERR_NULL;
     }
     if (target >= state->qubits) {
-        fprintf(stderr, "x(): target is out of range; Expected [0,%u], Was %u\n", state->qubits, target);
-        return;
+        return QS_ERR_QUBIT;
     }
 
     if (state->type == PURE) x_pure(state, target);
     else x_mixed(state, target);
+
+    return QS_OK;
+}
+
+qs_error_t y(state_t *state, const qubit_t target) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) y_pure(state, target);
+    else y_mixed(state, target);
+
+    return QS_OK;
+}
+
+qs_error_t z(state_t *state, const qubit_t target) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) z_pure(state, target);
+    else z_mixed(state, target);
+
+    return QS_OK;
 }

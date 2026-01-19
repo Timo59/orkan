@@ -132,6 +132,7 @@ extern "C" {
         } \
     } while (0)
 
+
 /*
  * @brief   Check whether two pointers are not equal
  */
