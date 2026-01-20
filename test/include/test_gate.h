@@ -77,6 +77,16 @@ static const cplx_t TMAT[4] = {1.0 + 0.0 * I, \
                                0.0 + 0.0 * I, \
                                INVSQRT2 + INVSQRT2 * I};
 
+static const cplx_t SDGMAT[4] = {1.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, \
+                                 0.0 - 1.0 * I};
+
+static const cplx_t TDGMAT[4] = {1.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, \
+                                 INVSQRT2 - INVSQRT2 * I};
+
 static const cplx_t P0MAT[4] = {1.0 + 0.0 * I, \
                                 0.0 + 0.0 * I, \
                                 0.0 + 0.0 * I, \

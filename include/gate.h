@@ -79,6 +79,77 @@ qs_error_t y(state_t* state, qubit_t target);
  */
 qs_error_t z(state_t* state, qubit_t target);
 
+/*
+ * =====================================================================================================================
+ * Clifford gates
+ * =====================================================================================================================
+ */
+
+/*
+ * @brief   Applies the Hadamard gate to the qubit <target> in the quantum state <state>
+ *                                               1  | 1   1 |
+ *                                      H = -------|       |
+ *                                              √2  | 1  -1 |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t h(state_t* state, qubit_t target);
+
+/*
+ * @brief   Applies the S (phase) gate to the qubit <target> in the quantum state <state>
+ *                                          | 1   0 |
+ *                                      S = |       |
+ *                                          | 0   i |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t s(state_t* state, qubit_t target);
+
+/*
+ * @brief   Applies the S-dagger gate to the qubit <target> in the quantum state <state>
+ *                                           | 1   0 |
+ *                                      S† = |       |
+ *                                           | 0  -i |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t sdg(state_t* state, qubit_t target);
+
+/*
+ * @brief   Applies the T (π/8) gate to the qubit <target> in the quantum state <state>
+ *                                          | 1       0      |
+ *                                      T = |                |
+ *                                          | 0   e^(iπ/4)   |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t t(state_t* state, qubit_t target);
+
+/*
+ * @brief   Applies the T-dagger gate to the qubit <target> in the quantum state <state>
+ *                                           | 1        0      |
+ *                                      T† = |                 |
+ *                                           | 0   e^(-iπ/4)   |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t tdg(state_t* state, qubit_t target);
+
 
 #ifdef __cplusplus
 }

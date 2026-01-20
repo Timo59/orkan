@@ -16,6 +16,7 @@
 
 #include "gate.h"
 #include <complex.h>
+#include <math.h>
 
 #if defined(__APPLE__)
     #include <vecLib/cblas_new.h>
@@ -246,4 +247,191 @@ void y_mixed(state_t *state, const qubit_t target) {
 
 void z_mixed(state_t *state, const qubit_t target) {
     TRAVERSE_MIXED_1Q(state, target, Z_DIAG_OP, Z_CONJ_OP, Z_OFFDIAG_OP);
+}
+
+
+/*
+ * =====================================================================================================================
+ * Hadamard gate: ρ → HρH (H = H†)
+ * =====================================================================================================================
+ *
+ * Hadamard is a "mixing" gate: all 4 quadrants of each 2×2 block mix together.
+ * This requires reading all 4 elements before computing the transformation.
+ *
+ * For each 2×2 block indexed by (r, c) with bit t = 0 in both:
+ *   ρ'_00 = (ρ_00 + ρ_01 + ρ_10 + ρ_11) / 2
+ *   ρ'_11 = (ρ_00 - ρ_01 - ρ_10 + ρ_11) / 2
+ *   ρ'_01 = (ρ_00 - ρ_01 + ρ_10 - ρ_11) / 2
+ *   ρ'_10 = (ρ_00 + ρ_01 - ρ_10 - ρ_11) / 2
+ */
+
+/** @brief Compute packed array index for element (r, c) where r >= c */
+static inline dim_t pack_idx(dim_t dim, dim_t r, dim_t c) {
+    return c * (2 * dim - c + 1) / 2 + (r - c);
+}
+
+void h_mixed(state_t *state, const qubit_t target) {
+    const dim_t dim = (dim_t)1 << state->qubits;
+    const dim_t incr = (dim_t)1 << target;
+    cplx_t *data = state->data;
+
+    /* Iterate over all 2×2 blocks indexed by (r, c) with r >= c, bit t = 0 in both */
+    for (dim_t c = 0; c < dim; ++c) {
+        if (c & incr) continue;
+        for (dim_t r = c; r < dim; ++r) {
+            if (r & incr) continue;
+
+            dim_t r0 = r, c0 = c, r1 = r | incr, c1 = c | incr;
+
+            /* Packed indices for the 3 always-lower-triangle elements */
+            dim_t idx00 = pack_idx(dim, r0, c0);
+            dim_t idx10 = pack_idx(dim, r1, c0);
+            dim_t idx11 = pack_idx(dim, r1, c1);
+
+            /* Read 4 elements (element (r0, c1) may be in upper triangle) */
+            cplx_t rho00 = data[idx00];
+            cplx_t rho10 = data[idx10];
+            cplx_t rho11 = data[idx11];
+            cplx_t rho01;
+            dim_t idx01;
+            int r0_ge_c1 = (r0 >= c1);
+            if (r0_ge_c1) {
+                idx01 = pack_idx(dim, r0, c1);
+                rho01 = data[idx01];
+            } else {
+                idx01 = pack_idx(dim, c1, r0);
+                rho01 = conj(data[idx01]);
+            }
+
+            /* Hadamard transformation: HρH */
+            cplx_t new00 = 0.5 * (rho00 + rho01 + rho10 + rho11);
+            cplx_t new11 = 0.5 * (rho00 - rho01 - rho10 + rho11);
+            cplx_t new01 = 0.5 * (rho00 - rho01 + rho10 - rho11);
+            cplx_t new10 = 0.5 * (rho00 + rho01 - rho10 - rho11);
+
+            /* Write to lower triangle positions */
+            data[idx00] = new00;
+            data[idx10] = new10;
+            data[idx11] = new11;
+            if (r0_ge_c1) {
+                data[idx01] = new01;
+            } else {
+                data[idx01] = conj(new01);
+            }
+        }
+    }
+}
+
+
+/*
+ * =====================================================================================================================
+ * S gate (Phase gate): ρ → SρS†
+ * =====================================================================================================================
+ *
+ * S = diag(1, i), S† = diag(1, -i)
+ * Diagonal blocks (0,0), (1,1) unchanged: phases cancel
+ * Off-diagonal: (1,0) block *= i, (0,1) block *= -i
+ */
+
+/** @brief Multiply n elements by i */
+static inline void op_scale_i(cplx_t *a, dim_t n) {
+    const cplx_t alpha = I;
+    cblas_zscal(n, &alpha, a, 1);
+}
+
+/** @brief Multiply n elements by -i */
+static inline void op_scale_neg_i(cplx_t *a, dim_t n) {
+    const cplx_t alpha = -I;
+    cblas_zscal(n, &alpha, a, 1);
+}
+
+/** @brief Scale d10 by i and d01 by -i */
+static inline void op_scale_i_neg_i(cplx_t *d10, cplx_t *d01, dim_t n) {
+    const cplx_t alpha_i = I;
+    const cplx_t alpha_neg_i = -I;
+    cblas_zscal(n, &alpha_i, d10, 1);
+    cblas_zscal(n, &alpha_neg_i, d01, 1);
+}
+
+#define S_DIAG_OP(data, n, stride)                      op_noop_diag(data, n, stride)
+#define S_CONJ_OP(d10, count, start_k, dim, col_block)  op_scale_i(d10, incr)
+#define S_OFFDIAG_OP(d10, d01, n)                       op_scale_i_neg_i(d10, d01, n)
+
+void s_mixed(state_t *state, const qubit_t target) {
+    TRAVERSE_MIXED_1Q(state, target, S_DIAG_OP, S_CONJ_OP, S_OFFDIAG_OP);
+}
+
+
+/*
+ * =====================================================================================================================
+ * S-dagger gate: ρ → S†ρS
+ * =====================================================================================================================
+ *
+ * S† = diag(1, -i), S = diag(1, i)
+ * Diagonal blocks unchanged
+ * Off-diagonal: (1,0) block *= -i, (0,1) block *= i
+ */
+
+#define SDG_DIAG_OP(data, n, stride)                      op_noop_diag(data, n, stride)
+#define SDG_CONJ_OP(d10, count, start_k, dim, col_block)  op_scale_neg_i(d10, incr)
+#define SDG_OFFDIAG_OP(d10, d01, n)                       op_scale_i_neg_i(d01, d10, n)  /* swapped: d01 by i, d10 by -i */
+
+void sdg_mixed(state_t *state, const qubit_t target) {
+    TRAVERSE_MIXED_1Q(state, target, SDG_DIAG_OP, SDG_CONJ_OP, SDG_OFFDIAG_OP);
+}
+
+
+/*
+ * =====================================================================================================================
+ * T gate (π/8 gate): ρ → TρT†
+ * =====================================================================================================================
+ *
+ * T = diag(1, e^(iπ/4)), T† = diag(1, e^(-iπ/4))
+ * Diagonal blocks unchanged: phases cancel
+ * Off-diagonal: (1,0) block *= e^(iπ/4), (0,1) block *= e^(-iπ/4)
+ */
+
+/** @brief Scale d10 by e^(iπ/4) and d01 by e^(-iπ/4) */
+static inline void op_scale_t_phases(cplx_t *d10, cplx_t *d01, dim_t n) {
+    const cplx_t alpha_t = M_SQRT1_2 + M_SQRT1_2 * I;      /* e^(iπ/4) */
+    const cplx_t alpha_tdg = M_SQRT1_2 - M_SQRT1_2 * I;    /* e^(-iπ/4) */
+    cblas_zscal(n, &alpha_t, d10, 1);
+    cblas_zscal(n, &alpha_tdg, d01, 1);
+}
+
+static inline void op_scale_t(cplx_t *a, dim_t n) {
+    const cplx_t alpha = M_SQRT1_2 + M_SQRT1_2 * I;
+    cblas_zscal(n, &alpha, a, 1);
+}
+
+#define T_DIAG_OP(data, n, stride)                      op_noop_diag(data, n, stride)
+#define T_CONJ_OP(d10, count, start_k, dim, col_block)  op_scale_t(d10, incr)
+#define T_OFFDIAG_OP(d10, d01, n)                       op_scale_t_phases(d10, d01, n)
+
+void t_mixed(state_t *state, const qubit_t target) {
+    TRAVERSE_MIXED_1Q(state, target, T_DIAG_OP, T_CONJ_OP, T_OFFDIAG_OP);
+}
+
+
+/*
+ * =====================================================================================================================
+ * T-dagger gate: ρ → T†ρT
+ * =====================================================================================================================
+ *
+ * T† = diag(1, e^(-iπ/4)), T = diag(1, e^(iπ/4))
+ * Diagonal blocks unchanged
+ * Off-diagonal: (1,0) block *= e^(-iπ/4), (0,1) block *= e^(iπ/4)
+ */
+
+static inline void op_scale_tdg(cplx_t *a, dim_t n) {
+    const cplx_t alpha = M_SQRT1_2 - M_SQRT1_2 * I;
+    cblas_zscal(n, &alpha, a, 1);
+}
+
+#define TDG_DIAG_OP(data, n, stride)                      op_noop_diag(data, n, stride)
+#define TDG_CONJ_OP(d10, count, start_k, dim, col_block)  op_scale_tdg(d10, incr)
+#define TDG_OFFDIAG_OP(d10, d01, n)                       op_scale_t_phases(d01, d10, n)  /* swapped phases */
+
+void tdg_mixed(state_t *state, const qubit_t target) {
+    TRAVERSE_MIXED_1Q(state, target, TDG_DIAG_OP, TDG_CONJ_OP, TDG_OFFDIAG_OP);
 }
