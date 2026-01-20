@@ -99,6 +99,10 @@ qsim/
 │   ├── q_types.h          # Type definitions
 │   ├── state.h            # State structures and functions
 │   └── qlib.h             # Main library header
+├── docs/                  # Technical documentation
+│   ├── STATE_MODULE.md    # State representation specification
+│   ├── GATES_MODULE.md    # Gate operations specification
+│   └── MEAS_MODULES.md    # Gradient computation for variational circuits
 ├── test/                  # Test suite
 │   ├── test_state.c       # State tests
 │   ├── test.h             # Test utilities
@@ -148,5 +152,13 @@ ctest
 
 The project is in active development. Current focus is on implementing core quantum state representation and manipulation. Additional modules are planned:
 - Circuit operations
-- Gate implementations
+- Gate implementations (see `docs/GATES_MODULE.md`)
 - Measurement operations
+- Gradient computation for variational algorithms (see `docs/MEAS_MODULES.md`)
+
+## Documentation
+
+Technical specifications are available in the `docs/` directory:
+- **STATE_MODULE.md**: State representation (pure/mixed), packed storage format, BLAS integration
+- **GATES_MODULE.md**: Gate operations, test infrastructure, implementation phases
+- **MEAS_MODULES.md**: Gradient computation methods (parameter-shift, backpropagation) for VQE/QAOA
