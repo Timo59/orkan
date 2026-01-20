@@ -67,3 +67,80 @@ void z_pure(state_t* state, const qubit_t target) {
         cblas_zscal(stride, &alpha, state->data + stride + i, 1);
     }
 }
+
+
+/*
+ * =====================================================================================================================
+ * Clifford gates
+ * =====================================================================================================================
+ */
+
+void h_pure(state_t* state, const qubit_t target) {
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    const double inv_sqrt2 = M_SQRT1_2;  // 1/√2
+
+    // Hadamard: |0⟩ → (|0⟩+|1⟩)/√2, |1⟩ → (|0⟩-|1⟩)/√2
+    // For each pair (a,b): new_a = (a+b)/√2, new_b = (a-b)/√2
+    for (dim_t i = 0; i < dim; i += step) {
+        for (dim_t j = 0; j < stride; ++j) {
+            cplx_t a = state->data[i + j];
+            cplx_t b = state->data[i + j + stride];
+            state->data[i + j] = (a + b) * inv_sqrt2;
+            state->data[i + j + stride] = (a - b) * inv_sqrt2;
+        }
+    }
+}
+
+
+void s_pure(state_t* state, const qubit_t target) {
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    const cplx_t alpha = I;  // i
+
+    // S gate: |0⟩ → |0⟩, |1⟩ → i|1⟩
+    for (dim_t i = 0; i < dim; i += step) {
+        cblas_zscal(stride, &alpha, state->data + stride + i, 1);
+    }
+}
+
+
+void sdg_pure(state_t* state, const qubit_t target) {
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    const cplx_t alpha = -I;  // -i
+
+    // S† gate: |0⟩ → |0⟩, |1⟩ → -i|1⟩
+    for (dim_t i = 0; i < dim; i += step) {
+        cblas_zscal(stride, &alpha, state->data + stride + i, 1);
+    }
+}
+
+
+void t_pure(state_t* state, const qubit_t target) {
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    const cplx_t alpha = M_SQRT1_2 + M_SQRT1_2 * I;  // e^(iπ/4) = (1+i)/√2
+
+    // T gate: |0⟩ → |0⟩, |1⟩ → e^(iπ/4)|1⟩
+    for (dim_t i = 0; i < dim; i += step) {
+        cblas_zscal(stride, &alpha, state->data + stride + i, 1);
+    }
+}
+
+
+void tdg_pure(state_t* state, const qubit_t target) {
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    const cplx_t alpha = M_SQRT1_2 - M_SQRT1_2 * I;  // e^(-iπ/4) = (1-i)/√2
+
+    // T† gate: |0⟩ → |0⟩, |1⟩ → e^(-iπ/4)|1⟩
+    for (dim_t i = 0; i < dim; i += step) {
+        cblas_zscal(stride, &alpha, state->data + stride + i, 1);
+    }
+}

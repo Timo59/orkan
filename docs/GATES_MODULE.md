@@ -266,11 +266,11 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 | `x()`    | Pauli-X             | ✅ Complete | ✅ Complete | 1 |
 | `y()`    | Pauli-Y             | ✅ Complete | ✅ Complete | 2 |
 | `z()`    | Pauli-Z             | ✅ Complete | ✅ Complete | 2 |
-| `h()`    | Hadamard            | 🔲 TODO | 🔲 TODO | 2 |
-| `s()`    | Phase gate          | 🔲 TODO | 🔲 TODO | 2 |
-| `sdg()`  | S†                  | 🔲 TODO | 🔲 TODO | 2 |
-| `t()`    | π/8 gate            | 🔲 TODO | 🔲 TODO | 2 |
-| `tdg()`  | T†                  | 🔲 TODO | 🔲 TODO | 2 |
+| `h()`    | Hadamard            | ✅ Complete | ✅ Complete | 2 |
+| `s()`    | Phase gate          | ✅ Complete | ✅ Complete | 2 |
+| `sdg()`  | S†                  | ✅ Complete | ✅ Complete | 2 |
+| `t()`    | π/8 gate            | ✅ Complete | ✅ Complete | 2 |
+| `tdg()`  | T†                  | ✅ Complete | ✅ Complete | 2 |
 | `hy()`   | Hadamard-Y          | 🔲 TODO | 🔲 TODO | 2 |
 | `p()`    | Phase rotation P(θ) | 🔲 TODO | 🔲 TODO | 2 |
 | `pdg()`  | P†(θ)               | 🔲 TODO | 🔲 TODO | 2 |
@@ -405,11 +405,16 @@ State objects not thread-safe for concurrent mutation. Users can create separate
 ### Phase 2: Remaining Single-Qubit Gates - IN PROGRESS 🔄
 **Goal**: Complete single-qubit gate library
 
-**Status**: Pauli gates complete, Clifford/rotation gates pending
+**Status**: Pauli and Clifford gates complete, rotation gates pending
 - ✅ Y gate: Complete (pure + mixed), all tests passing
 - ✅ Z gate: Complete (pure + mixed), all tests passing
 - ✅ Mixed state traversal refactored: `TRAVERSE_MIXED_1Q` macro extracts common loop structure
-- 🔲 Remaining: H, S, S†, T, T†, Hy, rotation gates
+- ✅ H gate: Complete (pure + mixed), custom traversal for 2×2 block mixing
+- ✅ S gate: Complete (pure + mixed), uses diagonal gate pattern
+- ✅ S† gate: Complete (pure + mixed)
+- ✅ T gate: Complete (pure + mixed)
+- ✅ T† gate: Complete (pure + mixed)
+- 🔲 Remaining: Hy, rotation gates (P(θ), RX(θ), RY(θ), RZ(θ) and daggers)
 
 **Deliverables**: Implement all remaining single-qubit gates for both pure and mixed states following Phase 1 pattern:
 - Pauli gates: Y, Z

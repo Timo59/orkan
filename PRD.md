@@ -647,4 +647,4 @@ Qubit 0 is the **rightmost** (least significant) bit.
 ---
 
 *Document generated via Socratic design process.*
-*Last updated: 2026-01-20 (Pauli Y/Z gates complete; mhipster.c refactored with TRAVERSE_MIXED_1Q macro)*
+*Last updated: 2026-01-20 (Clifford gates H, S, S†, T, T† complete for pure and mixed states)*

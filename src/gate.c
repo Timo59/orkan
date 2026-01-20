@@ -55,6 +55,27 @@ extern void z_pure(state_t *state, qubit_t target);
  */
 extern void z_mixed(state_t *state, qubit_t target);
 
+/*
+ * =====================================================================================================================
+ * Clifford gates
+ * =====================================================================================================================
+ */
+
+extern void h_pure(state_t *state, qubit_t target);
+extern void h_mixed(state_t *state, qubit_t target);
+
+extern void s_pure(state_t *state, qubit_t target);
+extern void s_mixed(state_t *state, qubit_t target);
+
+extern void sdg_pure(state_t *state, qubit_t target);
+extern void sdg_mixed(state_t *state, qubit_t target);
+
+extern void t_pure(state_t *state, qubit_t target);
+extern void t_mixed(state_t *state, qubit_t target);
+
+extern void tdg_pure(state_t *state, qubit_t target);
+extern void tdg_mixed(state_t *state, qubit_t target);
+
 qs_error_t x(state_t *state, const qubit_t target) {
     // Input validation: state points to valid address and is initialized, target is in range
     if (!state) {
@@ -103,6 +124,91 @@ qs_error_t z(state_t *state, const qubit_t target) {
 
     if (state->type == PURE) z_pure(state, target);
     else z_mixed(state, target);
+
+    return QS_OK;
+}
+
+qs_error_t h(state_t *state, const qubit_t target) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) h_pure(state, target);
+    else h_mixed(state, target);
+
+    return QS_OK;
+}
+
+qs_error_t s(state_t *state, const qubit_t target) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) s_pure(state, target);
+    else s_mixed(state, target);
+
+    return QS_OK;
+}
+
+qs_error_t sdg(state_t *state, const qubit_t target) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) sdg_pure(state, target);
+    else sdg_mixed(state, target);
+
+    return QS_OK;
+}
+
+qs_error_t t(state_t *state, const qubit_t target) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) t_pure(state, target);
+    else t_mixed(state, target);
+
+    return QS_OK;
+}
+
+qs_error_t tdg(state_t *state, const qubit_t target) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) tdg_pure(state, target);
+    else tdg_mixed(state, target);
 
     return QS_OK;
 }

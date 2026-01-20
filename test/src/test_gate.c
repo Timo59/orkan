@@ -30,6 +30,11 @@ void tearDown(void) {}
 void test_X_pure(void) {testSingleQubitGate(x, XMAT);}
 void test_Y_pure(void) {testSingleQubitGate(y, YMAT);}
 void test_Z_pure(void) {testSingleQubitGate(z, ZMAT);}
+void test_H_pure(void) {testSingleQubitGate(h, HMAT);}
+void test_S_pure(void) {testSingleQubitGate(s, SMAT);}
+void test_Sdg_pure(void) {testSingleQubitGate(sdg, SDGMAT);}
+void test_T_pure(void) {testSingleQubitGate(t, TMAT);}
+void test_Tdg_pure(void) {testSingleQubitGate(tdg, TDGMAT);}
 
 /*
  * =====================================================================================================================
@@ -40,6 +45,11 @@ void test_Z_pure(void) {testSingleQubitGate(z, ZMAT);}
 void test_X_mixed(void) {testSingleQubitGateMixed(x, XMAT);}
 void test_Y_mixed(void) {testSingleQubitGateMixed(y, YMAT);}
 void test_Z_mixed(void) {testSingleQubitGateMixed(z, ZMAT);}
+void test_H_mixed(void) {testSingleQubitGateMixed(h, HMAT);}
+void test_S_mixed(void) {testSingleQubitGateMixed(s, SMAT);}
+void test_Sdg_mixed(void) {testSingleQubitGateMixed(sdg, SDGMAT);}
+void test_T_mixed(void) {testSingleQubitGateMixed(t, TMAT);}
+void test_Tdg_mixed(void) {testSingleQubitGateMixed(tdg, TDGMAT);}
 
 /*
  * =====================================================================================================================
@@ -92,11 +102,21 @@ int main(void) {
     RUN_TEST(test_X_pure);
     RUN_TEST(test_Y_pure);
     RUN_TEST(test_Z_pure);
+    RUN_TEST(test_H_pure);
+    RUN_TEST(test_S_pure);
+    RUN_TEST(test_Sdg_pure);
+    RUN_TEST(test_T_pure);
+    RUN_TEST(test_Tdg_pure);
 
     // Mixed state tests
     RUN_TEST(test_X_mixed);
     RUN_TEST(test_Y_mixed);
     RUN_TEST(test_Z_mixed);
+    RUN_TEST(test_H_mixed);
+    RUN_TEST(test_S_mixed);
+    RUN_TEST(test_Sdg_mixed);
+    RUN_TEST(test_T_mixed);
+    RUN_TEST(test_Tdg_mixed);
 
     return UNITY_END();
 }

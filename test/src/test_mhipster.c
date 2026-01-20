@@ -203,3 +203,4 @@ void testSingleQubitGateMixed(const single_qubit_gate gate, const cplx_t *mat) {
         // Free test state
         state_free(&test_state);
 }
+
