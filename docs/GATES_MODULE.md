@@ -3,7 +3,7 @@
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
 **Implementation:** `src/qhipster.c`, `src/mhipster.c`, `src/gate.c`
-**Last Updated:** 2026-01-19
+**Last Updated:** 2026-01-20
 
 ---
 
@@ -21,6 +21,9 @@ Kronecker products.
   based on `state->type` enum
 - **Direct packed operations**: Mixed state gates operate directly on lower-triangular packed storage
   (no unpacking required)
+- **Macro-based traversal** (mixed states): Common loop structure factored into `TRAVERSE_MIXED_1Q`
+  macro with gate-specific operations passed as macro parameters—enables adding new gates with minimal
+  code while ensuring consistent traversal logic
 - **Test-driven validation**: Reference implementations using full BLAS matrix operations verify
   correctness
 
@@ -261,8 +264,8 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 | Gate     | Description         | Pure State | Mixed State | Phase |
 |----------|---------------------|------------|-------------|-------|
 | `x()`    | Pauli-X             | ✅ Complete | ✅ Complete | 1 |
-| `y()`    | Pauli-Y             | 🔄 In Progress | 🔄 In Progress | 2 |
-| `z()`    | Pauli-Z             | 🔄 In Progress | 🔄 In Progress | 2 |
+| `y()`    | Pauli-Y             | ✅ Complete | ✅ Complete | 2 |
+| `z()`    | Pauli-Z             | ✅ Complete | ✅ Complete | 2 |
 | `h()`    | Hadamard            | 🔲 TODO | 🔲 TODO | 2 |
 | `s()`    | Phase gate          | 🔲 TODO | 🔲 TODO | 2 |
 | `sdg()`  | S†                  | 🔲 TODO | 🔲 TODO | 2 |
@@ -309,6 +312,37 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 ### Position-Dependent Stride Logic
 
 qHiPSTER uses stride-based indexing where stride = 2^target. Different target qubits exercise different memory access patterns and code paths, requiring validation of all qubit positions.
+
+### Mixed State Traversal Macro (`TRAVERSE_MIXED_1Q`)
+
+Single-qubit gates on density matrices share identical traversal structure but differ in element operations.
+The `TRAVERSE_MIXED_1Q` macro in `src/mhipster.c` factors out the common loop structure:
+
+```c
+TRAVERSE_MIXED_1Q(state, target, DIAG_OP, CONJ_OP, OFFDIAG_OP)
+```
+
+**Operation points** (gate-specific macros called at each point):
+- `DIAG_OP(data, n, stride)`: Process (0,0)↔(1,1) quadrant pairs (diagonal blocks)
+- `CONJ_OP(d10, count, start_k, dim, col_block)`: Process (1,0)↔(0,1) pairs where (0,1) is in
+  upper triangle (accessed via conjugate)
+- `OFFDIAG_OP(d10, d01, n)`: Process (1,0)↔(0,1) pairs where both are in lower triangle
+
+**Example gate definition** (complete implementation):
+```c
+#define X_DIAG_OP(data, n, stride)      op_swap_stride(data, n, stride)
+#define X_CONJ_OP(d10, count, ...)      op_swap_conj(d10, count, __VA_ARGS__)
+#define X_OFFDIAG_OP(d10, d01, n)       op_swap(d10, d01, n)
+
+void x_mixed(state_t *state, const qubit_t target) {
+    TRAVERSE_MIXED_1Q(state, target, X_DIAG_OP, X_CONJ_OP, X_OFFDIAG_OP);
+}
+```
+
+**Benefits**:
+- Adding new single-qubit gates requires only defining 3 operation macros + 1 function
+- Bug fixes to traversal logic automatically apply to all gates
+- `static inline` helper functions ensure no runtime overhead from abstraction
 
 ### Numerical Precision
 
@@ -371,11 +405,11 @@ State objects not thread-safe for concurrent mutation. Users can create separate
 ### Phase 2: Remaining Single-Qubit Gates - IN PROGRESS 🔄
 **Goal**: Complete single-qubit gate library
 
-**Status**: Y and Z gates in progress
-- ✅ Y gate: Declaration in `gate.h`, dispatcher in `gate.c`, tests added
-- ✅ Z gate: Declaration in `gate.h`, dispatcher in `gate.c`, tests added
-- 🔄 Y gate: Pure/mixed implementations pending
-- 🔄 Z gate: Pure/mixed implementations pending
+**Status**: Pauli gates complete, Clifford/rotation gates pending
+- ✅ Y gate: Complete (pure + mixed), all tests passing
+- ✅ Z gate: Complete (pure + mixed), all tests passing
+- ✅ Mixed state traversal refactored: `TRAVERSE_MIXED_1Q` macro extracts common loop structure
+- 🔲 Remaining: H, S, S†, T, T†, Hy, rotation gates
 
 **Deliverables**: Implement all remaining single-qubit gates for both pure and mixed states following Phase 1 pattern:
 - Pauli gates: Y, Z
