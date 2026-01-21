@@ -395,6 +395,7 @@ static void print_usage(const char *prog) {
     printf("  --iterations N   Number of iterations (default: %d)\n", BENCH_DEFAULT_ITERATIONS);
     printf("  --warmup N       Warm-up iterations (default: %d)\n", BENCH_DEFAULT_WARMUP);
     printf("  --csv            Output in CSV format\n");
+    printf("  --pgfplots       Output in pgfplots-compatible .dat format\n");
     printf("  --verbose        Show additional details\n");
     printf("  --help           Show this help\n");
 }
@@ -406,6 +407,7 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
         .iterations = BENCH_DEFAULT_ITERATIONS,
         .warmup = BENCH_DEFAULT_WARMUP,
         .csv_output = 0,
+        .pgfplots_output = 0,
         .verbose = 0
     };
 
@@ -420,6 +422,8 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
             opts.warmup = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--csv") == 0) {
             opts.csv_output = 1;
+        } else if (strcmp(argv[i], "--pgfplots") == 0) {
+            opts.pgfplots_output = 1;
         } else if (strcmp(argv[i], "--verbose") == 0) {
             opts.verbose = 1;
         } else if (strcmp(argv[i], "--help") == 0) {
@@ -450,6 +454,75 @@ static const gate_def_t gates[] = {
     {NULL, NULL, NULL}
 };
 
+#define NUM_GATES 3
+#define MAX_QUBIT_CONFIGS 16
+#define NUM_METHODS 5  /* qlib, blas, naive, quest, qpp */
+
+/** @brief Storage for pgfplots output (collected during benchmark) */
+typedef struct {
+    qubit_t qubits[MAX_QUBIT_CONFIGS];
+    int num_configs;
+    double time_ms[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
+    size_t memory[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
+} pgfplots_data_t;
+
+static pgfplots_data_t pgf_data = {0};
+
+/** @brief Method indices for pgfplots data */
+enum { M_QLIB = 0, M_BLAS = 1, M_NAIVE = 2, M_QUEST = 3, M_QPP = 4 };
+
+/** @brief Print pgfplots-compatible .dat output */
+static void print_pgfplots_output(void) {
+    const char *method_names[] = {"qlib", "blas", "quest", "qpp"};
+    int method_indices[] = {M_QLIB, M_BLAS, M_QUEST, M_QPP};
+    int num_methods = 4;
+
+    /* Print timing tables (one per gate) */
+    for (int g = 0; g < NUM_GATES; ++g) {
+        printf("# %s gate timing (ms)\n", gates[g].name);
+        printf("%-8s", "qubits");
+        for (int m = 0; m < num_methods; ++m) {
+            printf("  %-12s", method_names[m]);
+        }
+        printf("\n");
+
+        for (int q = 0; q < pgf_data.num_configs; ++q) {
+            printf("%-8u", pgf_data.qubits[q]);
+            for (int m = 0; m < num_methods; ++m) {
+                double val = pgf_data.time_ms[g][q][method_indices[m]];
+                if (val > 0) {
+                    printf("  %-12.6f", val);
+                } else {
+                    printf("  %-12s", "nan");
+                }
+            }
+            printf("\n");
+        }
+        printf("\n");
+    }
+
+    /* Print memory table (same for all gates, use first gate) */
+    printf("# Memory usage (MB)\n");
+    printf("%-8s", "qubits");
+    for (int m = 0; m < num_methods; ++m) {
+        printf("  %-12s", method_names[m]);
+    }
+    printf("\n");
+
+    for (int q = 0; q < pgf_data.num_configs; ++q) {
+        printf("%-8u", pgf_data.qubits[q]);
+        for (int m = 0; m < num_methods; ++m) {
+            size_t bytes = pgf_data.memory[0][q][method_indices[m]];
+            if (bytes > 0) {
+                printf("  %-12.3f", (double)bytes / (1024.0 * 1024.0));
+            } else {
+                printf("  %-12s", "nan");
+            }
+        }
+        printf("\n");
+    }
+}
+
 /*
  * =====================================================================================================================
  * Main
@@ -464,7 +537,7 @@ int main(int argc, char *argv[]) {
 
     if (opts.csv_output) {
         bench_print_csv_header();
-    } else {
+    } else if (!opts.pgfplots_output) {
         printf("\nMixed State Gate Benchmarks\n");
         printf("===========================\n");
         printf("Comparing: qlib packed sparse vs BLAS dense vs naive loop");
@@ -485,23 +558,30 @@ int main(int argc, char *argv[]) {
         printf("\n");
     }
 
+    int qi = 0;  /* Qubit configuration index for pgfplots */
+
     for (qubit_t qubits = opts.min_qubits; qubits <= opts.max_qubits; qubits += 2) {
         dim_t dim = (dim_t)1 << qubits;
 
         /* Skip if memory would be too large (> 4GB for dense) */
         if (bench_dense_size(qubits) > 4ULL * 1024 * 1024 * 1024) {
-            if (!opts.csv_output) {
+            if (!opts.csv_output && !opts.pgfplots_output) {
                 printf("Skipping %u qubits (dense matrix > 4GB)\n", qubits);
             }
             continue;
         }
 
-        if (!opts.csv_output) {
+        /* Store qubit count for pgfplots */
+        if (opts.pgfplots_output && qi < MAX_QUBIT_CONFIGS) {
+            pgf_data.qubits[qi] = qubits;
+        }
+
+        if (!opts.csv_output && !opts.pgfplots_output) {
             printf("qubits: %u, dim: %ld\n", qubits, dim);
         }
 
         for (int g = 0; gates[g].name != NULL; ++g) {
-            if (!opts.csv_output) {
+            if (!opts.csv_output && !opts.pgfplots_output) {
                 printf("\nGate: %s\n", gates[g].name);
             }
 
@@ -537,6 +617,24 @@ int main(int argc, char *argv[]) {
                 opts.iterations, opts.warmup);
 #endif
 
+            /* Store results for pgfplots output */
+            if (opts.pgfplots_output && qi < MAX_QUBIT_CONFIGS) {
+                pgf_data.time_ms[g][qi][M_QLIB] = r_packed.time_ms;
+                pgf_data.time_ms[g][qi][M_BLAS] = r_dense.time_ms;
+                pgf_data.time_ms[g][qi][M_NAIVE] = r_naive.time_ms;
+                pgf_data.memory[g][qi][M_QLIB] = r_packed.memory_bytes;
+                pgf_data.memory[g][qi][M_BLAS] = r_dense.memory_bytes;
+                pgf_data.memory[g][qi][M_NAIVE] = r_naive.memory_bytes;
+#ifdef WITH_QUEST
+                pgf_data.time_ms[g][qi][M_QUEST] = r_quest.time_ms;
+                pgf_data.memory[g][qi][M_QUEST] = r_quest.memory_bytes;
+#endif
+#ifdef WITH_QPP
+                pgf_data.time_ms[g][qi][M_QPP] = r_qpp.time_ms;
+                pgf_data.memory[g][qi][M_QPP] = r_qpp.memory_bytes;
+#endif
+            }
+
             if (opts.csv_output) {
                 bench_print_csv(&r_packed);
                 bench_print_csv(&r_dense);
@@ -547,7 +645,7 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QPP
                 bench_print_csv(&r_qpp);
 #endif
-            } else {
+            } else if (!opts.pgfplots_output) {
                 bench_print_result(&r_packed, opts.verbose);
                 bench_print_result(&r_dense, opts.verbose);
                 if (qubits <= 8) bench_print_result(&r_naive, opts.verbose);
@@ -625,9 +723,20 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        if (!opts.csv_output) {
+        if (!opts.csv_output && !opts.pgfplots_output) {
             printf("\n" "─────────────────────────────────────────────────\n");
         }
+
+        /* Increment qubit config index for pgfplots */
+        if (opts.pgfplots_output) {
+            qi++;
+        }
+    }
+
+    /* Output pgfplots data */
+    if (opts.pgfplots_output) {
+        pgf_data.num_configs = qi;
+        print_pgfplots_output();
     }
 
 #ifdef WITH_QUEST

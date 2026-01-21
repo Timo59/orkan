@@ -19,6 +19,7 @@ cmake --build . --target bench_mixed
 --iterations N   Number of iterations (default: 1000)
 --warmup N       Warm-up iterations (default: 100)
 --csv            Output CSV format
+--pgfplots       Output pgfplots-compatible .dat format
 --verbose        Show per-method memory usage inline
 --help           Show help
 ```
@@ -27,7 +28,8 @@ cmake --build . --target bench_mixed
 
 ```bash
 ./benchmark/bench_mixed --max-qubits 8           # Quick test
-./benchmark/bench_mixed --csv > results.csv      # Export data
+./benchmark/bench_mixed --csv > results.csv      # Export CSV data
+./benchmark/bench_mixed --pgfplots > results.dat # Export for pgfplots/LaTeX
 ./benchmark/bench_mixed --iterations 5000        # Higher precision
 ```
 
@@ -100,7 +102,7 @@ Memory is measured as RSS (resident set size) delta capturing the full allocatio
 
 **Full initialization**: Each framework's memory measurement includes all setup:
 - **QuEST**: Measures `initQuESTEnv()` + `createDensityQureg()` + state initialization (forked process)
-- **Quantum++**: Measures Eigen matrix allocation (forked process)
+- **Quantum++**: Measures Eigen matrix allocation with OpenMP enabled (forked process)
 - **BLAS/naive**: Measures density matrix + gate matrix allocations
 - **qlib**: Measures packed storage allocation
 
@@ -144,10 +146,10 @@ When citing these benchmarks, document the following:
 
 ### Fairness Considerations
 - QuEST uses OpenMP multithreading; thread count affects results
-- Quantum++ single-threaded by default
+- Quantum++ uses OpenMP via Eigen3 (enabled by default in this benchmark)
 - BLAS may use multiple threads depending on implementation
 - qlib is single-threaded
-- For fair comparison, consider `OMP_NUM_THREADS=1`
+- All competing frameworks have multithreading available, making qlib's single-threaded performance even more impressive
 
 ### Limitations
 - Only single-qubit gates benchmarked
@@ -165,6 +167,7 @@ QuEST and Quantum++ are included as git submodules in `extern/`. They are auto-d
 -- Benchmark configuration:
 --   QuEST:     TRUE
 --   Quantum++: TRUE
+--   OpenMP:    TRUE
 ```
 
 ### Setup (if submodules not initialized)

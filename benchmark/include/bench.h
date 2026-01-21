@@ -53,6 +53,7 @@ typedef struct bench_options {
     int iterations;
     int warmup;
     int csv_output;
+    int pgfplots_output;
     int verbose;
 } bench_options_t;
 

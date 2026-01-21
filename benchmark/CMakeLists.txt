@@ -31,6 +31,26 @@ if(QuEST_INCLUDE_DIR AND QuEST_LIBRARY)
     set(QuEST_FOUND TRUE)
 endif()
 
+# OpenMP - for Eigen3 parallelization in Quantum++
+# macOS requires explicit hints for Homebrew's libomp
+if(APPLE)
+    execute_process(
+        COMMAND brew --prefix libomp
+        OUTPUT_VARIABLE LIBOMP_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(LIBOMP_PREFIX)
+        set(OpenMP_ROOT ${LIBOMP_PREFIX})
+        set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
+        set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
+        set(OpenMP_C_LIB_NAMES "omp")
+        set(OpenMP_CXX_LIB_NAMES "omp")
+        set(OpenMP_omp_LIBRARY "${LIBOMP_PREFIX}/lib/libomp.dylib")
+    endif()
+endif()
+find_package(OpenMP)
+
 # Quantum++ (requires Eigen3) - check extern/ first
 find_package(Eigen3 QUIET CONFIG HINTS /opt/homebrew/opt/eigen/share/eigen3/cmake)
 if(Eigen3_FOUND)
@@ -69,6 +89,11 @@ endif()
 
 add_executable(bench_mixed ${BENCH_MIXED_SRC})
 
+# Output binary to cmake-build-debug/benchmark/
+set_target_properties(bench_mixed PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
+)
+
 target_include_directories(bench_mixed
         PRIVATE
             "${CMAKE_SOURCE_DIR}/include"
@@ -104,6 +129,10 @@ if(QPP_FOUND)
     target_link_libraries(bench_mixed PRIVATE Eigen3::Eigen)
     set_property(TARGET bench_mixed PROPERTY CXX_STANDARD 17)
     set_property(TARGET bench_mixed PROPERTY CXX_STANDARD_REQUIRED ON)
+    # Enable OpenMP for Eigen3 parallelization in Quantum++
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(bench_mixed PRIVATE OpenMP::OpenMP_CXX)
+    endif()
 endif()
 
 #=======================================================================================================================
@@ -113,3 +142,4 @@ endif()
 message(STATUS "Benchmark configuration:")
 message(STATUS "  QuEST:     ${QuEST_FOUND}")
 message(STATUS "  Quantum++: ${QPP_FOUND}")
+message(STATUS "  OpenMP:    ${OpenMP_CXX_FOUND}")
