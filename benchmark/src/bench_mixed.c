@@ -211,12 +211,15 @@ bench_result_t bench_qlib_packed(qubit_t qubits, const char *gate_name,
     result.dim = (dim_t)1 << qubits;
     result.gate_name = gate_name;
     result.method = "qlib_packed";
-    result.memory_bytes = bench_packed_size(qubits);
     result.iterations = iterations;
 
+    /* Measure actual memory usage */
+    size_t mem_before = bench_get_rss();
     state_t state = {0};
     init_random_mixed_state(&state, qubits);
     if (!state.data) return result;
+    size_t mem_after = bench_get_rss();
+    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_packed_size(qubits);
 
     /* Warm-up */
     for (int i = 0; i < warmup; ++i) {
@@ -247,10 +250,12 @@ bench_result_t bench_blas_dense(qubit_t qubits, const char *gate_name,
     result.dim = (dim_t)1 << qubits;
     result.gate_name = gate_name;
     result.method = "blas_dense";
-    result.memory_bytes = bench_dense_size(qubits);
     result.iterations = iterations;
 
     dim_t dim = result.dim;
+
+    /* Measure actual memory usage */
+    size_t mem_before = bench_get_rss();
 
     /* Create full density matrix (random) */
     cplx_t *rho = malloc(dim * dim * sizeof(cplx_t));
@@ -265,6 +270,9 @@ bench_result_t bench_blas_dense(qubit_t qubits, const char *gate_name,
     for (qubit_t t = 0; t < qubits; ++t) {
         U[t] = build_full_gate_matrix(qubits, gate_mat, t);
     }
+
+    size_t mem_after = bench_get_rss();
+    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_dense_size(qubits);
 
     /* Warm-up */
     for (int i = 0; i < warmup; ++i) {
@@ -299,10 +307,12 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
     result.dim = (dim_t)1 << qubits;
     result.gate_name = gate_name;
     result.method = "naive_loop";
-    result.memory_bytes = bench_dense_size(qubits);
     result.iterations = iterations;
 
     dim_t dim = result.dim;
+
+    /* Measure actual memory usage */
+    size_t mem_before = bench_get_rss();
 
     /* Create full density matrix (random) */
     cplx_t *rho = malloc(dim * dim * sizeof(cplx_t));
@@ -317,6 +327,9 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
     for (qubit_t t = 0; t < qubits; ++t) {
         U[t] = build_full_gate_matrix(qubits, gate_mat, t);
     }
+
+    size_t mem_after = bench_get_rss();
+    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_dense_size(qubits);
 
     /* Warm-up */
     for (int i = 0; i < warmup; ++i) {
@@ -484,10 +497,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (!opts.csv_output) {
-            printf("qubits: %u, dim: %d, packed: %.1f MB, dense: %.1f MB\n",
-                   qubits, dim,
-                   (double)bench_packed_size(qubits) / (1024 * 1024),
-                   (double)bench_dense_size(qubits) / (1024 * 1024));
+            printf("qubits: %u, dim: %ld\n", qubits, dim);
         }
 
         for (int g = 0; gates[g].name != NULL; ++g) {
@@ -569,6 +579,48 @@ int main(int argc, char *argv[]) {
                     printf(", %.1fx vs Quantum++", speedup_qpp);
                 }
 #endif
+                printf("\n");
+
+                /* Memory comparison (actual RSS measured) */
+                size_t max_mem = r_dense.memory_bytes;
+                if (r_naive.memory_bytes > max_mem) max_mem = r_naive.memory_bytes;
+#ifdef WITH_QUEST
+                if (r_quest.memory_bytes > max_mem) max_mem = r_quest.memory_bytes;
+#endif
+#ifdef WITH_QPP
+                if (r_qpp.memory_bytes > max_mem) max_mem = r_qpp.memory_bytes;
+#endif
+
+                /* Auto-scale units based on largest value */
+                const char *unit;
+                double scale;
+                if (max_mem >= 1024 * 1024) {
+                    unit = "MB";
+                    scale = 1024.0 * 1024.0;
+                } else {
+                    unit = "KB";
+                    scale = 1024.0;
+                }
+
+                printf("  Memory: qlib=%.1f %s", (double)r_packed.memory_bytes / scale, unit);
+                printf(", dense=%.1f %s", (double)r_dense.memory_bytes / scale, unit);
+                if (qubits <= 8 && r_naive.memory_bytes > 0) {
+                    printf(", naive=%.1f %s", (double)r_naive.memory_bytes / scale, unit);
+                }
+#ifdef WITH_QUEST
+                if (r_quest.memory_bytes > 0) {
+                    printf(", QuEST=%.1f %s", (double)r_quest.memory_bytes / scale, unit);
+                }
+#endif
+#ifdef WITH_QPP
+                if (r_qpp.memory_bytes > 0) {
+                    printf(", Qpp=%.1f %s", (double)r_qpp.memory_bytes / scale, unit);
+                }
+#endif
+                if (r_packed.memory_bytes > 0 && r_dense.memory_bytes > 0) {
+                    double savings = 100.0 * (1.0 - (double)r_packed.memory_bytes / (double)r_dense.memory_bytes);
+                    printf(" (qlib saves %.0f%%)", savings);
+                }
                 printf("\n");
             }
         }

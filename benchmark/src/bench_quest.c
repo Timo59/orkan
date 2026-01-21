@@ -9,6 +9,10 @@
  * GitHub: https://github.com/QuEST-Kit/QuEST
  *
  * To enable: cmake -DWITH_QUEST=ON -DQuEST_DIR=/path/to/quest ..
+ *
+ * Memory measurement: QuEST cannot be re-initialized after finalization,
+ * so we fork a child process for each benchmark to get accurate memory
+ * measurements that include the full environment setup cost.
  */
 
 #ifdef WITH_QUEST
@@ -17,49 +21,47 @@
 #include "quest/include/quest.h"
 #include <stdio.h>
 #include <stdlib.h>
-
-static int quest_initialized = 0;
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 void bench_quest_init(void) {
-    if (!quest_initialized) {
-        initQuESTEnv();
-        quest_initialized = 1;
-    }
+    /* No-op: environment initialized in forked child */
 }
 
 void bench_quest_cleanup(void) {
-    if (quest_initialized) {
-        finalizeQuESTEnv();
-        quest_initialized = 0;
-    }
+    /* No-op: environment finalized in forked child */
 }
 
 /**
- * @brief Benchmark QuEST density matrix gate operations
+ * @brief Run QuEST benchmark in child process (internal)
  *
- * @param qubits Number of qubits
- * @param gate_name Name of the gate ("X", "H", "Z")
- * @param iterations Number of iterations
- * @param warmup Number of warm-up iterations
- * @return bench_result_t Benchmark results
+ * This runs in a forked child and writes results to the pipe.
  */
-bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
-                           int iterations, int warmup) {
+static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_name,
+                               int iterations, int warmup) {
     bench_result_t result = {0};
     result.qubits = qubits;
     result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "quest";
-    /* QuEST stores full density matrix internally */
-    result.memory_bytes = bench_dense_size(qubits);
     result.iterations = iterations;
 
-    /* Ensure QuEST is initialized */
-    bench_quest_init();
+    /*
+     * Measure total memory: environment + Qureg allocation.
+     * Fresh process ensures we capture the true memory cost.
+     */
+    size_t mem_before = bench_get_rss();
 
-    /* Create density matrix */
+    initQuESTEnv();
     Qureg rho = createDensityQureg((int)qubits);
-    initZeroState(rho);
+
+    /*
+     * Use initDebugState() to ensure all memory pages are touched.
+     * initZeroState() may leave pages unmapped due to lazy allocation.
+     */
+    initDebugState(rho);
+
+    size_t mem_after = bench_get_rss();
+    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : 0;
 
     /* Select gate function based on name */
     void (*gate_fn)(Qureg, int) = NULL;
@@ -70,9 +72,12 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
     } else if (gate_name[0] == 'Z') {
         gate_fn = applyPauliZ;
     } else {
-        fprintf(stderr, "bench_quest: unknown gate '%s'\n", gate_name);
+        /* Write empty result and exit */
+        write(write_fd, &result, sizeof(result));
+        close(write_fd);
         destroyQureg(rho);
-        return result;
+        finalizeQuESTEnv();
+        _exit(1);
     }
 
     /* Warm-up */
@@ -92,8 +97,76 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
     result.time_ms = bench_ns_to_ms(end - start);
     result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
 
-    /* Cleanup Qureg only (not the environment) */
+    /* Write result to parent */
+    write(write_fd, &result, sizeof(result));
+    close(write_fd);
+
+    /* Cleanup and exit */
     destroyQureg(rho);
+    finalizeQuESTEnv();
+    _exit(0);
+}
+
+/**
+ * @brief Benchmark QuEST density matrix gate operations
+ *
+ * Forks a child process for each benchmark to ensure accurate memory
+ * measurement. QuEST cannot be re-initialized after finalization.
+ *
+ * @param qubits Number of qubits
+ * @param gate_name Name of the gate ("X", "H", "Z")
+ * @param iterations Number of iterations
+ * @param warmup Number of warm-up iterations
+ * @return bench_result_t Benchmark results
+ */
+bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
+                           int iterations, int warmup) {
+    bench_result_t result = {0};
+    result.qubits = qubits;
+    result.dim = (dim_t)1 << qubits;
+    result.gate_name = gate_name;
+    result.method = "quest";
+    result.iterations = iterations;
+
+    /* Create pipe for child to send results back */
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        perror("bench_quest: pipe failed");
+        return result;
+    }
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("bench_quest: fork failed");
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return result;
+    }
+
+    if (pid == 0) {
+        /* Child process */
+        close(pipefd[0]);  /* Close read end */
+        bench_quest_child(pipefd[1], qubits, gate_name, iterations, warmup);
+        _exit(0);  /* Should not reach here */
+    }
+
+    /* Parent process */
+    close(pipefd[1]);  /* Close write end */
+
+    /* Read result from child */
+    bench_result_t child_result;
+    ssize_t n = read(pipefd[0], &child_result, sizeof(child_result));
+    close(pipefd[0]);
+
+    /* Wait for child to finish */
+    int status;
+    waitpid(pid, &status, 0);
+
+    if (n == sizeof(child_result)) {
+        result.time_ms = child_result.time_ms;
+        result.ops_per_sec = child_result.ops_per_sec;
+        result.memory_bytes = child_result.memory_bytes;
+    }
 
     return result;
 }
