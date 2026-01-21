@@ -94,6 +94,63 @@ static inline size_t bench_dense_size(qubit_t qubits) {
 
 /*
  * =====================================================================================================================
+ * Runtime memory measurement
+ * =====================================================================================================================
+ */
+
+#if defined(__APPLE__)
+#include <mach/mach.h>
+
+/** @brief Get current process resident memory (RSS) in bytes */
+static inline size_t bench_get_rss(void) {
+    struct mach_task_basic_info info;
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
+                  (task_info_t)&info, &count) != KERN_SUCCESS) {
+        return 0;
+    }
+    return info.resident_size;
+}
+
+#elif defined(__linux__)
+#include <stdio.h>
+#include <string.h>
+
+/** @brief Get current process resident memory (RSS) in bytes */
+static inline size_t bench_get_rss(void) {
+    FILE *f = fopen("/proc/self/status", "r");
+    if (!f) return 0;
+
+    size_t rss = 0;
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, "VmRSS:", 6) == 0) {
+            sscanf(line + 6, "%zu", &rss);
+            rss *= 1024;  /* Convert KB to bytes */
+            break;
+        }
+    }
+    fclose(f);
+    return rss;
+}
+
+#else
+/** @brief Fallback: return 0 if platform not supported */
+static inline size_t bench_get_rss(void) {
+    return 0;
+}
+#endif
+
+/** @brief Measure memory delta for an allocation */
+#define BENCH_MEASURE_MEMORY(alloc_code, result_var) do { \
+    size_t _before = bench_get_rss(); \
+    alloc_code; \
+    size_t _after = bench_get_rss(); \
+    result_var = (_after > _before) ? (_after - _before) : 0; \
+} while(0)
+
+/*
+ * =====================================================================================================================
  * Benchmark functions (implemented in bench_mixed.c)
  * =====================================================================================================================
  */
@@ -133,17 +190,19 @@ bench_options_t bench_parse_options(int argc, char *argv[]);
 
 #ifdef WITH_QUEST
 /**
- * @brief Initialize QuEST environment (call once at startup)
+ * @brief Initialize QuEST environment (no-op, env initialized per-benchmark)
  */
 void bench_quest_init(void);
 
 /**
- * @brief Cleanup QuEST environment (call once at shutdown)
+ * @brief Cleanup QuEST environment (no-op, env finalized per-benchmark)
  */
 void bench_quest_cleanup(void);
 
 /**
  * @brief Run QuEST density matrix benchmark
+ *
+ * Memory measurement includes full QuEST environment + Qureg allocation.
  * @see https://quest.qtechtheory.org/
  */
 bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
