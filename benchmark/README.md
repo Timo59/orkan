@@ -90,7 +90,7 @@ This captures real memory usage including:
 | QuEST | Multithreaded quantum simulator | O(N²) |
 | Quantum++ | Eigen3-based C++17 library | O(N²) |
 
-Note: naive loop is only run for ≤8 qubits due to performance.
+Note: BLAS dense and naive loop are only run for ≤8 qubits due to O(N³) performance.
 
 Memory is measured as actual runtime RSS (resident set size) delta, not theoretical sizes. This captures real allocations including temporary buffers.
 

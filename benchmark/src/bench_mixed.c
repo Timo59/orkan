@@ -590,10 +590,13 @@ int main(int argc, char *argv[]) {
                 qubits, gates[g].name, gates[g].fn,
                 opts.iterations, opts.warmup);
 
-            /* Benchmark BLAS dense */
-            bench_result_t r_dense = bench_blas_dense(
-                qubits, gates[g].name, gates[g].mat,
-                opts.iterations, opts.warmup);
+            /* Benchmark BLAS dense (skip for larger systems - O(N³) is too slow) */
+            bench_result_t r_dense = {0};
+            if (qubits <= 8) {
+                r_dense = bench_blas_dense(
+                    qubits, gates[g].name, gates[g].mat,
+                    opts.iterations, opts.warmup);
+            }
 
             /* Benchmark naive loop (skip for larger systems) */
             bench_result_t r_naive = {0};
@@ -637,7 +640,7 @@ int main(int argc, char *argv[]) {
 
             if (opts.csv_output) {
                 bench_print_csv(&r_packed);
-                bench_print_csv(&r_dense);
+                if (qubits <= 8) bench_print_csv(&r_dense);
                 if (qubits <= 8) bench_print_csv(&r_naive);
 #ifdef WITH_QUEST
                 bench_print_csv(&r_quest);
@@ -647,7 +650,7 @@ int main(int argc, char *argv[]) {
 #endif
             } else if (!opts.pgfplots_output) {
                 bench_print_result(&r_packed, opts.verbose);
-                bench_print_result(&r_dense, opts.verbose);
+                if (qubits <= 8) bench_print_result(&r_dense, opts.verbose);
                 if (qubits <= 8) bench_print_result(&r_naive, opts.verbose);
 #ifdef WITH_QUEST
                 bench_print_result(&r_quest, opts.verbose);
@@ -657,13 +660,19 @@ int main(int argc, char *argv[]) {
 #endif
 
                 /* Speedup */
-                double speedup_dense = r_dense.time_ms / r_packed.time_ms;
-                printf("  Speedup: %.1fx vs dense", speedup_dense);
+                printf("  Speedup:");
+                int has_speedup = 0;
+                if (qubits <= 8 && r_dense.time_ms > 0) {
+                    double speedup_dense = r_dense.time_ms / r_packed.time_ms;
+                    printf(" %.1fx vs dense", speedup_dense);
+                    has_speedup = 1;
+                }
                 if (qubits <= 8 && r_naive.time_ms > 0) {
                     double speedup_naive = r_naive.time_ms / r_packed.time_ms;
                     /* Scale for different iteration counts */
                     speedup_naive *= 10;
-                    printf(", ~%.0fx vs naive", speedup_naive);
+                    printf("%s~%.0fx vs naive", has_speedup ? ", " : " ", speedup_naive);
+                    has_speedup = 1;
                 }
 #ifdef WITH_QUEST
                 if (r_quest.time_ms > 0) {
@@ -680,7 +689,8 @@ int main(int argc, char *argv[]) {
                 printf("\n");
 
                 /* Memory comparison (actual RSS measured) */
-                size_t max_mem = r_dense.memory_bytes;
+                size_t max_mem = r_packed.memory_bytes;
+                if (r_dense.memory_bytes > max_mem) max_mem = r_dense.memory_bytes;
                 if (r_naive.memory_bytes > max_mem) max_mem = r_naive.memory_bytes;
 #ifdef WITH_QUEST
                 if (r_quest.memory_bytes > max_mem) max_mem = r_quest.memory_bytes;
@@ -701,7 +711,9 @@ int main(int argc, char *argv[]) {
                 }
 
                 printf("  Memory: qlib=%.1f %s", (double)r_packed.memory_bytes / scale, unit);
-                printf(", dense=%.1f %s", (double)r_dense.memory_bytes / scale, unit);
+                if (qubits <= 8 && r_dense.memory_bytes > 0) {
+                    printf(", dense=%.1f %s", (double)r_dense.memory_bytes / scale, unit);
+                }
                 if (qubits <= 8 && r_naive.memory_bytes > 0) {
                     printf(", naive=%.1f %s", (double)r_naive.memory_bytes / scale, unit);
                 }
@@ -715,7 +727,7 @@ int main(int argc, char *argv[]) {
                     printf(", Qpp=%.1f %s", (double)r_qpp.memory_bytes / scale, unit);
                 }
 #endif
-                if (r_packed.memory_bytes > 0 && r_dense.memory_bytes > 0) {
+                if (qubits <= 8 && r_packed.memory_bytes > 0 && r_dense.memory_bytes > 0) {
                     double savings = 100.0 * (1.0 - (double)r_packed.memory_bytes / (double)r_dense.memory_bytes);
                     printf(" (qlib saves %.0f%%)", savings);
                 }
