@@ -1,5 +1,31 @@
 # Implementation Plan: mhipster_block.c - Blocked Memory Layout for Mixed State Gates
 
+## Status
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | Foundation - Headers | ✅ Complete |
+| 2 | State Infrastructure | ✅ Complete |
+| 3.1 | Z Gate | ✅ Complete |
+| 3.2 | X Gate | ⏳ Pending |
+| 3.3 | Y Gate | ⏳ Pending |
+| 3.4 | H Gate | ⏳ Pending |
+| 3.5 | S, Sdg, T, Tdg Gates | ⏳ Pending |
+| 4 | SIMD Optimization | ⏳ Pending |
+| 5 | OpenMP Tuning | ⏳ Pending |
+| 6 | Benchmark Integration | ⏳ Pending |
+
+**Test Results** (Phase 1-3.1):
+```
+test_state_blocked_len:PASS
+test_state_blocked_init:PASS
+test_state_blocked_plus:PASS
+test_state_blocked_get_set:PASS
+test_z_blocked:PASS
+-----------------------
+5 Tests 0 Failures 0 Ignored
+```
+
 ## Overview
 
 Implement a blocked memory layout alternative to the packed lower-triangular storage in `mhipster.c`, optimized for cache locality, SIMD vectorization, and better parallel decomposition.
@@ -25,25 +51,22 @@ Implement a blocked memory layout alternative to the packed lower-triangular sto
 src/
 ├── mhipster.c          (UNCHANGED)
 ├── state.c             (UNCHANGED)
-├── state_blocked.c     (NEW - blocked state management)
-├── mhipster_block.c    (NEW - blocked gate implementations)
+├── state_blocked.c     ✅ CREATED - blocked state management
+├── mhipster_block.c    ✅ CREATED - blocked gate implementations
 
 include/
 ├── state.h             (UNCHANGED)
-├── state_blocked.h     (NEW - blocked state type + functions)
-├── mhipster_block.h    (NEW - blocked gate declarations)
+├── state_blocked.h     ✅ CREATED - blocked state type + functions
+├── mhipster_block.h    ✅ CREATED - blocked gate declarations
 
 test/
 ├── src/
 │   ├── test_mhipster.c       (UNCHANGED)
-│   ├── test_mhipster_block.c (NEW - blocked gate tests)
-│   └── test_helpers.c        (NEW - shared helpers extracted from test_mhipster.c)
-├── include/
-│   └── test_helpers.h        (NEW - multiQubitGate declaration)
+│   ├── test_mhipster_block.c ✅ CREATED - blocked gate tests (includes multiQubitGate locally)
 
 benchmark/
 ├── src/
-│   └── bench_mixed.c   (MODIFY - only file modified, add blocked variant)
+│   └── bench_mixed.c   ⏳ PENDING - add blocked variant
 ```
 
 **Key design decisions**:
@@ -495,21 +518,21 @@ add_test(NAME test_mhipster_block COMMAND test_mhipster_block)
 
 ## Implementation Order (Tight TDD - Test Immediately Followed by Implementation)
 
-| Phase | Task | Files |
-|-------|------|-------|
-| 1 | Create headers | `include/state_blocked.h`, `include/mhipster_block.h` |
-| 2 | State tests + impl | `test/src/test_mhipster_block.c` (state section), `src/state_blocked.c` |
-| 3 | Z gate: test -> impl | `test/src/test_mhipster_block.c` (test_z), `src/mhipster_block.c` (z_blocked) |
-| 4 | X gate: test -> impl | Same files (test_x -> x_blocked with SIMD) |
-| 5 | Y gate: test -> impl | Same files (test_y -> y_blocked) |
-| 6 | S gate: test -> impl | Same files (test_s -> s_blocked) |
-| 7 | Sdg gate: test -> impl | Same files (test_sdg -> sdg_blocked) |
-| 8 | T gate: test -> impl | Same files (test_t -> t_blocked) |
-| 9 | Tdg gate: test -> impl | Same files (test_tdg -> tdg_blocked) |
-| 10 | H gate: test -> impl | Same files (test_h -> h_blocked, key optimization target) |
-| 11 | SIMD tuning | `src/mhipster_block.c` (NEON/AVX2 paths) |
-| 12 | OpenMP tuning | `src/mhipster_block.c` (parallel regions) |
-| 13 | Benchmark | `benchmark/src/bench_mixed.c` (add blocked variant) |
+| Phase | Task | Files | Status |
+|-------|------|-------|--------|
+| 1 | Create headers | `include/state_blocked.h`, `include/mhipster_block.h` | ✅ |
+| 2 | State tests + impl | `test/src/test_mhipster_block.c` (state section), `src/state_blocked.c` | ✅ |
+| 3 | Z gate: test -> impl | `test/src/test_mhipster_block.c` (test_z), `src/mhipster_block.c` (z_blocked) | ✅ |
+| 4 | X gate: test -> impl | Same files (test_x -> x_blocked with SIMD) | ⏳ |
+| 5 | Y gate: test -> impl | Same files (test_y -> y_blocked) | ⏳ |
+| 6 | S gate: test -> impl | Same files (test_s -> s_blocked) | ⏳ |
+| 7 | Sdg gate: test -> impl | Same files (test_sdg -> sdg_blocked) | ⏳ |
+| 8 | T gate: test -> impl | Same files (test_t -> t_blocked) | ⏳ |
+| 9 | Tdg gate: test -> impl | Same files (test_tdg -> tdg_blocked) | ⏳ |
+| 10 | H gate: test -> impl | Same files (test_h -> h_blocked, key optimization target) | ⏳ |
+| 11 | SIMD tuning | `src/mhipster_block.c` (NEON/AVX2 paths) | ⏳ |
+| 12 | OpenMP tuning | `src/mhipster_block.c` (parallel regions) | ⏳ |
+| 13 | Benchmark | `benchmark/src/bench_mixed.c` (add blocked variant) | ⏳ |
 
 **TDD Rule**: Never implement a gate without its test passing first. Each gate has:
 1. Test written and failing (references `multiQubitGate()` from test_mhipster.c)
@@ -546,19 +569,20 @@ add_test(NAME test_mhipster_block COMMAND test_mhipster_block)
 ## Files to Create/Modify
 
 **New source/header files** (completely parallel infrastructure):
-- `include/state_blocked.h` - Blocked state type and functions
-- `include/mhipster_block.h` - Blocked gate declarations
-- `src/state_blocked.c` - Blocked state implementation
-- `src/mhipster_block.c` - Blocked gate implementations
-- `test/src/test_mhipster_block.c` - Blocked format tests
-- `test/src/test_helpers.c` - Shared test helpers (extracted from test_mhipster.c)
-- `test/include/test_helpers.h` - Header for multiQubitGate() and related functions
+- ✅ `include/state_blocked.h` - Blocked state type and functions
+- ✅ `include/mhipster_block.h` - Blocked gate declarations
+- ✅ `src/state_blocked.c` - Blocked state implementation
+- ✅ `src/mhipster_block.c` - Blocked gate implementations (Z gate complete, others stubbed)
+- ✅ `test/src/test_mhipster_block.c` - Blocked format tests (includes local copy of multiQubitGate)
+- ⏳ `test/src/test_helpers.c` - Shared test helpers (optional: extract from test_mhipster.c if needed)
+- ⏳ `test/include/test_helpers.h` - Header for multiQubitGate() and related functions (optional)
 
 **Modified files** (source code):
-- `benchmark/src/bench_mixed.c` - Add `bench_qlib_blocked()` function (ONLY source file modified)
-- `test/src/test_mhipster.c` - Remove helper functions (moved to test_helpers.c), add include
+- ⏳ `benchmark/src/bench_mixed.c` - Add `bench_qlib_blocked()` function (ONLY source file modified)
 
 **Modified files** (build configuration only):
-- `src/CMakeLists.txt` - Add state_blocked.c and mhipster_block.c to Q_SOURCES
-- `test/CMakeLists.txt` - Add test_helpers library and test_mhipster_block target
-- `benchmark/CMakeLists.txt` - Ensure blocked sources are linked
+- ✅ `src/CMakeLists.txt` - Add state_blocked.c and mhipster_block.c to Q_SOURCES
+- ✅ `test/CMakeLists.txt` - Add test_mhipster_block target
+- ⏳ `benchmark/CMakeLists.txt` - Ensure blocked sources are linked
+
+**Implementation Note**: The test file `test_mhipster_block.c` currently includes a local copy of `multiQubitGate()` rather than extracting to a shared helper library. This approach is simpler and sufficient for the current test suite. If more tests need the helper, consider extracting to `test_helpers.c`.
