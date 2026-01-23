@@ -18,6 +18,7 @@ option(BUILD_EXAMPLES "Build examples" OFF)
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer for memory debugging" OFF)
+option(ENABLE_OPENMP "Enable OpenMP parallelization" ON)
 
 if(ENABLE_ASAN)
     message(STATUS "AddressSanitizer enabled")

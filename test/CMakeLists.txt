@@ -94,5 +94,6 @@ target_include_directories(test_gate
 target_link_libraries(test_gate
         PRIVATE
             blas_compiler_flags
+            omp_compiler_flags
             ${PROJECT_COMPILER_FLAGS}
 )

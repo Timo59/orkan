@@ -84,11 +84,11 @@ This captures real memory usage including:
 
 | Method | Description | Complexity |
 |--------|-------------|------------|
-| qlib packed | Packed lower-triangular with stride traversal | O(N) per gate |
+| qlib packed | Packed lower-triangular with stride traversal (OpenMP) | O(N) per gate |
 | BLAS dense | Full matrix UρU† via zgemm | O(N³) |
 | naive loop | Element-by-element UρU† computation | O(N³) |
-| QuEST | Multithreaded quantum simulator | O(N²) |
-| Quantum++ | Eigen3-based C++17 library | O(N²) |
+| QuEST | Multithreaded quantum simulator (OpenMP) | O(N²) |
+| Quantum++ | Eigen3-based C++17 library (OpenMP) | O(N²) |
 
 Note: BLAS dense and naive loop are only run for ≤8 qubits due to O(N³) performance.
 
@@ -148,8 +148,8 @@ When citing these benchmarks, document the following:
 - QuEST uses OpenMP multithreading; thread count affects results
 - Quantum++ uses OpenMP via Eigen3 (enabled by default in this benchmark)
 - BLAS may use multiple threads depending on implementation
-- qlib is single-threaded
-- All competing frameworks have multithreading available, making qlib's single-threaded performance even more impressive
+- qlib uses OpenMP parallelization (enabled by default via `ENABLE_OPENMP` CMake option)
+- All frameworks now have comparable multithreading capabilities
 
 ### Limitations
 - Only single-qubit gates benchmarked
