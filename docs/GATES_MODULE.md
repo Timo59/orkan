@@ -3,7 +3,7 @@
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
 **Implementation:** `src/qhipster.c`, `src/mhipster.c`, `src/gate.c`
-**Last Updated:** 2026-01-20
+**Last Updated:** 2026-01-23
 
 ---
 
@@ -367,9 +367,36 @@ All gate functions return `qs_error_t` (defined in `q_types.h`):
 
 Internal implementations (`x_pure`, `x_mixed`, etc.) trust validated inputs and do not perform additional checks.
 
-### Thread Safety
+### Thread Safety and Parallelization
 
-State objects not thread-safe for concurrent mutation. Users can create separate state objects for parallel evaluation. Gate operations are memory-bandwidth limited (~3× speedup on 10 cores with OpenMP).
+State objects are not thread-safe for concurrent mutation. Users can create separate state objects for
+parallel evaluation.
+
+**OpenMP Parallelization:**
+
+Gate operations use OpenMP for shared-memory parallelism (enabled by default via `ENABLE_OPENMP` CMake option).
+Parallelization is conditional on system size to avoid thread overhead for small states:
+
+| Component | Parallelization Strategy |
+|-----------|-------------------------|
+| Pure state gates | Outer loop over independent blocks (`#pragma omp parallel for`) |
+| Pure state (leftmost qubit) | Element-wise parallelization when outer loop has 1 iteration |
+| Mixed state Pauli/phase gates | `col_block` loop in `TRAVERSE_MIXED_1Q` macro |
+| Mixed state Hadamard | Outer loop with dynamic scheduling for load balancing |
+
+**Thresholds:** Different thresholds account for different workloads:
+- **Pure states**: `OMP_THRESHOLD = 2048` → n ≥ 11 qubits (O(dim) work per gate)
+- **Mixed states**: `OMP_THRESHOLD = 64` → n ≥ 6 qubits (O(dim²) work per gate)
+
+**Edge case:** When targeting the leftmost qubit (target = n-1), the outer loop has only one iteration.
+Pure state gates handle this by parallelizing at the element level. Mixed state gates using
+`TRAVERSE_MIXED_1Q` do not parallelize in this case due to cross-column dependencies in packed storage.
+
+**Build configuration:**
+```bash
+cmake -DENABLE_OPENMP=ON ..   # Enable (default)
+cmake -DENABLE_OPENMP=OFF ..  # Disable for single-threaded execution
+```
 
 ---
 

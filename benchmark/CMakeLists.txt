@@ -103,6 +103,7 @@ target_include_directories(bench_mixed
 target_link_libraries(bench_mixed
         PRIVATE
             blas_compiler_flags
+            omp_compiler_flags
             ${PROJECT_COMPILER_FLAGS}
 )
 

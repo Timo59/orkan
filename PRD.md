@@ -23,7 +23,7 @@ A C library for studying the **performance and scalability of quantum heuristics
 | Observables | Diagonal Hamiltonians, sparse Pauli sums |
 | Measurements | Expectation values, gradients (adjoint method), shot-based sampling |
 | Noise | Runtime-toggled noise on gates |
-| Parallelism | Shared-memory (OpenMP), cache optimization, SIMD |
+| Parallelism | Shared-memory (OpenMP, optional), cache optimization, SIMD |
 | Utilities | State copy, save/load to disk |
 
 ### 1.4 Out of Scope
@@ -441,12 +441,43 @@ Requires 2p circuit evaluations but only one state in memory at a time.
 - Auto-selected based on n and detected core count
 
 **Within-gate parallelism (OpenMP):**
+
+OpenMP parallelization is enabled by default (`-DENABLE_OPENMP=ON`) and can be disabled at build time.
+Gates use conditional parallelization with workload-appropriate thresholds:
+- **Pure states**: `OMP_THRESHOLD = 2048` (n ≥ 11 qubits) — O(dim) work per gate
+- **Mixed states**: `OMP_THRESHOLD = 64` (n ≥ 6 qubits) — O(dim²) work per gate
+
 ```c
-#pragma omp parallel for
-for (int i = 0; i < (1 << (n_qubits - 1)); i++) {
-    // Process amplitude pair
+// Pure states: parallelize over independent blocks
+#pragma omp parallel for if(dim >= OMP_THRESHOLD)
+for (dim_t i = 0; i < dim; i += step) {
+    cblas_zswap(stride, state->data + i, 1, state->data + i + stride, 1);
+}
+
+// Leftmost qubit edge case: parallelize element-wise when outer loop has single iteration
+if (step >= dim && stride >= OMP_THRESHOLD) {
+    #pragma omp parallel for
+    for (dim_t j = 0; j < stride; ++j) {
+        // Process element pairs directly
+    }
 }
 ```
+
+**Mixed state parallelization:**
+
+The `TRAVERSE_MIXED_1Q` macro parallelizes the outer `col_block` loop when multiple independent
+column blocks exist. For the Hadamard gate, which processes independent 2×2 blocks, dynamic
+scheduling balances load across threads:
+
+```c
+#pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
+for (dim_t c = 0; c < dim; ++c) { /* process 2×2 blocks */ }
+```
+
+**Note:** When targeting the leftmost qubit (target = n-1), the outer loop has only one iteration.
+Pure state gates handle this by switching to element-wise parallelization. Mixed state gates
+using `TRAVERSE_MIXED_1Q` do not parallelize in this case due to cross-column dependencies in
+the packed storage format.
 
 ### 5.5 Thread Safety
 
@@ -538,9 +569,15 @@ Assertions may be enabled in debug builds (`-DDEBUG`) for development, but are d
 | CBLAS | Linear algebra primitives | Yes |
 | LAPACK | Matrix operations (for unit tests) | Yes |
 | complex.h | C99 complex numbers | Yes |
-| OpenMP | Shared-memory parallelism | Yes |
+| OpenMP | Shared-memory parallelism | Optional (enabled by default) |
 | Unity | Unit testing framework | Testing only |
 | CMake | Build system | Yes |
+
+**CMake options:**
+```bash
+cmake -DENABLE_OPENMP=ON ..   # Enable OpenMP parallelization (default)
+cmake -DENABLE_OPENMP=OFF ..  # Disable OpenMP (single-threaded)
+```
 
 ---
 
@@ -647,4 +684,4 @@ Qubit 0 is the **rightmost** (least significant) bit.
 ---
 
 *Document generated via Socratic design process.*
-*Last updated: 2026-01-20 (Clifford gates H, S, S†, T, T† complete for pure and mixed states)*
+*Last updated: 2026-01-23 (OpenMP parallelization for gate operations)*

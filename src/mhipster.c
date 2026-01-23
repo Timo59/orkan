@@ -18,11 +18,22 @@
 #include <complex.h>
 #include <math.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #if defined(__APPLE__)
     #include <vecLib/cblas_new.h>
 #elif defined(__linux__)
     #include <cblas.h>
 #endif
+
+/* Minimum dimension to enable OpenMP parallelization (avoid thread overhead for small systems)
+ * Mixed states: O(dim²) work per gate due to density matrix size, so parallelization is
+ * beneficial at much smaller dim than for pure states. At dim=64 (n=6), the packed array
+ * has ~2000 elements — sufficient work to offset thread overhead.
+ */
+#define OMP_THRESHOLD 64
 
 
 /*
@@ -52,14 +63,21 @@
  *   dim     - Hilbert space dimension (2^n_qubits)
  *   incr    - Distance between indices differing only in target bit (2^target)
  *   subdim  - Invariant subspace dimension (2^(target+1))
+ *
+ * OpenMP parallelization:
+ *   The outer col_block loop iterates over independent column blocks. Each block accesses
+ *   disjoint memory regions, so threads won't conflict. Parallelization is enabled when
+ *   dim >= OMP_THRESHOLD and there are multiple col_blocks (subdim < dim).
  */
 #define TRAVERSE_MIXED_1Q(state, target, DIAG_OP, CONJ_OP, OFFDIAG_OP)                                                 \
 do {                                                                                                                   \
     const dim_t dim = (dim_t)1 << (state)->qubits;                                                                     \
     const dim_t incr = (dim_t)1 << (target);                                                                           \
     const dim_t subdim = (dim_t)1 << ((target) + 1);                                                                   \
+    const int parallel_outer = (subdim < dim) && (dim >= OMP_THRESHOLD);                                               \
                                                                                                                        \
     /* Iterate column blocks: columns where bit t = 0 */                                                               \
+    _Pragma("omp parallel for if(parallel_outer)")                                                                     \
     for (dim_t col_block = 0; col_block < dim; col_block += subdim) {                                                  \
         /* Offset to start of col_block in packed array */                                                             \
         dim_t offset = col_block * (2 * dim - col_block + 1) / 2;                                                      \
@@ -78,7 +96,7 @@ do {                                                                            
                                                                                                                        \
             /* (1,0) ↔ (0,1) pairs where (0,1) is in upper triangle (access via conjugate) */                          \
             cplx_t *d10 = data + n_first;                                                                              \
-            CONJ_OP(d10, n_first, col - col_block, dim, col_block);                                             \
+            CONJ_OP(d10, n_first, col - col_block, dim, col_block);                                                    \
                                                                                                                        \
             /* --- Remaining row blocks --- */                                                                         \
             cplx_t *row_data = d10 + incr;                                                                             \
@@ -275,7 +293,12 @@ void h_mixed(state_t *state, const qubit_t target) {
     const dim_t incr = (dim_t)1 << target;
     cplx_t *data = state->data;
 
-    /* Iterate over all 2×2 blocks indexed by (r, c) with r >= c, bit t = 0 in both */
+    /*
+     * Iterate over all 2×2 blocks indexed by (r, c) with r >= c, bit t = 0 in both.
+     * Each 2×2 block transformation is independent, so we can parallelize.
+     * Use dynamic scheduling since the inner loop length varies with c.
+     */
+    #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
     for (dim_t c = 0; c < dim; ++c) {
         if (c & incr) continue;
         for (dim_t r = c; r < dim; ++r) {

@@ -33,20 +33,25 @@ target_link_libraries(blas_compiler_flags INTERFACE ${QSIM_BLAS_LIBRARIES})
 # Interface library to specify usage of OpenMP routines
 add_library(omp_compiler_flags INTERFACE)
 
-target_compile_options(omp_compiler_flags
-        INTERFACE
-            $<$<BOOL:${APPLE}>:-Xpreprocessor>
-            -fopenmp
-)
-target_include_directories(omp_compiler_flags
-        INTERFACE $<$<BOOL:${APPLE}>:/opt/homebrew/opt/libomp/include>
-)
-target_link_libraries(omp_compiler_flags
-        INTERFACE $<$<BOOL:${APPLE}>:-lomp>
-)
-target_link_directories(omp_compiler_flags
-        INTERFACE $<$<BOOL:${APPLE}>:/opt/homebrew/opt/libomp/lib>
-)
-target_link_options(omp_compiler_flags
-        INTERFACE $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-fopenmp>
-)
+if(ENABLE_OPENMP)
+    message(STATUS "OpenMP parallelization enabled")
+    target_compile_options(omp_compiler_flags
+            INTERFACE
+                $<$<BOOL:${APPLE}>:-Xpreprocessor>
+                -fopenmp
+    )
+    target_include_directories(omp_compiler_flags
+            INTERFACE $<$<BOOL:${APPLE}>:/opt/homebrew/opt/libomp/include>
+    )
+    target_link_libraries(omp_compiler_flags
+            INTERFACE $<$<BOOL:${APPLE}>:-lomp>
+    )
+    target_link_directories(omp_compiler_flags
+            INTERFACE $<$<BOOL:${APPLE}>:/opt/homebrew/opt/libomp/lib>
+    )
+    target_link_options(omp_compiler_flags
+            INTERFACE $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-fopenmp>
+    )
+else()
+    message(STATUS "OpenMP parallelization disabled")
+endif()
