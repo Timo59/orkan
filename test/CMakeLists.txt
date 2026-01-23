@@ -97,3 +97,37 @@ target_link_libraries(test_gate
             omp_compiler_flags
             ${PROJECT_COMPILER_FLAGS}
 )
+
+#=======================================================================================================================
+# test_mhipster_block
+#=======================================================================================================================
+
+# Source files required for test_mhipster_block
+set(TEST_MHIPSTER_BLOCK_SRC
+        "${SRC_DIR}/state_blocked.c"
+        "${SRC_DIR}/mhipster_block.c"
+        "${TEST_SRC_DIR}/test_mhipster_block.c"
+        "${TEST_SRC_DIR}/gatemat.c"
+        "${TEST_SRC_DIR}/linalg.c"
+        "${UNITY_SRC}/unity.c"
+)
+
+add_executable(test_mhipster_block ${TEST_MHIPSTER_BLOCK_SRC})
+target_compile_definitions(test_mhipster_block
+        PRIVATE
+            UNITY_INCLUDE_DOUBLE
+            UNITY_SUPPORT_64
+)
+target_include_directories(test_mhipster_block
+        PRIVATE
+            ${UNITY_SRC}
+            "${CMAKE_SOURCE_DIR}/include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+target_link_libraries(test_mhipster_block
+        PRIVATE
+            blas_compiler_flags
+            omp_compiler_flags
+            ${PROJECT_COMPILER_FLAGS}
+)
+add_test(NAME test_mhipster_block COMMAND test_mhipster_block)

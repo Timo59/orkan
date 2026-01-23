@@ -3,9 +3,11 @@
 # Collect source files
 set(Q_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/state.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/state_blocked.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gate.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/qhipster.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/mhipster.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/mhipster_block.c"
 )
 
 # Include directory
