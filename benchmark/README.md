@@ -1,6 +1,6 @@
 # Mixed State Benchmarks
 
-Benchmarks comparing qlib's packed sparse density matrix implementation against BLAS dense, QuEST, and Quantum++.
+Benchmarks comparing qlib's packed sparse density matrix implementation against BLAS dense, QuEST, Quantum++, and Qulacs.
 
 ## How to Run
 
@@ -33,18 +33,31 @@ cmake --build . --target bench_mixed
 ./benchmark/bench_mixed --iterations 5000        # Higher precision
 ```
 
-## Results (8 qubits, 256-dim)
+## Results (10 qubits, 1024-dim)
 
 | Method | X gate | H gate | Z gate |
 |--------|--------|--------|--------|
-| qlib packed | 215 ms | 196 ms | 108 ms |
-| BLAS dense | 5848 ms | 5821 ms | 5852 ms |
-| QuEST | 725 ms | 727 ms | 641 ms |
-| Quantum++ | 1760 ms | 1694 ms | 1789 ms |
+| qlib packed | 130 ms | 125 ms | 79 ms |
+| qlib blocked | 104 ms | 179 ms | 77 ms |
+| QuEST | 524 ms | 520 ms | 392 ms |
+| Quantum++ | 7448 ms | 7520 ms | 7407 ms |
+| Qulacs | 549 ms | 548 ms | 552 ms |
 
-**Speedup:** qlib is 27-54x faster than BLAS, 3-6x faster than QuEST, 8-17x faster than Quantum++.
+**Speedup (packed vs others):** qlib is 4-5x faster than QuEST and Qulacs, 50-60x faster than Quantum++.
 
-**Memory (8 qubits, runtime RSS):** qlib=0.5 MB, dense=9.3 MB, QuEST=2.3 MB, Qpp=1.0 MB
+**Blocked vs Packed:** X gate 1.26x faster, Z gate 1.03x faster at 10 qubits.
+
+**Memory (10 qubits):** packed=8.0 MB, blocked=8.5 MB, QuEST=16.9 MB, Qpp=16.1 MB, Qulacs=16.0 MB
+
+### Blocked Format Performance by Qubit Count
+
+| Qubits | X blocked vs packed | Z blocked vs packed |
+|--------|---------------------|---------------------|
+| 6 | **13.9x faster** | **22.9x faster** |
+| 8 | 0.86x (near parity) | 0.91x (near parity) |
+| 10 | **1.32x faster** | **1.08x faster** |
+
+The blocked format excels at small sizes (avoiding BLAS overhead) and at larger sizes (cache-friendly tile structure with SIMD).
 
 ## Benchmark Methodology
 
@@ -85,10 +98,12 @@ This captures real memory usage including:
 | Method | Description | Complexity |
 |--------|-------------|------------|
 | qlib packed | Packed lower-triangular with stride traversal (OpenMP) | O(N) per gate |
+| qlib blocked | Tile-based blocking with NEON SIMD (OpenMP) | O(N) per gate |
 | BLAS dense | Full matrix UρU† via zgemm | O(N³) |
 | naive loop | Element-by-element UρU† computation | O(N³) |
 | QuEST | Multithreaded quantum simulator (OpenMP) | O(N²) |
 | Quantum++ | Eigen3-based C++17 library (OpenMP) | O(N²) |
+| Qulacs | High-performance simulator with SIMD/OpenMP (QunaSys) | O(N²) |
 
 Note: BLAS dense and naive loop are only run for ≤8 qubits due to O(N³) performance.
 
@@ -98,17 +113,19 @@ Memory is measured as actual runtime RSS (resident set size) delta, not theoreti
 
 Memory is measured as RSS (resident set size) delta capturing the full allocation cost.
 
-**Process isolation**: QuEST and Quantum++ benchmarks run in forked child processes to ensure accurate memory measurement. This avoids memory reuse between benchmarks and captures the true cost of each framework's initialization.
+**Process isolation**: QuEST, Quantum++, and Qulacs benchmarks run in forked child processes to ensure accurate memory measurement. This avoids memory reuse between benchmarks and captures the true cost of each framework's initialization.
 
 **Full initialization**: Each framework's memory measurement includes all setup:
-- **QuEST**: Measures `initQuESTEnv()` + `createDensityQureg()` + state initialization (forked process)
-- **Quantum++**: Measures Eigen matrix allocation with OpenMP enabled (forked process)
-- **BLAS/naive**: Measures density matrix + gate matrix allocations
-- **qlib**: Measures packed storage allocation
+- **QuEST**: Measures `initQuESTEnv()` + `createDensityQureg()` + state initialization (forked process, RSS delta)
+- **Quantum++**: Measures Eigen matrix allocation with OpenMP enabled (forked process, RSS delta)
+- **Qulacs**: Reports theoretical matrix size (`dim² × 16 bytes`) since RSS delta after fork() is unreliable on macOS
+- **BLAS/naive**: Measures density matrix + gate matrix allocations (RSS delta)
+- **qlib**: Measures packed storage allocation (RSS delta)
 
 **Page-touching**: To avoid lazy allocation where the OS defers page mapping:
 - **QuEST**: Uses `initDebugState()` to touch all state vector pages
 - **Quantum++**: Initializes matrices with `Ones()` before setting values
+- **Qulacs**: Uses `memset()` to initialize matrix (memory reported as theoretical size)
 - **BLAS/naive/qlib**: Fill with random values, naturally touching all pages
 
 **Theoretical sizes** (for reference):
@@ -125,7 +142,7 @@ When citing these benchmarks, document the following:
 - OS and kernel version
 - Compiler and version (e.g., clang 15.0, gcc 13.2)
 - BLAS implementation (OpenBLAS, Accelerate, MKL)
-- Library versions: QuEST, Quantum++, Eigen
+- Library versions: QuEST, Quantum++, Qulacs, Eigen
 
 ### Build Configuration
 - Optimization level (-O0, -O2, -O3)
@@ -147,6 +164,7 @@ When citing these benchmarks, document the following:
 ### Fairness Considerations
 - QuEST uses OpenMP multithreading; thread count affects results
 - Quantum++ uses OpenMP via Eigen3 (enabled by default in this benchmark)
+- Qulacs uses OpenMP for parallelization (enabled by default)
 - BLAS may use multiple threads depending on implementation
 - qlib uses OpenMP parallelization (enabled by default via `ENABLE_OPENMP` CMake option)
 - All frameworks now have comparable multithreading capabilities
@@ -161,25 +179,36 @@ When citing these benchmarks, document the following:
 
 ## External Frameworks
 
-QuEST and Quantum++ are included as git submodules in `extern/`. They are auto-detected during cmake configuration. Check the cmake output for status:
+QuEST, Quantum++, and Qulacs are included as git submodules in `extern/`. They are auto-detected during cmake configuration. Check the cmake output for status:
 
 ```
 -- Benchmark configuration:
 --   QuEST:     TRUE
 --   Quantum++: TRUE
+--   Qulacs:    TRUE
 --   OpenMP:    TRUE
 ```
 
 ### Setup (if submodules not initialized)
 
 ```bash
-git submodule update --init extern/QuEST extern/qpp
-brew install eigen libomp  # macOS dependencies
+git submodule update --init extern/QuEST extern/qpp extern/qulacs
+brew install eigen libomp boost  # macOS dependencies
 
 # Build QuEST
 cd extern/QuEST && mkdir build && cd build
 OpenMP_ROOT=$(brew --prefix)/opt/libomp cmake ..
 cmake --build .
+
+# Build Qulacs (csim_static library)
+# IMPORTANT: Use -DCMAKE_BUILD_TYPE=Release for optimized builds (-O3)
+cd extern/qulacs && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DUSE_PYTHON=No -DUSE_TEST=No -DUSE_OMP=Yes \
+  -DOpenMP_C_FLAGS="-Xclang -fopenmp -I$(brew --prefix libomp)/include" \
+  -DOpenMP_CXX_FLAGS="-Xclang -fopenmp -I$(brew --prefix libomp)/include" \
+  -DOpenMP_C_LIB_NAMES="omp" -DOpenMP_CXX_LIB_NAMES="omp" \
+  -DOpenMP_omp_LIBRARY="$(brew --prefix libomp)/lib/libomp.dylib"
+cmake --build . --target csim_static
 ```
 
 ### Custom paths
@@ -187,7 +216,7 @@ cmake --build .
 If frameworks are installed elsewhere, pass hints to cmake:
 
 ```bash
-cmake -DQuEST_DIR=/path/to/quest -DQPP_DIR=/path/to/qpp ..
+cmake -DQuEST_DIR=/path/to/quest -DQPP_DIR=/path/to/qpp -DQULACS_DIR=/path/to/qulacs ..
 ```
 
 ## Files
@@ -199,5 +228,6 @@ benchmark/
 └── src/
     ├── bench_mixed.c    # Main benchmark + BLAS/naive implementations
     ├── bench_quest.c    # QuEST wrapper
-    └── bench_qpp.cpp    # Quantum++ wrapper
+    ├── bench_qpp.cpp    # Quantum++ wrapper
+    └── bench_qulacs.cpp # Qulacs wrapper
 ```

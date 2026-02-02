@@ -219,6 +219,15 @@ bench_result_t bench_qpp(qubit_t qubits, const char *gate_name,
                          int iterations, int warmup);
 #endif
 
+#ifdef WITH_QULACS
+/**
+ * @brief Run Qulacs density matrix benchmark
+ * @see https://github.com/qulacs/qulacs
+ */
+bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
+                            int iterations, int warmup);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

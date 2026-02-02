@@ -9,6 +9,8 @@
  */
 
 #include "bench.h"
+#include "state_blocked.h"
+#include "mhipster_block.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,6 +42,14 @@ static const cplx_t HMAT[4] = {INVSQRT2, INVSQRT2, INVSQRT2, -INVSQRT2};
  * =====================================================================================================================
  */
 
+/** @brief Calculate blocked storage size for n-qubit mixed state */
+static size_t bench_blocked_size(qubit_t qubits) {
+    dim_t dim = (dim_t)1 << qubits;
+    dim_t n_blocks = (dim + BLOCK_DIM - 1) / BLOCK_DIM;
+    dim_t n_tiles = n_blocks * (n_blocks + 1) / 2;
+    return (size_t)(n_tiles * BLOCK_DIM * BLOCK_DIM) * sizeof(cplx_t);
+}
+
 /** @brief Initialize a random mixed state (density matrix) */
 static void init_random_mixed_state(state_t *state, qubit_t qubits) {
     state->type = MIXED;
@@ -55,6 +65,22 @@ static void init_random_mixed_state(state_t *state, qubit_t qubits) {
     }
 
     /* Fill with random values (not a valid density matrix, but fine for benchmarking) */
+    for (dim_t i = 0; i < len; ++i) {
+        double re = (double)rand() / RAND_MAX - 0.5;
+        double im = (double)rand() / RAND_MAX - 0.5;
+        state->data[i] = re + im * I;
+    }
+}
+
+/** @brief Initialize a random blocked state (density matrix) */
+static void init_random_blocked_state(state_blocked_t *state, qubit_t qubits) {
+    state_blocked_init(state, qubits);
+    if (!state->data) {
+        return;
+    }
+
+    /* Fill with random values (not a valid density matrix, but fine for benchmarking) */
+    dim_t len = state_blocked_len(qubits);
     for (dim_t i = 0; i < len; ++i) {
         double re = (double)rand() / RAND_MAX - 0.5;
         double im = (double)rand() / RAND_MAX - 0.5;
@@ -239,6 +265,45 @@ bench_result_t bench_qlib_packed(qubit_t qubits, const char *gate_name,
     result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
 
     state_free(&state);
+    return result;
+}
+
+bench_result_t bench_qlib_blocked(qubit_t qubits, const char *gate_name,
+                                   void (*gate_fn)(state_blocked_t*, qubit_t),
+                                   int iterations, int warmup) {
+    bench_result_t result = {0};
+    result.qubits = qubits;
+    result.dim = (dim_t)1 << qubits;
+    result.gate_name = gate_name;
+    result.method = "qlib_blocked";
+    result.iterations = iterations;
+
+    /* Measure actual memory usage */
+    size_t mem_before = bench_get_rss();
+    state_blocked_t state = {0};
+    init_random_blocked_state(&state, qubits);
+    if (!state.data) return result;
+    size_t mem_after = bench_get_rss();
+    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_blocked_size(qubits);
+
+    /* Warm-up */
+    for (int i = 0; i < warmup; ++i) {
+        gate_fn(&state, 0);
+    }
+
+    /* Timed iterations */
+    uint64_t start = bench_time_ns();
+    for (int i = 0; i < iterations; ++i) {
+        for (qubit_t t = 0; t < qubits; ++t) {
+            gate_fn(&state, t);
+        }
+    }
+    uint64_t end = bench_time_ns();
+
+    result.time_ms = bench_ns_to_ms(end - start);
+    result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
+
+    state_blocked_free(&state);
     return result;
 }
 
@@ -444,19 +509,20 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
 typedef struct gate_def {
     const char *name;
     qs_error_t (*fn)(state_t*, qubit_t);
+    void (*fn_blocked)(state_blocked_t*, qubit_t);  /* Blocked variant (NULL if not implemented) */
     const cplx_t *mat;
 } gate_def_t;
 
 static const gate_def_t gates[] = {
-    {"X", x, XMAT},
-    {"H", h, HMAT},
-    {"Z", z, ZMAT},
-    {NULL, NULL, NULL}
+    {"X", x, x_blocked, XMAT},  /* x_blocked implemented */
+    {"H", h, h_blocked, HMAT},  /* h_blocked implemented */
+    {"Z", z, z_blocked, ZMAT},  /* z_blocked implemented */
+    {NULL, NULL, NULL, NULL}
 };
 
 #define NUM_GATES 3
 #define MAX_QUBIT_CONFIGS 16
-#define NUM_METHODS 5  /* qlib, blas, naive, quest, qpp */
+#define NUM_METHODS 7  /* qlib_packed, qlib_blocked, blas, naive, quest, qpp, qulacs */
 
 /** @brief Storage for pgfplots output (collected during benchmark) */
 typedef struct {
@@ -469,13 +535,13 @@ typedef struct {
 static pgfplots_data_t pgf_data = {0};
 
 /** @brief Method indices for pgfplots data */
-enum { M_QLIB = 0, M_BLAS = 1, M_NAIVE = 2, M_QUEST = 3, M_QPP = 4 };
+enum { M_QLIB = 0, M_QLIB_BLOCKED = 1, M_BLAS = 2, M_NAIVE = 3, M_QUEST = 4, M_QPP = 5, M_QULACS = 6 };
 
 /** @brief Print pgfplots-compatible .dat output */
 static void print_pgfplots_output(void) {
-    const char *method_names[] = {"qlib", "blas", "quest", "qpp"};
-    int method_indices[] = {M_QLIB, M_BLAS, M_QUEST, M_QPP};
-    int num_methods = 4;
+    const char *method_names[] = {"qlib", "qlib_blocked", "blas", "quest", "qpp", "qulacs"};
+    int method_indices[] = {M_QLIB, M_QLIB_BLOCKED, M_BLAS, M_QUEST, M_QPP, M_QULACS};
+    int num_methods = 6;
 
     /* Print timing tables (one per gate) */
     for (int g = 0; g < NUM_GATES; ++g) {
@@ -547,6 +613,9 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QPP
         printf(" vs Quantum++");
 #endif
+#ifdef WITH_QULACS
+        printf(" vs Qulacs");
+#endif
         printf("\n");
         printf("Iterations: %d, Warm-up: %d\n", opts.iterations, opts.warmup);
 #ifdef WITH_QUEST
@@ -554,6 +623,9 @@ int main(int argc, char *argv[]) {
 #endif
 #ifdef WITH_QPP
         printf("Quantum++: enabled (https://github.com/softwareQinc/qpp)\n");
+#endif
+#ifdef WITH_QULACS
+        printf("Qulacs: enabled (https://github.com/qulacs/qulacs)\n");
 #endif
         printf("\n");
     }
@@ -590,6 +662,14 @@ int main(int argc, char *argv[]) {
                 qubits, gates[g].name, gates[g].fn,
                 opts.iterations, opts.warmup);
 
+            /* Benchmark qlib blocked (only if implementation exists) */
+            bench_result_t r_blocked = {0};
+            if (gates[g].fn_blocked != NULL) {
+                r_blocked = bench_qlib_blocked(
+                    qubits, gates[g].name, gates[g].fn_blocked,
+                    opts.iterations, opts.warmup);
+            }
+
             /* Benchmark BLAS dense (skip for larger systems - O(N³) is too slow) */
             bench_result_t r_dense = {0};
             if (qubits <= 8) {
@@ -620,12 +700,21 @@ int main(int argc, char *argv[]) {
                 opts.iterations, opts.warmup);
 #endif
 
+#ifdef WITH_QULACS
+            /* Benchmark Qulacs framework */
+            bench_result_t r_qulacs = bench_qulacs(
+                qubits, gates[g].name,
+                opts.iterations, opts.warmup);
+#endif
+
             /* Store results for pgfplots output */
             if (opts.pgfplots_output && qi < MAX_QUBIT_CONFIGS) {
                 pgf_data.time_ms[g][qi][M_QLIB] = r_packed.time_ms;
+                pgf_data.time_ms[g][qi][M_QLIB_BLOCKED] = r_blocked.time_ms;
                 pgf_data.time_ms[g][qi][M_BLAS] = r_dense.time_ms;
                 pgf_data.time_ms[g][qi][M_NAIVE] = r_naive.time_ms;
                 pgf_data.memory[g][qi][M_QLIB] = r_packed.memory_bytes;
+                pgf_data.memory[g][qi][M_QLIB_BLOCKED] = r_blocked.memory_bytes;
                 pgf_data.memory[g][qi][M_BLAS] = r_dense.memory_bytes;
                 pgf_data.memory[g][qi][M_NAIVE] = r_naive.memory_bytes;
 #ifdef WITH_QUEST
@@ -636,10 +725,15 @@ int main(int argc, char *argv[]) {
                 pgf_data.time_ms[g][qi][M_QPP] = r_qpp.time_ms;
                 pgf_data.memory[g][qi][M_QPP] = r_qpp.memory_bytes;
 #endif
+#ifdef WITH_QULACS
+                pgf_data.time_ms[g][qi][M_QULACS] = r_qulacs.time_ms;
+                pgf_data.memory[g][qi][M_QULACS] = r_qulacs.memory_bytes;
+#endif
             }
 
             if (opts.csv_output) {
                 bench_print_csv(&r_packed);
+                if (r_blocked.time_ms > 0) bench_print_csv(&r_blocked);
                 if (qubits <= 8) bench_print_csv(&r_dense);
                 if (qubits <= 8) bench_print_csv(&r_naive);
 #ifdef WITH_QUEST
@@ -648,8 +742,12 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QPP
                 bench_print_csv(&r_qpp);
 #endif
+#ifdef WITH_QULACS
+                bench_print_csv(&r_qulacs);
+#endif
             } else if (!opts.pgfplots_output) {
                 bench_print_result(&r_packed, opts.verbose);
+                if (r_blocked.time_ms > 0) bench_print_result(&r_blocked, opts.verbose);
                 if (qubits <= 8) bench_print_result(&r_dense, opts.verbose);
                 if (qubits <= 8) bench_print_result(&r_naive, opts.verbose);
 #ifdef WITH_QUEST
@@ -658,13 +756,21 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QPP
                 bench_print_result(&r_qpp, opts.verbose);
 #endif
+#ifdef WITH_QULACS
+                bench_print_result(&r_qulacs, opts.verbose);
+#endif
 
                 /* Speedup */
                 printf("  Speedup:");
                 int has_speedup = 0;
+                if (r_blocked.time_ms > 0) {
+                    double speedup_blocked = r_packed.time_ms / r_blocked.time_ms;
+                    printf(" %.2fx blocked vs packed", speedup_blocked);
+                    has_speedup = 1;
+                }
                 if (qubits <= 8 && r_dense.time_ms > 0) {
                     double speedup_dense = r_dense.time_ms / r_packed.time_ms;
-                    printf(" %.1fx vs dense", speedup_dense);
+                    printf("%s%.1fx vs dense", has_speedup ? ", " : " ", speedup_dense);
                     has_speedup = 1;
                 }
                 if (qubits <= 8 && r_naive.time_ms > 0) {
@@ -686,10 +792,17 @@ int main(int argc, char *argv[]) {
                     printf(", %.1fx vs Quantum++", speedup_qpp);
                 }
 #endif
+#ifdef WITH_QULACS
+                if (r_qulacs.time_ms > 0) {
+                    double speedup_qulacs = r_qulacs.time_ms / r_packed.time_ms;
+                    printf(", %.1fx vs Qulacs", speedup_qulacs);
+                }
+#endif
                 printf("\n");
 
                 /* Memory comparison (actual RSS measured) */
                 size_t max_mem = r_packed.memory_bytes;
+                if (r_blocked.memory_bytes > max_mem) max_mem = r_blocked.memory_bytes;
                 if (r_dense.memory_bytes > max_mem) max_mem = r_dense.memory_bytes;
                 if (r_naive.memory_bytes > max_mem) max_mem = r_naive.memory_bytes;
 #ifdef WITH_QUEST
@@ -697,6 +810,9 @@ int main(int argc, char *argv[]) {
 #endif
 #ifdef WITH_QPP
                 if (r_qpp.memory_bytes > max_mem) max_mem = r_qpp.memory_bytes;
+#endif
+#ifdef WITH_QULACS
+                if (r_qulacs.memory_bytes > max_mem) max_mem = r_qulacs.memory_bytes;
 #endif
 
                 /* Auto-scale units based on largest value */
@@ -710,7 +826,10 @@ int main(int argc, char *argv[]) {
                     scale = 1024.0;
                 }
 
-                printf("  Memory: qlib=%.1f %s", (double)r_packed.memory_bytes / scale, unit);
+                printf("  Memory: packed=%.1f %s", (double)r_packed.memory_bytes / scale, unit);
+                if (r_blocked.memory_bytes > 0) {
+                    printf(", blocked=%.1f %s", (double)r_blocked.memory_bytes / scale, unit);
+                }
                 if (qubits <= 8 && r_dense.memory_bytes > 0) {
                     printf(", dense=%.1f %s", (double)r_dense.memory_bytes / scale, unit);
                 }
@@ -727,9 +846,14 @@ int main(int argc, char *argv[]) {
                     printf(", Qpp=%.1f %s", (double)r_qpp.memory_bytes / scale, unit);
                 }
 #endif
+#ifdef WITH_QULACS
+                if (r_qulacs.memory_bytes > 0) {
+                    printf(", Qulacs=%.1f %s", (double)r_qulacs.memory_bytes / scale, unit);
+                }
+#endif
                 if (qubits <= 8 && r_packed.memory_bytes > 0 && r_dense.memory_bytes > 0) {
                     double savings = 100.0 * (1.0 - (double)r_packed.memory_bytes / (double)r_dense.memory_bytes);
-                    printf(" (qlib saves %.0f%%)", savings);
+                    printf(" (packed saves %.0f%%)", savings);
                 }
                 printf("\n");
             }

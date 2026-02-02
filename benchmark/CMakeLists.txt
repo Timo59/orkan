@@ -67,15 +67,42 @@ if(Eigen3_FOUND)
     endif()
 endif()
 
+# Qulacs - check extern/ first (requires Boost)
+# Qulacs provides dm_* functions for density matrix gate operations
+find_package(Boost 1.71.0 QUIET)
+if(Boost_FOUND)
+    find_path(QULACS_INCLUDE_DIR csim/update_ops_dm.hpp
+        HINTS
+            ${EXTERN_DIR}/qulacs/src
+            ${QULACS_DIR}/include
+            $ENV{QULACS_DIR}/include
+            /usr/local/include/qulacs
+    )
+    find_library(QULACS_CSIM_LIBRARY
+        NAMES csim_static csim
+        HINTS
+            ${EXTERN_DIR}/qulacs/build/lib
+            ${EXTERN_DIR}/qulacs/lib
+            ${QULACS_DIR}/lib
+            $ENV{QULACS_DIR}/lib
+            /usr/local/lib
+    )
+    if(QULACS_INCLUDE_DIR AND QULACS_CSIM_LIBRARY)
+        set(QULACS_FOUND TRUE)
+    endif()
+endif()
+
 #=======================================================================================================================
 # bench_mixed - Main mixed state benchmark
 #=======================================================================================================================
 
 set(BENCH_MIXED_SRC
         "${SRC_DIR}/state.c"
+        "${SRC_DIR}/state_blocked.c"
         "${SRC_DIR}/gate.c"
         "${SRC_DIR}/qhipster.c"
         "${SRC_DIR}/mhipster.c"
+        "${SRC_DIR}/mhipster_block.c"
         "${BENCH_SRC_DIR}/bench_mixed.c"
 )
 
@@ -85,6 +112,10 @@ endif()
 
 if(QPP_FOUND)
     list(APPEND BENCH_MIXED_SRC "${BENCH_SRC_DIR}/bench_qpp.cpp")
+endif()
+
+if(QULACS_FOUND)
+    list(APPEND BENCH_MIXED_SRC "${BENCH_SRC_DIR}/bench_qulacs.cpp")
 endif()
 
 add_executable(bench_mixed ${BENCH_MIXED_SRC})
@@ -136,6 +167,23 @@ if(QPP_FOUND)
     endif()
 endif()
 
+if(QULACS_FOUND)
+    target_compile_definitions(bench_mixed PRIVATE WITH_QULACS)
+    # Only include the csim headers directory, NOT the Qulacs Eigen directory
+    # (to avoid conflicts with Quantum++'s system Eigen)
+    target_include_directories(bench_mixed PRIVATE
+        ${QULACS_INCLUDE_DIR}
+    )
+    target_link_libraries(bench_mixed PRIVATE ${QULACS_CSIM_LIBRARY})
+    # Qulacs requires C++14 minimum (we use C++17 for consistency)
+    set_property(TARGET bench_mixed PROPERTY CXX_STANDARD 17)
+    set_property(TARGET bench_mixed PROPERTY CXX_STANDARD_REQUIRED ON)
+    # Enable OpenMP if available (Qulacs uses it internally)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(bench_mixed PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+endif()
+
 #=======================================================================================================================
 # Status summary
 #=======================================================================================================================
@@ -143,4 +191,5 @@ endif()
 message(STATUS "Benchmark configuration:")
 message(STATUS "  QuEST:     ${QuEST_FOUND}")
 message(STATUS "  Quantum++: ${QPP_FOUND}")
+message(STATUS "  Qulacs:    ${QULACS_FOUND}")
 message(STATUS "  OpenMP:    ${OpenMP_CXX_FOUND}")
