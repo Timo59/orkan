@@ -1,16 +1,9 @@
-#include <math.h>
-
-#ifndef STATE_H
 #include "state.h"
-#endif
-
-#include <stdio.h>
-
-#include <stdlib.h>
-
-#ifndef UTILS_H
 #include "utils.h"
-#endif
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #if defined(__APPLE__)
     #include <vecLib/cblas_new.h>
@@ -25,6 +18,8 @@
  */
 
 void state_free(state_t *state) {
+    if (!state) return;
+
     free(state->data);
     state->data = NULL;
 
@@ -33,6 +28,12 @@ void state_free(state_t *state) {
 
 
 dim_t state_len(const state_t *state) {
+    // Guard against uninitialized or invalid state type
+    if (state->type != PURE && state->type != MIXED) {
+        fprintf(stderr, "state_len(): invalid state type\n");
+        return 0;
+    }
+
     // Hilbert space dimension
     const dim_t dim = POW2(state->qubits, dim_t);
 
@@ -48,6 +49,10 @@ void state_print(const state_t *state) {
     printf("Type: ");
     if (state->type == PURE) printf("PURE");
     else if (state->type == MIXED) printf("MIXED");
+    else {
+        printf("INVALID\n");
+        return;
+    }
 
     printf("\nQubits: %u\n", state->qubits);
 
@@ -85,9 +90,9 @@ void state_plus(state_t *state, const qubit_t qubits) {
     // Normalization constant
     cplx_t prefactor;
     if (state->type == PURE) {
-        prefactor = 1.0 / sqrt(1 << qubits) + I*0.0;
+        prefactor = 1.0 / sqrt((double)(1ULL << qubits));
     } else {
-        prefactor = 1.0 / (1 << qubits) + I*0.0;
+        prefactor = 1.0 / (double)(1ULL << qubits);
     }
 
     // Initialize empty quantum state

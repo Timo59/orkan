@@ -92,7 +92,7 @@ void state_plus(state_t *state, qubit_t qubits);
  *
  * @param[in,out]	state		Address of the state
  *
- * @returns	Deep copy of the quantum state
+ * @returns	Deep copy of the quantum state; on allocation failure, returned state has data == NULL
  */
 state_t state_cp(const state_t* state);
 

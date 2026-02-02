@@ -70,7 +70,7 @@ typedef unsigned char               qubit_t;    // Qubit identifier
 #endif
 
 #define SWAP(a, b, T)           do { register T q; q = *(a); *(a) = *(b); *(b) = q; } while(0)
-#define POW2(a, T)              (1 << (T) (a))
+#define POW2(a, T)              (((T)1) << (a))
 
 #define SETREAL(a, b)           (*((double*) &(a)) = (b))
 #define SETIMAG(a, b)           (*(((double*) &(a)) + 1) = (b))

@@ -3,7 +3,7 @@
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
 **Implementation:** `src/qhipster.c`, `src/mhipster.c`, `src/gate.c`
-**Last Updated:** 2026-02-02
+**Last Updated:** 2026-02-02 (mhipster.c rewrite: unified 2×2 block traversal)
 
 ---
 
@@ -320,36 +320,96 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 
 qHiPSTER uses stride-based indexing where stride = 2^target. Different target qubits exercise different memory access patterns and code paths, requiring validation of all qubit positions.
 
-### Mixed State Traversal Macro (`TRAVERSE_MIXED_1Q`)
+### Mixed State Traversal Macro (`TRAVERSE_PACKED_BLOCKS`)
 
-Single-qubit gates on density matrices share identical traversal structure but differ in element operations.
-The `TRAVERSE_MIXED_1Q` macro in `src/mhipster.c` factors out the common loop structure:
+**Rewritten 2026-02-02**: The original `TRAVERSE_MIXED_1Q` macro with DIAG/CONJ/OFFDIAG operations was
+replaced with a unified 2×2 block traversal approach. This addresses several performance issues identified
+in code review.
+
+> **TODO: Benchmark against old implementation** - The rewrite is expected to improve performance
+> but needs empirical validation. Compare H gate (4x fewer iterations expected), phase gates
+> (zero-multiplication), and overall throughput on n=8-12 qubit systems.
+
+**Problems solved by rewrite:**
+1. Hadamard iterated all indices, skipping 75% with conditionals (`if (c & incr) continue`)
+2. `CONJ_OP` had variable-stride memory access defeating prefetching
+3. BLAS calls added overhead for small operations
+4. Phase gates used complex multiplication instead of zero-multiplication
+5. Complex DIAG/CONJ/OFFDIAG macro split was hard to maintain
+
+**New design: Unified 2×2 block processing**
+
+All gates now use a single traversal pattern iterating over 2×2 blocks indexed by (r0, c0) with bit t=0:
 
 ```c
-TRAVERSE_MIXED_1Q(state, target, DIAG_OP, CONJ_OP, OFFDIAG_OP)
+TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)
 ```
 
-**Operation points** (gate-specific macros called at each point):
-- `DIAG_OP(data, n, stride)`: Process (0,0)↔(1,1) quadrant pairs (diagonal blocks)
-- `CONJ_OP(d10, count, start_k, dim, col_block)`: Process (1,0)↔(0,1) pairs where (0,1) is in
-  upper triangle (accessed via conjugate)
-- `OFFDIAG_OP(d10, d01, n)`: Process (1,0)↔(0,1) pairs where both are in lower triangle
+**Core insight:** Instead of three separate operation types, process ALL gates uniformly by iterating
+over 2×2 blocks. Each block at (r0, c0) contains elements:
+- (0,0) at (r0, c0)
+- (1,1) at (r1, c1) where r1=r0|incr, c1=c0|incr
+- (1,0) at (r1, c0)
+- (0,1) at (r0, c1) - may be in upper triangle
 
-**Example gate definition** (complete implementation):
+**Key helper: `insertBit0()` for direct enumeration**
 ```c
-#define X_DIAG_OP(data, n, stride)      op_swap_stride(data, n, stride)
-#define X_CONJ_OP(d10, count, ...)      op_swap_conj(d10, count, __VA_ARGS__)
-#define X_OFFDIAG_OP(d10, d01, n)       op_swap(d10, d01, n)
-
-void x_mixed(state_t *state, const qubit_t target) {
-    TRAVERSE_MIXED_1Q(state, target, X_DIAG_OP, X_CONJ_OP, X_OFFDIAG_OP);
+static inline dim_t insertBit0(dim_t val, qubit_t pos) {
+    dim_t mask = ((dim_t)1 << pos) - 1;
+    return (val & mask) | ((val & ~mask) << 1);
 }
 ```
 
-**Benefits**:
-- Adding new single-qubit gates requires only defining 3 operation macros + 1 function
-- Bug fixes to traversal logic automatically apply to all gates
-- `static inline` helper functions ensure no runtime overhead from abstraction
+For k from 0 to dim/2-1, `insertBit0(k, target)` produces all indices with bit t=0 — no wasted
+iterations, no conditional skipping.
+
+**BLOCK_OP receives:**
+- `data`: pointer to state data array
+- `idx00, idx01, idx10, idx11`: packed indices for the 4 block elements
+- `lower_01`: 1 if (r0, c1) is in lower triangle, 0 if accessing via conjugate
+- `diag_block`: 1 if on diagonal (bc == br), where idx01 == idx10
+
+**Example gate definition** (new style):
+```c
+#define X_BLOCK_OP(data, idx00, idx01, idx10, idx11, lower_01, diag_block) do { \
+    cplx_t tmp = data[idx00];                                                   \
+    data[idx00] = data[idx11];                                                  \
+    data[idx11] = tmp;                                                          \
+    if (diag_block) {                                                           \
+        data[idx10] = conj(data[idx10]);                                        \
+    } else {                                                                    \
+        cplx_t rho01 = lower_01 ? data[idx01] : conj(data[idx01]);              \
+        cplx_t rho10 = data[idx10];                                             \
+        data[idx10] = rho01;                                                    \
+        data[idx01] = lower_01 ? rho10 : conj(rho10);                           \
+    }                                                                           \
+} while (0)
+
+void x_mixed(state_t *state, const qubit_t target) {
+    TRAVERSE_PACKED_BLOCKS(state, target, X_BLOCK_OP);
+}
+```
+
+**Benefits of rewrite:**
+- **Hadamard**: ~4x fewer iterations (direct enumeration vs skipping 75%)
+- **BLAS removed**: All operations inline — no function call overhead
+- **Zero-multiplication**: S, Sdg gates use `(a+bi)*i = (-b,a)` via component swap
+- **Minimal multiplication**: T, Tdg use 2 muls per element: `(a+bi)*e^{iπ/4} = ((a-b)√½, (a+b)√½)`
+- **Simpler maintenance**: One BLOCK_OP macro per gate instead of three separate operations
+- **Auto-vectorization friendly**: Clean 2×2 block operations (load 4, transform, store 4)
+
+**Mixed state gate optimizations (after rewrite):**
+
+| Gate | Operation | Optimization |
+|------|-----------|--------------|
+| X | swap blocks | Zero multiplications (swaps only) |
+| Y | swap + negate | Zero multiplications |
+| Z | negate off-diag | Zero multiplications |
+| S | (1,0)*=i, (0,1)*=-i | Zero multiplications (component swap) |
+| Sdg | (1,0)*=-i, (0,1)*=i | Zero multiplications (component swap) |
+| T | phase rotation | 2 muls per off-diag element |
+| Tdg | phase rotation | 2 muls per off-diag element |
+| H | butterfly | 4 adds + 2 muls per block |
 
 ### Numerical Precision
 
