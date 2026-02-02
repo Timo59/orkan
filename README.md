@@ -162,3 +162,28 @@ Technical specifications are available in the `docs/` directory:
 - **STATE_MODULE.md**: State representation (pure/mixed), packed storage format, BLAS integration
 - **GATES_MODULE.md**: Gate operations, test infrastructure, implementation phases
 - **MEAS_MODULES.md**: Gradient computation methods (parameter-shift, backpropagation) for VQE/QAOA
+
+## Theoretical Foundation
+
+This implementation is based on the algorithms and complexity analysis from **PhD Thesis Chapter 2**:
+
+**Location**: `~/Projects/thesis/2.Simulation/`
+
+### Code-to-Theory Mapping
+
+| qlib Component | Thesis Section | Theory Provided |
+|----------------|----------------|-----------------|
+| Packed column major format | sec4.tex | Memory layout, offset/stride formulas (Eq 6-10) |
+| `src/qhipster.c` | sec3.tex | Pure state algorithm (Alg 4), HPC optimizations |
+| `src/mhipster.c` | sec2.tex, sec5.tex | Bit-insertion (Alg 1), hermitian conjugation (Alg 6-8) |
+| Gate dispatch strategy | sec1.tex | k-local complexity O(r·N²·2^k), Propositions 1-3 |
+| Zero-flop Pauli gates | sec1.tex Ex 1, sec2.tex Alg 3 | Memory-only operations for X, CNOT |
+
+### Key Theoretical Results
+
+- **Proposition 3**: k-local channels achieve O(r·N²·2^k) complexity (vs O(r·N³) dense)
+- **Algorithm 1**: Bit-insertion reconstructs global indices from block coordinates
+- **Equation 12**: Update formula for single-qubit hermitian conjugation
+- **Table 1**: 10³×–10⁷× speedup for 10-25 qubits with native gates
+
+For full theoretical background, proofs, and complexity analysis: `cat ~/Projects/thesis/2.Simulation/NOTES.md`
