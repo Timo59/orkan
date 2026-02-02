@@ -7,3 +7,6 @@
 [submodule "extern/qpp"]
 	path = extern/qpp
 	url = https://github.com/softwareQinc/qpp.git
+[submodule "extern/qulacs"]
+	path = extern/qulacs
+	url = https://github.com/qulacs/qulacs.git
