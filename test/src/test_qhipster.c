@@ -27,6 +27,7 @@
 #include "utils.h"
 #endif
 
+#include <math.h>
 #include <stdlib.h>
 
 /*
@@ -120,5 +121,146 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
         gateMat = NULL;
 
         // Free test state
+        state_free(&test_state);
+}
+
+/*
+ * =====================================================================================================================
+ * Rotation gate matrix builders
+ * =====================================================================================================================
+ */
+
+void mat_rx(double theta, cplx_t *mat) {
+    double c = cos(theta / 2.0);
+    double s = sin(theta / 2.0);
+    // [[cos(θ/2), -i·sin(θ/2)], [-i·sin(θ/2), cos(θ/2)]]
+    // Column-major: [0,0], [1,0], [0,1], [1,1]
+    mat[0] = c;
+    mat[1] = -s * I;
+    mat[2] = -s * I;
+    mat[3] = c;
+}
+
+void mat_ry(double theta, cplx_t *mat) {
+    double c = cos(theta / 2.0);
+    double s = sin(theta / 2.0);
+    // [[cos(θ/2), -sin(θ/2)], [sin(θ/2), cos(θ/2)]]
+    // Column-major: [0,0], [1,0], [0,1], [1,1]
+    mat[0] = c;
+    mat[1] = s;
+    mat[2] = -s;
+    mat[3] = c;
+}
+
+void mat_rz(double theta, cplx_t *mat) {
+    double c = cos(theta / 2.0);
+    double s = sin(theta / 2.0);
+    // [[e^(-iθ/2), 0], [0, e^(iθ/2)]]
+    // Column-major: [0,0], [1,0], [0,1], [1,1]
+    mat[0] = c - s * I;
+    mat[1] = 0;
+    mat[2] = 0;
+    mat[3] = c + s * I;
+}
+
+/*
+ * =====================================================================================================================
+ * Test: Rotation gates
+ * =====================================================================================================================
+ */
+
+// Test angles: representative values covering identity, small, π/2, π, and negative
+static const double TEST_THETAS[] = {0.0, M_PI/4, M_PI/2, M_PI, 3*M_PI/2, -M_PI/3};
+static const unsigned NUM_THETAS = sizeof(TEST_THETAS) / sizeof(TEST_THETAS[0]);
+
+void testRotationGate(const rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat)) {
+    state_t test_state = {0};
+    test_state.type = PURE;
+    cplx_t **test_vecs = NULL, *gateMat = NULL;
+    cplx_t mat2x2[4];
+    unsigned nvecs = 0;
+
+    // Iterate test angles
+    for (unsigned t = 0; t < NUM_THETAS; ++t) {
+        double theta = TEST_THETAS[t];
+
+        // Build 2x2 matrix for this angle
+        mat_fn(theta, mat2x2);
+
+        // Iterate the number of qubits
+        for (unsigned nqubits = 1; nqubits <= MAXQUBITS; ++nqubits) {
+            const unsigned dim = POW2(nqubits, dim_t);
+
+            // Iterate target qubits
+            for (unsigned pos = 0; pos < nqubits; ++pos) {
+                // Generate test state vectors
+                if (!((test_vecs = test_mk_states_pure(nqubits, &nvecs)))) {
+                    fprintf(stderr, "testRotationGate(): test_vecs initialization failed\n");
+                    goto cleanup;
+                }
+
+                // Initialize matrix representation of the gate acting on the target qubit
+                if (!((gateMat = mat_single_qubit_gate(nqubits, mat2x2, pos)))) goto cleanup;
+
+                // Iterate the test state vectors
+                for (unsigned i = 0; i < nvecs; ++i) {
+                    // Reference state vector by matrix-vector multiplication
+                    cplx_t* ref = zmv(dim, gateMat, test_vecs[i]);
+                    if (!ref) {
+                        fprintf(stderr, "testRotationGate(): matrix-vector multiplication failed\n");
+                        goto cleanup;
+                    }
+
+                    // Initialize test state with the state vector
+                    state_init(&test_state, nqubits, &test_vecs[i]);
+                    if (!test_state.data) {
+                        fprintf(stderr, "testRotationGate(): test state data initialization failed\n");
+                        goto cleanup;
+                    }
+
+                    // Apply test function
+                    qs_error_t err = gate(&test_state, pos, theta);
+                    TEST_ASSERT_EQUAL_INT(QS_OK, err);
+                    if (!test_state.data) {
+                        fprintf(stderr, "testRotationGate(): gate application failed\n");
+                        goto cleanup;
+                    }
+
+                    // Compare state vectors
+                    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref, test_state.data, dim, PRECISION);
+
+                    // Free the reference result
+                    free(ref);
+                    ref = NULL;
+
+                    // Free test state vector
+                    free(test_state.data);
+                    test_state.data = NULL;
+                }
+
+                // Free matrix representation
+                free(gateMat);
+                gateMat = NULL;
+
+                // Free test vector array
+                free(test_vecs);
+                test_vecs = NULL;
+            }
+        }
+    }
+
+    return;
+
+    cleanup:
+        if (test_vecs) {
+            for (unsigned i = 0; i < nvecs; ++i) {
+                free(test_vecs[i]);
+                test_vecs[i] = NULL;
+            }
+        }
+        free(test_vecs);
+        test_vecs = NULL;
+        free(gateMat);
+        gateMat = NULL;
         state_free(&test_state);
 }

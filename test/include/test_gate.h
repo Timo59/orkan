@@ -36,6 +36,9 @@ extern "C" {
 // Function representing a qubit gate that acts locally on one qubit
 typedef qs_error_t (*single_qubit_gate)(state_t *state, qubit_t target);
 
+// Function representing a parameterized single-qubit rotation gate
+typedef qs_error_t (*rotation_gate)(state_t *state, qubit_t target, double theta);
+
 /*
  * =====================================================================================================================
  * Single-qubit gate matrices
@@ -129,6 +132,29 @@ void testSingleQubitGate(single_qubit_gate gate, const cplx_t *mat);
  * @param[in]   mat     Matrix representation of the single qubit operation (2×2)
  */
 void testSingleQubitGateMixed(single_qubit_gate gate, const cplx_t *mat);
+
+/*
+ * @brief   Unit test of a parameterized rotation gate on pure states
+ *
+ * @param[in]   gate    Function representing the rotation gate
+ * @param[in]   mat_fn  Function that builds the 2×2 matrix for a given theta
+ */
+void testRotationGate(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+
+/*
+ * @brief   Build Rx(θ) matrix: [[cos(θ/2), -i·sin(θ/2)], [-i·sin(θ/2), cos(θ/2)]]
+ */
+void mat_rx(double theta, cplx_t *mat);
+
+/*
+ * @brief   Build Ry(θ) matrix: [[cos(θ/2), -sin(θ/2)], [sin(θ/2), cos(θ/2)]]
+ */
+void mat_ry(double theta, cplx_t *mat);
+
+/*
+ * @brief   Build Rz(θ) matrix: [[e^(-iθ/2), 0], [0, e^(iθ/2)]]
+ */
+void mat_rz(double theta, cplx_t *mat);
 
 /*
  * =====================================================================================================================
