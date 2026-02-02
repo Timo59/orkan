@@ -1,27 +1,119 @@
-// qhipster.c - Functions representing fundamental quantum gates applied to pure states, i.e., Hilbert space vectors
+// qhipster.c - Quantum gates for pure states (Hilbert space vectors)
 
-#ifndef GATE_H
 #include "gate.h"
-#endif
 
 #include <math.h>
-#include <stdio.h>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-#if defined(__APPLE__)
-    #include <vecLib/cblas_new.h>
-    #include <vecLib/lapack.h>
-#elif defined(__linux__)
-    #include <cblas.h>
-#endif
-
 /* Minimum dimension to enable OpenMP parallelization (avoid thread overhead for small systems)
- * Pure states: O(dim) work per gate, need dim >= 2048 (~11 qubits) to offset thread overhead
+ * Pure states: O(dim) work per gate, need dim >= 4096 (~12 qubits) to offset thread overhead
  */
-#define OMP_THRESHOLD 2048
+#define OMP_THRESHOLD 4096
+
+/*
+ * =====================================================================================================================
+ * Single-qubit gate traversal macro
+ * =====================================================================================================================
+ *
+ * Iterates over all pairs of amplitudes differing only in the target qubit:
+ *   - a points to amplitude with target bit = 0
+ *   - b points to amplitude with target bit = 1
+ *
+ * The PAIR_OP(a, b) macro performs the gate-specific operation on each pair.
+ *
+ * OpenMP parallelization uses collapse(2) to flatten the loop nest, ensuring good
+ * parallelism regardless of which qubit is targeted:
+ *   - Right qubits (low index): many blocks, small stride
+ *   - Left qubits (high index): few blocks, large stride
+ * With collapse(2), total iterations = dim/2, evenly distributed across threads.
+ */
+#define TRAVERSE_PURE_1Q(state, target, PAIR_OP)                               \
+do {                                                                           \
+    const dim_t dim = POW2((state)->qubits, dim_t);                            \
+    const dim_t stride = POW2(target, dim_t);                                  \
+    const dim_t step = POW2((target) + 1, dim_t);                              \
+    cplx_t *data = (state)->data;                                              \
+                                                                               \
+    _Pragma("omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)")           \
+    for (dim_t i = 0; i < dim; i += step) {                                    \
+        for (dim_t j = 0; j < stride; ++j) {                                   \
+            cplx_t *a = data + i + j;                                          \
+            cplx_t *b = data + i + j + stride;                                 \
+            PAIR_OP(a, b);                                                     \
+        }                                                                      \
+    }                                                                          \
+} while(0)
+
+/*
+ * =====================================================================================================================
+ * Gate operation macros - optimized to minimize floating-point operations
+ * =====================================================================================================================
+ *
+ * Multiplication by special complex values (i, -i, e^{iπ/4}) is implemented using
+ * only real arithmetic (swaps, negations, additions) where possible.
+ */
+
+// X gate: swap a and b
+#define X_OP(a, b) do {         \
+    cplx_t tmp = *(a);          \
+    *(a) = *(b);                \
+    *(b) = tmp;                 \
+} while(0)
+
+// Y gate: a' = -i*b, b' = i*a  (zero multiplications)
+// (x + yi)*i = -y + xi,  (x + yi)*(-i) = y - xi
+#define Y_OP(a, b) do {                             \
+    double a_re = creal(*(a)), a_im = cimag(*(a));  \
+    double b_re = creal(*(b)), b_im = cimag(*(b));  \
+    *(a) = CMPLX(b_im, -b_re);                      \
+    *(b) = CMPLX(-a_im, a_re);                      \
+} while(0)
+
+// Z gate: b' = -b
+#define Z_OP(a, b) do { (void)(a); *(b) = -*(b); } while(0)
+
+// H gate: a' = (a+b)/sqrt(2), b' = (a-b)/sqrt(2)
+#define H_OP(a, b) do {                             \
+    cplx_t sum = *(a) + *(b);                       \
+    cplx_t diff = *(a) - *(b);                      \
+    *(a) = sum * M_SQRT1_2;                         \
+    *(b) = diff * M_SQRT1_2;                        \
+} while(0)
+
+// S gate: b' = i*b  (zero multiplications)
+// (x + yi)*i = -y + xi
+#define S_OP(a, b) do {                             \
+    (void)(a);                                      \
+    *(b) = CMPLX(-cimag(*(b)), creal(*(b)));        \
+} while(0)
+
+// S-dagger gate: b' = -i*b  (zero multiplications)
+// (x + yi)*(-i) = y - xi
+#define SDG_OP(a, b) do {                           \
+    (void)(a);                                      \
+    *(b) = CMPLX(cimag(*(b)), -creal(*(b)));        \
+} while(0)
+
+// T gate: b' = e^{iπ/4}*b = (1+i)/sqrt(2) * b
+// (x + yi)(1+i)/sqrt(2) = [(x-y) + (x+y)i]/sqrt(2)
+#define T_OP(a, b) do {                             \
+    (void)(a);                                      \
+    double re = creal(*(b)), im = cimag(*(b));      \
+    *(b) = CMPLX((re - im) * M_SQRT1_2,             \
+                 (re + im) * M_SQRT1_2);            \
+} while(0)
+
+// T-dagger gate: b' = e^{-iπ/4}*b = (1-i)/sqrt(2) * b
+// (x + yi)(1-i)/sqrt(2) = [(x+y) + (y-x)i]/sqrt(2)
+#define TDG_OP(a, b) do {                           \
+    (void)(a);                                      \
+    double re = creal(*(b)), im = cimag(*(b));      \
+    *(b) = CMPLX((re + im) * M_SQRT1_2,             \
+                 (im - re) * M_SQRT1_2);            \
+} while(0)
 
 /*
  * =====================================================================================================================
@@ -29,84 +121,17 @@
  * =====================================================================================================================
  */
 
-void x_pure(state_t* state, const qubit_t target) {
-    // Swap entries with target = 0 and 1 but all other qubits fixed
-    const dim_t dim = POW2(state->qubits, dim_t);   // Number of entries in the state vector
-    const dim_t stride = POW2(target, dim_t);    // Distance between elements only differing in the targeted qubit
-    const dim_t step = POW2(target + 1, dim_t);  // Size of the mutually independent blocks
-
-    if (step >= dim && stride >= OMP_THRESHOLD) {
-        // Leftmost qubit: single iteration, parallelize element-wise
-        #pragma omp parallel for
-        for (dim_t j = 0; j < stride; ++j) {
-            cplx_t tmp = state->data[j];
-            state->data[j] = state->data[j + stride];
-            state->data[j + stride] = tmp;
-        }
-    } else {
-        // Normal case: parallelize over independent blocks
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (dim_t i = 0; i < dim; i += step) {
-            cblas_zswap(stride, state->data + i, 1, state->data + i + stride, 1);
-        }
-    }
+void x_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, X_OP);
 }
 
-
-void y_pure(state_t* state, const qubit_t target) {
-    const dim_t dim = POW2(state->qubits, dim_t);   // Number of entries in the state vector
-    const dim_t stride = POW2(target, dim_t);    // Distance between elements only differing in the targeted qubit
-    const dim_t step = POW2(target + 1, dim_t);  // Size of the mutually independent blocks
-    const cplx_t iplus = 0.0 + I*1.0;   // Positive imaginary unit
-    const cplx_t iminus = 0.0 - I*1.0;  // Negative imaginary unit
-
-    if (step >= dim && stride >= OMP_THRESHOLD) {
-        // Leftmost qubit: single iteration, parallelize element-wise
-        #pragma omp parallel for
-        for (dim_t j = 0; j < stride; ++j) {
-            cplx_t tmp = state->data[j];
-            state->data[j] = state->data[j + stride] * iminus;
-            state->data[j + stride] = tmp * iplus;
-        }
-    } else {
-        // Normal case: parallelize over independent blocks
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (dim_t i = 0; i < dim; i += step) {
-            // Swap entries with target bit = 0 and target bit = 1
-            cblas_zswap(stride, state->data + i, 1, state->data + i + stride, 1);
-
-            // Multiply the new entries with target bit = 0 by -i
-            cblas_zscal(stride, &iminus, state->data + i, 1);
-
-            // Multiply the new entries with target bit = 1 by i
-            cblas_zscal(stride, &iplus, state->data + stride + i, 1);
-        }
-    }
+void y_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, Y_OP);
 }
 
-
-void z_pure(state_t* state, const qubit_t target) {
-    const dim_t dim = POW2(state->qubits, dim_t);   // Number of entries in the state vector
-    const dim_t stride = POW2(target, dim_t);    // Distance between elements only differing in the targeted qubit
-    const dim_t step = POW2(target + 1, dim_t);  // Size of the mutually independent blocks
-
-    if (step >= dim && stride >= OMP_THRESHOLD) {
-        // Leftmost qubit: single iteration, parallelize element-wise
-        #pragma omp parallel for
-        for (dim_t j = 0; j < stride; ++j) {
-            state->data[j + stride] = -state->data[j + stride];
-        }
-    } else {
-        // Normal case: parallelize over independent blocks
-        const cplx_t alpha = -1.0;
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (dim_t i = 0; i < dim; i += step) {
-            // Multiply entries with target bit = 1 by -1
-            cblas_zscal(stride, &alpha, state->data + stride + i, 1);
-        }
-    }
+void z_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, Z_OP);
 }
-
 
 /*
  * =====================================================================================================================
@@ -114,125 +139,22 @@ void z_pure(state_t* state, const qubit_t target) {
  * =====================================================================================================================
  */
 
-void h_pure(state_t* state, const qubit_t target) {
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    const double inv_sqrt2 = M_SQRT1_2;  // 1/√2
-
-    // Hadamard: |0⟩ → (|0⟩+|1⟩)/√2, |1⟩ → (|0⟩-|1⟩)/√2
-    // For each pair (a,b): new_a = (a+b)/√2, new_b = (a-b)/√2
-    if (step >= dim && stride >= OMP_THRESHOLD) {
-        // Leftmost qubit: single outer iteration, parallelize over pairs
-        #pragma omp parallel for
-        for (dim_t j = 0; j < stride; ++j) {
-            cplx_t a = state->data[j];
-            cplx_t b = state->data[j + stride];
-            state->data[j] = (a + b) * inv_sqrt2;
-            state->data[j + stride] = (a - b) * inv_sqrt2;
-        }
-    } else {
-        // Normal case: parallelize over independent blocks
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (dim_t i = 0; i < dim; i += step) {
-            for (dim_t j = 0; j < stride; ++j) {
-                cplx_t a = state->data[i + j];
-                cplx_t b = state->data[i + j + stride];
-                state->data[i + j] = (a + b) * inv_sqrt2;
-                state->data[i + j + stride] = (a - b) * inv_sqrt2;
-            }
-        }
-    }
+void h_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, H_OP);
 }
 
-
-void s_pure(state_t* state, const qubit_t target) {
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    const cplx_t alpha = I;  // i
-
-    // S gate: |0⟩ → |0⟩, |1⟩ → i|1⟩
-    if (step >= dim && stride >= OMP_THRESHOLD) {
-        // Leftmost qubit: single iteration, parallelize element-wise
-        #pragma omp parallel for
-        for (dim_t j = 0; j < stride; ++j) {
-            state->data[j + stride] *= alpha;
-        }
-    } else {
-        // Normal case: parallelize over independent blocks
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (dim_t i = 0; i < dim; i += step) {
-            cblas_zscal(stride, &alpha, state->data + stride + i, 1);
-        }
-    }
+void s_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, S_OP);
 }
 
-
-void sdg_pure(state_t* state, const qubit_t target) {
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    const cplx_t alpha = -I;  // -i
-
-    // S† gate: |0⟩ → |0⟩, |1⟩ → -i|1⟩
-    if (step >= dim && stride >= OMP_THRESHOLD) {
-        // Leftmost qubit: single iteration, parallelize element-wise
-        #pragma omp parallel for
-        for (dim_t j = 0; j < stride; ++j) {
-            state->data[j + stride] *= alpha;
-        }
-    } else {
-        // Normal case: parallelize over independent blocks
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (dim_t i = 0; i < dim; i += step) {
-            cblas_zscal(stride, &alpha, state->data + stride + i, 1);
-        }
-    }
+void sdg_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, SDG_OP);
 }
 
-
-void t_pure(state_t* state, const qubit_t target) {
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    const cplx_t alpha = M_SQRT1_2 + M_SQRT1_2 * I;  // e^(iπ/4) = (1+i)/√2
-
-    // T gate: |0⟩ → |0⟩, |1⟩ → e^(iπ/4)|1⟩
-    if (step >= dim && stride >= OMP_THRESHOLD) {
-        // Leftmost qubit: single iteration, parallelize element-wise
-        #pragma omp parallel for
-        for (dim_t j = 0; j < stride; ++j) {
-            state->data[j + stride] *= alpha;
-        }
-    } else {
-        // Normal case: parallelize over independent blocks
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (dim_t i = 0; i < dim; i += step) {
-            cblas_zscal(stride, &alpha, state->data + stride + i, 1);
-        }
-    }
+void t_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, T_OP);
 }
 
-
-void tdg_pure(state_t* state, const qubit_t target) {
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    const cplx_t alpha = M_SQRT1_2 - M_SQRT1_2 * I;  // e^(-iπ/4) = (1-i)/√2
-
-    // T† gate: |0⟩ → |0⟩, |1⟩ → e^(-iπ/4)|1⟩
-    if (step >= dim && stride >= OMP_THRESHOLD) {
-        // Leftmost qubit: single iteration, parallelize element-wise
-        #pragma omp parallel for
-        for (dim_t j = 0; j < stride; ++j) {
-            state->data[j + stride] *= alpha;
-        }
-    } else {
-        // Normal case: parallelize over independent blocks
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (dim_t i = 0; i < dim; i += step) {
-            cblas_zscal(stride, &alpha, state->data + stride + i, 1);
-        }
-    }
+void tdg_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, TDG_OP);
 }

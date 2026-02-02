@@ -385,7 +385,7 @@ Parallelization is conditional on system size to avoid thread overhead for small
 | Mixed state Hadamard | Outer loop with dynamic scheduling for load balancing |
 
 **Thresholds:** Different thresholds account for different workloads:
-- **Pure states**: `OMP_THRESHOLD = 2048` → n ≥ 11 qubits (O(dim) work per gate)
+- **Pure states**: `OMP_THRESHOLD = 4096` → n ≥ 12 qubits (O(dim) work per gate)
 - **Mixed states**: `OMP_THRESHOLD = 64` → n ≥ 6 qubits (O(dim²) work per gate)
 
 **Edge case:** When targeting the leftmost qubit (target = n-1), the outer loop has only one iteration.
@@ -397,6 +397,92 @@ Pure state gates handle this by parallelizing at the element level. Mixed state 
 cmake -DENABLE_OPENMP=ON ..   # Enable (default)
 cmake -DENABLE_OPENMP=OFF ..  # Disable for single-threaded execution
 ```
+
+### Compiler Optimization and SIMD Vectorization
+
+Gate operations are memory-bandwidth bound (streaming through state vectors). Performance depends heavily
+on SIMD vectorization, which modern compilers can auto-generate when given the right flags and code patterns.
+
+**Recommended compiler flags:**
+
+| Flag | Purpose |
+|------|---------|
+| `-O3` | Enable aggressive optimizations including auto-vectorization |
+| `-march=native` | Use best SIMD instructions for current CPU (AVX2, AVX-512, etc.) |
+| `-ffast-math` | Relax IEEE float semantics (enables reordering for vectorization) |
+| `-funroll-loops` | Unroll small loops for better pipelining |
+
+**For known target architecture (e.g., Linux server):**
+```bash
+-march=skylake-avx512   # Skylake with AVX-512
+-march=znver3           # AMD Zen 3
+```
+
+**CMake release configuration:**
+```cmake
+set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -ffast-math -DNDEBUG")
+```
+
+**Verifying vectorization:**
+```bash
+# GCC - show what was vectorized
+gcc -O3 -march=native -fopt-info-vec-optimized -c qhipster.c
+
+# Clang - vectorization remarks
+clang -O3 -march=native -Rpass=loop-vectorize -c qhipster.c
+
+# Check generated assembly for SIMD instructions
+objdump -d qhipster.o | grep -E 'vmov|vadd|vmul|vfma'
+```
+
+**Code patterns that vectorize well:**
+
+The `TRAVERSE_PURE_1Q` macro generates vectorization-friendly loops:
+```c
+for (dim_t j = 0; j < stride; ++j) {
+    cplx_t *a = data + i + j;         // Consecutive addresses
+    cplx_t *b = data + i + j + stride; // Consecutive addresses (offset)
+    PAIR_OP(a, b);
+}
+```
+
+This pattern has:
+- Stride-1 memory access (consecutive complex numbers)
+- No loop-carried dependencies between iterations
+- Simple operations (add, multiply, negate)
+
+**Compiler hints (optional):**
+```c
+#pragma omp simd                      // Force SIMD in OpenMP regions
+#pragma GCC ivdep                     // Ignore assumed vector dependencies
+#pragma clang loop vectorize(enable)  // Clang vectorization hint
+```
+
+**Why we removed BLAS Level 1 calls:**
+
+For simple operations (swap, scale, negate), BLAS Level 1 functions (`zswap`, `zscal`) provide
+minimal benefit over compiler-generated code:
+
+1. **Call overhead**: Each BLAS call has ~50-200 cycles of overhead (parameter validation,
+   potential thread synchronization)
+2. **No fusion**: Multiple BLAS calls cannot be fused (e.g., Y gate needs swap + 2 scales = 3 passes)
+3. **Auto-vectorization parity**: Modern compilers with `-O3 -march=native` generate SIMD code
+   comparable to hand-tuned BLAS for simple patterns
+4. **Special case optimization**: We exploit algebraic structure (e.g., multiply by `i` = swap
+   real/imag + negate) that generic BLAS cannot
+
+**Current optimizations:**
+
+| Gate | Operation | Optimization |
+|------|-----------|--------------|
+| X | swap(a, b) | Zero arithmetic (memory only) |
+| Y | a'=-ib, b'=ia | Zero multiplications (swap + negate) |
+| Z | b' = -b | Single negation |
+| S | b' = ib | Zero multiplications (swap + negate) |
+| Sdg | b' = -ib | Zero multiplications (swap + negate) |
+| T | b' = e^{iπ/4}b | 2 adds + 2 muls (expanded formula) |
+| Tdg | b' = e^{-iπ/4}b | 2 adds + 2 muls (expanded formula) |
+| H | butterfly | 2 adds + 2 muls |
 
 ---
 
