@@ -39,6 +39,9 @@ typedef qs_error_t (*single_qubit_gate)(state_t *state, qubit_t target);
 // Function representing a parameterized single-qubit rotation gate
 typedef qs_error_t (*rotation_gate)(state_t *state, qubit_t target, double theta);
 
+// Function representing a two-qubit gate (e.g., CNOT)
+typedef qs_error_t (*two_qubit_gate)(state_t *state, qubit_t q1, qubit_t q2);
+
 /*
  * =====================================================================================================================
  * Single-qubit gate matrices
@@ -111,6 +114,14 @@ static const cplx_t SWAPMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 
                                    0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
                                    0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I};
 
+// CNOT (Controlled-X) matrix in column-major format
+// Basis order: |00>, |01>, |10>, |11> (target is rightmost/LSB)
+// |00> -> |00>, |01> -> |01>, |10> -> |11>, |11> -> |10>
+static const cplx_t CXMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I};
+
 /*
  * =====================================================================================================================
  * Test harness function declarations
@@ -166,11 +177,25 @@ void mat_rz(double theta, cplx_t *mat);
 
 /*
  * =====================================================================================================================
- * Multiqubit gates
+ * Two-qubit gate test harnesses
  * =====================================================================================================================
  */
 
+/*
+ * @brief   Unit test of a two-qubit gate on pure states for each (q1, q2) pair
+ *
+ * @param[in]   gate    Function representing the two-qubit gate
+ * @param[in]   mat     Matrix representation of the two-qubit operation (4×4)
+ */
+void testTwoQubitGate(two_qubit_gate gate, const cplx_t *mat);
 
+/*
+ * @brief   Unit test of a two-qubit gate on mixed states for each (q1, q2) pair
+ *
+ * @param[in]   gate    Function representing the two-qubit gate
+ * @param[in]   mat     Matrix representation of the two-qubit operation (4×4)
+ */
+void testTwoQubitGateMixed(two_qubit_gate gate, const cplx_t *mat);
 
 
 #ifdef __cplusplus

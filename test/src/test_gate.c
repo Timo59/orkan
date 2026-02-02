@@ -38,6 +38,7 @@ void test_Tdg_pure(void) {testSingleQubitGate(tdg, TDGMAT);}
 void test_Rx_pure(void) {testRotationGate(rx, mat_rx);}
 void test_Ry_pure(void) {testRotationGate(ry, mat_ry);}
 void test_Rz_pure(void) {testRotationGate(rz, mat_rz);}
+void test_CX_pure(void) {testTwoQubitGate(cx, CXMAT);}
 
 /*
  * =====================================================================================================================
@@ -56,6 +57,7 @@ void test_Tdg_mixed(void) {testSingleQubitGateMixed(tdg, TDGMAT);}
 void test_Rx_mixed(void) {testRotationGateMixed(rx, mat_rx);}
 void test_Ry_mixed(void) {testRotationGateMixed(ry, mat_ry);}
 void test_Rz_mixed(void) {testRotationGateMixed(rz, mat_rz);}
+void test_CX_mixed(void) {testTwoQubitGateMixed(cx, CXMAT);}
 
 /*
  * =====================================================================================================================
@@ -90,6 +92,39 @@ void test_error_qubit_out_of_range(void) {
     state_free(&state);
 }
 
+void test_error_cx_same_qubit(void) {
+    state_t state = {0};
+    state_plus(&state, 2);  // 2-qubit state
+
+    // control == target should return QS_ERR_QUBIT
+    qs_error_t err = cx(&state, 0, 0);
+    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
+
+    err = cx(&state, 1, 1);
+    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
+
+    state_free(&state);
+}
+
+void test_error_cx_qubit_out_of_range(void) {
+    state_t state = {0};
+    state_plus(&state, 2);  // 2-qubit state, valid qubits are 0 and 1
+
+    // Control out of range
+    qs_error_t err = cx(&state, 2, 0);
+    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
+
+    // Target out of range
+    err = cx(&state, 0, 2);
+    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
+
+    // Both out of range
+    err = cx(&state, 3, 4);
+    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
+
+    state_free(&state);
+}
+
 /*
  * =====================================================================================================================
  * Unity body
@@ -103,6 +138,8 @@ int main(void) {
     RUN_TEST(test_error_null_state);
     RUN_TEST(test_error_null_data);
     RUN_TEST(test_error_qubit_out_of_range);
+    RUN_TEST(test_error_cx_same_qubit);
+    RUN_TEST(test_error_cx_qubit_out_of_range);
 
     // Pure state tests
     RUN_TEST(test_X_pure);
@@ -116,6 +153,7 @@ int main(void) {
     RUN_TEST(test_Rx_pure);
     RUN_TEST(test_Ry_pure);
     RUN_TEST(test_Rz_pure);
+    RUN_TEST(test_CX_pure);
 
     // Mixed state tests
     RUN_TEST(test_X_mixed);
@@ -129,6 +167,7 @@ int main(void) {
     RUN_TEST(test_Rx_mixed);
     RUN_TEST(test_Ry_mixed);
     RUN_TEST(test_Rz_mixed);
+    RUN_TEST(test_CX_mixed);
 
     return UNITY_END();
 }

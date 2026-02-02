@@ -23,6 +23,8 @@
 #include "gate.h"
 #include <complex.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -438,6 +440,63 @@ void tdg_mixed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, TDG_BLOCK_OP);
 }
 
+
+/*
+ * =====================================================================================================================
+ * Two-qubit gates
+ * =====================================================================================================================
+ */
+
+/*
+ * =====================================================================================================================
+ * CNOT gate: ρ → CX · ρ · CX†  (CX = CX† for CNOT)
+ * =====================================================================================================================
+ *
+ * CNOT is a permutation gate that swaps basis states |ctrl=1,tgt=0> <-> |ctrl=1,tgt=1>.
+ * For density matrices ρ' = CX·ρ·CX†, the transformation permutes rows and columns:
+ *   new_rho[i,j] = rho[perm(i), perm(j)]
+ * where perm(x) = x XOR (1<<target) if (x & (1<<control)), else x.
+ *
+ * This is a "zero-flop" gate in the sense that CNOT involves no matrix multiplication,
+ * only permutation of elements. However, for packed Hermitian storage, some elements
+ * require conjugation when they cross the diagonal.
+ */
+void cx_mixed(state_t *state, const qubit_t control, const qubit_t target) {
+    const dim_t dim = (dim_t)1 << state->qubits;
+    cplx_t * restrict data = state->data;
+    const dim_t packed_len = dim * (dim + 1) / 2;
+
+    const dim_t incr_ctrl = (dim_t)1 << control;
+    const dim_t incr_tgt = (dim_t)1 << target;
+
+    // Allocate output buffer (needed because permutation cycles can be complex)
+    cplx_t *out = malloc(packed_len * sizeof(*out));
+    if (!out) return;  // Allocation failure - state unchanged
+
+    // For each stored element (r,c) where r >= c, compute its new value
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    for (dim_t c = 0; c < dim; ++c) {
+        for (dim_t r = c; r < dim; ++r) {
+            // Compute permuted source indices
+            dim_t pr = (r & incr_ctrl) ? (r ^ incr_tgt) : r;
+            dim_t pc = (c & incr_ctrl) ? (c ^ incr_tgt) : c;
+
+            // new_rho[r,c] = old_rho[pr, pc]
+            cplx_t val;
+            if (pr >= pc) {
+                val = data[pack_idx(dim, pr, pc)];
+            } else {
+                val = conj(data[pack_idx(dim, pc, pr)]);
+            }
+
+            out[pack_idx(dim, r, c)] = val;
+        }
+    }
+
+    // Copy result back
+    memcpy(data, out, packed_len * sizeof(*data));
+    free(out);
+}
 
 /*
  * =====================================================================================================================

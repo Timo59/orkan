@@ -161,6 +161,60 @@ void tdg_pure(state_t *state, const qubit_t target) {
 
 /*
  * =====================================================================================================================
+ * Two-qubit gates
+ * =====================================================================================================================
+ */
+
+/**
+ * @brief Insert a 0 bit at two positions in value `val`
+ *
+ * For CNOT, we iterate over indices where both control and target bits are 0.
+ * This helper inserts 0 bits at positions lo and hi (lo < hi).
+ */
+static inline dim_t insertBits2_0(dim_t val, qubit_t lo, qubit_t hi) {
+    // Insert 0 at position lo first
+    dim_t mask_lo = ((dim_t)1 << lo) - 1;
+    val = (val & mask_lo) | ((val & ~mask_lo) << 1);
+    // Insert 0 at position hi (already shifted by 1 due to lo insertion)
+    dim_t mask_hi = ((dim_t)1 << hi) - 1;
+    return (val & mask_hi) | ((val & ~mask_hi) << 1);
+}
+
+/*
+ * CNOT (Controlled-X) gate: Flips target qubit when control qubit is |1>
+ *
+ * For each basis state index with control=1, we swap amplitudes where target=0 and target=1.
+ * This is a "zero-flop" gate requiring only conditional memory swaps.
+ */
+void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    const dim_t dim = POW2(state->qubits, dim_t);
+    cplx_t *data = state->data;
+
+    // Determine which qubit index is lower/higher for bit insertion
+    qubit_t lo = (control < target) ? control : target;
+    qubit_t hi = (control < target) ? target : control;
+
+    const dim_t incr_ctrl = POW2(control, dim_t);
+    const dim_t incr_tgt = POW2(target, dim_t);
+    const dim_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
+
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    for (dim_t k = 0; k < n_base; ++k) {
+        // Insert 0 bits at positions lo and hi to get base index
+        dim_t base = insertBits2_0(k, lo, hi);
+
+        // Only swap when control=1: swap |ctrl=1,tgt=0> <-> |ctrl=1,tgt=1>
+        dim_t idx_c1_t0 = base | incr_ctrl;           // control=1, target=0
+        dim_t idx_c1_t1 = base | incr_ctrl | incr_tgt; // control=1, target=1
+
+        cplx_t tmp = data[idx_c1_t0];
+        data[idx_c1_t0] = data[idx_c1_t1];
+        data[idx_c1_t1] = tmp;
+    }
+}
+
+/*
+ * =====================================================================================================================
  * Rotation gates
  * =====================================================================================================================
  *

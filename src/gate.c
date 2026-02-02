@@ -90,6 +90,15 @@ extern void rx_mixed(state_t *state, qubit_t target, double theta);
 extern void ry_mixed(state_t *state, qubit_t target, double theta);
 extern void rz_mixed(state_t *state, qubit_t target, double theta);
 
+/*
+ * =====================================================================================================================
+ * Two-qubit gates
+ * =====================================================================================================================
+ */
+
+extern void cx_pure(state_t *state, qubit_t control, qubit_t target);
+extern void cx_mixed(state_t *state, qubit_t control, qubit_t target);
+
 qs_error_t x(state_t *state, const qubit_t target) {
     // Input validation: state points to valid address and is initialized, target is in range
     if (!state) {
@@ -274,6 +283,29 @@ qs_error_t rz(state_t *state, const qubit_t target, const double theta) {
 
     if (state->type == PURE) rz_pure(state, target, theta);
     else rz_mixed(state, target, theta);
+
+    return QS_OK;
+}
+
+qs_error_t cx(state_t *state, const qubit_t control, const qubit_t target) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (control >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+    if (control == target) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) cx_pure(state, control, target);
+    else cx_mixed(state, control, target);
 
     return QS_OK;
 }
