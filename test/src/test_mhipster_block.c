@@ -15,6 +15,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <math.h>
 
 /*
  * =====================================================================================================================
@@ -205,6 +207,44 @@ void test_state_blocked_get_set(void) {
  */
 
 /**
+ * @brief Test X gate on blocked format against reference
+ */
+void test_x_blocked(void) {
+    for (qubit_t nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+        const dim_t dim = (dim_t)1 << nqubits;
+
+        for (qubit_t target = 0; target < nqubits; ++target) {
+            /* Create reference full matrix (|+⟩⟨+|) */
+            cplx_t *ref_full = plus_state_full(nqubits);
+            TEST_ASSERT_NOT_NULL(ref_full);
+
+            /* Apply reference gate: U * ρ * U† */
+            unsigned target_uint = target;
+            multiQubitGate(nqubits, ref_full, 1, &target_uint, XMAT);
+
+            /* Create blocked state */
+            state_blocked_t blocked = {0};
+            state_blocked_plus(&blocked, nqubits);
+
+            /* Apply blocked gate */
+            x_blocked(&blocked, target);
+
+            /* Convert blocked to full for comparison */
+            cplx_t *result_full = blocked_to_full(&blocked);
+            TEST_ASSERT_NOT_NULL(result_full);
+
+            /* Compare */
+            TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref_full, result_full, dim * dim, PRECISION);
+
+            /* Cleanup */
+            free(ref_full);
+            free(result_full);
+            state_blocked_free(&blocked);
+        }
+    }
+}
+
+/**
  * @brief Test Z gate on blocked format against reference
  */
 void test_z_blocked(void) {
@@ -242,6 +282,178 @@ void test_z_blocked(void) {
     }
 }
 
+/**
+ * @brief Test Y gate on blocked format against reference
+ */
+void test_y_blocked(void) {
+    for (qubit_t nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+        const dim_t dim = (dim_t)1 << nqubits;
+
+        for (qubit_t target = 0; target < nqubits; ++target) {
+            /* Create reference full matrix (|+⟩⟨+|) */
+            cplx_t *ref_full = plus_state_full(nqubits);
+            TEST_ASSERT_NOT_NULL(ref_full);
+
+            /* Apply reference gate: U * ρ * U† */
+            unsigned target_uint = target;
+            multiQubitGate(nqubits, ref_full, 1, &target_uint, YMAT);
+
+            /* Create blocked state */
+            state_blocked_t blocked = {0};
+            state_blocked_plus(&blocked, nqubits);
+
+            /* Apply blocked gate */
+            y_blocked(&blocked, target);
+
+            /* Convert blocked to full for comparison */
+            cplx_t *result_full = blocked_to_full(&blocked);
+            TEST_ASSERT_NOT_NULL(result_full);
+
+            /* Compare */
+            TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref_full, result_full, dim * dim, PRECISION);
+
+            /* Cleanup */
+            free(ref_full);
+            free(result_full);
+            state_blocked_free(&blocked);
+        }
+    }
+}
+
+/**
+ * @brief Test H gate on blocked format against reference
+ */
+void test_h_blocked(void) {
+    for (qubit_t nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+        const dim_t dim = (dim_t)1 << nqubits;
+
+        for (qubit_t target = 0; target < nqubits; ++target) {
+            /* Create reference full matrix (|+⟩⟨+|) */
+            cplx_t *ref_full = plus_state_full(nqubits);
+            TEST_ASSERT_NOT_NULL(ref_full);
+
+            /* Apply reference gate: U * ρ * U† */
+            unsigned target_uint = target;
+            multiQubitGate(nqubits, ref_full, 1, &target_uint, HMAT);
+
+            /* Create blocked state */
+            state_blocked_t blocked = {0};
+            state_blocked_plus(&blocked, nqubits);
+
+            /* Apply blocked gate */
+            h_blocked(&blocked, target);
+
+            /* Convert blocked to full for comparison */
+            cplx_t *result_full = blocked_to_full(&blocked);
+            TEST_ASSERT_NOT_NULL(result_full);
+
+            /* Compare */
+            TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref_full, result_full, dim * dim, PRECISION);
+
+            /* Cleanup */
+            free(ref_full);
+            free(result_full);
+            state_blocked_free(&blocked);
+        }
+    }
+}
+
+/**
+ * @brief Test H gate cross-tile case (target >= 6, requiring multiple tiles)
+ *
+ * This test specifically exercises the tile-group parallelization code path
+ * which is used when target >= log2(BLOCK_DIM) = 6.
+ */
+void test_h_blocked_cross_tile(void) {
+    /* Test with 8 qubits: dim=256, n_blocks=4, exercises cross-tile for target >= 6 */
+    const qubit_t nqubits = 8;
+    const dim_t dim = (dim_t)1 << nqubits;
+
+    for (qubit_t target = 0; target < nqubits; ++target) {
+        /* Create reference full matrix (|+⟩⟨+|) */
+        cplx_t *ref_full = plus_state_full(nqubits);
+        TEST_ASSERT_NOT_NULL_MESSAGE(ref_full, "Failed to allocate reference matrix");
+
+        /* Apply reference gate: U * ρ * U† */
+        unsigned target_uint = target;
+        multiQubitGate(nqubits, ref_full, 1, &target_uint, HMAT);
+
+        /* Create blocked state */
+        state_blocked_t blocked = {0};
+        state_blocked_plus(&blocked, nqubits);
+
+        /* Apply blocked gate */
+        h_blocked(&blocked, target);
+
+        /* Convert blocked to full for comparison */
+        cplx_t *result_full = blocked_to_full(&blocked);
+        TEST_ASSERT_NOT_NULL_MESSAGE(result_full, "Failed to convert blocked to full");
+
+        /* Compare with detailed error message */
+        for (dim_t col = 0; col < dim; ++col) {
+            for (dim_t row = 0; row < dim; ++row) {
+                cplx_t expected = ref_full[row + col * dim];
+                cplx_t actual = result_full[row + col * dim];
+                double diff_re = fabs(creal(expected) - creal(actual));
+                double diff_im = fabs(cimag(expected) - cimag(actual));
+                if (diff_re > PRECISION || diff_im > PRECISION) {
+                    char msg[256];
+                    snprintf(msg, sizeof(msg),
+                             "Mismatch at target=%u, (%ld,%ld): expected (%.10f,%.10f), got (%.10f,%.10f)",
+                             target, row, col,
+                             creal(expected), cimag(expected),
+                             creal(actual), cimag(actual));
+                    TEST_FAIL_MESSAGE(msg);
+                }
+            }
+        }
+
+        /* Cleanup */
+        free(ref_full);
+        free(result_full);
+        state_blocked_free(&blocked);
+    }
+}
+
+/**
+ * @brief Test H gate with 10 qubits (the problematic case from benchmarks)
+ *
+ * With 10 qubits: dim=1024, n_blocks=16, tile_incr varies from 1 to 8
+ */
+void test_h_blocked_10qubits(void) {
+    const qubit_t nqubits = 10;
+    const dim_t dim = (dim_t)1 << nqubits;
+
+    for (qubit_t target = 0; target < nqubits; ++target) {
+        /* Create reference full matrix (|+⟩⟨+|) */
+        cplx_t *ref_full = plus_state_full(nqubits);
+        TEST_ASSERT_NOT_NULL_MESSAGE(ref_full, "Failed to allocate reference matrix");
+
+        /* Apply reference gate: U * ρ * U† */
+        unsigned target_uint = target;
+        multiQubitGate(nqubits, ref_full, 1, &target_uint, HMAT);
+
+        /* Create blocked state */
+        state_blocked_t blocked = {0};
+        state_blocked_plus(&blocked, nqubits);
+
+        /* Apply blocked gate */
+        h_blocked(&blocked, target);
+
+        /* Convert blocked to full for comparison */
+        cplx_t *result_full = blocked_to_full(&blocked);
+        TEST_ASSERT_NOT_NULL_MESSAGE(result_full, "Failed to convert blocked to full");
+
+        /* Compare */
+        TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref_full, result_full, dim * dim, PRECISION);
+
+        /* Cleanup */
+        free(ref_full);
+        free(result_full);
+        state_blocked_free(&blocked);
+    }
+}
+
 /*
  * =====================================================================================================================
  * Unity test runner
@@ -261,7 +473,14 @@ int main(void) {
     RUN_TEST(test_state_blocked_get_set);
 
     /* Gate tests */
+    RUN_TEST(test_x_blocked);
+    RUN_TEST(test_y_blocked);
     RUN_TEST(test_z_blocked);
+    RUN_TEST(test_h_blocked);
+
+    /* Cross-tile tests (exercises parallelization) */
+    RUN_TEST(test_h_blocked_cross_tile);
+    RUN_TEST(test_h_blocked_10qubits);
 
     return UNITY_END();
 }
