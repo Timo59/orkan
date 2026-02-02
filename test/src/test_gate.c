@@ -53,6 +53,9 @@ void test_S_mixed(void) {testSingleQubitGateMixed(s, SMAT);}
 void test_Sdg_mixed(void) {testSingleQubitGateMixed(sdg, SDGMAT);}
 void test_T_mixed(void) {testSingleQubitGateMixed(t, TMAT);}
 void test_Tdg_mixed(void) {testSingleQubitGateMixed(tdg, TDGMAT);}
+void test_Rx_mixed(void) {testRotationGateMixed(rx, mat_rx);}
+void test_Ry_mixed(void) {testRotationGateMixed(ry, mat_ry);}
+void test_Rz_mixed(void) {testRotationGateMixed(rz, mat_rz);}
 
 /*
  * =====================================================================================================================
@@ -123,6 +126,9 @@ int main(void) {
     RUN_TEST(test_Sdg_mixed);
     RUN_TEST(test_T_mixed);
     RUN_TEST(test_Tdg_mixed);
+    RUN_TEST(test_Rx_mixed);
+    RUN_TEST(test_Ry_mixed);
+    RUN_TEST(test_Rz_mixed);
 
     return UNITY_END();
 }

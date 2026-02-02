@@ -3,7 +3,7 @@
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
 **Implementation:** `src/qhipster.c`, `src/mhipster.c`, `src/gate.c`
-**Last Updated:** 2026-02-02 (mhipster.c rewrite: unified 2×2 block traversal)
+**Last Updated:** 2026-02-02 (rotation gates Rx, Ry, Rz complete for pure + mixed states)
 
 ---
 
@@ -152,7 +152,8 @@ All infrastructure for testing gates on both pure and mixed states is complete:
 - Validates outputs against BLAS reference implementations
 
 **Rotation gate testing:**
-- `testRotationGate()` harness for parameterized gates (Rx, Ry, Rz)
+- `testRotationGate()` harness for parameterized gates on pure states (Rx, Ry, Rz)
+- `testRotationGateMixed()` harness for parameterized gates on mixed states (Rx, Ry, Rz)
 - Tests 6 representative angles: 0, π/4, π/2, π, 3π/2, -π/3
 - Angle selection covers: identity (θ=0), small rotations, quarter/half/full turns, negative angles
 - Matrix builders (`mat_rx`, `mat_ry`, `mat_rz`) generate 2×2 reference matrices per angle
@@ -212,6 +213,7 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 | `testSingleQubitGate()` | Validates single-qubit gates on pure states | `test/src/test_qhipster.c` | ✅ Complete |
 | `testSingleQubitGateMixed()` | Validates single-qubit gates on mixed states | `test/src/test_mhipster.c` | ✅ Complete |
 | `testRotationGate()` | Validates parameterized rotation gates on pure states | `test/src/test_qhipster.c` | ✅ Complete |
+| `testRotationGateMixed()` | Validates parameterized rotation gates on mixed states | `test/src/test_mhipster.c` | ✅ Complete |
 | `testTwoQubitGate()` | Validates two-qubit gates on pure states | TBD | 🔲 Phase 4 |
 | `testTwoQubitGateMixed()` | Validates two-qubit gates on mixed states | TBD | 🔲 Phase 4 |
 | `testThreeQubitGate()` | Validates three-qubit gates on pure states | TBD | 🔲 Phase 5 |
@@ -241,8 +243,9 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 **Headers:**
 - `test/include/test_gate.h` - Single unified header containing:
   - `single_qubit_gate` typedef: `qs_error_t (*)(state_t*, qubit_t)` (returns error code)
+  - `rotation_gate` typedef: `qs_error_t (*)(state_t*, qubit_t, double)` (parameterized gates)
   - Gate matrix constants (XMAT, YMAT, ZMAT, HMAT, SMAT, TMAT, P0MAT, P1MAT, SWAPMAT)
-  - Declarations for `testSingleQubitGate()` and `testSingleQubitGateMixed()`
+  - Declarations for `testSingleQubitGate()`, `testSingleQubitGateMixed()`, `testRotationGate()`, `testRotationGateMixed()`
 
 **Source files:**
 - `test/src/test_qhipster.c` - Pure state test harness implementation only
@@ -284,9 +287,9 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 | `hy()`   | Hadamard-Y          | 🔲 TODO | 🔲 TODO | 2 |
 | `p()`    | Phase rotation P(θ) | 🔲 TODO | 🔲 TODO | 2 |
 | `pdg()`  | P†(θ)               | 🔲 TODO | 🔲 TODO | 2 |
-| `rx()`   | X-rotation RX(θ)    | ✅ Complete | 🔲 TODO | 2 |
-| `ry()`   | Y-rotation RY(θ)    | ✅ Complete | 🔲 TODO | 2 |
-| `rz()`   | Z-rotation RZ(θ)    | ✅ Complete | 🔲 TODO | 2 |
+| `rx()`   | X-rotation RX(θ)    | ✅ Complete | ✅ Complete | 2 |
+| `ry()`   | Y-rotation RY(θ)    | ✅ Complete | ✅ Complete | 2 |
+| `rz()`   | Z-rotation RZ(θ)    | ✅ Complete | ✅ Complete | 2 |
 
 ### Two-Qubit Gate Implementations
 
@@ -410,6 +413,9 @@ void x_mixed(state_t *state, const qubit_t target) {
 | T | phase rotation | 2 muls per off-diag element |
 | Tdg | phase rotation | 2 muls per off-diag element |
 | H | butterfly | 4 adds + 2 muls per block |
+| Rx | 2×2 block mixing | ics terms via component arithmetic, c²/s² precomputed |
+| Ry | 2×2 block mixing | Real coefficients cs, c², s² precomputed |
+| Rz | off-diag phases | Diagonal unchanged, cos(θ)/sin(θ) for phase rotation |
 
 ### Numerical Precision
 
@@ -550,9 +556,9 @@ minimal benefit over compiler-generated code:
 | T | b' = e^{iπ/4}b | 2 adds + 2 muls (expanded formula) |
 | Tdg | b' = e^{-iπ/4}b | 2 adds + 2 muls (expanded formula) |
 | H | butterfly | 2 adds + 2 muls |
-| Rx | 2×2 unitary mixing | cos/sin precomputed, manual -i·s multiply |
-| Ry | 2×2 real rotation | cos/sin precomputed, real arithmetic only |
-| Rz | diagonal phases | cos/sin precomputed, manual complex multiply |
+| Rx | 2×2 unitary mixing | cos/sin precomputed, ics terms via component arithmetic |
+| Ry | 2×2 real rotation | cos/sin precomputed, real coefficient multiplication |
+| Rz | diagonal phases | Diagonal elements unchanged, off-diag phases via cos/sin |
 
 ---
 
@@ -597,10 +603,10 @@ minimal benefit over compiler-generated code:
 - ✅ S† gate: Complete (pure + mixed)
 - ✅ T gate: Complete (pure + mixed)
 - ✅ T† gate: Complete (pure + mixed)
-- ✅ RX(θ) gate: Complete (pure), tested with 6 representative angles
-- ✅ RY(θ) gate: Complete (pure), tested with 6 representative angles
-- ✅ RZ(θ) gate: Complete (pure), tested with 6 representative angles
-- 🔲 Remaining: Hy, P(θ), rotation gates (mixed state implementations)
+- ✅ RX(θ) gate: Complete (pure + mixed), tested with 6 representative angles
+- ✅ RY(θ) gate: Complete (pure + mixed), tested with 6 representative angles
+- ✅ RZ(θ) gate: Complete (pure + mixed), tested with 6 representative angles
+- 🔲 Remaining: Hy, P(θ)
 
 **Deliverables**: Implement all remaining single-qubit gates for both pure and mixed states following Phase 1 pattern:
 - Pauli gates: Y, Z

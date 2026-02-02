@@ -437,3 +437,219 @@ void t_mixed(state_t *state, const qubit_t target) {
 void tdg_mixed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, TDG_BLOCK_OP);
 }
+
+
+/*
+ * =====================================================================================================================
+ * Rotation gates
+ * =====================================================================================================================
+ *
+ * For rotation gates Rx, Ry, Rz with angle θ, the transformation is ρ' = U ρ U†.
+ * Unlike fixed-angle gates, these require the angle parameter passed at runtime.
+ */
+
+/*
+ * =====================================================================================================================
+ * Rx gate: ρ → Rx(θ) ρ Rx(θ)†
+ * =====================================================================================================================
+ *
+ * Rx(θ) = [[c, -is], [-is, c]] where c = cos(θ/2), s = sin(θ/2)
+ *
+ * For ρ' = Rx ρ Rx†:
+ *   - ρ'_00 = c²·ρ00 + s²·ρ11 + ics·(ρ01 - ρ10)
+ *   - ρ'_11 = s²·ρ00 + c²·ρ11 - ics·(ρ01 - ρ10)
+ *   - ρ'_01 = ics·(ρ00 - ρ11) + c²·ρ01 + s²·ρ10
+ *   - ρ'_10 = -ics·(ρ00 - ρ11) + c²·ρ10 + s²·ρ01
+ *
+ * Note: On diagonal blocks (bc==br), ρ00 and ρ11 are real diagonal elements and
+ * ρ01 - ρ10 is purely imaginary, so ics·(ρ01 - ρ10) is real. On cross-blocks,
+ * all elements can be complex.
+ */
+void rx_mixed(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta / 2.0);
+    const double s = sin(theta / 2.0);
+    const double c2 = c * c;
+    const double s2 = s * s;
+    const double cs = c * s;
+
+    const dim_t dim = (dim_t)1 << state->qubits;
+    const dim_t incr = (dim_t)1 << target;
+    const dim_t half_dim = dim >> 1;
+    cplx_t * restrict data = state->data;
+
+    #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
+    for (dim_t bc = 0; bc < half_dim; ++bc) {
+        dim_t c0 = insertBit0(bc, target);
+        dim_t c1 = c0 | incr;
+
+        for (dim_t br = bc; br < half_dim; ++br) {
+            dim_t r0 = insertBit0(br, target);
+            dim_t r1 = r0 | incr;
+
+            dim_t idx00 = pack_idx(dim, r0, c0);
+            dim_t idx11 = pack_idx(dim, r1, c1);
+            dim_t idx10 = pack_idx(dim, r1, c0);
+
+            int lower_01 = (r0 >= c1);
+            dim_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            int diag_block = (bc == br);
+
+            cplx_t rho00 = data[idx00];
+            cplx_t rho11 = data[idx11];
+            cplx_t rho10 = data[idx10];
+            cplx_t rho01 = diag_block ? conj(rho10)
+                          : (lower_01 ? data[idx01] : conj(data[idx01]));
+
+            /* i*cs*(a+bi) = -cs*b + i*cs*a */
+            cplx_t diff_01_10 = rho01 - rho10;
+            cplx_t ics_diff_01_10 = CMPLX(-cs * cimag(diff_01_10), cs * creal(diff_01_10));
+
+            cplx_t diff_diag = rho00 - rho11;
+            cplx_t ics_diff_diag = CMPLX(-cs * cimag(diff_diag), cs * creal(diff_diag));
+
+            cplx_t new00 = c2 * rho00 + s2 * rho11 + ics_diff_01_10;
+            cplx_t new11 = s2 * rho00 + c2 * rho11 - ics_diff_01_10;
+            cplx_t new01 = ics_diff_diag + c2 * rho01 + s2 * rho10;
+            cplx_t new10 = -ics_diff_diag + c2 * rho10 + s2 * rho01;
+
+            data[idx00] = new00;
+            data[idx11] = new11;
+            data[idx10] = new10;
+            if (!diag_block) {
+                data[idx01] = lower_01 ? new01 : conj(new01);
+            }
+        }
+    }
+}
+
+
+/*
+ * =====================================================================================================================
+ * Ry gate: ρ → Ry(θ) ρ Ry(θ)†
+ * =====================================================================================================================
+ *
+ * Ry(θ) = [[c, -s], [s, c]] where c = cos(θ/2), s = sin(θ/2)
+ *
+ * For ρ' = Ry ρ Ry†:
+ *   - ρ'_00 = c²·ρ00 + s²·ρ11 - cs·(ρ01 + ρ10)
+ *   - ρ'_11 = s²·ρ00 + c²·ρ11 + cs·(ρ01 + ρ10)
+ *   - ρ'_01 = cs·(ρ00 - ρ11) + c²·ρ01 - s²·ρ10
+ *   - ρ'_10 = cs·(ρ00 - ρ11) + c²·ρ10 - s²·ρ01
+ *
+ * Note: On diagonal blocks, ρ01 + ρ10 = 2·Re(ρ01) for Hermitian matrices.
+ * On cross-blocks, all elements can be complex.
+ */
+void ry_mixed(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta / 2.0);
+    const double s = sin(theta / 2.0);
+    const double c2 = c * c;
+    const double s2 = s * s;
+    const double cs = c * s;
+
+    const dim_t dim = (dim_t)1 << state->qubits;
+    const dim_t incr = (dim_t)1 << target;
+    const dim_t half_dim = dim >> 1;
+    cplx_t * restrict data = state->data;
+
+    #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
+    for (dim_t bc = 0; bc < half_dim; ++bc) {
+        dim_t c0 = insertBit0(bc, target);
+        dim_t c1 = c0 | incr;
+
+        for (dim_t br = bc; br < half_dim; ++br) {
+            dim_t r0 = insertBit0(br, target);
+            dim_t r1 = r0 | incr;
+
+            dim_t idx00 = pack_idx(dim, r0, c0);
+            dim_t idx11 = pack_idx(dim, r1, c1);
+            dim_t idx10 = pack_idx(dim, r1, c0);
+
+            int lower_01 = (r0 >= c1);
+            dim_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            int diag_block = (bc == br);
+
+            cplx_t rho00 = data[idx00];
+            cplx_t rho11 = data[idx11];
+            cplx_t rho10 = data[idx10];
+            cplx_t rho01 = diag_block ? conj(rho10)
+                          : (lower_01 ? data[idx01] : conj(data[idx01]));
+
+            cplx_t sum_01_10 = rho01 + rho10;
+            cplx_t diff_diag = rho00 - rho11;
+
+            cplx_t new00 = c2 * rho00 + s2 * rho11 - cs * sum_01_10;
+            cplx_t new11 = s2 * rho00 + c2 * rho11 + cs * sum_01_10;
+            cplx_t new01 = cs * diff_diag + c2 * rho01 - s2 * rho10;
+            cplx_t new10 = cs * diff_diag + c2 * rho10 - s2 * rho01;
+
+            data[idx00] = new00;
+            data[idx11] = new11;
+            data[idx10] = new10;
+            if (!diag_block) {
+                data[idx01] = lower_01 ? new01 : conj(new01);
+            }
+        }
+    }
+}
+
+
+/*
+ * =====================================================================================================================
+ * Rz gate: ρ → Rz(θ) ρ Rz(θ)†
+ * =====================================================================================================================
+ *
+ * Rz(θ) = diag(e^(-iθ/2), e^(iθ/2))
+ *
+ * For ρ' = Rz ρ Rz†:
+ *   - ρ'_00 = ρ00 (unchanged)
+ *   - ρ'_11 = ρ11 (unchanged)
+ *   - ρ'_01 = e^(-iθ)·ρ01
+ *   - ρ'_10 = e^(iθ)·ρ10
+ *
+ * This is a diagonal gate: only applies phase to off-diagonal elements.
+ * e^(-iθ)·(a+bi) = (a·cos(θ) + b·sin(θ)) + i·(b·cos(θ) - a·sin(θ))
+ * e^(iθ)·(a+bi) = (a·cos(θ) - b·sin(θ)) + i·(b·cos(θ) + a·sin(θ))
+ */
+void rz_mixed(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta);
+    const double s = sin(theta);
+
+    const dim_t dim = (dim_t)1 << state->qubits;
+    const dim_t incr = (dim_t)1 << target;
+    const dim_t half_dim = dim >> 1;
+    cplx_t * restrict data = state->data;
+
+    #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
+    for (dim_t bc = 0; bc < half_dim; ++bc) {
+        dim_t c0 = insertBit0(bc, target);
+        dim_t c1 = c0 | incr;
+
+        for (dim_t br = bc; br < half_dim; ++br) {
+            dim_t r0 = insertBit0(br, target);
+            dim_t r1 = r0 | incr;
+
+            dim_t idx10 = pack_idx(dim, r1, c0);
+
+            int lower_01 = (r0 >= c1);
+            dim_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            int diag_block = (bc == br);
+
+            /* (1,0) *= e^(iθ): (a+bi) -> (a·c - b·s) + i·(b·c + a·s) */
+            double re10 = creal(data[idx10]), im10 = cimag(data[idx10]);
+            data[idx10] = CMPLX(re10 * c - im10 * s, im10 * c + re10 * s);
+
+            if (diag_block) continue;
+
+            /* (0,1) *= e^(-iθ): (a+bi) -> (a·c + b·s) + i·(b·c - a·s) */
+            double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);
+            if (lower_01) {
+                data[idx01] = CMPLX(re01 * c + im01 * s, im01 * c - re01 * s);
+            } else {
+                /* stored = conj(rho01), rho01 = (re01, -im01) */
+                /* new = e^(-iθ) * (re01 - i·im01) = (re01·c - im01·s) + i·(-im01·c - re01·s) */
+                /* store conj = (re01·c - im01·s) + i·(im01·c + re01·s) */
+                data[idx01] = CMPLX(re01 * c - im01 * s, im01 * c + re01 * s);
+            }
+        }
+    }
+}

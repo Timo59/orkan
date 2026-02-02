@@ -142,6 +142,14 @@ void testSingleQubitGateMixed(single_qubit_gate gate, const cplx_t *mat);
 void testRotationGate(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 
 /*
+ * @brief   Unit test of a parameterized rotation gate on mixed states
+ *
+ * @param[in]   gate    Function representing the rotation gate
+ * @param[in]   mat_fn  Function that builds the 2×2 matrix for a given theta
+ */
+void testRotationGateMixed(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+
+/*
  * @brief   Build Rx(θ) matrix: [[cos(θ/2), -i·sin(θ/2)], [-i·sin(θ/2), cos(θ/2)]]
  */
 void mat_rx(double theta, cplx_t *mat);

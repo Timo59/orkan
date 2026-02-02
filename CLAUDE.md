@@ -53,7 +53,7 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 
 - State module: complete
 - Gates: X, Y, Z, H, S, Sdg, T, Tdg implemented (pure + mixed)
-- Rotation gates: Rx, Ry, Rz implemented (pure only, mixed TODO)
+- Rotation gates: Rx, Ry, Rz implemented (pure + mixed)
 
 ## Documentation
 

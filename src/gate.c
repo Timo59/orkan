@@ -86,6 +86,10 @@ extern void rx_pure(state_t *state, qubit_t target, double theta);
 extern void ry_pure(state_t *state, qubit_t target, double theta);
 extern void rz_pure(state_t *state, qubit_t target, double theta);
 
+extern void rx_mixed(state_t *state, qubit_t target, double theta);
+extern void ry_mixed(state_t *state, qubit_t target, double theta);
+extern void rz_mixed(state_t *state, qubit_t target, double theta);
+
 qs_error_t x(state_t *state, const qubit_t target) {
     // Input validation: state points to valid address and is initialized, target is in range
     if (!state) {
@@ -235,7 +239,7 @@ qs_error_t rx(state_t *state, const qubit_t target, const double theta) {
     }
 
     if (state->type == PURE) rx_pure(state, target, theta);
-    // else rx_mixed(state, target, theta);  // TODO: implement mixed state
+    else rx_mixed(state, target, theta);
 
     return QS_OK;
 }
@@ -252,7 +256,7 @@ qs_error_t ry(state_t *state, const qubit_t target, const double theta) {
     }
 
     if (state->type == PURE) ry_pure(state, target, theta);
-    // else ry_mixed(state, target, theta);  // TODO: implement mixed state
+    else ry_mixed(state, target, theta);
 
     return QS_OK;
 }
@@ -269,7 +273,7 @@ qs_error_t rz(state_t *state, const qubit_t target, const double theta) {
     }
 
     if (state->type == PURE) rz_pure(state, target, theta);
-    // else rz_mixed(state, target, theta);  // TODO: implement mixed state
+    else rz_mixed(state, target, theta);
 
     return QS_OK;
 }
