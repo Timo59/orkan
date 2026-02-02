@@ -6,25 +6,74 @@
 |-------|-------------|--------|
 | 1 | Foundation - Headers | ✅ Complete |
 | 2 | State Infrastructure | ✅ Complete |
-| 3.1 | Z Gate | ✅ Complete |
-| 3.2 | X Gate | ⏳ Pending |
-| 3.3 | Y Gate | ⏳ Pending |
-| 3.4 | H Gate | ⏳ Pending |
-| 3.5 | S, Sdg, T, Tdg Gates | ⏳ Pending |
-| 4 | SIMD Optimization | ⏳ Pending |
-| 5 | OpenMP Tuning | ⏳ Pending |
-| 6 | Benchmark Integration | ⏳ Pending |
+| 3.1 | Z Gate - Baseline | ✅ Complete |
+| 3.2 | Benchmark Integration | ✅ Complete |
+| 3.3 | Z Gate - SIMD Optimization | ✅ Complete |
+| 3.4 | Benchmark & Decision Point | ✅ Complete |
+| 4 | X Gate | ✅ Complete |
+| 5 | Y Gate | ✅ Complete |
+| 6 | H Gate | ✅ Complete |
+| 7 | Phase Gates (S, Sdg, T, Tdg) | ⏳ Pending |
+| 8 | OpenMP Tuning | ✅ Complete |
 
-**Test Results** (Phase 1-3.1):
+**Test Results** (Phase 1-6 + Y Gate):
 ```
 test_state_blocked_len:PASS
 test_state_blocked_init:PASS
 test_state_blocked_plus:PASS
 test_state_blocked_get_set:PASS
+test_x_blocked:PASS
+test_y_blocked:PASS
 test_z_blocked:PASS
+test_h_blocked:PASS
+test_h_blocked_cross_tile:PASS
+test_h_blocked_10qubits:PASS
 -----------------------
-5 Tests 0 Failures 0 Ignored
+10 Tests 0 Failures 0 Ignored
 ```
+
+**Benchmark Results** (Phase 3.3 - Z gate with NEON SIMD):
+| Qubits | Blocked vs Packed | Notes |
+|--------|-------------------|-------|
+| 6 | **22.9x faster** | BLAS overhead in packed + NEON efficiency |
+| 8 | 0.91x | Near parity |
+| 10 | **1.08x faster** | Blocked wins at scale |
+
+**Benchmark Results** (Phase 4 - X gate with NEON SIMD):
+| Qubits | Blocked vs Packed | Notes |
+|--------|-------------------|-------|
+| 6 | **13.9x faster** | BLAS overhead in packed + NEON efficiency |
+| 8 | 0.86x | Near parity |
+| 10 | **1.32x faster** | Swaps benefit more from SIMD than negations |
+
+**Decision (Phase 3.4)**: NEON optimization successful. Blocked format now beats packed at 10+ qubits.
+Proceed with remaining gates using established SIMD patterns.
+
+**Phase 4 Complete**: X gate implemented with SIMD-optimized swap operations. Handles both within-tile
+(target < 6) and cross-tile (target >= 6) cases with NEON vectorization.
+
+**Benchmark Results** (Phase 6 - H gate with NEON SIMD + tile-group parallelization):
+| Qubits | Blocked vs Packed | Notes |
+|--------|-------------------|-------|
+| 6 | **21.9x faster** | BLAS overhead in packed + NEON butterfly optimization |
+| 8 | **1.45x faster** | SIMD within-tile benefits |
+| 10 | **1.35x faster** | Tile-group parallelization fixes cross-tile overhead |
+| 12 | **1.02x** | Parity at larger scales |
+
+**Phase 6 Complete**: H gate implemented with SIMD-optimized butterfly operations. Within-tile case
+(target < 6) uses NEON vectorization for contiguous butterfly runs. Cross-tile case (target >= 6)
+uses tile-group parallelization where groups of 4 tiles are processed in parallel with SIMD.
+
+**Key optimization (cross-tile)**: Tiles partition into independent groups of 4 based on the target
+qubit's "tile bit". Each group can be processed in parallel without data races, enabling OpenMP
+parallelization that was previously disabled due to complexity concerns.
+
+**Phase 5 Complete**: Y gate implemented with SIMD-optimized swap+negate operations. Key insight: Y gate
+applies swap without negation for (0,0)↔(1,1) blocks, and swap with negation for (0,1)↔(1,0) blocks.
+Special handling needed for 2-cycles where upper-triangle partner storage coincides with another
+(1,0) position - only process once to avoid double-swap corruption.
+
+**Next Step**: Implement phase gates (S, Sdg, T, Tdg) - similar to Z gate with different phase factors.
 
 ## Overview
 
@@ -318,53 +367,41 @@ Similar structure to Z, different phase factors.
 #endif
 ```
 
-### 4.2 SIMD Primitives
+### 4.2 SIMD Primitives (Implemented)
 
 **File**: `src/mhipster_block.c`
 
 ```c
-// Swap n complex elements (NEON version)
-// Uses vld1q_f64 for direct load (no deinterleaving overhead)
-static inline void simd_swap_neon(cplx_t *a, cplx_t *b, dim_t n) {
+// Negate n complex elements (NEON version) - IMPLEMENTED
+// Uses 4x unrolling for better throughput
+static inline void negate_run(cplx_t *data, dim_t n) {
+#if USE_NEON
+    double *ptr = (double *)data;
+    dim_t total_doubles = n * 2;
     dim_t i = 0;
-    // Process 2 complex numbers at a time (4 doubles = 32 bytes)
-    for (; i + 2 <= n; i += 2) {
-        float64x2_t va0 = vld1q_f64((double*)(a + i));      // a[i]
-        float64x2_t va1 = vld1q_f64((double*)(a + i + 1));  // a[i+1]
-        float64x2_t vb0 = vld1q_f64((double*)(b + i));      // b[i]
-        float64x2_t vb1 = vld1q_f64((double*)(b + i + 1));  // b[i+1]
-        vst1q_f64((double*)(a + i), vb0);
-        vst1q_f64((double*)(a + i + 1), vb1);
-        vst1q_f64((double*)(b + i), va0);
-        vst1q_f64((double*)(b + i + 1), va1);
+
+    // Process 4 complex numbers (8 doubles) per iteration
+    for (; i + 8 <= total_doubles; i += 8) {
+        float64x2_t v0 = vld1q_f64(ptr + i);
+        float64x2_t v1 = vld1q_f64(ptr + i + 2);
+        float64x2_t v2 = vld1q_f64(ptr + i + 4);
+        float64x2_t v3 = vld1q_f64(ptr + i + 6);
+        vst1q_f64(ptr + i,     vnegq_f64(v0));
+        vst1q_f64(ptr + i + 2, vnegq_f64(v1));
+        vst1q_f64(ptr + i + 4, vnegq_f64(v2));
+        vst1q_f64(ptr + i + 6, vnegq_f64(v3));
     }
-    // Scalar remainder
-    for (; i < n; ++i) {
-        cplx_t tmp = a[i];
-        a[i] = b[i];
-        b[i] = tmp;
-    }
+    // ... remainder handling
+#else
+    cblas_zdscal((int)n, -1.0, data, 1);
+#endif
 }
 
-// Conjugate n complex elements (NEON version)
-static inline void simd_conj_neon(cplx_t *a, dim_t n) {
-    const float64x2_t neg_mask = {1.0, -1.0};  // Preserves real, negates imag
-    for (dim_t i = 0; i < n; ++i) {
-        float64x2_t v = vld1q_f64((double*)(a + i));
-        v = vmulq_f64(v, neg_mask);
-        vst1q_f64((double*)(a + i), v);
-    }
-}
+// Swap n complex elements (NEON version) - TODO for X gate
+static inline void simd_swap_neon(cplx_t *a, cplx_t *b, dim_t n);
 
-// Scale n complex elements by real scalar (NEON version)
-static inline void simd_scale_real_neon(cplx_t *a, double alpha, dim_t n) {
-    float64x2_t valpha = vdupq_n_f64(alpha);
-    for (dim_t i = 0; i < n; ++i) {
-        float64x2_t v = vld1q_f64((double*)(a + i));
-        v = vmulq_f64(v, valpha);
-        vst1q_f64((double*)(a + i), v);
-    }
-}
+// Scale by complex (NEON version) - TODO for S/T gates
+static inline void simd_scale_cplx_neon(cplx_t *a, cplx_t alpha, dim_t n);
 ```
 
 ### 4.3 Fallback to BLAS/Scalar
@@ -516,29 +553,57 @@ add_test(NAME test_mhipster_block COMMAND test_mhipster_block)
 
 **Helper extraction**: Move `multiQubitGate()` and related reference implementations from `test_mhipster.c` to `test_helpers.c`. This avoids duplicate `main()` symbols when linking multiple test executables.
 
-## Implementation Order (Tight TDD - Test Immediately Followed by Implementation)
+## Implementation Order (Optimize-First Approach)
+
+**Rationale**: Benchmark analysis revealed that the baseline Z gate implementation is already 10x faster than packed at 6 qubits (due to BLAS call overhead in packed), but slower at 8+ qubits (scalar ops vs BLAS vectorization). We optimize Z first to establish the right SIMD/BLAS patterns before implementing other gates.
 
 | Phase | Task | Files | Status |
 |-------|------|-------|--------|
 | 1 | Create headers | `include/state_blocked.h`, `include/mhipster_block.h` | ✅ |
 | 2 | State tests + impl | `test/src/test_mhipster_block.c` (state section), `src/state_blocked.c` | ✅ |
-| 3 | Z gate: test -> impl | `test/src/test_mhipster_block.c` (test_z), `src/mhipster_block.c` (z_blocked) | ✅ |
-| 4 | X gate: test -> impl | Same files (test_x -> x_blocked with SIMD) | ⏳ |
-| 5 | Y gate: test -> impl | Same files (test_y -> y_blocked) | ⏳ |
-| 6 | S gate: test -> impl | Same files (test_s -> s_blocked) | ⏳ |
-| 7 | Sdg gate: test -> impl | Same files (test_sdg -> sdg_blocked) | ⏳ |
-| 8 | T gate: test -> impl | Same files (test_t -> t_blocked) | ⏳ |
-| 9 | Tdg gate: test -> impl | Same files (test_tdg -> tdg_blocked) | ⏳ |
-| 10 | H gate: test -> impl | Same files (test_h -> h_blocked, key optimization target) | ⏳ |
-| 11 | SIMD tuning | `src/mhipster_block.c` (NEON/AVX2 paths) | ⏳ |
-| 12 | OpenMP tuning | `src/mhipster_block.c` (parallel regions) | ⏳ |
-| 13 | Benchmark | `benchmark/src/bench_mixed.c` (add blocked variant) | ⏳ |
+| 3.1 | Z gate: baseline impl | `src/mhipster_block.c` (z_blocked) | ✅ |
+| 3.2 | Benchmark integration | `benchmark/src/bench_mixed.c` (add blocked Z) | ✅ |
+| 3.3 | Z gate: SIMD optimization | `src/mhipster_block.c` (NEON for z_tile) | ✅ |
+| 3.4 | Benchmark & decide | Validate Z optimization, decide next steps | ✅ |
+| 4 | X gate: test -> impl | `src/mhipster_block.c` (x_blocked with SIMD) | ✅ |
+| 5 | Y gate: test -> impl | `src/mhipster_block.c` (y_blocked with SIMD) | ✅ |
+| 6 | H gate: test -> impl | `src/mhipster_block.c` (h_blocked with SIMD butterfly) | ✅ |
+| 7 | **Phase gates: S, Sdg, T, Tdg** | `src/mhipster_block.c` (similar to Z) | ⏳ **Next** |
+| 8 | OpenMP tuning | `src/mhipster_block.c` (parallel regions) | ✅ |
 
-**TDD Rule**: Never implement a gate without its test passing first. Each gate has:
-1. Test written and failing (references `multiQubitGate()` from test_mhipster.c)
-2. Implementation written
-3. Test passing
-4. Move to next gate
+**Phase 3.3 Implementation (Z Gate Optimization)**:
+Used NEON intrinsics (`vnegq_f64`) for bulk negation with 4x loop unrolling:
+- Process 4 complex numbers (8 doubles) per iteration for better throughput
+- Fall back to BLAS for non-NEON platforms
+- Result: 22.9x faster at 6 qubits, 1.08x faster at 10 qubits vs packed
+
+**Phase 4 Implementation (X Gate)**:
+Used NEON intrinsics for bulk swaps with 4x loop unrolling:
+- `swap_run()`: SIMD-optimized swap using `vld1q_f64`/`vst1q_f64` pairs
+- Handles within-tile (target < 6) and cross-tile (target >= 6) cases
+- Hermitian symmetry: upper triangle elements accessed via conjugate
+- Result: 13.9x faster at 6 qubits, 1.32x faster at 10 qubits vs packed
+
+**Phase 5 Implementation (Y Gate)**:
+Y = X (swap) + selective negation based on block position:
+- `swap_negate_run()`: SIMD-optimized swap+negate for (0,1)↔(1,0) blocks
+- (0,0)↔(1,1) blocks: swap WITHOUT negation
+- (0,1)↔(1,0) blocks: swap WITH negation
+- 2-cycle handling: When upper-triangle partner storage coincides with another (1,0) position,
+  only process once using canonical ordering to avoid double-swap corruption
+
+**Phase 3.4 Decision**:
+NEON optimization successful - blocked format beats packed at 10+ qubits.
+Proceeding with remaining gates using established SIMD patterns.
+
+**Phase 8 Implementation (OpenMP Tuning)**:
+1. O(1) closed-form tile coordinate calculation (replaced O(n) while loop)
+2. Added `OMP_TILE_THRESHOLD` (min 4 tiles) to avoid parallelization overhead
+3. Changed from `schedule(dynamic)` to `schedule(guided)` for better load balancing
+4. Added nested parallelism infrastructure for very large tiles (threshold: 128 rows)
+5. Extracted `z_tile_row()` helper for row-level parallelization
+
+**TDD Rule**: Each gate implementation must pass correctness tests (vs `multiQubitGate()` reference) before optimization.
 
 ## Success Criteria
 
