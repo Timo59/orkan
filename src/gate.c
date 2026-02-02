@@ -76,6 +76,16 @@ extern void t_mixed(state_t *state, qubit_t target);
 extern void tdg_pure(state_t *state, qubit_t target);
 extern void tdg_mixed(state_t *state, qubit_t target);
 
+/*
+ * =====================================================================================================================
+ * Rotation gates
+ * =====================================================================================================================
+ */
+
+extern void rx_pure(state_t *state, qubit_t target, double theta);
+extern void ry_pure(state_t *state, qubit_t target, double theta);
+extern void rz_pure(state_t *state, qubit_t target, double theta);
+
 qs_error_t x(state_t *state, const qubit_t target) {
     // Input validation: state points to valid address and is initialized, target is in range
     if (!state) {
@@ -209,6 +219,57 @@ qs_error_t tdg(state_t *state, const qubit_t target) {
 
     if (state->type == PURE) tdg_pure(state, target);
     else tdg_mixed(state, target);
+
+    return QS_OK;
+}
+
+qs_error_t rx(state_t *state, const qubit_t target, const double theta) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) rx_pure(state, target, theta);
+    // else rx_mixed(state, target, theta);  // TODO: implement mixed state
+
+    return QS_OK;
+}
+
+qs_error_t ry(state_t *state, const qubit_t target, const double theta) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) ry_pure(state, target, theta);
+    // else ry_mixed(state, target, theta);  // TODO: implement mixed state
+
+    return QS_OK;
+}
+
+qs_error_t rz(state_t *state, const qubit_t target, const double theta) {
+    if (!state) {
+        return QS_ERR_NULL;
+    }
+    if (!state->data) {
+        return QS_ERR_NULL;
+    }
+    if (target >= state->qubits) {
+        return QS_ERR_QUBIT;
+    }
+
+    if (state->type == PURE) rz_pure(state, target, theta);
+    // else rz_mixed(state, target, theta);  // TODO: implement mixed state
 
     return QS_OK;
 }

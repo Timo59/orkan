@@ -158,3 +158,97 @@ void t_pure(state_t *state, const qubit_t target) {
 void tdg_pure(state_t *state, const qubit_t target) {
     TRAVERSE_PURE_1Q(state, target, TDG_OP);
 }
+
+/*
+ * =====================================================================================================================
+ * Rotation gates
+ * =====================================================================================================================
+ *
+ * Rx(θ) = exp(-iθX/2) = cos(θ/2)I - i·sin(θ/2)X
+ *       = | cos(θ/2)    -i·sin(θ/2) |
+ *         | -i·sin(θ/2)  cos(θ/2)   |
+ *
+ * Ry(θ) = exp(-iθY/2) = cos(θ/2)I - i·sin(θ/2)Y
+ *       = | cos(θ/2)   -sin(θ/2) |
+ *         | sin(θ/2)    cos(θ/2) |
+ *
+ * Rz(θ) = exp(-iθZ/2) = cos(θ/2)I - i·sin(θ/2)Z
+ *       = | e^(-iθ/2)     0      |
+ *         |    0       e^(iθ/2)  |
+ */
+
+void rx_pure(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta / 2.0);
+    const double s = sin(theta / 2.0);
+
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    cplx_t *data = state->data;
+
+    #pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
+    for (dim_t i = 0; i < dim; i += step) {
+        for (dim_t j = 0; j < stride; ++j) {
+            cplx_t *a = data + i + j;
+            cplx_t *b = data + i + j + stride;
+
+            // a' = c*a - i*s*b,  b' = -i*s*a + c*b
+            // -i*(x + yi) = y - xi
+            cplx_t a_new = c * (*a) + CMPLX(s * cimag(*b), -s * creal(*b));
+            cplx_t b_new = CMPLX(s * cimag(*a), -s * creal(*a)) + c * (*b);
+            *a = a_new;
+            *b = b_new;
+        }
+    }
+}
+
+void ry_pure(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta / 2.0);
+    const double s = sin(theta / 2.0);
+
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    cplx_t *data = state->data;
+
+    #pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
+    for (dim_t i = 0; i < dim; i += step) {
+        for (dim_t j = 0; j < stride; ++j) {
+            cplx_t *a = data + i + j;
+            cplx_t *b = data + i + j + stride;
+
+            // a' = c*a - s*b,  b' = s*a + c*b
+            cplx_t a_new = c * (*a) - s * (*b);
+            cplx_t b_new = s * (*a) + c * (*b);
+            *a = a_new;
+            *b = b_new;
+        }
+    }
+}
+
+void rz_pure(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta / 2.0);
+    const double s = sin(theta / 2.0);
+
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    cplx_t *data = state->data;
+
+    #pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
+    for (dim_t i = 0; i < dim; i += step) {
+        for (dim_t j = 0; j < stride; ++j) {
+            cplx_t *a = data + i + j;
+            cplx_t *b = data + i + j + stride;
+
+            // a' = e^(-iθ/2)*a = (c - is)*a
+            // b' = e^(iθ/2)*b = (c + is)*b
+            // (c - is)*(x + yi) = cx + sy + i(cy - sx)
+            // (c + is)*(x + yi) = cx - sy + i(cy + sx)
+            double a_re = creal(*a), a_im = cimag(*a);
+            double b_re = creal(*b), b_im = cimag(*b);
+            *a = CMPLX(c * a_re + s * a_im, c * a_im - s * a_re);
+            *b = CMPLX(c * b_re - s * b_im, c * b_im + s * b_re);
+        }
+    }
+}

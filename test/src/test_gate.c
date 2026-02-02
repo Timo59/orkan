@@ -35,6 +35,9 @@ void test_S_pure(void) {testSingleQubitGate(s, SMAT);}
 void test_Sdg_pure(void) {testSingleQubitGate(sdg, SDGMAT);}
 void test_T_pure(void) {testSingleQubitGate(t, TMAT);}
 void test_Tdg_pure(void) {testSingleQubitGate(tdg, TDGMAT);}
+void test_Rx_pure(void) {testRotationGate(rx, mat_rx);}
+void test_Ry_pure(void) {testRotationGate(ry, mat_ry);}
+void test_Rz_pure(void) {testRotationGate(rz, mat_rz);}
 
 /*
  * =====================================================================================================================
@@ -107,6 +110,9 @@ int main(void) {
     RUN_TEST(test_Sdg_pure);
     RUN_TEST(test_T_pure);
     RUN_TEST(test_Tdg_pure);
+    RUN_TEST(test_Rx_pure);
+    RUN_TEST(test_Ry_pure);
+    RUN_TEST(test_Rz_pure);
 
     // Mixed state tests
     RUN_TEST(test_X_mixed);

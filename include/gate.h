@@ -150,6 +150,54 @@ qs_error_t t(state_t* state, qubit_t target);
  */
 qs_error_t tdg(state_t* state, qubit_t target);
 
+/*
+ * =====================================================================================================================
+ * Rotation gates
+ * =====================================================================================================================
+ */
+
+/*
+ * @brief   Applies the Rx rotation gate to the qubit <target> in the quantum state <state>
+ *                                          | cos(θ/2)    -i·sin(θ/2) |
+ *                                  Rx(θ) = |                         |
+ *                                          | -i·sin(θ/2)  cos(θ/2)   |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @param[in]       theta     Rotation angle in radians
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t rx(state_t* state, qubit_t target, double theta);
+
+/*
+ * @brief   Applies the Ry rotation gate to the qubit <target> in the quantum state <state>
+ *                                          | cos(θ/2)   -sin(θ/2) |
+ *                                  Ry(θ) = |                      |
+ *                                          | sin(θ/2)    cos(θ/2) |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @param[in]       theta     Rotation angle in radians
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t ry(state_t* state, qubit_t target, double theta);
+
+/*
+ * @brief   Applies the Rz rotation gate to the qubit <target> in the quantum state <state>
+ *                                          | e^(-iθ/2)     0      |
+ *                                  Rz(θ) = |                      |
+ *                                          |    0       e^(iθ/2)  |
+ * @param[in,out]   state     Quantum state
+ * @param[in]       target    Index of the qubit (counted from the right)
+ * @param[in]       theta     Rotation angle in radians
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if target >= state->qubits
+ */
+qs_error_t rz(state_t* state, qubit_t target, double theta);
+
 
 #ifdef __cplusplus
 }
