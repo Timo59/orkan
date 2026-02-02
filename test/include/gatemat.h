@@ -49,6 +49,20 @@ cplx_t* mat_id(unsigned nqubits);
  */
 cplx_t* mat_single_qubit_gate(unsigned nqubits, const cplx_t *gate, unsigned target);
 
+/*
+ * @brief   Returns the matrix representing the application of a two-qubit gate to a multiqubit statevector
+ *
+ * @param[in]   nqubits Number of qubits in the multiqubit state (must be >= 2)
+ * @param[in]   gate    Double complex array of size 4-by-4; matrix representation of the two-qubit gate
+ *                      in column-major format with basis order |q1=0,q2=0>, |q1=0,q2=1>, |q1=1,q2=0>, |q1=1,q2=1>
+ * @param[in]   q1      First qubit index (e.g., control for CNOT); counted from the RIGHT
+ * @param[in]   q2      Second qubit index (e.g., target for CNOT); counted from the RIGHT
+ *
+ * @returns Double complex array of size 4**(nqubits); the 2**(nqubits)-by-2**(nqubits) matrix representing
+ *          the gate action. Returns NULL on error.
+ */
+cplx_t* mat_two_qubit_gate(unsigned nqubits, const cplx_t *gate, unsigned q1, unsigned q2);
+
 #ifdef __cplusplus
 }
 #endif

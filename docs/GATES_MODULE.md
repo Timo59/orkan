@@ -3,7 +3,7 @@
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
 **Implementation:** `src/qhipster.c`, `src/mhipster.c`, `src/gate.c`
-**Last Updated:** 2026-02-02 (rotation gates Rx, Ry, Rz complete for pure + mixed states)
+**Last Updated:** 2026-02-02 (CNOT gate complete for pure + mixed states)
 
 ---
 
@@ -214,8 +214,8 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 | `testSingleQubitGateMixed()` | Validates single-qubit gates on mixed states | `test/src/test_mhipster.c` | ✅ Complete |
 | `testRotationGate()` | Validates parameterized rotation gates on pure states | `test/src/test_qhipster.c` | ✅ Complete |
 | `testRotationGateMixed()` | Validates parameterized rotation gates on mixed states | `test/src/test_mhipster.c` | ✅ Complete |
-| `testTwoQubitGate()` | Validates two-qubit gates on pure states | TBD | 🔲 Phase 4 |
-| `testTwoQubitGateMixed()` | Validates two-qubit gates on mixed states | TBD | 🔲 Phase 4 |
+| `testTwoQubitGate()` | Validates two-qubit gates on pure states | `test/src/test_qhipster.c` | ✅ Complete |
+| `testTwoQubitGateMixed()` | Validates two-qubit gates on mixed states | `test/src/test_mhipster.c` | ✅ Complete |
 | `testThreeQubitGate()` | Validates three-qubit gates on pure states | TBD | 🔲 Phase 5 |
 | `testThreeQubitGateMixed()` | Validates three-qubit gates on mixed states | TBD | 🔲 Phase 5 |
 
@@ -233,7 +233,7 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 | `mat_rz()` | Build Rz(θ) 2×2 matrix | `test/src/test_qhipster.c` | ✅ Complete |
 | `density_pack()` | Full Hermitian matrix → packed storage (static) | `test/src/test_mhipster.c` | ✅ Complete |
 | `density_unpack()` | Packed lower-triangle → full Hermitian matrix (static) | `test/src/test_mhipster.c` | ✅ Complete |
-| `mat_two_qubit_gate()` | Full matrix for two-qubit gate | `test/src/gatemat.c` | 🔲 Phase 4 |
+| `mat_two_qubit_gate()` | Full matrix for two-qubit gate | `test/src/gatemat.c` | ✅ Complete |
 | `mat_three_qubit_gate()` | Full matrix for three-qubit gate | `test/src/gatemat.c` | 🔲 Phase 5 |
 
 ### Test File Organization
@@ -295,7 +295,7 @@ Pauli-X gate fully implemented and tested for both pure and mixed states:
 
 | Gate | Description | Pure State | Mixed State | Phase |
 |------|-------------|------------|-------------|-------|
-| `cx()` | CNOT | 🔲 TODO | 🔲 TODO | 4 |
+| `cx()` | CNOT | ✅ Complete | ✅ Complete | 4 |
 | `cy()` | Controlled-Y | 🔲 TODO | 🔲 TODO | 4 |
 | `cz()` | Controlled-Z | 🔲 TODO | 🔲 TODO | 4 |
 | `cs()` | Controlled-S | 🔲 TODO | 🔲 TODO | 4 |
@@ -624,19 +624,26 @@ minimal benefit over compiler-generated code:
 
 **Exit criteria**: All single-qubit gates pass tests (pure + mixed) - ~30 gates × ~11,800 tests/gate = ~355k tests total
 
-### Phase 3: Two-Qubit Gate Test Infrastructure
+### Phase 3: Two-Qubit Gate Test Infrastructure - COMPLETE ✅
 **Goal**: Enable testing of two-qubit gates
 
-**Deliverables**:
-- `mat_two_qubit_gate()`: Build full matrix via Kronecker products (4×4 → 2^n×2^n)
-- `testTwoQubitGate()` and `testTwoQubitGateMixed()`: Test harnesses with (target, control) pair loops
+**Status**: COMPLETE ✅
 
-**Exit criteria**: Infrastructure ready for two-qubit gate implementation
+**Deliverables**:
+- ✅ `mat_two_qubit_gate()`: Build full matrix via Kronecker products (4×4 → 2^n×2^n)
+- ✅ `testTwoQubitGate()` and `testTwoQubitGateMixed()`: Test harnesses with (target, control) pair loops
+- ✅ `two_qubit_gate` typedef and `CXMAT` constant in `test/include/test_gate.h`
+
+**Exit criteria met**: Infrastructure ready for two-qubit gate implementation
 
 **Note**: Entangled state generators (Bell, GHZ, W) already complete from Phase 0
 
-### Phase 4: Two-Qubit Gates
+### Phase 4: Two-Qubit Gates - IN PROGRESS 🔄
 **Goal**: Complete two-qubit gate library
+
+**Status**: CNOT complete, remaining gates TODO
+- ✅ CNOT (cx): Complete (pure + mixed), all tests passing
+- 🔲 Remaining: CY, CZ, CS, CSdg, CH, CHy, CT, CTdg, CP, CPdg, SWAP, RSWAP
 
 **Deliverables**: Implement all two-qubit gates (CNOT, CZ, SWAP, controlled operations) for both pure and mixed states
 

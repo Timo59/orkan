@@ -198,6 +198,32 @@ qs_error_t ry(state_t* state, qubit_t target, double theta);
  */
 qs_error_t rz(state_t* state, qubit_t target, double theta);
 
+/*
+ * =====================================================================================================================
+ * Two-qubit gates
+ * =====================================================================================================================
+ */
+
+/*
+ * @brief   Applies the CNOT (Controlled-X) gate to the quantum state <state>
+ *
+ *          CNOT flips the target qubit when the control qubit is |1>:
+ *              |00> -> |00>, |01> -> |01>, |10> -> |11>, |11> -> |10>
+ *
+ *                                          | 1   0   0   0 |
+ *                                          | 0   1   0   0 |
+ *                                   CNOT = | 0   0   0   1 |
+ *                                          | 0   0   1   0 |
+ *
+ * @param[in,out]   state     Quantum state
+ * @param[in]       control   Index of the control qubit (counted from the right)
+ * @param[in]       target    Index of the target qubit (counted from the right)
+ * @return  QS_OK on success, or:
+ *          QS_ERR_NULL if state or state->data is NULL
+ *          QS_ERR_QUBIT if control >= state->qubits, target >= state->qubits, or control == target
+ */
+qs_error_t cx(state_t* state, qubit_t control, qubit_t target);
+
 
 #ifdef __cplusplus
 }

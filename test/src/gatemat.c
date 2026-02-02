@@ -78,3 +78,67 @@ cplx_t* mat_single_qubit_gate(const unsigned nqubits, const cplx_t *gate, const 
 
     return out;
 }
+
+cplx_t* mat_two_qubit_gate(const unsigned nqubits, const cplx_t *gate, const unsigned q1, const unsigned q2) {
+    // Check that we have at least 2 qubits
+    if (nqubits < 2) {
+        fprintf(stderr, "mat_two_qubit_gate(): nqubits must be >= 2; Was %u\n", nqubits);
+        return NULL;
+    }
+
+    // Check that both qubits are in scope
+    if (q1 >= nqubits) {
+        fprintf(stderr, "mat_two_qubit_gate(): q1 out of scope; Expected < %u, Was %u\n", nqubits, q1);
+        return NULL;
+    }
+    if (q2 >= nqubits) {
+        fprintf(stderr, "mat_two_qubit_gate(): q2 out of scope; Expected < %u, Was %u\n", nqubits, q2);
+        return NULL;
+    }
+
+    // Check that q1 != q2
+    if (q1 == q2) {
+        fprintf(stderr, "mat_two_qubit_gate(): q1 and q2 must be different; Both were %u\n", q1);
+        return NULL;
+    }
+
+    const unsigned dim = 1u << nqubits;
+    cplx_t *out = calloc(dim * dim, sizeof(*out));
+    if (!out) {
+        fprintf(stderr, "mat_two_qubit_gate(): out allocation failed\n");
+        return NULL;
+    }
+
+    // Build the matrix by directly computing each element
+    // For each input basis state |j> and output basis state |i>, compute <i|U|j>
+    // The gate acts on qubits q1 and q2, with the 4x4 matrix indexed as:
+    //   gate[row + col*4] where row = 2*q1_bit + q2_bit, col = 2*q1_bit' + q2_bit'
+    for (unsigned j = 0; j < dim; ++j) {
+        // Extract bits at positions q1 and q2 from input state j
+        unsigned j_q1 = (j >> q1) & 1;
+        unsigned j_q2 = (j >> q2) & 1;
+        unsigned j_gate_idx = 2 * j_q1 + j_q2;  // Index into 4x4 gate matrix column
+
+        // The remaining bits (not q1 or q2) stay the same
+        // For each possible output of the 2-qubit gate:
+        for (unsigned out_q1 = 0; out_q1 < 2; ++out_q1) {
+            for (unsigned out_q2 = 0; out_q2 < 2; ++out_q2) {
+                unsigned i_gate_idx = 2 * out_q1 + out_q2;  // Index into 4x4 gate matrix row
+                cplx_t gate_elem = gate[i_gate_idx + j_gate_idx * 4];
+
+                if (gate_elem == 0.0) continue;
+
+                // Construct output state i: same as j but with q1 and q2 bits replaced
+                unsigned i = j;
+                // Clear bits at q1 and q2
+                i &= ~((1u << q1) | (1u << q2));
+                // Set new bits
+                i |= (out_q1 << q1) | (out_q2 << q2);
+
+                out[i + j * dim] += gate_elem;
+            }
+        }
+    }
+
+    return out;
+}
