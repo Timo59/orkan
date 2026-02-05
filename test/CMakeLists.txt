@@ -34,10 +34,21 @@ set(TEST_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 # test_state
 #=======================================================================================================================
 
+# State module source files
+set(STATE_SOURCES
+        "${SRC_DIR}/state.c"
+        "${SRC_DIR}/state_pure.c"
+        "${SRC_DIR}/state_packed.c"
+        "${SRC_DIR}/state_tiled.c"
+)
+
 # Source files for test_state
 set(TEST_STATE_SRC
-        "${SRC_DIR}/state.c"
+        ${STATE_SOURCES}
         "${TEST_SRC_DIR}/test_state.c"
+        "${TEST_SRC_DIR}/test_state_pure.c"
+        "${TEST_SRC_DIR}/test_state_packed.c"
+        "${TEST_SRC_DIR}/test_state_tiled.c"
         "${UNITY_SRC}/unity.c"
 )
 
@@ -46,6 +57,7 @@ target_compile_definitions(test_state
         PRIVATE
             UNITY_INCLUDE_DOUBLE
             UNITY_SUPPORT_64
+            LOG_TILE_DIM=${LOG_TILE_DIM}
 )
 target_include_directories(test_state
         PRIVATE
@@ -58,6 +70,7 @@ target_link_libraries(test_state
             blas_compiler_flags
             ${PROJECT_COMPILER_FLAGS}
 )
+add_test(NAME test_state COMMAND test_state)
 
 #=======================================================================================================================
 # test_gate
@@ -65,7 +78,7 @@ target_link_libraries(test_state
 
 # Source files required for test_gate
 set(TEST_GATE_SRC
-        "${SRC_DIR}/state.c"
+        ${STATE_SOURCES}
         "${SRC_DIR}/gate.c"
         "${SRC_DIR}/qhipster.c"
         "${SRC_DIR}/mhipster.c"
@@ -84,6 +97,7 @@ target_compile_definitions(test_gate
         PRIVATE
             UNITY_INCLUDE_DOUBLE
             UNITY_SUPPORT_64
+            LOG_TILE_DIM=${LOG_TILE_DIM}
 )
 target_include_directories(test_gate
         PRIVATE
@@ -98,36 +112,3 @@ target_link_libraries(test_gate
             ${PROJECT_COMPILER_FLAGS}
 )
 
-#=======================================================================================================================
-# test_mhipster_block
-#=======================================================================================================================
-
-# Source files required for test_mhipster_block
-set(TEST_MHIPSTER_BLOCK_SRC
-        "${SRC_DIR}/state_blocked.c"
-        "${SRC_DIR}/mhipster_block.c"
-        "${TEST_SRC_DIR}/test_mhipster_block.c"
-        "${TEST_SRC_DIR}/gatemat.c"
-        "${TEST_SRC_DIR}/linalg.c"
-        "${UNITY_SRC}/unity.c"
-)
-
-add_executable(test_mhipster_block ${TEST_MHIPSTER_BLOCK_SRC})
-target_compile_definitions(test_mhipster_block
-        PRIVATE
-            UNITY_INCLUDE_DOUBLE
-            UNITY_SUPPORT_64
-)
-target_include_directories(test_mhipster_block
-        PRIVATE
-            ${UNITY_SRC}
-            "${CMAKE_SOURCE_DIR}/include"
-            "${CMAKE_CURRENT_SOURCE_DIR}/include"
-)
-target_link_libraries(test_mhipster_block
-        PRIVATE
-            blas_compiler_flags
-            omp_compiler_flags
-            ${PROJECT_COMPILER_FLAGS}
-)
-add_test(NAME test_mhipster_block COMMAND test_mhipster_block)
