@@ -57,7 +57,6 @@ A C library for studying the **performance and scalability of quantum heuristics
 **Performance optimizations:**
 - GPU acceleration
 - Distributed memory (MPI)
-- Blocked memory layout for cache optimization
 - Split complex representation for enhanced SIMD
 
 **Heisenberg picture (observable evolution):**
@@ -116,50 +115,51 @@ This dual evolution approach is O(p·m + m²) vs O(p·m³) for naive branching, 
 
 ### 3.1 Quantum State
 
+See `docs/STATE_MODULE.md` Section 2 for complete type definitions and invariants.
+
 ```c
-typedef enum {
-    STATE_PURE,
-    STATE_MIXED
+typedef enum state_type {
+    PURE,           // State vector |ψ⟩
+    MIXED_PACKED,   // Density matrix ρ, Hermitian packed lower triangle
+    MIXED_TILED     // Density matrix ρ, blocked layout for cache optimization
 } state_type_t;
 
-typedef struct {
-    int n_qubits;
-    state_type_t type;
-    double complex* amp;    // Amplitude array
-    // STATE_PURE:  size 2^n
-    // STATE_MIXED: size 2^n * (2^n + 1) / 2 (lower triangle)
+typedef struct state {
+    state_type_t type;   // Storage format (set before init)
+    cplx_t *data;        // Heap-allocated array
+    qubit_t qubits;      // Number of qubits n
 } state_t;
 ```
 
-**Index type:** Use `size_t` for all state array indices. For n=32 qubits, 2³² exceeds `INT_MAX`, requiring 64-bit indices. On 64-bit systems (target platform), `size_t` is 64-bit.
-
-For BLAS interoperability, use a typedef `blasint` matching the BLAS library's integer type (ILP32 or ILP64).
-
 ### 3.2 Memory Layout
 
-**State vector (pure):**
-- Contiguous array of `double complex`, size 2ⁿ
-- Little-endian qubit convention: |bₙ₋₁...b₁b₀⟩ has index Σᵢ bᵢ2ⁱ
-- Qubit 0 is rightmost (least significant bit)
+See `docs/STATE_MODULE.md` Section 4 for index formulas and detailed specifications.
 
-**Density matrix (mixed):**
-- Lower triangle, column-major order
-- Exploits Hermiticity: ρᵢⱼ = ρⱼᵢ* for i < j
-- Index formula: `(i, j) → j*N - j*(j-1)/2 + (i-j)` for i ≥ j, where N = 2ⁿ
+**PURE:** Contiguous array of size N = 2ⁿ with little-endian qubit convention.
+
+**MIXED_PACKED:** Lower triangle, column-major (LAPACK `uplo='L'`). Size: N(N+1)/2.
 
 ```
-Matrix (N=4):                  Linear storage:
+Matrix (N=4):                  Packed storage:
 ┌──────────────────────┐
-│ r00                  │       [0]: r00  ┐
-│ r10  r11             │       [1]: r10  │ Column 0
-│ r20  r21  r22        │       [2]: r20  │
-│ r30  r31  r32  r33   │       [3]: r30  ┘
-└──────────────────────┘       [4]: r11  ┐
-                               [5]: r21  │ Column 1
-(rij = density matrix          [6]: r31  ┘
- element at row i, col j)      [7]: r22  ┐ Column 2
-                               [8]: r32  ┘
-                               [9]: r33    Column 3
+│ ρ00                  │       [0]: ρ00  ┐
+│ ρ10  ρ11             │       [1]: ρ10  │ Col 0
+│ ρ20  ρ21  ρ22        │       [2]: ρ20  │
+│ ρ30  ρ31  ρ32  ρ33   │       [3]: ρ30  ┘
+└──────────────────────┘       [4]: ρ11  ┐ Col 1
+                               ...
+```
+
+**MIXED_TILED:** Lower-triangular tiles, each TILE_DIM×TILE_DIM (default 32×32 = 16KB). Tiles stored row-major at tile level, elements row-major within tiles. Enables L1/L2 cache locality for gate operations.
+
+```
+Tile grid (N=64, TILE_DIM=32):        Linear storage:
+┌─────────┬─────────┐
+│  T(0,0) │         │                 [0..1023]:    T(0,0) elements
+├─────────┼─────────┤                 [1024..2047]: T(1,0) elements
+│  T(1,0) │  T(1,1) │                 [2048..3071]: T(1,1) elements
+└─────────┴─────────┘
+(store lower triangle of tiles)
 ```
 
 ### 3.3 Observables
@@ -205,25 +205,20 @@ typedef void (*circuit_fn)(
 
 ### 4.1 State Management
 
-```c
-// Allocation (return NULL on OOM)
-state_t* state_alloc_pure(int n_qubits);
-state_t* state_alloc_mixed(int n_qubits);
-void     state_free(state_t* s);
+See `docs/STATE_MODULE.md` Section 5 for complete API reference.
 
-// Initialization
-qs_error_t state_init_zero(state_t* s);                              // |0⟩^⊗n (pure) or |0⟩⟨0|^⊗n (mixed)
-qs_error_t state_init_plus(state_t* s);                              // |+⟩^⊗n (pure) or |+⟩⟨+|^⊗n (mixed)
-qs_error_t state_init_mixed_max(state_t* s);                         // I/2^n (mixed only)
-qs_error_t state_init_from_array(state_t* s, const double complex* data);
+```c
+// Initialization (set state->type before calling)
+void state_init(state_t *state, qubit_t qubits, cplx_t **data);  // Zero-init or transfer ownership
+void state_plus(state_t *state, qubit_t qubits);                 // |+⟩^⊗n or |+⟩⟨+|^⊗n
+void state_free(state_t *state);
 
 // Copy
-state_t* state_copy(const state_t* s);                           // Allocate and copy (returns NULL on OOM)
-qs_error_t state_copy_into(state_t* dest, const state_t* src);   // Copy into existing state
+state_t state_cp(const state_t *state);  // Deep copy
 
-// Serialization
-qs_error_t state_save(const state_t* s, const char* filename);
-state_t*   state_load(const char* filename);  // Returns NULL on error
+// Element access (handles Hermitian symmetry for mixed types)
+cplx_t state_get(const state_t *state, dim_t row, dim_t col);
+void   state_set(state_t *state, dim_t row, dim_t col, cplx_t val);
 ```
 
 ### 4.2 Gates
@@ -514,16 +509,20 @@ Optional human-readable export for debugging small states.
 
 ## 7. Error Handling
 
-### 7.1 Strategy
+### 7.1 State Module
 
-All functions return integer status codes. No assertions or program termination on errors — the caller is responsible for checking return codes and handling errors gracefully.
+See `docs/STATE_MODULE.md` Section 6 for complete specification.
 
-| Return value | Meaning |
-|--------------|---------|
-| 0 | Success |
-| Negative | Error (see error codes below) |
+| Error Type | Handling | Rationale |
+|------------|----------|-----------|
+| Programmer error | `assert()` | Bugs should crash immediately for easy debugging |
+| Out-of-memory | Set `data = NULL`, print to stderr | Runtime condition, caller can handle |
 
-### 7.2 Error Codes
+**Caller responsibility:** Check `state.data == NULL` after `state_init()` or `state_plus()`.
+
+### 7.2 Other Modules
+
+Functions return `qs_error_t` status codes. Caller is responsible for checking return codes.
 
 ```c
 typedef enum {
@@ -537,28 +536,6 @@ typedef enum {
     QS_ERR_PARAM    = -7,   // Invalid parameter value
 } qs_error_t;
 ```
-
-### 7.3 Return Conventions
-
-- **Allocation functions**: Return `NULL` on failure (caller checks for NULL)
-- **All other functions**: Return `qs_error_t` status code
-- **Output values**: Passed via pointer parameters
-
-```c
-// Example: function returns error code, result via pointer
-qs_error_t expect_diag(const state_t* s, const double* H_diag, double* result);
-
-// Usage:
-double energy;
-qs_error_t err = expect_diag(state, hamiltonian, &energy);
-if (err != QS_OK) {
-    // Handle error
-}
-```
-
-### 7.4 Debug Builds
-
-Assertions may be enabled in debug builds (`-DDEBUG`) for development, but are disabled in release builds.
 
 ---
 

@@ -1,205 +1,442 @@
-# State Module: Implementation Status
+# State Module Technical Specification
 
-**Module:** State Representation
+**Module:** Quantum State Representation
 **Header:** `include/state.h`
 **Implementation:** `src/state.c`
-**Last Updated:** 2026-01-19
+**Dependencies:** `q_types.h`, `utils.h`, BLAS (`cblas_zcopy`)
 
 ---
 
-## Overview
+## 1. Overview
 
-Pure states: State vectors with `2^n` complex elements
-Mixed states: Density matrices with `2^n(2^n+1)/2` elements (lower-triangle packed storage)
-Storage format: LAPACK Hermitian packed (column-major), compatible with `zhpmv()`, `zhpr()`, `zhpevd()`
+The state module provides data structures and functions for representing quantum states of n-qubit systems. It supports three storage formats:
 
-**Memory Layout:**
-- Pure: `data[i]` = amplitude of basis state `|i⟩`
-- Mixed: `data[j*(2d-j-1)/2 + i]` = element ρ[i,j] for i≥j; use conjugate for upper triangle
+| Type | Mathematical Object | Storage Format |
+|------|---------------------|----------------|
+| `PURE` | State vector ∈ ℂ^(2^n) | Dense array |
+| `MIXED_PACKED` | Density matrix ∈ ℂ^(2^n × 2^n) | Hermitian packed (lower triangle, column-major) |
+| `MIXED_TILED` | Density matrix ∈ ℂ^(2^n × 2^n) | Blocked layout (tiles of lower triangle) |
 
----
-
-## Data Structures
-
-| Type | Status | Description |
-|------|--------|-------------|
-| `state_type_t` | ✅ Complete | Enum: PURE, MIXED |
-| `state_t` | ✅ Complete | Struct: type, data, qubits |
-| `cplx_t` | ✅ Complete | Platform-agnostic complex type (q_types.h) |
-| `dim_t` | ✅ Complete | 64-bit dimension type (q_types.h) |
+**Design principles:**
+- Runtime dispatch via type enum
+- No derived values stored: `dim`, `n_tiles` computed on demand
+- Assert on programmer errors, NULL on out-of-memory
 
 ---
 
-## Implemented Functions
+## 2. Type Definitions
 
-| Function | Status | Location | Description |
-|----------|--------|----------|-------------|
-| `state_free()` | ✅ Complete | state.c:23-28 | Deallocate and reset |
-| `state_len()` | ✅ Complete | state.c:31-40 | Calculate array size |
-| `state_init()` | ✅ Complete | state.c:43-63 | Initialize with ownership transfer |
-| `state_plus()` | ✅ Complete | state.c:66-89 | Create uniform superposition |
-| `state_cp()` | ✅ Complete | state.c:92-106 | Deep copy using cblas_zcopy() |
+### 2.1 State Type Enum
 
-**Key:** Ownership transfer via `**data`; errors → stderr + data=NULL
-
----
-
-## Unit Tests
-
-| Test Function | Status | Target | Coverage |
-|---------------|--------|--------|----------|
-| `test_state_len_pure()` | ✅ Complete | state_len() | Verify 2^n for n=1,2,3,4 |
-| `test_state_len_mixed()` | ✅ Complete | state_len() | Verify d(d+1)/2 for n=1,2,3 |
-| `test_state_init_pure_null_data()` | ✅ Complete | state_init() | Zero initialization |
-| `test_state_init_pure_with_data()` | ✅ Complete | state_init() | Ownership transfer verification |
-| `test_state_init_mixed_null_data()` | ✅ Complete | state_init() | Zero initialization |
-| `test_state_init_mixed_with_data()` | ✅ Complete | state_init() | Ownership transfer verification |
-| `test_state_init_reinitialization()` | ✅ Complete | state_init() | Memory leak check on reinit |
-| `test_state_free_pure()` | ✅ Complete | state_free() | Deallocation and reset |
-| `test_state_free_mixed()` | ✅ Complete | state_free() | Double-free safety |
-| `test_state_plus_pure_normalization()` | ✅ Complete | state_plus() | Verify 1/√(2^n), sum\|a\|²=1 |
-| `test_state_plus_mixed_trace()` | ✅ Complete | state_plus() | Verify Tr(ρ)=1, all entries=1/2^n |
-| `test_state_cp_pure_deep_copy()` | ✅ Complete | state_cp() | Independent allocations |
-| `test_state_cp_mixed_deep_copy()` | ✅ Complete | state_cp() | Independent allocations |
-| `test_state_single_qubit()` | ✅ Complete | Edge cases | 1-qubit correctness |
-| `test_state_many_qubits()` | ✅ Complete | Edge cases | Large n, overflow check |
-
-**Total:** 15 tests — ALL PASSING ✅
-**File:** `test/src/test_state.c`
-
----
-
-## Validation Functions (Missing)
-
-| Function | Priority | Implementation | Status |
-|----------|----------|----------------|--------|
-| `state_is_normalized()` | High | cblas_dznrm2() | 🔲 TODO |
-| `state_is_valid_density_matrix()` | High | Check Tr(ρ)=1, eigenvalues≥0 | 🔲 TODO |
-| `state_purity()` | Medium | Pure: return 1.0; Mixed: Tr(ρ²) | 🔲 TODO |
-| `state_partial_trace()` | Low | Trace out qubits → reduced ρ | 🔲 Future |
-
----
-
-## Helper Functions (Missing)
-
-| Function | Priority | Description | Status |
-|----------|----------|-------------|--------|
-| `packed_index()` | Medium | Convert (i,j) to packed index | 🔲 TODO |
-| `state_get_element()` | Medium | Safe access for mixed states | 🔲 TODO |
-| `state_set_element()` | Medium | Safe modification for mixed states | 🔲 TODO |
-| `state_normalize_inplace()` | Medium | In-place normalization | 🔲 TODO |
-| `state_scale_inplace()` | Medium | In-place scaling | 🔲 TODO |
-
-**Packed index formula:**
-`i >= j ? j*(2*d - j - 1)/2 + i : conj(data[i*(2*d - i - 1)/2 + j])`
-
----
-
-## Documentation Tasks
-
-| Task | Priority | Status |
-|------|----------|--------|
-| Doxygen comments for public API | High | 🔲 TODO |
-| Memory ownership documentation | High | 🔲 TODO |
-| Usage pattern examples | Medium | 🔲 TODO |
-
----
-
-## BLAS/LAPACK Functions
-
-| Operation | Function | Usage |
-|-----------|----------|-------|
-| Vector norm | `cblas_dznrm2()` | Normalization check |
-| Vector copy | `cblas_zcopy()` | Used in state_cp() |
-| Vector scaling | `cblas_zdscal()` | Normalization |
-| Outer product | `cblas_zher()` | ρ = \|ψ⟩⟨ψ\| (not needed per user) |
-| Matrix multiply | `cblas_zhemm()` | Tr(ρ²) calculation |
-| Eigendecomposition | `zheevd()` | Purity, validity checks |
-| HP matrix-vector | `cblas_zhpmv()` | Hermitian packed operations |
-| HP rank-1 update | `cblas_zhpr()` | Hermitian packed operations |
-| HP eigenvalues | `zhpevd()` | Hermitian packed eigenvalues |
-
-**Note:** Use `uplo = 'L'` for lower triangle in LAPACK calls.
-
----
-
-## Design Decisions
-
-| Topic | Current | Question | Status |
-|-------|---------|----------|--------|
-| Memory ownership | Transfer via `**data` | Add non-transfer init? | 🔲 Undecided |
-| Error handling | `qs_error_t` return codes | — | ✅ Implemented |
-| Thread safety | Not thread-safe | Document guarantees? | 🔲 Undecided |
-| Qubit limits | 255 (unsigned char) | Sufficient? | 🔲 Undecided |
-| Normalization | Manual | Auto-normalize gates? | 🔲 Undecided |
-
-**Error Codes** (defined in `q_types.h`):
 ```c
-typedef enum {
-    QS_OK           =  0,   // Success
-    QS_ERR_NULL     = -1,   // Null pointer argument
-    QS_ERR_OOM      = -2,   // Out of memory
-    QS_ERR_QUBIT    = -3,   // Invalid qubit index
-    QS_ERR_TYPE     = -4,   // Invalid state type for operation
-    QS_ERR_FILE     = -5,   // File I/O error
-    QS_ERR_FORMAT   = -6,   // Invalid file format
-    QS_ERR_PARAM    = -7,   // Invalid parameter value
-} qs_error_t;
+typedef enum state_type {
+    PURE,           // State vector |ψ⟩
+    MIXED_PACKED,   // Density matrix ρ, lower triangle column-major
+    MIXED_TILED     // Density matrix ρ, blocked/tiled layout
+} state_type_t;
 ```
 
----
+### 2.2 State Structure
 
-## Test Infrastructure (Complete)
-
-| Component | Status | Location |
-|-----------|--------|----------|
-| Unity framework | ✅ Complete | test/include/test.h |
-| Complex assertions | ✅ Complete | TEST_ASSERT_COMPLEX_WITHIN |
-| Computational basis generator | ✅ Complete | test_cb_pure() |
-| Hadamard basis generator | ✅ Complete | test_xb_pure() |
-| Circular basis generator | ✅ Complete | test_yb_pure() |
-
----
-
-## Implementation Priorities
-
-**Phase 1:** Unit tests, validation functions, Doxygen
-**Phase 2:** Helper functions, purity calculation, in-place ops
-**Phase 3:** Partial trace, eigendecomposition
-
----
-
-## Key Memory Layout Facts
-
-**Pure states (2-qubit):** 4 elements
-`|ψ⟩ = c₀|00⟩ + c₁|01⟩ + c₂|10⟩ + c₃|11⟩`
-
-**Mixed states (2-qubit):** 10 elements (lower triangle, column-major)
-Diagonal indices: 0, 4, 7, 9
-Formula: `diag_idx(i) = i*(2*d - i + 1)/2`
-
-**Trace calculation:**
 ```c
-for (i = 0; i < d; i++) {
-    trace += creal(data[i*(2*d - i + 1)/2]);
+typedef struct state {
+    state_type_t type;   // Storage format (must be set before init)
+    cplx_t *data;        // Heap-allocated array (owned by struct)
+    qubit_t qubits;      // Number of qubits n
+} state_t;
+```
+
+**Invariants:**
+- `type` must be set before calling `state_init()` or `state_len()`
+- `data != NULL` implies valid allocation of `state_len()` elements
+- `data == NULL` implies uninitialized, freed, or allocation failure
+
+### 2.3 Supporting Types (from q_types.h)
+
+| Type | Definition | Size | Purpose |
+|------|------------|------|---------|
+| `cplx_t` | Platform-specific double complex | 16 bytes | Complex amplitudes |
+| `dim_t` | BLAS integer (ILP64) | 4–8 bytes | Array dimensions |
+| `qubit_t` | `unsigned char` | 1 byte | Qubit count (max 255) |
+
+---
+
+## 3. Constants
+
+```c
+#ifndef LOG_TILE_DIM
+#define LOG_TILE_DIM 5
+#endif
+#define TILE_DIM (1 << LOG_TILE_DIM)
+```
+
+**Location:** `state.h`
+
+**Rationale for default (LOG_TILE_DIM=5 → TILE_DIM=32):**
+- 32 × 32 × 16 bytes = 16 KB per tile
+- 1 tile fits in L1 cache (~32-64 KB), enabling fast within-tile operations
+- 4 tiles fit in L2 cache (~128 KB), enabling cross-tile operations without thrashing
+
+Override at compile time with `-DLOG_TILE_DIM=6` for 64×64 tiles.
+
+---
+
+## 4. Memory Layouts
+
+### 4.1 PURE: State Vector
+
+For n qubits, dimension d = 2^n:
+
+```
+|ψ⟩ = Σᵢ cᵢ|i⟩    where i ∈ {0, 1, ..., d-1}
+```
+
+**Storage:** `data[i]` = amplitude cᵢ of basis state |i⟩
+
+**Basis encoding:** Little-endian binary
+- Index i = 5 (binary 101) → |101⟩ → qubit₀ = 1, qubit₁ = 0, qubit₂ = 1
+
+**Example (2 qubits):**
+```
+Index:  0     1     2     3
+State: |00⟩  |01⟩  |10⟩  |11⟩
+```
+
+**Array length:** 2^n
+
+### 4.2 MIXED_PACKED: Hermitian Packed Lower Triangle
+
+For n qubits, dimension d = 2^n, the density matrix ρ is Hermitian (ρ† = ρ). Store only the lower triangle in column-major order:
+
+```
+ρ = [ρ₀₀  ρ₀₁* ρ₀₂* ρ₀₃*]     Packed storage (column-major lower):
+    [ρ₁₀  ρ₁₁  ρ₁₂* ρ₁₃*]     [ρ₀₀, ρ₁₀, ρ₂₀, ρ₃₀, ρ₁₁, ρ₂₁, ρ₃₁, ρ₂₂, ρ₃₂, ρ₃₃]
+    [ρ₂₀  ρ₂₁  ρ₂₂  ρ₂₃*]      idx:  0    1    2    3    4    5    6    7    8    9
+    [ρ₃₀  ρ₃₁  ρ₃₂  ρ₃₃ ]
+```
+
+**Index formula for ρ[row, col] where row ≥ col:**
+```c
+packed_idx = col * d - col * (col + 1) / 2 + row
+```
+
+**Upper triangle access:** `ρ[row, col] = conj(ρ[col, row])` for row < col
+
+**Array length:** d(d + 1)/2
+
+**LAPACK compatibility:** Use `uplo = 'L'` for `zhpmv()`, `zhpr()`, `zhpevd()`
+
+### 4.3 MIXED_TILED: Blocked Layout
+
+Tiles of size TILE_DIM × TILE_DIM, stored in row-major tile order, lower-triangular at tile level.
+
+```
+Tile grid (n_tiles × n_tiles where n_tiles = ceil(d / TILE_DIM)):
+- Store tiles T(tr, tc) where tr ≥ tc (lower triangular)
+- Number of stored tiles: n_tiles × (n_tiles + 1) / 2
+- Within each tile: full TILE_DIM × TILE_DIM, row-major
+```
+
+**Derived quantities (computed, not stored):**
+```c
+dim_t dim = 1 << qubits;
+dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;  // ceil(dim / TILE_DIM)
+```
+
+**Index formula:**
+```c
+// Tile containing element (row, col)
+tile_row = row / TILE_DIM;
+tile_col = col / TILE_DIM;
+
+// Tile offset in storage (lower-triangular, row-major tile ordering)
+tile_offset = tile_row * (tile_row + 1) / 2 + tile_col;
+
+// Position within tile (row-major)
+local_row = row % TILE_DIM;
+local_col = col % TILE_DIM;
+elem_offset = local_row * TILE_DIM + local_col;
+
+// Full index
+index = tile_offset * TILE_DIM * TILE_DIM + elem_offset;
+```
+
+**Hermitian access:** For row < col at tile level, access via conjugate of (col, row).
+
+**Array length:** n_tiles × (n_tiles + 1) / 2 × TILE_DIM²
+
+---
+
+## 5. API Reference
+
+### 5.1 state_len
+
+```c
+dim_t state_len(const state_t *state);
+```
+
+Returns array length for the state's data buffer (see Section 4 for formulas).
+
+---
+
+### 5.2 state_init
+
+```c
+void state_init(state_t *state, qubit_t qubits, cplx_t **data);
+```
+
+Initialize state with given qubit count. If `data == NULL`, allocates zero-initialized buffer. If `data != NULL`, transfers ownership (`*data` set to NULL). Frees previous allocation if `state->data` was non-NULL.
+
+---
+
+### 5.3 state_free
+
+```c
+void state_free(state_t *state);
+```
+
+Deallocate data buffer, set `data = NULL` and `qubits = 0`. Safe to call on NULL or already-freed state.
+
+---
+
+### 5.4 state_plus
+
+```c
+void state_plus(state_t *state, qubit_t qubits);
+```
+
+Initialize to uniform superposition |+⟩^⊗n = (1/√d) Σᵢ |i⟩ for PURE, or ρ = |+⟩⟨+|^⊗n = (1/d) Σᵢⱼ |i⟩⟨j| for mixed types.
+
+---
+
+### 5.5 state_cp
+
+```c
+state_t state_cp(const state_t *state);
+```
+
+Return deep copy with independent data allocation. Uses `cblas_zcopy()`.
+
+---
+
+### 5.6 state_print
+
+```c
+void state_print(const state_t *state);
+```
+
+Print state to stdout. Uses `vprint()` for PURE, `mprint_packed()` for MIXED_PACKED, `mprint_tiled()` for MIXED_TILED.
+
+---
+
+### 5.7 state_get
+
+```c
+cplx_t state_get(const state_t *state, dim_t row, dim_t col);
+```
+
+Get element at (row, col). For PURE, `col` is ignored and returns `data[row]`. For mixed types, handles Hermitian symmetry: returns `conj(data[index(col, row)])` when row < col.
+
+---
+
+### 5.8 state_set
+
+```c
+void state_set(state_t *state, dim_t row, dim_t col, cplx_t val);
+```
+
+Set element at (row, col). For PURE, `col` is ignored. For mixed types, handles Hermitian symmetry: stores `conj(val)` at (col, row) when row < col.
+
+---
+
+## 6. Error Handling
+
+### 6.1 Strategy
+
+| Error Type | Handling | Rationale |
+|------------|----------|-----------|
+| Programmer error | `assert()` | Bugs should crash immediately for easy debugging |
+| Out-of-memory | Set `data = NULL`, print to stderr | Runtime condition, caller can handle |
+
+### 6.2 Programmer Errors (Asserted)
+
+- `state == NULL`
+- `state->type` not in `{PURE, MIXED_PACKED, MIXED_TILED}`
+- `state->data == NULL` when data access required (e.g., `state_cp`)
+
+### 6.3 Runtime Errors (NULL + stderr)
+
+- `malloc`/`calloc` returns NULL
+
+### 6.4 Caller Responsibility
+
+After `state_init()` or `state_plus()`, check:
+```c
+if (state.data == NULL) {
+    // Handle allocation failure
 }
 ```
 
-**Memory footprint:**
-- Each cplx_t: 16 bytes
-- 10-qubit pure: 16 KB
-- 10-qubit mixed: 8.2 MB
-- Packed storage saves 50% vs full matrix
+---
 
-**Basis encoding:** Little-endian binary
-`i=5` → `|101⟩` → q0=1, q1=0, q2=1
+## 7. Thread Safety
+
+No internal shared state. Concurrent reads of same state are safe; concurrent modifications require caller synchronization. Gate module achieves thread safety through disjoint memory regions in butterfly decomposition.
 
 ---
 
-## Common Pitfalls
+## 8. Memory Ownership
 
-1. **Shallow copy:** Use `state_cp()`, not `state2 = state1`
-2. **Ownership transfer:** After `state_init(&s, n, &data)`, `data` is NULL
-3. **Uninitialized type:** Always set `.type` before `state_init()`
-4. **Thread safety:** Requires external synchronization for concurrent writes
-5. **Error checking:** Check `state.data != NULL` after initialization
+### 8.1 Rules
+
+1. **`state_t` owns its data:** After initialization, the struct owns the `data` pointer
+2. **Ownership transfer:** `state_init(..., &data)` transfers ownership; `data` becomes NULL
+3. **No shared ownership:** Each buffer has exactly one owner
+4. **Cleanup:** `state_free()` releases ownership and deallocates
+
+### 8.2 Ownership Transfer Protocol
+
+```c
+cplx_t *buffer = malloc(len * sizeof(cplx_t));
+// ... populate buffer ...
+
+state_init(&state, n, &buffer);
+assert(buffer == NULL);  // Ownership transferred
+
+state_free(&state);  // Proper cleanup
+```
+
+### 8.3 Reinitialization
+
+Calling `state_init()` on an initialized state frees the previous allocation:
+```c
+state_init(&state, 2, NULL);  // First init
+state_init(&state, 3, NULL);  // Frees previous, allocates new
+```
+
+---
+
+## 9. Memory Footprint
+
+| Qubits | Dim | PURE | MIXED_PACKED | MIXED_TILED (TILE=32) |
+|--------|-----|------|--------------|----------------------|
+| 1 | 2 | 32 B | 48 B | 16 KB |
+| 2 | 4 | 64 B | 160 B | 16 KB |
+| 5 | 32 | 512 B | 8.4 KB | 16 KB |
+| 8 | 256 | 4 KB | 526 KB | 576 KB |
+| 10 | 1024 | 16 KB | 8.4 MB | 8.6 MB |
+| 12 | 4096 | 64 KB | 134 MB | 136 MB |
+
+Each `cplx_t` is 16 bytes. MIXED_TILED has overhead for small systems but converges to ~same as packed for n ≥ 8.
+
+---
+
+## 10. Platform Considerations
+
+### 10.1 macOS (vecLib/Accelerate)
+
+```c
+#include <vecLib/cblas_new.h>
+typedef __LAPACK_double_complex cplx_t;
+typedef __LAPACK_int dim_t;
+```
+
+### 10.2 Linux (OpenBLAS)
+
+```c
+#include <cblas.h>
+typedef openblas_complex_double cplx_t;
+typedef blasint dim_t;
+```
+
+First build compiles OpenBLAS with ILP64 (~10-30 min).
+
+### 10.3 Complex Number Operations
+
+Use C99 functions: `creal()`, `cimag()`, `cabs()`, `conj()`
+
+---
+
+## 11. Utility Functions
+
+**Location:** `include/utils.h`, `src/utils.c`
+
+| Function | Purpose |
+|----------|---------|
+| `vprint(v, n)` | Print complex vector |
+| `mprint_packed(m, n)` | Print Hermitian matrix from packed lower triangle |
+| `mprint_tiled(m, n)` | Print Hermitian matrix from tiled layout |
+| `packed_to_full(packed, full, dim)` | Convert packed to full matrix |
+| `full_to_packed(full, packed, dim)` | Convert full matrix to packed |
+| `tiled_to_full(tiled, full, dim)` | Convert tiled to full matrix |
+| `full_to_tiled(full, tiled, dim)` | Convert full matrix to tiled |
+
+---
+
+## 12. Test Strategy
+
+### 12.1 Unit Tests (test/src/test_state.c)
+
+| Function | Test Coverage |
+|----------|---------------|
+| `state_len()` | All three types, various qubit counts |
+| `state_init()` | NULL data (zero init), ownership transfer, reinitialization |
+| `state_free()` | Deallocation, double-free safety |
+| `state_plus()` | Normalization (pure), trace = 1 (mixed) |
+| `state_cp()` | Deep copy independence |
+| Edge cases | Single qubit, large qubit counts |
+
+---
+
+## 13. Usage Examples
+
+### 13.1 Pure State |0⟩
+
+```c
+state_t psi = {.type = PURE};
+state_init(&psi, 3, NULL);      // 3-qubit |000...0⟩
+if (!psi.data) { /* handle OOM */ }
+
+psi.data[0] = 1.0;              // Set to |000⟩
+state_free(&psi);
+```
+
+### 13.2 Mixed State (Maximally Mixed)
+
+```c
+state_t rho = {.type = MIXED_PACKED};
+state_init(&rho, 2, NULL);
+
+dim_t d = 1 << rho.qubits;
+for (dim_t i = 0; i < d; i++) {
+    dim_t diag_idx = i * d - i * (i + 1) / 2 + i;
+    rho.data[diag_idx] = 1.0 / d;  // ρ = I/d
+}
+state_free(&rho);
+```
+
+### 13.3 Uniform Superposition
+
+```c
+state_t plus = {.type = PURE};
+state_plus(&plus, 4);           // |+⟩^⊗4
+// All amplitudes = 1/√16 = 0.25
+
+state_free(&plus);
+```
+
+### 13.4 Deep Copy
+
+```c
+state_t original = {.type = MIXED_TILED};
+state_plus(&original, 6);
+
+state_t copy = state_cp(&original);
+// Modify original without affecting copy
+
+state_free(&original);
+state_free(&copy);
+```
+
+---
+
