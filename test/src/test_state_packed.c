@@ -118,7 +118,7 @@ void test_packed_free_double_free(void) {
 
 /*
  * =====================================================================================================================
- * Test: state_packed_plus() - all elements = 1/dim (maximally mixed state)
+ * Test: state_packed_plus() - all elements = 1/dim (|+><+| state)
  * =====================================================================================================================
  */
 
@@ -136,7 +136,7 @@ void test_packed_plus_values(void) {
         dim_t len = state_packed_len(n);
         double expected_value = 1.0 / (double)dim;
 
-        // For maximally mixed state, all elements should be 1/dim
+        // For |+><+| state, all elements should be 1/dim
         for (dim_t i = 0; i < len; i++) {
             double real_part = creal(state.data[i]);
             double imag_part = cimag(state.data[i]);
@@ -315,7 +315,7 @@ void test_packed_set_upper(void) {
 void test_packed_cp_independence(void) {
     state_t original = {.type = MIXED_PACKED, .data = NULL, .qubits = 0};
 
-    state_packed_plus(&original, 2);  // Maximally mixed state
+    state_packed_plus(&original, 2);  // |+><+| state
 
     // Create copy
     state_t copy = state_cp(&original);
@@ -407,7 +407,7 @@ void test_packed_single_qubit(void) {
     TEST_ASSERT_EQUAL_INT64(3, state_packed_len(1));
     TEST_ASSERT_NOT_NULL(state.data);
 
-    // Maximally mixed single qubit: ρ = I/2
+    // |+><+| single qubit: all elements = 1/2
     double expected = 0.5;
     TEST_ASSERT_DOUBLE_WITHIN(PRECISION, expected, creal(state.data[0]));  // (0,0)
     TEST_ASSERT_DOUBLE_WITHIN(PRECISION, expected, creal(state.data[1]));  // (1,0)

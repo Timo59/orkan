@@ -90,29 +90,15 @@ dim_t state_tiled_len(qubit_t qubits) {
     /*
      * Storage length for tiled format: n_tiles*(n_tiles+1)/2 * TILE_SIZE
      *
-     * To avoid overflow in n_tiles*(n_tiles+1), we compute:
-     * - If n_tiles is even: (n_tiles/2)*(n_tiles+1)*TILE_SIZE
-     * - If n_tiles is odd:  n_tiles*((n_tiles+1)/2)*TILE_SIZE
-     *
-     * Maximum supported qubits depends on sizeof(dim_t):
-     * - 32-bit dim_t: practical limit around 30 qubits
-     * - 64-bit dim_t: memory limited long before overflow
+     * With 64-bit dim_t, memory exhaustion occurs long before overflow.
+     * The assert below guards against dimension overflow for the matrix itself.
      */
     assert(qubits < sizeof(dim_t) * 8 - 1);  /* Prevent dim overflow */
 
     const dim_t dim = POW2(qubits, dim_t);
     const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;  /* ceil(dim / TILE_DIM) */
 
-    /* Number of lower-triangular tiles * elements per tile, avoiding overflow */
-    dim_t num_tiles;
-    if (n_tiles & 1) {
-        /* n_tiles is odd, so (n_tiles+1) is even */
-        num_tiles = n_tiles * ((n_tiles + 1) >> 1);
-    } else {
-        /* n_tiles is even */
-        num_tiles = (n_tiles >> 1) * (n_tiles + 1);
-    }
-    return num_tiles * TILE_SIZE;
+    return (n_tiles * (n_tiles + 1) >> 1) * TILE_SIZE;
 }
 
 
@@ -127,54 +113,15 @@ void state_tiled_plus(state_t *state, qubit_t qubits) {
      *
      * All matrix elements are equal to 1/2^n.
      * This is consistent with state_packed_plus.
-     *
-     * Performance optimization: iterate over tiles first, then linearly within
-     * each tile. This avoids the O(1) overhead of tiled_index() per element
-     * and gives excellent cache locality (sequential memory access within tiles).
      */
-    const dim_t dim = POW2(qubits, dim_t);
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t len = state_tiled_len(state->qubits);
     const cplx_t prefactor = 1.0 / (double)dim;
-    const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;  /* ceil(dim / TILE_DIM) */
 
-    dim_t storage_offset = 0;
-
-    /* Iterate over lower-triangular tiles in row-major order */
-    for (dim_t tr = 0; tr < n_tiles; ++tr) {
-        /* Global row range for this tile row */
-        const dim_t row_start = tr << LOG_TILE_DIM;
-        const dim_t row_end = MIN(row_start + TILE_DIM, dim);
-        const dim_t valid_rows = row_end - row_start;
-
-        for (dim_t tc = 0; tc <= tr; ++tc) {
-            /* Global column range for this tile column */
-            const dim_t col_start = tc << LOG_TILE_DIM;
-            const dim_t col_end = MIN(col_start + TILE_DIM, dim);
-            const dim_t valid_cols = col_end - col_start;
-
-            /* Get pointer to this tile's storage */
-            cplx_t *tile = state->data + storage_offset;
-
-            if (tr == tc) {
-                /* Diagonal tile: only lower triangle has valid elements */
-                for (dim_t lr = 0; lr < valid_rows; ++lr) {
-                    /* Only elements where global row >= global col are valid.
-                     * Since row = row_start + lr and col = col_start + lc = row_start + lc,
-                     * we need lr >= lc for diagonal tiles. */
-                    for (dim_t lc = 0; lc <= lr; ++lc) {
-                        tile[lr * TILE_DIM + lc] = prefactor;
-                    }
-                }
-            } else {
-                /* Off-diagonal tile (tr > tc): all valid elements in the tile are stored */
-                for (dim_t lr = 0; lr < valid_rows; ++lr) {
-                    for (dim_t lc = 0; lc < valid_cols; ++lc) {
-                        tile[lr * TILE_DIM + lc] = prefactor;
-                    }
-                }
-            }
-
-            storage_offset += TILE_SIZE;
-        }
+    /* Write all elements including tile padding. Simpler than selective writes
+     * and acceptable overhead for one-time initialization. */
+    for (dim_t i = 0; i < len; ++i) {
+        state->data[i] = prefactor;
     }
 }
 

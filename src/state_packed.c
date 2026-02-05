@@ -67,9 +67,9 @@ dim_t state_packed_len(qubit_t qubits) {
 
     const dim_t dim = POW2(qubits, dim_t);
     if (qubits == 0) {
-        return 1;  /* Special case: 1x1 matrix */
+        return 1;  /* dim=1 is odd, so (dim>>1)*(dim+1) = 0*2 = 0, wrong */
     }
-    /* dim is even for qubits >= 1, so dim/2 is exact */
+    /* dim is even for qubits >= 1, so (dim>>1)*(dim+1) = dim*(dim+1)/2 */
     return (dim >> 1) * (dim + 1);
 }
 

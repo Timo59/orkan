@@ -12,6 +12,27 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+/* 64-byte alignment for AVX-512 and cache line alignment */
+#define STATE_ALIGNMENT 64
+
+/**
+ * @brief Allocate zero-initialized, aligned memory for state data
+ *
+ * @param len Number of complex elements
+ * @return Aligned, zero-initialized memory, or NULL on failure
+ */
+static cplx_t *state_alloc_aligned(dim_t len) {
+    size_t size = len * sizeof(cplx_t);
+    /* Round up to alignment boundary (required by aligned_alloc) */
+    size = (size + STATE_ALIGNMENT - 1) & ~(size_t)(STATE_ALIGNMENT - 1);
+    cplx_t *ptr = aligned_alloc(STATE_ALIGNMENT, size);
+    if (ptr) {
+        memset(ptr, 0, size);
+    }
+    return ptr;
+}
 
 #if defined(__APPLE__)
     #include <vecLib/cblas_new.h>
@@ -36,8 +57,8 @@ dim_t state_len(const state_t *state) {
         case MIXED_TILED:
             return state_tiled_len(state->qubits);
         default:
-            fprintf(stderr, "state_len(): invalid state type %d\n", state->type);
-            return 0;
+            assert(0 && "state_len(): invalid state type");
+            return 0;  /* unreachable, silences compiler warning */
     }
 }
 
@@ -58,11 +79,11 @@ void state_init(state_t *state, const qubit_t qubits, cplx_t **data) {
         state->data = *data;
         *data = NULL;
     } else {
-        /* Allocate zero-initialized storage */
+        /* Allocate zero-initialized, aligned storage */
         const dim_t len = state_len(state);
-        state->data = calloc(len, sizeof(*state->data));
+        state->data = state_alloc_aligned(len);
         if (!state->data) {
-            fprintf(stderr, "state_init(): allocation failed for %d elements\n", len);
+            fprintf(stderr, "state_init(): allocation failed for %zu elements\n", (size_t)len);
             state->qubits = 0;
         }
     }
@@ -92,7 +113,7 @@ void state_plus(state_t *state, const qubit_t qubits) {
             state_tiled_plus(state, qubits);
             break;
         default:
-            fprintf(stderr, "state_plus(): invalid state type %d\n", state->type);
+            assert(0 && "state_plus(): invalid state type");
     }
 }
 
@@ -103,9 +124,11 @@ state_t state_cp(const state_t *state) {
     /* Shallow copy of metadata */
     state_t out = *state;
 
-    /* Allocate new storage for the copy */
+    /* Allocate aligned storage for the copy */
     const dim_t len = state_len(state);
-    out.data = malloc(len * sizeof(*out.data));
+    size_t size = len * sizeof(*out.data);
+    size = (size + STATE_ALIGNMENT - 1) & ~(size_t)(STATE_ALIGNMENT - 1);
+    out.data = aligned_alloc(STATE_ALIGNMENT, size);
     if (!out.data) {
         fprintf(stderr, "state_cp(): allocation failed\n");
         out.qubits = 0;
@@ -133,7 +156,7 @@ void state_print(const state_t *state) {
             state_tiled_print(state);
             break;
         default:
-            printf("Type: INVALID (%d)\n", state->type);
+            assert(0 && "state_print(): invalid state type");
     }
 }
 
@@ -143,14 +166,15 @@ cplx_t state_get(const state_t *state, dim_t row, dim_t col) {
 
     switch (state->type) {
         case PURE:
+            assert(col == 0 && "col must be 0 for PURE states");
             return state_pure_get(state, row);
         case MIXED_PACKED:
             return state_packed_get(state, row, col);
         case MIXED_TILED:
             return state_tiled_get(state, row, col);
         default:
-            fprintf(stderr, "state_get(): invalid state type %d\n", state->type);
-            return 0.0;
+            assert(0 && "state_get(): invalid state type");
+            return 0.0;  /* unreachable, silences compiler warning */
     }
 }
 
@@ -160,6 +184,7 @@ void state_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
 
     switch (state->type) {
         case PURE:
+            assert(col == 0 && "col must be 0 for PURE states");
             state_pure_set(state, row, val);
             break;
         case MIXED_PACKED:
@@ -169,6 +194,6 @@ void state_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
             state_tiled_set(state, row, col, val);
             break;
         default:
-            fprintf(stderr, "state_set(): invalid state type %d\n", state->type);
+            assert(0 && "state_set(): invalid state type");
     }
 }

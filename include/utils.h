@@ -46,48 +46,52 @@ inline void znprint(const double complex x) {
 
 #define vprint(_v, _n) \
     do { \
+        const unsigned _len = (_n); \
         printf("["); \
-        for (unsigned _i = 0; _i < (_n); ++_i) { \
+        for (unsigned _i = 0; _i < _len; ++_i) { \
             nprint((_v)[_i]); \
-            if (_i < (_n) - 1) printf(", "); \
+            if (_i < _len - 1) printf(", "); \
         } \
         printf("]\n"); \
     } while(0)
 
 #define mprint(_m, _k, _n) \
     do { \
+        const unsigned _rows = (_k); \
+        const unsigned _cols = (_n); \
         printf("["); \
-        for (unsigned _i = 0; _i < (_k); ++_i) { \
+        for (unsigned _i = 0; _i < _rows; ++_i) { \
             if (_i != 0) printf(" "); \
             printf("["); \
-            for (unsigned _j = 0; _j < (_n); ++_j) { \
-                nprint((_m)[_j * (_k) + _i]); \
-                if (_j < (_n) - 1) printf(", "); \
+            for (unsigned _j = 0; _j < _cols; ++_j) { \
+                nprint((_m)[_j * _rows + _i]); \
+                if (_j < _cols - 1) printf(", "); \
             } \
             printf("]"); \
-            if (_i < (_k) - 1) printf("\n"); \
+            if (_i < _rows - 1) printf("\n"); \
         } \
         printf("]\n"); \
     } while(0)
 
 #define mprint_packed(_packed, _n) \
     do { \
+        const unsigned _dim = (_n); \
         printf("["); \
-        for (unsigned _row = 0; _row < (_n); ++_row) { \
+        for (unsigned _row = 0; _row < _dim; ++_row) { \
             if (_row != 0) printf(" "); \
             printf("["); \
-            for (unsigned _col = 0; _col < (_n); ++_col) { \
+            for (unsigned _col = 0; _col < _dim; ++_col) { \
                 if (_col <= _row) { \
-                    unsigned _idx = (_col) * (_n) - (_col) * ((_col) + 1) / 2 + (_row); \
+                    unsigned _idx = _col * _dim - _col * (_col + 1) / 2 + _row; \
                     nprint((_packed)[_idx]); \
                 } else { \
-                    unsigned _idx = (_row) * (_n) - (_row) * ((_row) + 1) / 2 + (_col); \
+                    unsigned _idx = _row * _dim - _row * (_row + 1) / 2 + _col; \
                     nprint(conj((_packed)[_idx])); \
                 } \
-                if (_col < (_n) - 1) printf(", "); \
+                if (_col < _dim - 1) printf(", "); \
             } \
             printf("]"); \
-            if (_row < (_n) - 1) printf("\n"); \
+            if (_row < _dim - 1) printf("\n"); \
         } \
         printf("]\n"); \
     } while(0)
