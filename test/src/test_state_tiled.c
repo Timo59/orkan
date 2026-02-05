@@ -330,7 +330,7 @@ void test_tiled_set_roundtrip(void) {
 void test_tiled_cp_independence(void) {
     state_t original = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
-    state_tiled_plus(&original, 2);  // Maximally mixed state
+    state_tiled_plus(&original, 2);  // |+><+| state
 
     // Create copy
     state_t copy = state_cp(&original);
