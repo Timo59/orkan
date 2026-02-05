@@ -1,7 +1,15 @@
+/**
+ * @file state.c
+ * @brief Dispatch layer for quantum state operations
+ *
+ * This file implements the public API for quantum states, dispatching to
+ * type-specific implementations based on state->type.
+ */
+
 #include "state.h"
 #include "utils.h"
 
-#include <math.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -13,115 +21,154 @@
 
 /*
  * =====================================================================================================================
- * State manipulation
+ * Public API - Dispatch implementations
  * =====================================================================================================================
  */
 
-void state_free(state_t *state) {
-    if (!state) return;
-
-    free(state->data);
-    state->data = NULL;
-
-    state->qubits = 0;
-}
-
-
 dim_t state_len(const state_t *state) {
-    // Guard against uninitialized or invalid state type
-    if (state->type != PURE && state->type != MIXED) {
-        fprintf(stderr, "state_len(): invalid state type\n");
-        return 0;
+    assert(state != NULL);
+
+    switch (state->type) {
+        case PURE:
+            return state_pure_len(state->qubits);
+        case MIXED_PACKED:
+            return state_packed_len(state->qubits);
+        case MIXED_TILED:
+            return state_tiled_len(state->qubits);
+        default:
+            fprintf(stderr, "state_len(): invalid state type %d\n", state->type);
+            return 0;
     }
-
-    // Hilbert space dimension
-    const dim_t dim = POW2(state->qubits, dim_t);
-
-    // Hilbert space dimension is the length of the statevector
-    if (state->type == PURE) return dim;
-
-    // Length of lower triangle for a density matrix on the Hilbert space
-    return dim * (dim + 1) / 2;
-}
-
-
-void state_print(const state_t *state) {
-    printf("Type: ");
-    if (state->type == PURE) printf("PURE");
-    else if (state->type == MIXED) printf("MIXED");
-    else {
-        printf("INVALID\n");
-        return;
-    }
-
-    printf("\nQubits: %u\n", state->qubits);
-
-    dim_t dim = POW2(state->qubits, dim_t);
-
-    if (state->type == PURE) vprint(state->data, dim);
-    else if (state->type == MIXED) mprint_packed(state->data, dim);
 }
 
 
 void state_init(state_t *state, const qubit_t qubits, cplx_t **data) {
-    // If state has been initialized before, reset it
+    assert(state != NULL);
+
+    /* Free existing data if present */
     if (state->data) {
         free(state->data);
         state->data = NULL;
     }
 
-	state->qubits = qubits;
+    state->qubits = qubits;
 
-    // Initialize state representation to the passed representation or to all zero if the latter is NULL
-    if (data) {
-        state->data = *data;    // Transfer ownership of state vector
-        *data = NULL;           // Nullify source
+    if (data && *data) {
+        /* Transfer ownership */
+        state->data = *data;
+        *data = NULL;
     } else {
-        const dim_t len = state_len(state); // Size of the array representing the quantum state
-        if(!((state->data = calloc(len, sizeof(*state->data))))) {
-            fprintf(stderr, "state_init(): state->data allocation failed\n");
+        /* Allocate zero-initialized storage */
+        const dim_t len = state_len(state);
+        state->data = calloc(len, sizeof(*state->data));
+        if (!state->data) {
+            fprintf(stderr, "state_init(): allocation failed for %d elements\n", len);
             state->qubits = 0;
         }
     }
 }
 
 
+void state_free(state_t *state) {
+    if (!state) return;
+
+    free(state->data);
+    state->data = NULL;
+    state->qubits = 0;
+}
+
+
 void state_plus(state_t *state, const qubit_t qubits) {
-    // Normalization constant
-    cplx_t prefactor;
-    if (state->type == PURE) {
-        prefactor = 1.0 / sqrt((double)(1ULL << qubits));
-    } else {
-        prefactor = 1.0 / (double)(1ULL << qubits);
-    }
+    assert(state != NULL);
 
-    // Initialize empty quantum state
-    state_init(state, qubits, NULL);
-    if (!state->data) {
-        fprintf(stderr, "state_plus(): state_init() failed\n");
-        return;
-    }
-
-    // Fill array with normalization constant
-    const dim_t len = state_len(state); // Size of the array representing the quantum state
-    for (dim_t i = 0; i < len; ++i) {
-        state->data[i] = prefactor;
+    switch (state->type) {
+        case PURE:
+            state_pure_plus(state, qubits);
+            break;
+        case MIXED_PACKED:
+            state_packed_plus(state, qubits);
+            break;
+        case MIXED_TILED:
+            state_tiled_plus(state, qubits);
+            break;
+        default:
+            fprintf(stderr, "state_plus(): invalid state type %d\n", state->type);
     }
 }
 
 
-state_t state_cp(const state_t* state) {
-    // Shallow copy of the values
-	state_t out = *state;
+state_t state_cp(const state_t *state) {
+    assert(state != NULL && state->data != NULL);
 
-    // Deep copy of the representation
-    const dim_t len = state_len(&out);  // Size of the array representing the quantum state
-    if (!((out.data = malloc(len * sizeof(*out.data))))) {
-        fprintf(stderr, "state_cp(): out.data allocation failed\n");
-        state_free(&out);
+    /* Shallow copy of metadata */
+    state_t out = *state;
+
+    /* Allocate new storage for the copy */
+    const dim_t len = state_len(state);
+    out.data = malloc(len * sizeof(*out.data));
+    if (!out.data) {
+        fprintf(stderr, "state_cp(): allocation failed\n");
+        out.qubits = 0;
         return out;
     }
+
+    /* Deep copy of data using BLAS */
     cblas_zcopy(len, state->data, 1, out.data, 1);
 
     return out;
+}
+
+
+void state_print(const state_t *state) {
+    assert(state != NULL);
+
+    switch (state->type) {
+        case PURE:
+            state_pure_print(state);
+            break;
+        case MIXED_PACKED:
+            state_packed_print(state);
+            break;
+        case MIXED_TILED:
+            state_tiled_print(state);
+            break;
+        default:
+            printf("Type: INVALID (%d)\n", state->type);
+    }
+}
+
+
+cplx_t state_get(const state_t *state, dim_t row, dim_t col) {
+    assert(state != NULL && state->data != NULL);
+
+    switch (state->type) {
+        case PURE:
+            return state_pure_get(state, row);
+        case MIXED_PACKED:
+            return state_packed_get(state, row, col);
+        case MIXED_TILED:
+            return state_tiled_get(state, row, col);
+        default:
+            fprintf(stderr, "state_get(): invalid state type %d\n", state->type);
+            return 0.0;
+    }
+}
+
+
+void state_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
+    assert(state != NULL && state->data != NULL);
+
+    switch (state->type) {
+        case PURE:
+            state_pure_set(state, row, val);
+            break;
+        case MIXED_PACKED:
+            state_packed_set(state, row, col, val);
+            break;
+        case MIXED_TILED:
+            state_tiled_set(state, row, col, val);
+            break;
+        default:
+            fprintf(stderr, "state_set(): invalid state type %d\n", state->type);
+    }
 }

@@ -1,13 +1,19 @@
 # src/CMakeLists.txt - Main library target
 
-# Collect source files
-set(Q_SOURCES
+# Collect state module source files
+set(STATE_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/state.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/state_blocked.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/state_pure.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/state_packed.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/state_tiled.c"
+)
+
+# Collect all source files
+set(Q_SOURCES
+        ${STATE_SOURCES}
         "${CMAKE_CURRENT_SOURCE_DIR}/gate.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/qhipster.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/mhipster.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/mhipster_block.c"
 )
 
 # Include directory
@@ -27,6 +33,10 @@ target_include_directories(q
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_compile_definitions(q
+        PRIVATE
+            LOG_TILE_DIM=${LOG_TILE_DIM}
 )
 target_link_libraries(q
         PUBLIC
