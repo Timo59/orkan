@@ -48,7 +48,7 @@ typedef struct state {
 
 **Invariants:**
 - `type` must be set before calling `state_init()` or `state_len()`
-- `data != NULL` implies valid allocation of `state_len()` elements
+- `data != NULL` implies valid, 64-byte-aligned allocation of `state_len()` elements
 - `data == NULL` implies uninitialized, freed, or allocation failure
 
 ### 2.3 Supporting Types (from q_types.h)
@@ -56,8 +56,10 @@ typedef struct state {
 | Type | Definition | Size | Purpose |
 |------|------------|------|---------|
 | `cplx_t` | Platform-specific double complex | 16 bytes | Complex amplitudes |
-| `dim_t` | BLAS integer (ILP64) | 4–8 bytes | Array dimensions |
+| `dim_t` | BLAS integer, **must be 64-bit** (ILP64) | 8 bytes | Array dimensions |
 | `qubit_t` | `unsigned char` | 1 byte | Qubit count (max 255) |
+
+`dim_t` is 64-bit on both platforms: `__LAPACK_int` on macOS (vecLib) and `blasint` on Linux (OpenBLAS compiled with ILP64). This guarantees all index and length formulas are overflow-safe for any memory-feasible qubit count.
 
 ---
 
@@ -163,6 +165,10 @@ index = tile_offset * TILE_DIM * TILE_DIM + elem_offset;
 
 **Hermitian access:** For row < col at tile level, access via conjugate of (col, row).
 
+**Intra-tile layout is row-major.** Do not pass tile pointers to LAPACK routines (`zhpmv`, `zhpr`, etc.) which expect column-major packed storage.
+
+**Padding:** When `dim < TILE_DIM` (i.e., `qubits < LOG_TILE_DIM`), a single full tile is allocated but only the `dim × dim` corner is physical. Padding elements must remain zero. When `dim` is a multiple of `TILE_DIM` (i.e., `qubits ≥ LOG_TILE_DIM`), no padding exists.
+
 **Array length:** n_tiles × (n_tiles + 1) / 2 × TILE_DIM²
 
 ---
@@ -185,7 +191,10 @@ Returns array length for the state's data buffer (see Section 4 for formulas).
 void state_init(state_t *state, qubit_t qubits, cplx_t **data);
 ```
 
-Initialize state with given qubit count. If `data == NULL`, allocates zero-initialized buffer. If `data != NULL`, transfers ownership (`*data` set to NULL). Frees previous allocation if `state->data` was non-NULL.
+Initialize state with given qubit count. Frees previous allocation if `state->data` was non-NULL.
+
+- **`data == NULL`:** Allocates a zero-initialized, 64-byte-aligned buffer via `aligned_alloc`.
+- **`data != NULL`:** Transfers ownership (`*data` set to NULL). If `*data` is already 64-byte-aligned, takes it directly; otherwise copies into aligned storage and frees the original.
 
 ---
 
@@ -235,7 +244,7 @@ Print state to stdout. Uses `vprint()` for PURE, `mprint_packed()` for MIXED_PAC
 cplx_t state_get(const state_t *state, dim_t row, dim_t col);
 ```
 
-Get element at (row, col). For PURE, `col` is ignored and returns `data[row]`. For mixed types, handles Hermitian symmetry: returns `conj(data[index(col, row)])` when row < col.
+Get element at (row, col). For PURE, asserts `col == 0` and returns `data[row]`. For mixed types, handles Hermitian symmetry: returns `conj(data[index(col, row)])` when row < col.
 
 ---
 
@@ -245,7 +254,7 @@ Get element at (row, col). For PURE, `col` is ignored and returns `data[row]`. F
 void state_set(state_t *state, dim_t row, dim_t col, cplx_t val);
 ```
 
-Set element at (row, col). For PURE, `col` is ignored. For mixed types, handles Hermitian symmetry: stores `conj(val)` at (col, row) when row < col.
+Set element at (row, col). For PURE, asserts `col == 0`. For mixed types, handles Hermitian symmetry: stores `conj(val)` at (col, row) when row < col.
 
 ---
 
