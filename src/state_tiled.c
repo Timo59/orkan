@@ -11,13 +11,16 @@
  * - Density matrix partitioned into TILE_DIM x TILE_DIM tiles
  * - Only lower-triangular tiles stored (at tile level)
  * - Tiles stored in row-major order: T(0,0), T(1,0), T(1,1), T(2,0), ...
- * - Within tiles: row-major element order
+ * - Within tiles: row-major element order (NOT column-major like LAPACK packed)
  * - Tile size: TILE_DIM x TILE_DIM (default 32x32 = 16KB for complex double)
  *
  * Index formulas:
  * - Tile offset for tile (tr, tc): tr*(tr+1)/2 + tc
  * - Element offset within tile (lr, lc): lr*TILE_DIM + lc
  * - Global index: tile_offset * TILE_SIZE + elem_offset
+ *
+ * WARNING: Intra-tile layout is row-major. Do NOT pass tile pointers to LAPACK
+ * routines (zhpmv, zhpr, etc.) which expect column-major packed storage.
  *
  * Reference: thesis sec4.tex
  */
@@ -118,10 +121,19 @@ void state_tiled_plus(state_t *state, qubit_t qubits) {
     const dim_t len = state_tiled_len(state->qubits);
     const cplx_t prefactor = 1.0 / (double)dim;
 
-    /* Write all elements including tile padding. Simpler than selective writes
-     * and acceptable overhead for one-time initialization. */
-    for (dim_t i = 0; i < len; ++i) {
-        state->data[i] = prefactor;
+    if (state->qubits < LOG_TILE_DIM) {
+        /* Single tile with padding: only write the physical dim x dim corner.
+         * Padding stays zero from state_init's memset. */
+        for (dim_t row = 0; row < dim; ++row) {
+            for (dim_t col = 0; col < dim; ++col) {
+                state->data[row * TILE_DIM + col] = prefactor;
+            }
+        }
+    } else {
+        /* dim is a multiple of TILE_DIM, so no padding exists. Bulk fill. */
+        for (dim_t i = 0; i < len; ++i) {
+            state->data[i] = prefactor;
+        }
     }
 }
 

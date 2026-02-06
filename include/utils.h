@@ -8,6 +8,7 @@
  */
 
 #include <complex.h>
+#include <stddef.h>
 #include <math.h>
 #include <stdio.h>
 
@@ -28,12 +29,12 @@ extern "C" {
  */
 
 // Print double number with 7 digits after the decimal point
-inline void dnprint(const double x) {
+static inline void dnprint(const double x) {
     printf("%.7f", x);
 }
 
 // Print double complex number with 7 digits after the decimal point
-inline void znprint(const double complex x) {
+static inline void znprint(const double complex x) {
     printf("%.7f", creal(x));
     cimag(x) >= 0 ? printf("+i%.7f", cimag(x)) : printf("-i%.7f", fabs(cimag(x)));
 }
@@ -46,9 +47,9 @@ inline void znprint(const double complex x) {
 
 #define vprint(_v, _n) \
     do { \
-        const unsigned _len = (_n); \
+        const size_t _len = (_n); \
         printf("["); \
-        for (unsigned _i = 0; _i < _len; ++_i) { \
+        for (size_t _i = 0; _i < _len; ++_i) { \
             nprint((_v)[_i]); \
             if (_i < _len - 1) printf(", "); \
         } \
@@ -57,13 +58,13 @@ inline void znprint(const double complex x) {
 
 #define mprint(_m, _k, _n) \
     do { \
-        const unsigned _rows = (_k); \
-        const unsigned _cols = (_n); \
+        const size_t _rows = (_k); \
+        const size_t _cols = (_n); \
         printf("["); \
-        for (unsigned _i = 0; _i < _rows; ++_i) { \
+        for (size_t _i = 0; _i < _rows; ++_i) { \
             if (_i != 0) printf(" "); \
             printf("["); \
-            for (unsigned _j = 0; _j < _cols; ++_j) { \
+            for (size_t _j = 0; _j < _cols; ++_j) { \
                 nprint((_m)[_j * _rows + _i]); \
                 if (_j < _cols - 1) printf(", "); \
             } \
@@ -75,17 +76,17 @@ inline void znprint(const double complex x) {
 
 #define mprint_packed(_packed, _n) \
     do { \
-        const unsigned _dim = (_n); \
+        const size_t _dim = (_n); \
         printf("["); \
-        for (unsigned _row = 0; _row < _dim; ++_row) { \
+        for (size_t _row = 0; _row < _dim; ++_row) { \
             if (_row != 0) printf(" "); \
             printf("["); \
-            for (unsigned _col = 0; _col < _dim; ++_col) { \
+            for (size_t _col = 0; _col < _dim; ++_col) { \
                 if (_col <= _row) { \
-                    unsigned _idx = _col * _dim - _col * (_col + 1) / 2 + _row; \
+                    size_t _idx = _col * _dim - _col * (_col + 1) / 2 + _row; \
                     nprint((_packed)[_idx]); \
                 } else { \
-                    unsigned _idx = _row * _dim - _row * (_row + 1) / 2 + _col; \
+                    size_t _idx = _row * _dim - _row * (_row + 1) / 2 + _col; \
                     nprint(conj((_packed)[_idx])); \
                 } \
                 if (_col < _dim - 1) printf(", "); \
@@ -100,25 +101,25 @@ inline void znprint(const double complex x) {
  * Requires TILE_DIM, TILE_SIZE, LOG_TILE_DIM from state.h at expansion site. */
 #define mprint_tiled(_tiled, _n) \
     do { \
-        const unsigned _dim = (_n); \
+        const size_t _dim = (_n); \
         printf("["); \
-        for (unsigned _row = 0; _row < _dim; ++_row) { \
+        for (size_t _row = 0; _row < _dim; ++_row) { \
             if (_row != 0) printf(" "); \
             printf("["); \
-            for (unsigned _col = 0; _col < _dim; ++_col) { \
+            for (size_t _col = 0; _col < _dim; ++_col) { \
                 if (_col <= _row) { \
-                    unsigned _tr = _row >> LOG_TILE_DIM; \
-                    unsigned _tc = _col >> LOG_TILE_DIM; \
-                    unsigned _lr = _row & (TILE_DIM - 1); \
-                    unsigned _lc = _col & (TILE_DIM - 1); \
-                    unsigned _idx = (_tr * (_tr + 1) / 2 + _tc) * TILE_SIZE + _lr * TILE_DIM + _lc; \
+                    size_t _tr = _row >> LOG_TILE_DIM; \
+                    size_t _tc = _col >> LOG_TILE_DIM; \
+                    size_t _lr = _row & (TILE_DIM - 1); \
+                    size_t _lc = _col & (TILE_DIM - 1); \
+                    size_t _idx = (_tr * (_tr + 1) / 2 + _tc) * TILE_SIZE + _lr * TILE_DIM + _lc; \
                     nprint((_tiled)[_idx]); \
                 } else { \
-                    unsigned _tr = _col >> LOG_TILE_DIM; \
-                    unsigned _tc = _row >> LOG_TILE_DIM; \
-                    unsigned _lr = _col & (TILE_DIM - 1); \
-                    unsigned _lc = _row & (TILE_DIM - 1); \
-                    unsigned _idx = (_tr * (_tr + 1) / 2 + _tc) * TILE_SIZE + _lr * TILE_DIM + _lc; \
+                    size_t _tr = _col >> LOG_TILE_DIM; \
+                    size_t _tc = _row >> LOG_TILE_DIM; \
+                    size_t _lr = _col & (TILE_DIM - 1); \
+                    size_t _lc = _row & (TILE_DIM - 1); \
+                    size_t _idx = (_tr * (_tr + 1) / 2 + _tc) * TILE_SIZE + _lr * TILE_DIM + _lc; \
                     nprint(conj((_tiled)[_idx])); \
                 } \
                 if (_col < _dim - 1) printf(", "); \

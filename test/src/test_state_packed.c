@@ -416,3 +416,32 @@ void test_packed_single_qubit(void) {
 
     state_free(&state);
 }
+
+/*
+ * =====================================================================================================================
+ * Test: Zero-qubit state - special case for 0 qubits
+ * =====================================================================================================================
+ */
+
+void test_packed_zero_qubit(void) {
+    // Test that state_packed_len(0) returns 1 (special case for 0-qubit = 1x1 scalar density matrix)
+    TEST_ASSERT_EQUAL_INT64(1, state_packed_len(0));
+
+    state_t state = {.type = MIXED_PACKED, .data = NULL, .qubits = 0};
+
+    state_init(&state, 0, NULL);
+
+    // Verify initialization
+    TEST_ASSERT_EQUAL_UINT8(0, state.qubits);
+    TEST_ASSERT_NOT_NULL(state.data);
+    TEST_ASSERT_EQUAL_INT64(1, state_packed_len(0));
+
+    // Set the single element to 1.0 (valid scalar density matrix)
+    state_packed_set(&state, 0, 0, 1.0 + 0.0*I);
+
+    // Verify get returns the value
+    cplx_t val = state_packed_get(&state, 0, 0);
+    TEST_ASSERT_COMPLEX_WITHIN(1.0 + 0.0*I, val, PRECISION);
+
+    state_free(&state);
+}

@@ -462,3 +462,83 @@ void test_tiled_tile_boundaries(void) {
 
     state_free(&state);
 }
+
+/*
+ * =====================================================================================================================
+ * Test: state_tiled_set() - upper triangle stores conjugate at transposed position
+ * =====================================================================================================================
+ */
+
+void test_tiled_set_upper(void) {
+    state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
+
+    state_init(&state, 2, NULL);  // 4x4 matrix
+
+    // Set upper triangle elements (row < col)
+    // These should be stored as conjugates at the transposed position
+    state_tiled_set(&state, 0, 1, 2.0 + 1.0*I);
+    state_tiled_set(&state, 0, 2, 4.0 + 2.0*I);
+    state_tiled_set(&state, 1, 2, 5.0 + 3.0*I);
+    state_tiled_set(&state, 0, 3, 7.0 + 4.0*I);
+
+    // Verify that state_tiled_get on the lower triangle position returns the conjugate
+    TEST_ASSERT_COMPLEX_WITHIN(2.0 - 1.0*I, state_tiled_get(&state, 1, 0), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(4.0 - 2.0*I, state_tiled_get(&state, 2, 0), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(5.0 - 3.0*I, state_tiled_get(&state, 2, 1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(7.0 - 4.0*I, state_tiled_get(&state, 3, 0), PRECISION);
+
+    // Verify get on the original upper position returns the original value (double conjugation roundtrip)
+    TEST_ASSERT_COMPLEX_WITHIN(2.0 + 1.0*I, state_tiled_get(&state, 0, 1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(4.0 + 2.0*I, state_tiled_get(&state, 0, 2), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(5.0 + 3.0*I, state_tiled_get(&state, 1, 2), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(7.0 + 4.0*I, state_tiled_get(&state, 0, 3), PRECISION);
+
+    state_free(&state);
+}
+
+/*
+ * =====================================================================================================================
+ * Test: 6-qubit tiled - minimal multi-tile case
+ * =====================================================================================================================
+ */
+
+void test_tiled_6_qubits(void) {
+    state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
+
+    state_init(&state, 6, NULL);  // 64x64 matrix, n_tiles = 2, total 3 tiles: T(0,0), T(1,0), T(1,1)
+
+    // Verify storage length: 3 * TILE_SIZE
+    dim_t expected_len = 3 * TILE_SIZE;
+    TEST_ASSERT_EQUAL_INT64(expected_len, state_tiled_len(6));
+    TEST_ASSERT_EQUAL_UINT8(6, state.qubits);
+    TEST_ASSERT_NOT_NULL(state.data);
+
+    // Set elements in each of the 3 tiles
+    // Tile T(0,0): rows 0-31, cols 0-31
+    state_tiled_set(&state, 0, 0, 1.0 + 0.0*I);
+    state_tiled_set(&state, 15, 10, 2.0 + 1.0*I);
+    state_tiled_set(&state, 31, 31, 3.0 + 2.0*I);
+
+    // Tile T(1,0): rows 32-63, cols 0-31
+    state_tiled_set(&state, 32, 0, 4.0 + 3.0*I);
+    state_tiled_set(&state, 50, 20, 5.0 + 4.0*I);
+    state_tiled_set(&state, 63, 31, 6.0 + 5.0*I);
+
+    // Tile T(1,1): rows 32-63, cols 32-63
+    state_tiled_set(&state, 32, 32, 7.0 + 6.0*I);
+    state_tiled_set(&state, 45, 40, 8.0 + 7.0*I);
+    state_tiled_set(&state, 63, 63, 9.0 + 8.0*I);
+
+    // Verify get returns correct values
+    TEST_ASSERT_COMPLEX_WITHIN(1.0 + 0.0*I, state_tiled_get(&state, 0, 0), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(2.0 + 1.0*I, state_tiled_get(&state, 15, 10), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(3.0 + 2.0*I, state_tiled_get(&state, 31, 31), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(4.0 + 3.0*I, state_tiled_get(&state, 32, 0), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(5.0 + 4.0*I, state_tiled_get(&state, 50, 20), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(6.0 + 5.0*I, state_tiled_get(&state, 63, 31), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(7.0 + 6.0*I, state_tiled_get(&state, 32, 32), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(8.0 + 7.0*I, state_tiled_get(&state, 45, 40), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(9.0 + 8.0*I, state_tiled_get(&state, 63, 63), PRECISION);
+
+    state_free(&state);
+}
