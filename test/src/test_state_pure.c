@@ -57,9 +57,10 @@ void test_pure_init_null_data(void) {
 void test_pure_init_ownership(void) {
     state_t state = {.type = PURE, .data = NULL, .qubits = 0};
 
-    // Allocate data externally
+    // Allocate data externally (64-byte aligned for SIMD gate kernels)
     dim_t len = state_pure_len(3);  // 8 elements for 3 qubits
-    cplx_t *data = malloc(len * sizeof(cplx_t));
+    size_t size = (len * sizeof(cplx_t) + 63) & ~(size_t)63;
+    cplx_t *data = aligned_alloc(64, size);
     TEST_ASSERT_NOT_NULL(data);
 
     // Set values

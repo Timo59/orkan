@@ -10,6 +10,7 @@
 #include "utils.h"
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,8 +76,23 @@ void state_init(state_t *state, const qubit_t qubits, cplx_t **data) {
     state->qubits = qubits;
 
     if (data && *data) {
-        /* Transfer ownership */
-        state->data = *data;
+        /* Transfer ownership: if buffer is already aligned, take it directly;
+         * otherwise copy into aligned storage and free the original. */
+        if (((uintptr_t)*data & (STATE_ALIGNMENT - 1)) == 0) {
+            state->data = *data;
+        } else {
+            const dim_t len = state_len(state);
+            state->data = state_alloc_aligned(len);
+            if (!state->data) {
+                fprintf(stderr, "state_init(): aligned realloc failed for %zu elements\n", (size_t)len);
+                state->qubits = 0;
+                free(*data);
+                *data = NULL;
+                return;
+            }
+            memcpy(state->data, *data, len * sizeof(cplx_t));
+            free(*data);
+        }
         *data = NULL;
     } else {
         /* Allocate zero-initialized, aligned storage */
@@ -126,9 +142,7 @@ state_t state_cp(const state_t *state) {
 
     /* Allocate aligned storage for the copy */
     const dim_t len = state_len(state);
-    size_t size = len * sizeof(*out.data);
-    size = (size + STATE_ALIGNMENT - 1) & ~(size_t)(STATE_ALIGNMENT - 1);
-    out.data = aligned_alloc(STATE_ALIGNMENT, size);
+    out.data = state_alloc_aligned(len);
     if (!out.data) {
         fprintf(stderr, "state_cp(): allocation failed\n");
         out.qubits = 0;
