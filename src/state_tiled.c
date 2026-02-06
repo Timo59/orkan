@@ -156,21 +156,5 @@ void state_tiled_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
 
 void state_tiled_print(const state_t *state) {
     printf("Type: MIXED_TILED\nQubits: %u\n", state->qubits);
-
-    const dim_t dim = POW2(state->qubits, dim_t);
-
-    printf("[");
-    for (dim_t row = 0; row < dim; ++row) {
-        if (row != 0) printf(" ");
-        printf("[");
-        for (dim_t col = 0; col < dim; ++col) {
-            cplx_t val = state_tiled_get(state, row, col);
-            printf("%.4f", creal(val));
-            cimag(val) >= 0 ? printf("+i%.4f", cimag(val)) : printf("-i%.4f", -cimag(val));
-            if (col < dim - 1) printf(", ");
-        }
-        printf("]");
-        if (row < dim - 1) printf("\n");
-    }
-    printf("]\n");
+    mprint_tiled(state->data, POW2(state->qubits, dim_t));
 }
