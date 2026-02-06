@@ -64,12 +64,14 @@ typedef unsigned char               qubit_t;    // Qubit identifier
  * =====================================================================================================================
  */
 
-#ifndef _SYS_PARAM_H_
+#ifndef MIN
     #define MIN(a,b)                ((a) < (b) ? (a) : (b))
+#endif
+#ifndef MAX
     #define MAX(a,b)                ((a) > (b) ? (a) : (b))
 #endif
 
-#define SWAP(a, b, T)           do { register T q; q = *(a); *(a) = *(b); *(b) = q; } while(0)
+#define SWAP(a, b, T)           do { T q; q = *(a); *(a) = *(b); *(b) = q; } while(0)
 #define POW2(a, T)              (((T)1) << (a))
 
 #define SETREAL(a, b)           (*((double*) &(a)) = (b))

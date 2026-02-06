@@ -294,3 +294,41 @@ void test_pure_four_qubits(void) {
 
     state_free(&state);
 }
+
+/*
+ * =====================================================================================================================
+ * Test: Reinitialize already-initialized state
+ * =====================================================================================================================
+ */
+
+void test_pure_reinit(void) {
+    state_t state = {.type = PURE, .data = NULL, .qubits = 0};
+
+    // First initialization with 2 qubits
+    state_init(&state, 2, NULL);
+    TEST_ASSERT_EQUAL_UINT8(2, state.qubits);
+    TEST_ASSERT_NOT_NULL(state.data);
+    TEST_ASSERT_EQUAL_INT64(4, state_pure_len(2));
+
+    // Set some values
+    state.data[0] = 1.0 + 1.0*I;
+    state.data[1] = 2.0 + 2.0*I;
+    state.data[2] = 3.0 + 3.0*I;
+    state.data[3] = 4.0 + 4.0*I;
+
+    // Reinitialize the same state with 3 qubits
+    state_init(&state, 3, NULL);
+
+    // Verify the state now has 3 qubits
+    TEST_ASSERT_EQUAL_UINT8(3, state.qubits);
+    TEST_ASSERT_NOT_NULL(state.data);
+    TEST_ASSERT_EQUAL_INT64(8, state_pure_len(3));
+
+    // Verify all new elements are zero (old data was freed)
+    dim_t len = state_pure_len(3);
+    for (dim_t i = 0; i < len; i++) {
+        TEST_ASSERT_COMPLEX_WITHIN(0.0 + 0.0*I, state.data[i], PRECISION);
+    }
+
+    state_free(&state);
+}

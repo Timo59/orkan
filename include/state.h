@@ -7,9 +7,7 @@
  * =====================================================================================================================
  */
 
-#ifndef QTYPES_H
 #include "q_types.h"
-#endif
 
 /*
  * =====================================================================================================================
@@ -159,27 +157,27 @@ void state_set(state_t *state, dim_t row, dim_t col, cplx_t val);
 /*
  * @brief   Compute storage length for a pure state: 2^qubits
  */
-extern dim_t state_pure_len(qubit_t qubits);
+dim_t state_pure_len(qubit_t qubits);
 
 /*
  * @brief   Initialize a pure state to |+>^n
  */
-extern void state_pure_plus(state_t *state, qubit_t qubits);
+void state_pure_plus(state_t *state, qubit_t qubits);
 
 /*
  * @brief   Get amplitude at index row
  */
-extern cplx_t state_pure_get(const state_t *state, dim_t row);
+cplx_t state_pure_get(const state_t *state, dim_t row);
 
 /*
  * @brief   Set amplitude at index row
  */
-extern void state_pure_set(state_t *state, dim_t row, cplx_t val);
+void state_pure_set(state_t *state, dim_t row, cplx_t val);
 
 /*
  * @brief   Print pure state information
  */
-extern void state_pure_print(const state_t *state);
+void state_pure_print(const state_t *state);
 
 /*
  * =====================================================================================================================
@@ -190,33 +188,36 @@ extern void state_pure_print(const state_t *state);
 /*
  * @brief   Compute storage length for packed format: dim*(dim+1)/2
  */
-extern dim_t state_packed_len(qubit_t qubits);
+dim_t state_packed_len(qubit_t qubits);
 
 /*
  * @brief   Initialize a packed state to the |+><+|^n density matrix
  *
  * All matrix elements equal 1/2^n.
  */
-extern void state_packed_plus(state_t *state, qubit_t qubits);
+void state_packed_plus(state_t *state, qubit_t qubits);
 
 /*
  * @brief   Get element (row, col) from packed density matrix
  */
-extern cplx_t state_packed_get(const state_t *state, dim_t row, dim_t col);
+cplx_t state_packed_get(const state_t *state, dim_t row, dim_t col);
 
 /*
  * @brief   Set element (row, col) in packed density matrix
  */
-extern void state_packed_set(state_t *state, dim_t row, dim_t col, cplx_t val);
+void state_packed_set(state_t *state, dim_t row, dim_t col, cplx_t val);
 
 /*
  * @brief   Print packed state information
  */
-extern void state_packed_print(const state_t *state);
+void state_packed_print(const state_t *state);
 
 /*
  * =====================================================================================================================
  * Type-specific implementations - MIXED_TILED
+ *
+ * WARNING: Intra-tile layout is row-major, NOT column-major like LAPACK packed.
+ * Do NOT pass tile pointers to LAPACK routines expecting column-major storage.
  * =====================================================================================================================
  */
 
@@ -226,29 +227,29 @@ extern void state_packed_print(const state_t *state);
  * Storage = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE
  * where n_tiles = ceil(2^qubits / TILE_DIM)
  */
-extern dim_t state_tiled_len(qubit_t qubits);
+dim_t state_tiled_len(qubit_t qubits);
 
 /*
  * @brief   Initialize a tiled state to the |+><+|^n density matrix
  *
  * All matrix elements equal 1/2^n (consistent with state_packed_plus).
  */
-extern void state_tiled_plus(state_t *state, qubit_t qubits);
+void state_tiled_plus(state_t *state, qubit_t qubits);
 
 /*
  * @brief   Get element (row, col) from tiled density matrix
  */
-extern cplx_t state_tiled_get(const state_t *state, dim_t row, dim_t col);
+cplx_t state_tiled_get(const state_t *state, dim_t row, dim_t col);
 
 /*
  * @brief   Set element (row, col) in tiled density matrix
  */
-extern void state_tiled_set(state_t *state, dim_t row, dim_t col, cplx_t val);
+void state_tiled_set(state_t *state, dim_t row, dim_t col, cplx_t val);
 
 /*
  * @brief   Print tiled state information
  */
-extern void state_tiled_print(const state_t *state);
+void state_tiled_print(const state_t *state);
 
 #ifdef __cplusplus
 }
