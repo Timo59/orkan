@@ -93,6 +93,14 @@ static inline size_t bench_dense_size(qubit_t qubits) {
     return (size_t)(dim * dim) * sizeof(cplx_t);
 }
 
+/** @brief Calculate tiled storage size for n-qubit mixed state */
+static inline size_t bench_tiled_size(qubit_t qubits) {
+    dim_t dim = (dim_t)1 << qubits;
+    dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+    dim_t n_tile_pairs = n_tiles * (n_tiles + 1) / 2;
+    return (size_t)(n_tile_pairs * TILE_SIZE) * sizeof(cplx_t);
+}
+
 /*
  * =====================================================================================================================
  * Runtime memory measurement
@@ -158,8 +166,13 @@ static inline size_t bench_get_rss(void) {
 
 /** @brief Run qlib packed implementation benchmark */
 bench_result_t bench_qlib_packed(qubit_t qubits, const char *gate_name,
-                                  qs_error_t (*gate_fn)(state_t*, qubit_t),
+                                  void (*gate_fn)(state_t*, qubit_t),
                                   int iterations, int warmup);
+
+/** @brief Run qlib tiled implementation benchmark */
+bench_result_t bench_qlib_tiled(qubit_t qubits, const char *gate_name,
+                                 void (*gate_fn)(state_t*, qubit_t),
+                                 int iterations, int warmup);
 
 /** @brief Run dense BLAS reference benchmark */
 bench_result_t bench_blas_dense(qubit_t qubits, const char *gate_name,
