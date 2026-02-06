@@ -12,8 +12,9 @@ set(STATE_SOURCES
 set(Q_SOURCES
         ${STATE_SOURCES}
         "${CMAKE_CURRENT_SOURCE_DIR}/gate.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/qhipster.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/mhipster.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate_pure.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate_packed.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate_tiled.c"
 )
 
 # Include directory

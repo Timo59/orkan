@@ -15,8 +15,8 @@
 #include "state.h"
 #endif
 
-#ifndef QHIPSTER_H
-#include "qhipster.h"
+#ifndef GATE_H
+#include "gate.h"
 #endif
 
 #ifndef PQC_H

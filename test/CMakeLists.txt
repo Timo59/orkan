@@ -80,11 +80,13 @@ add_test(NAME test_state COMMAND test_state)
 set(TEST_GATE_SRC
         ${STATE_SOURCES}
         "${SRC_DIR}/gate.c"
-        "${SRC_DIR}/qhipster.c"
-        "${SRC_DIR}/mhipster.c"
+        "${SRC_DIR}/gate_pure.c"
+        "${SRC_DIR}/gate_packed.c"
+        "${SRC_DIR}/gate_tiled.c"
         "${TEST_SRC_DIR}/test_gate.c"
-        "${TEST_SRC_DIR}/test_qhipster.c"
-        "${TEST_SRC_DIR}/test_mhipster.c"
+        "${TEST_SRC_DIR}/test_gate_pure.c"
+        "${TEST_SRC_DIR}/test_gate_packed.c"
+        "${TEST_SRC_DIR}/test_gate_tiled.c"
         "${TEST_SRC_DIR}/test_pure_states.c"
         "${TEST_SRC_DIR}/test_mixed_states.c"
         "${TEST_SRC_DIR}/gatemat.c"

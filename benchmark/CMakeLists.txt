@@ -102,8 +102,9 @@ set(BENCH_MIXED_SRC
         "${SRC_DIR}/state_packed.c"
         "${SRC_DIR}/state_tiled.c"
         "${SRC_DIR}/gate.c"
-        "${SRC_DIR}/qhipster.c"
-        "${SRC_DIR}/mhipster.c"
+        "${SRC_DIR}/gate_pure.c"
+        "${SRC_DIR}/gate_packed.c"
+        "${SRC_DIR}/gate_tiled.c"
         "${BENCH_SRC_DIR}/bench_mixed.c"
 )
 

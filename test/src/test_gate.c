@@ -1,4 +1,4 @@
-// test_gates.c  - Unit tests for quantum gate operations on pure and mixed states
+// test_gates.c  - Unit tests for quantum gate operations on pure, packed, and tiled states
 
 /*
  * =====================================================================================================================
@@ -42,88 +42,46 @@ void test_CX_pure(void) {testTwoQubitGate(cx, CXMAT);}
 
 /*
  * =====================================================================================================================
- * Test functions: Mixed states
+ * Test functions: Packed mixed states
  * =====================================================================================================================
  */
 
-void test_X_mixed(void) {testSingleQubitGateMixed(x, XMAT);}
-void test_Y_mixed(void) {testSingleQubitGateMixed(y, YMAT);}
-void test_Z_mixed(void) {testSingleQubitGateMixed(z, ZMAT);}
-void test_H_mixed(void) {testSingleQubitGateMixed(h, HMAT);}
-void test_S_mixed(void) {testSingleQubitGateMixed(s, SMAT);}
-void test_Sdg_mixed(void) {testSingleQubitGateMixed(sdg, SDGMAT);}
-void test_T_mixed(void) {testSingleQubitGateMixed(t, TMAT);}
-void test_Tdg_mixed(void) {testSingleQubitGateMixed(tdg, TDGMAT);}
-void test_Rx_mixed(void) {testRotationGateMixed(rx, mat_rx);}
-void test_Ry_mixed(void) {testRotationGateMixed(ry, mat_ry);}
-void test_Rz_mixed(void) {testRotationGateMixed(rz, mat_rz);}
-void test_CX_mixed(void) {testTwoQubitGateMixed(cx, CXMAT);}
+void test_X_packed(void) {testSingleQubitGateMixed(x, XMAT);}
+void test_Y_packed(void) {testSingleQubitGateMixed(y, YMAT);}
+void test_Z_packed(void) {testSingleQubitGateMixed(z, ZMAT);}
+void test_H_packed(void) {testSingleQubitGateMixed(h, HMAT);}
+void test_S_packed(void) {testSingleQubitGateMixed(s, SMAT);}
+void test_Sdg_packed(void) {testSingleQubitGateMixed(sdg, SDGMAT);}
+void test_T_packed(void) {testSingleQubitGateMixed(t, TMAT);}
+void test_Tdg_packed(void) {testSingleQubitGateMixed(tdg, TDGMAT);}
+void test_Rx_packed(void) {testRotationGateMixed(rx, mat_rx);}
+void test_Ry_packed(void) {testRotationGateMixed(ry, mat_ry);}
+void test_Rz_packed(void) {testRotationGateMixed(rz, mat_rz);}
+void test_CX_packed(void) {testTwoQubitGateMixed(cx, CXMAT);}
 
 /*
  * =====================================================================================================================
- * Test functions: Error handling
+ * Test functions: Tiled mixed states
  * =====================================================================================================================
  */
 
-void test_error_null_state(void) {
-    qs_error_t err = x(NULL, 0);
-    TEST_ASSERT_EQUAL_INT(QS_ERR_NULL, err);
-}
-
-void test_error_null_data(void) {
-    state_t state = {0};
-    state.type = PURE;
-    state.qubits = 2;
-    state.data = NULL;
-    qs_error_t err = x(&state, 0);
-    TEST_ASSERT_EQUAL_INT(QS_ERR_NULL, err);
-}
-
-void test_error_qubit_out_of_range(void) {
-    state_t state = {0};
-    state_plus(&state, 2);  // 2-qubit state, valid targets are 0 and 1
-
-    qs_error_t err = x(&state, 2);  // Target 2 is out of range
-    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
-
-    err = x(&state, 255);  // Way out of range
-    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
-
-    state_free(&state);
-}
-
-void test_error_cx_same_qubit(void) {
-    state_t state = {0};
-    state_plus(&state, 2);  // 2-qubit state
-
-    // control == target should return QS_ERR_QUBIT
-    qs_error_t err = cx(&state, 0, 0);
-    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
-
-    err = cx(&state, 1, 1);
-    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
-
-    state_free(&state);
-}
-
-void test_error_cx_qubit_out_of_range(void) {
-    state_t state = {0};
-    state_plus(&state, 2);  // 2-qubit state, valid qubits are 0 and 1
-
-    // Control out of range
-    qs_error_t err = cx(&state, 2, 0);
-    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
-
-    // Target out of range
-    err = cx(&state, 0, 2);
-    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
-
-    // Both out of range
-    err = cx(&state, 3, 4);
-    TEST_ASSERT_EQUAL_INT(QS_ERR_QUBIT, err);
-
-    state_free(&state);
-}
+void test_X_tiled(void) {testSingleQubitGateTiled(x, XMAT);}
+void test_Y_tiled(void) {testSingleQubitGateTiled(y, YMAT);}
+void test_Z_tiled(void) {testSingleQubitGateTiled(z, ZMAT);}
+void test_H_tiled(void) {testSingleQubitGateTiled(h, HMAT);}
+void test_S_tiled(void) {testSingleQubitGateTiled(s, SMAT);}
+void test_Sdg_tiled(void) {testSingleQubitGateTiled(sdg, SDGMAT);}
+void test_T_tiled(void) {testSingleQubitGateTiled(t, TMAT);}
+void test_Tdg_tiled(void) {testSingleQubitGateTiled(tdg, TDGMAT);}
+void test_Hy_pure(void) {testSingleQubitGate(hy, HYMAT);}
+void test_Hy_packed(void) {testSingleQubitGateMixed(hy, HYMAT);}
+void test_Hy_tiled(void) {testSingleQubitGateTiled(hy, HYMAT);}
+void test_Rx_tiled(void) {testRotationGateTiled(rx, mat_rx);}
+void test_Ry_tiled(void) {testRotationGateTiled(ry, mat_ry);}
+void test_Rz_tiled(void) {testRotationGateTiled(rz, mat_rz);}
+void test_P_pure(void) {testRotationGate(p, mat_p);}
+void test_P_packed(void) {testRotationGateMixed(p, mat_p);}
+void test_P_tiled(void) {testRotationGateTiled(p, mat_p);}
 
 /*
  * =====================================================================================================================
@@ -133,13 +91,6 @@ void test_error_cx_qubit_out_of_range(void) {
 
 int main(void) {
     UNITY_BEGIN();
-
-    // Error handling tests
-    RUN_TEST(test_error_null_state);
-    RUN_TEST(test_error_null_data);
-    RUN_TEST(test_error_qubit_out_of_range);
-    RUN_TEST(test_error_cx_same_qubit);
-    RUN_TEST(test_error_cx_qubit_out_of_range);
 
     // Pure state tests
     RUN_TEST(test_X_pure);
@@ -155,19 +106,44 @@ int main(void) {
     RUN_TEST(test_Rz_pure);
     RUN_TEST(test_CX_pure);
 
-    // Mixed state tests
-    RUN_TEST(test_X_mixed);
-    RUN_TEST(test_Y_mixed);
-    RUN_TEST(test_Z_mixed);
-    RUN_TEST(test_H_mixed);
-    RUN_TEST(test_S_mixed);
-    RUN_TEST(test_Sdg_mixed);
-    RUN_TEST(test_T_mixed);
-    RUN_TEST(test_Tdg_mixed);
-    RUN_TEST(test_Rx_mixed);
-    RUN_TEST(test_Ry_mixed);
-    RUN_TEST(test_Rz_mixed);
-    RUN_TEST(test_CX_mixed);
+    // Packed mixed state tests
+    RUN_TEST(test_X_packed);
+    RUN_TEST(test_Y_packed);
+    RUN_TEST(test_Z_packed);
+    RUN_TEST(test_H_packed);
+    RUN_TEST(test_S_packed);
+    RUN_TEST(test_Sdg_packed);
+    RUN_TEST(test_T_packed);
+    RUN_TEST(test_Tdg_packed);
+    RUN_TEST(test_Rx_packed);
+    RUN_TEST(test_Ry_packed);
+    RUN_TEST(test_Rz_packed);
+    RUN_TEST(test_CX_packed);
+
+    // Tiled mixed state tests
+    RUN_TEST(test_X_tiled);
+    RUN_TEST(test_Y_tiled);
+    RUN_TEST(test_Z_tiled);
+    RUN_TEST(test_H_tiled);
+    RUN_TEST(test_S_tiled);
+    RUN_TEST(test_Sdg_tiled);
+    RUN_TEST(test_T_tiled);
+    RUN_TEST(test_Tdg_tiled);
+
+    // Hy tests (all layouts)
+    RUN_TEST(test_Hy_pure);
+    RUN_TEST(test_Hy_packed);
+    RUN_TEST(test_Hy_tiled);
+
+    // Rotation gates (tiled)
+    RUN_TEST(test_Rx_tiled);
+    RUN_TEST(test_Ry_tiled);
+    RUN_TEST(test_Rz_tiled);
+
+    // P gate (all layouts)
+    RUN_TEST(test_P_pure);
+    RUN_TEST(test_P_packed);
+    RUN_TEST(test_P_tiled);
 
     return UNITY_END();
 }

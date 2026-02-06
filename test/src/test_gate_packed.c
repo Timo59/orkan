@@ -1,5 +1,5 @@
-// test_mhipster.c  - Test harness for quantum gates on mixed states. The reference is given by matrix-matrix
-//                    multiplication of the density matrix with the matrix representation of the quantum gate.
+// test_gate_packed.c  - Test harness for quantum gates on packed mixed states. The reference is given by
+//                       matrix-matrix multiplication of the density matrix with the matrix representation of the quantum gate.
 
 /*
  * =====================================================================================================================
@@ -158,8 +158,7 @@ void testTwoQubitGateMixed(const two_qubit_gate gate, const cplx_t *mat) {
                     }
 
                     // Apply test function
-                    qs_error_t err = gate(&test_state, q1, q2);
-                    TEST_ASSERT_EQUAL_INT(QS_OK, err);
+                    gate(&test_state, q1, q2);
                     if (!test_state.data) {
                         fprintf(stderr, "testTwoQubitGateMixed(): gate application failed\n");
                         goto cleanup;
@@ -269,8 +268,7 @@ void testSingleQubitGateMixed(const single_qubit_gate gate, const cplx_t *mat) {
                 }
 
                 // Apply test function
-                qs_error_t err = gate(&test_state, pos);
-                TEST_ASSERT_EQUAL_INT(QS_OK, err);
+                gate(&test_state, pos);
                 if (!test_state.data) {
                     fprintf(stderr, "testSingleQubitGateMixed(): gate application failed\n");
                     goto cleanup;
@@ -485,8 +483,7 @@ void testRotationGateMixed(const rotation_gate gate, void (*mat_fn)(double theta
                     }
 
                     // Apply test function
-                    qs_error_t err = gate(&test_state, pos, theta);
-                    TEST_ASSERT_EQUAL_INT(QS_OK, err);
+                    gate(&test_state, pos, theta);
                     if (!test_state.data) {
                         fprintf(stderr, "testRotationGateMixed(): gate application failed\n");
                         goto cleanup;
