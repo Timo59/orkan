@@ -1,5 +1,5 @@
-// test_qhipster.c  - Test harness for quantum gates on pure states. The reference is given by matrix-vector
-//                    multiplication of the state vector with the matrix representation of the quantum gate.
+// test_gate_pure.c  - Test harness for quantum gates on pure states. The reference is given by matrix-vector
+//                     multiplication of the state vector with the matrix representation of the quantum gate.
 
 /*
  * =====================================================================================================================
@@ -74,8 +74,7 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
                 }
 
                 // Apply test function
-                qs_error_t err = gate(&test_state, pos);
-                TEST_ASSERT_EQUAL_INT(QS_OK, err);
+                gate(&test_state, pos);
                 if (!test_state.data) {
                     fprintf(stderr, "testSingleQubitGate(): gate application failed\n");
                     goto cleanup;
@@ -163,6 +162,15 @@ void mat_rz(double theta, cplx_t *mat) {
     mat[3] = c + s * I;
 }
 
+void mat_p(double theta, cplx_t *mat) {
+    // [[1, 0], [0, e^(iθ)]]
+    // Column-major: [0,0], [1,0], [0,1], [1,1]
+    mat[0] = 1.0;
+    mat[1] = 0.0;
+    mat[2] = 0.0;
+    mat[3] = cos(theta) + sin(theta) * I;
+}
+
 /*
  * =====================================================================================================================
  * Test: Rotation gates
@@ -216,8 +224,7 @@ void testTwoQubitGate(const two_qubit_gate gate, const cplx_t *mat) {
                     }
 
                     // Apply test function
-                    qs_error_t err = gate(&test_state, q1, q2);
-                    TEST_ASSERT_EQUAL_INT(QS_OK, err);
+                    gate(&test_state, q1, q2);
                     if (!test_state.data) {
                         fprintf(stderr, "testTwoQubitGate(): gate application failed\n");
                         goto cleanup;
@@ -312,8 +319,7 @@ void testRotationGate(const rotation_gate gate, void (*mat_fn)(double theta, cpl
                     }
 
                     // Apply test function
-                    qs_error_t err = gate(&test_state, pos, theta);
-                    TEST_ASSERT_EQUAL_INT(QS_OK, err);
+                    gate(&test_state, pos, theta);
                     if (!test_state.data) {
                         fprintf(stderr, "testRotationGate(): gate application failed\n");
                         goto cleanup;

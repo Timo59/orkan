@@ -12,6 +12,9 @@
 #include "state.h"
 #endif
 
+#include <stdio.h>
+#include <stdlib.h>
+
 /*
  * =====================================================================================================================
  * C++ check
@@ -36,48 +39,26 @@ void zrot_(
 
 /*
  * =====================================================================================================================
+ * Error handling
+ * =====================================================================================================================
+ */
+
+#define GATE_VALIDATE(cond, msg) do {                           \
+    if (!(cond)) {                                              \
+        fprintf(stderr, "qlib: gate: %s\n", (msg));            \
+        exit(EXIT_FAILURE);                                     \
+    }                                                           \
+} while(0)
+
+/*
+ * =====================================================================================================================
  * Pauli gates
  * =====================================================================================================================
  */
 
-/*
- * @brief   Applies the Pauli-X gate to the qubit <target> in the quantum state <state>
- *                                          | 0   1 |
- *                                      X = |       |
- *                                          | 1   0 |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t x(state_t* state, qubit_t target);
-
-/*
- * @brief   Applies the Pauli-Y gate to the qubit <target> in the quantum state <state>
- *                                          | 0  -i |
- *                                      Y = |       |
- *                                          | i   0 |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t y(state_t* state, qubit_t target);
-
-/*
- * @brief   Applies the Pauli-Z gate to the qubit <target> in the quantum state <state>
- *                                          | 1   0 |
- *                                      Z = |       |
- *                                          | 0  -1 |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t z(state_t* state, qubit_t target);
+void x(state_t* state, qubit_t target);
+void y(state_t* state, qubit_t target);
+void z(state_t* state, qubit_t target);
 
 /*
  * =====================================================================================================================
@@ -85,70 +66,12 @@ qs_error_t z(state_t* state, qubit_t target);
  * =====================================================================================================================
  */
 
-/*
- * @brief   Applies the Hadamard gate to the qubit <target> in the quantum state <state>
- *                                               1  | 1   1 |
- *                                      H = -------|       |
- *                                              √2  | 1  -1 |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t h(state_t* state, qubit_t target);
-
-/*
- * @brief   Applies the S (phase) gate to the qubit <target> in the quantum state <state>
- *                                          | 1   0 |
- *                                      S = |       |
- *                                          | 0   i |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t s(state_t* state, qubit_t target);
-
-/*
- * @brief   Applies the S-dagger gate to the qubit <target> in the quantum state <state>
- *                                           | 1   0 |
- *                                      S† = |       |
- *                                           | 0  -i |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t sdg(state_t* state, qubit_t target);
-
-/*
- * @brief   Applies the T (π/8) gate to the qubit <target> in the quantum state <state>
- *                                          | 1       0      |
- *                                      T = |                |
- *                                          | 0   e^(iπ/4)   |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t t(state_t* state, qubit_t target);
-
-/*
- * @brief   Applies the T-dagger gate to the qubit <target> in the quantum state <state>
- *                                           | 1        0      |
- *                                      T† = |                 |
- *                                           | 0   e^(-iπ/4)   |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t tdg(state_t* state, qubit_t target);
+void h(state_t* state, qubit_t target);
+void s(state_t* state, qubit_t target);
+void sdg(state_t* state, qubit_t target);
+void t(state_t* state, qubit_t target);
+void tdg(state_t* state, qubit_t target);
+void hy(state_t* state, qubit_t target);
 
 /*
  * =====================================================================================================================
@@ -156,47 +79,10 @@ qs_error_t tdg(state_t* state, qubit_t target);
  * =====================================================================================================================
  */
 
-/*
- * @brief   Applies the Rx rotation gate to the qubit <target> in the quantum state <state>
- *                                          | cos(θ/2)    -i·sin(θ/2) |
- *                                  Rx(θ) = |                         |
- *                                          | -i·sin(θ/2)  cos(θ/2)   |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @param[in]       theta     Rotation angle in radians
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t rx(state_t* state, qubit_t target, double theta);
-
-/*
- * @brief   Applies the Ry rotation gate to the qubit <target> in the quantum state <state>
- *                                          | cos(θ/2)   -sin(θ/2) |
- *                                  Ry(θ) = |                      |
- *                                          | sin(θ/2)    cos(θ/2) |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @param[in]       theta     Rotation angle in radians
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t ry(state_t* state, qubit_t target, double theta);
-
-/*
- * @brief   Applies the Rz rotation gate to the qubit <target> in the quantum state <state>
- *                                          | e^(-iθ/2)     0      |
- *                                  Rz(θ) = |                      |
- *                                          |    0       e^(iθ/2)  |
- * @param[in,out]   state     Quantum state
- * @param[in]       target    Index of the qubit (counted from the right)
- * @param[in]       theta     Rotation angle in radians
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if target >= state->qubits
- */
-qs_error_t rz(state_t* state, qubit_t target, double theta);
+void rx(state_t* state, qubit_t target, double theta);
+void ry(state_t* state, qubit_t target, double theta);
+void rz(state_t* state, qubit_t target, double theta);
+void p(state_t* state, qubit_t target, double theta);
 
 /*
  * =====================================================================================================================
@@ -204,26 +90,26 @@ qs_error_t rz(state_t* state, qubit_t target, double theta);
  * =====================================================================================================================
  */
 
-/*
- * @brief   Applies the CNOT (Controlled-X) gate to the quantum state <state>
- *
- *          CNOT flips the target qubit when the control qubit is |1>:
- *              |00> -> |00>, |01> -> |01>, |10> -> |11>, |11> -> |10>
- *
- *                                          | 1   0   0   0 |
- *                                          | 0   1   0   0 |
- *                                   CNOT = | 0   0   0   1 |
- *                                          | 0   0   1   0 |
- *
- * @param[in,out]   state     Quantum state
- * @param[in]       control   Index of the control qubit (counted from the right)
- * @param[in]       target    Index of the target qubit (counted from the right)
- * @return  QS_OK on success, or:
- *          QS_ERR_NULL if state or state->data is NULL
- *          QS_ERR_QUBIT if control >= state->qubits, target >= state->qubits, or control == target
- */
-qs_error_t cx(state_t* state, qubit_t control, qubit_t target);
+void cx(state_t* state, qubit_t control, qubit_t target);
+void cy(state_t* state, qubit_t control, qubit_t target);
+void cz(state_t* state, qubit_t control, qubit_t target);
+void cs(state_t* state, qubit_t control, qubit_t target);
+void csdg(state_t* state, qubit_t control, qubit_t target);
+void ch(state_t* state, qubit_t control, qubit_t target);
+void chy(state_t* state, qubit_t control, qubit_t target);
+void ct(state_t* state, qubit_t control, qubit_t target);
+void ctdg(state_t* state, qubit_t control, qubit_t target);
+void cp(state_t* state, qubit_t control, qubit_t target, double theta);
+void cpdg(state_t* state, qubit_t control, qubit_t target, double theta);
+void swap_gate(state_t* state, qubit_t q1, qubit_t q2);
 
+/*
+ * =====================================================================================================================
+ * Three-qubit gates
+ * =====================================================================================================================
+ */
+
+void ccx(state_t* state, qubit_t ctrl1, qubit_t ctrl2, qubit_t target);
 
 #ifdef __cplusplus
 }

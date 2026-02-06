@@ -1,4 +1,4 @@
-// test_gates.h  - Unit tests for quantum gate operations on pure and mixed states
+// test_gates.h  - Unit tests for quantum gate operations on pure, packed, and tiled states
 
 #ifndef TEST_GATE_H
 #define TEST_GATE_H
@@ -34,17 +34,23 @@ extern "C" {
  */
 
 // Function representing a qubit gate that acts locally on one qubit
-typedef qs_error_t (*single_qubit_gate)(state_t *state, qubit_t target);
+typedef void (*single_qubit_gate)(state_t *state, qubit_t target);
 
 // Function representing a parameterized single-qubit rotation gate
-typedef qs_error_t (*rotation_gate)(state_t *state, qubit_t target, double theta);
+typedef void (*rotation_gate)(state_t *state, qubit_t target, double theta);
 
 // Function representing a two-qubit gate (e.g., CNOT)
-typedef qs_error_t (*two_qubit_gate)(state_t *state, qubit_t q1, qubit_t q2);
+typedef void (*two_qubit_gate)(state_t *state, qubit_t q1, qubit_t q2);
+
+// Function representing a parameterized two-qubit gate (e.g., CP)
+typedef void (*two_qubit_rotation_gate)(state_t *state, qubit_t q1, qubit_t q2, double theta);
+
+// Function representing a three-qubit gate (e.g., Toffoli)
+typedef void (*three_qubit_gate)(state_t *state, qubit_t q1, qubit_t q2, qubit_t q3);
 
 /*
  * =====================================================================================================================
- * Single-qubit gate matrices
+ * Single-qubit gate matrices (column-major: [col0_row0, col0_row1, col1_row0, col1_row1])
  * =====================================================================================================================
  */
 
@@ -93,6 +99,13 @@ static const cplx_t TDGMAT[4] = {1.0 + 0.0 * I, \
                                  0.0 + 0.0 * I, \
                                  INVSQRT2 - INVSQRT2 * I};
 
+// Hy (Hadamard-Y) matrix: [[1,-1],[1,1]]/sqrt(2)
+// Column-major: col0=[1,1]/sqrt(2), col1=[-1,1]/sqrt(2)
+static const cplx_t HYMAT[4] = {INVSQRT2 + 0.0 * I, \
+                                INVSQRT2 + 0.0 * I, \
+                                -INVSQRT2 + 0.0 * I, \
+                                INVSQRT2 + 0.0 * I};
+
 static const cplx_t P0MAT[4] = {1.0 + 0.0 * I, \
                                 0.0 + 0.0 * I, \
                                 0.0 + 0.0 * I, \
@@ -122,80 +135,103 @@ static const cplx_t CXMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.
                                  0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, \
                                  0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I};
 
+// CY (Controlled-Y) matrix: diag(I, Y) in control-target basis
+// |00> -> |00>, |01> -> |01>, |10> -> i|11>, |11> -> -i|10>
+static const cplx_t CYMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 1.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 - 1.0 * I, 0.0 + 0.0 * I};
+
+// CZ (Controlled-Z) matrix: diag(1, 1, 1, -1)
+static const cplx_t CZMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, -1.0 + 0.0 * I};
+
+// CS (Controlled-S) matrix: diag(1, 1, 1, i)
+static const cplx_t CSMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 1.0 * I};
+
+// CSdg (Controlled-S-dagger) matrix: diag(1, 1, 1, -i)
+static const cplx_t CSDGMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                   0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                   0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                   0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 - 1.0 * I};
+
+// CT (Controlled-T) matrix: diag(1, 1, 1, e^(iπ/4))
+static const cplx_t CTMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, INVSQRT2 + INVSQRT2 * I};
+
+// CTdg (Controlled-T-dagger) matrix: diag(1, 1, 1, e^(-iπ/4))
+static const cplx_t CTDGMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                   0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                   0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
+                                   0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, INVSQRT2 - INVSQRT2 * I};
+
 /*
  * =====================================================================================================================
- * Test harness function declarations
+ * Test harness function declarations -- pure states
  * =====================================================================================================================
  */
 
-/*
- * @brief   Unit test of the single qubit gate on pure states for each qubit of a multi-qubit state
- *
- * @param[in]   gate    Function representing the single qubit gate
- * @param[in]   mat     Matrix representation of the single qubit operation (2×2)
- */
 void testSingleQubitGate(single_qubit_gate gate, const cplx_t *mat);
-
-/*
- * @brief   Unit test of the single qubit gate on mixed states for each qubit of a multi-qubit state
- *
- * @param[in]   gate    Function representing the single qubit gate
- * @param[in]   mat     Matrix representation of the single qubit operation (2×2)
- */
-void testSingleQubitGateMixed(single_qubit_gate gate, const cplx_t *mat);
-
-/*
- * @brief   Unit test of a parameterized rotation gate on pure states
- *
- * @param[in]   gate    Function representing the rotation gate
- * @param[in]   mat_fn  Function that builds the 2×2 matrix for a given theta
- */
 void testRotationGate(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
-
-/*
- * @brief   Unit test of a parameterized rotation gate on mixed states
- *
- * @param[in]   gate    Function representing the rotation gate
- * @param[in]   mat_fn  Function that builds the 2×2 matrix for a given theta
- */
-void testRotationGateMixed(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
-
-/*
- * @brief   Build Rx(θ) matrix: [[cos(θ/2), -i·sin(θ/2)], [-i·sin(θ/2), cos(θ/2)]]
- */
-void mat_rx(double theta, cplx_t *mat);
-
-/*
- * @brief   Build Ry(θ) matrix: [[cos(θ/2), -sin(θ/2)], [sin(θ/2), cos(θ/2)]]
- */
-void mat_ry(double theta, cplx_t *mat);
-
-/*
- * @brief   Build Rz(θ) matrix: [[e^(-iθ/2), 0], [0, e^(iθ/2)]]
- */
-void mat_rz(double theta, cplx_t *mat);
-
-/*
- * =====================================================================================================================
- * Two-qubit gate test harnesses
- * =====================================================================================================================
- */
-
-/*
- * @brief   Unit test of a two-qubit gate on pure states for each (q1, q2) pair
- *
- * @param[in]   gate    Function representing the two-qubit gate
- * @param[in]   mat     Matrix representation of the two-qubit operation (4×4)
- */
 void testTwoQubitGate(two_qubit_gate gate, const cplx_t *mat);
+void testTwoQubitRotationGate(two_qubit_rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+void testThreeQubitGate(three_qubit_gate gate, const cplx_t *mat);
 
 /*
- * @brief   Unit test of a two-qubit gate on mixed states for each (q1, q2) pair
- *
- * @param[in]   gate    Function representing the two-qubit gate
- * @param[in]   mat     Matrix representation of the two-qubit operation (4×4)
+ * =====================================================================================================================
+ * Test harness function declarations -- packed mixed states
+ * =====================================================================================================================
  */
+
+void testSingleQubitGateMixed(single_qubit_gate gate, const cplx_t *mat);
+void testRotationGateMixed(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 void testTwoQubitGateMixed(two_qubit_gate gate, const cplx_t *mat);
+void testTwoQubitRotationGateMixed(two_qubit_rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+void testThreeQubitGateMixed(three_qubit_gate gate, const cplx_t *mat);
+
+/*
+ * =====================================================================================================================
+ * Test harness function declarations -- tiled mixed states
+ * =====================================================================================================================
+ */
+
+void testSingleQubitGateTiled(single_qubit_gate gate, const cplx_t *mat);
+void testRotationGateTiled(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+void testTwoQubitGateTiled(two_qubit_gate gate, const cplx_t *mat);
+void testTwoQubitRotationGateTiled(two_qubit_rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+void testThreeQubitGateTiled(three_qubit_gate gate, const cplx_t *mat);
+
+/*
+ * =====================================================================================================================
+ * Rotation gate matrix builders
+ * =====================================================================================================================
+ */
+
+void mat_rx(double theta, cplx_t *mat);
+void mat_ry(double theta, cplx_t *mat);
+void mat_rz(double theta, cplx_t *mat);
+void mat_p(double theta, cplx_t *mat);
+void mat_cp(double theta, cplx_t *mat);
+void mat_cpdg(double theta, cplx_t *mat);
+
+/*
+ * =====================================================================================================================
+ * CH matrix builder (4x4, used for CH controlled gate test)
+ * =====================================================================================================================
+ */
+
+// CH (Controlled-Hadamard) -- built dynamically since it contains irrational entries
+void mat_ch_build(cplx_t *mat);
+
+// CHy (Controlled-Hadamard-Y) -- built dynamically
+void mat_chy_build(cplx_t *mat);
 
 
 #ifdef __cplusplus

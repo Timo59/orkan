@@ -1,5 +1,5 @@
 /**
- * @file mhipster.c
+ * @file gate_packed.c
  * @brief Quantum gates for mixed states (density matrices in packed lower-triangular storage)
  *
  * Mixed states are stored in LAPACK packed lower-triangular column-major format.
@@ -157,7 +157,7 @@ do {                                                                            
     }                                                                           \
 } while (0)
 
-void x_mixed(state_t *state, const qubit_t target) {
+void x_packed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, X_BLOCK_OP);
 }
 
@@ -191,7 +191,7 @@ void x_mixed(state_t *state, const qubit_t target) {
     }                                                                           \
 } while (0)
 
-void y_mixed(state_t *state, const qubit_t target) {
+void y_packed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, Y_BLOCK_OP);
 }
 
@@ -218,7 +218,7 @@ void y_mixed(state_t *state, const qubit_t target) {
     }                                                                           \
 } while (0)
 
-void z_mixed(state_t *state, const qubit_t target) {
+void z_packed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, Z_BLOCK_OP);
 }
 
@@ -264,7 +264,7 @@ void z_mixed(state_t *state, const qubit_t target) {
     }                                                                           \
 } while (0)
 
-void h_mixed(state_t *state, const qubit_t target) {
+void h_packed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, H_BLOCK_OP);
 }
 
@@ -308,7 +308,7 @@ void h_mixed(state_t *state, const qubit_t target) {
     }                                                                           \
 } while (0)
 
-void s_mixed(state_t *state, const qubit_t target) {
+void s_packed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, S_BLOCK_OP);
 }
 
@@ -348,7 +348,7 @@ void s_mixed(state_t *state, const qubit_t target) {
     }                                                                           \
 } while (0)
 
-void sdg_mixed(state_t *state, const qubit_t target) {
+void sdg_packed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, SDG_BLOCK_OP);
 }
 
@@ -394,7 +394,7 @@ void sdg_mixed(state_t *state, const qubit_t target) {
     }                                                                           \
 } while (0)
 
-void t_mixed(state_t *state, const qubit_t target) {
+void t_packed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, T_BLOCK_OP);
 }
 
@@ -436,7 +436,7 @@ void t_mixed(state_t *state, const qubit_t target) {
     }                                                                           \
 } while (0)
 
-void tdg_mixed(state_t *state, const qubit_t target) {
+void tdg_packed(state_t *state, const qubit_t target) {
     TRAVERSE_PACKED_BLOCKS(state, target, TDG_BLOCK_OP);
 }
 
@@ -461,7 +461,7 @@ void tdg_mixed(state_t *state, const qubit_t target) {
  * only permutation of elements. However, for packed Hermitian storage, some elements
  * require conjugation when they cross the diagonal.
  */
-void cx_mixed(state_t *state, const qubit_t control, const qubit_t target) {
+void cx_packed(state_t *state, const qubit_t control, const qubit_t target) {
     const dim_t dim = (dim_t)1 << state->qubits;
     cplx_t * restrict data = state->data;
     const dim_t packed_len = dim * (dim + 1) / 2;
@@ -524,7 +524,7 @@ void cx_mixed(state_t *state, const qubit_t control, const qubit_t target) {
  * ρ01 - ρ10 is purely imaginary, so ics·(ρ01 - ρ10) is real. On cross-blocks,
  * all elements can be complex.
  */
-void rx_mixed(state_t *state, const qubit_t target, const double theta) {
+void rx_packed(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta / 2.0);
     const double s = sin(theta / 2.0);
     const double c2 = c * c;
@@ -598,7 +598,7 @@ void rx_mixed(state_t *state, const qubit_t target, const double theta) {
  * Note: On diagonal blocks, ρ01 + ρ10 = 2·Re(ρ01) for Hermitian matrices.
  * On cross-blocks, all elements can be complex.
  */
-void ry_mixed(state_t *state, const qubit_t target, const double theta) {
+void ry_packed(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta / 2.0);
     const double s = sin(theta / 2.0);
     const double c2 = c * c;
@@ -669,7 +669,7 @@ void ry_mixed(state_t *state, const qubit_t target, const double theta) {
  * e^(-iθ)·(a+bi) = (a·cos(θ) + b·sin(θ)) + i·(b·cos(θ) - a·sin(θ))
  * e^(iθ)·(a+bi) = (a·cos(θ) - b·sin(θ)) + i·(b·cos(θ) + a·sin(θ))
  */
-void rz_mixed(state_t *state, const qubit_t target, const double theta) {
+void rz_packed(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta);
     const double s = sin(theta);
 
@@ -711,4 +711,105 @@ void rz_mixed(state_t *state, const qubit_t target, const double theta) {
             }
         }
     }
+}
+
+/*
+ * =====================================================================================================================
+ * Stubs - to be replaced with real implementations in Phase 1, 2, 3
+ * =====================================================================================================================
+ */
+
+/*
+ * =====================================================================================================================
+ * Hy (Hadamard-Y) gate: ρ → Hy ρ Hy†
+ * =====================================================================================================================
+ *
+ * Hy = [[1,-1],[1,1]]/√2, Hy† = [[1,1],[-1,1]]/√2  (NOT self-adjoint)
+ *
+ * For ρ' = Hy ρ Hy†:
+ *   ρ'_00 = (ρ00 - ρ01 - ρ10 + ρ11) / 2
+ *   ρ'_01 = (ρ00 + ρ01 - ρ10 - ρ11) / 2
+ *   ρ'_10 = (ρ00 - ρ01 + ρ10 - ρ11) / 2
+ *   ρ'_11 = (ρ00 + ρ01 + ρ10 + ρ11) / 2
+ */
+
+#define HY_BLOCK_OP(data, idx00, idx01, idx10, idx11, lower_01, diag_block) do { \
+    cplx_t rho00 = data[idx00];                                                 \
+    cplx_t rho11 = data[idx11];                                                 \
+    cplx_t rho10 = data[idx10];                                                 \
+    cplx_t rho01 = diag_block ? conj(rho10)                                     \
+                  : (lower_01 ? data[idx01] : conj(data[idx01]));               \
+                                                                                \
+    cplx_t new00 = 0.5 * (rho00 - rho01 - rho10 + rho11);                       \
+    cplx_t new11 = 0.5 * (rho00 + rho01 + rho10 + rho11);                       \
+    cplx_t new01 = 0.5 * (rho00 + rho01 - rho10 - rho11);                       \
+    cplx_t new10 = 0.5 * (rho00 - rho01 + rho10 - rho11);                       \
+                                                                                \
+    data[idx00] = new00;                                                        \
+    data[idx11] = new11;                                                        \
+    data[idx10] = new10;                                                        \
+    if (!diag_block) {                                                          \
+        data[idx01] = lower_01 ? new01 : conj(new01);                           \
+    }                                                                           \
+} while (0)
+
+void hy_packed(state_t *state, const qubit_t target) {
+    TRAVERSE_PACKED_BLOCKS(state, target, HY_BLOCK_OP);
+}
+
+/*
+ * P(θ) gate: ρ → P(θ)ρP(θ)†. P(θ) = diag(1, e^(iθ)).
+ * The density matrix conjugation is identical to Rz(θ):
+ *   ρ'_00 = ρ00, ρ'_11 = ρ11, ρ'_10 = e^(iθ)ρ10, ρ'_01 = e^(-iθ)ρ01
+ */
+void p_packed(state_t *state, const qubit_t target, const double theta) {
+    rz_packed(state, target, theta);
+}
+
+void cy_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "cy: packed not yet implemented");
+}
+
+void cz_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "cz: packed not yet implemented");
+}
+
+void cs_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "cs: packed not yet implemented");
+}
+
+void csdg_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "csdg: packed not yet implemented");
+}
+
+void ch_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "ch: packed not yet implemented");
+}
+
+void chy_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "chy: packed not yet implemented");
+}
+
+void ct_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "ct: packed not yet implemented");
+}
+
+void ctdg_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "ctdg: packed not yet implemented");
+}
+
+void cp_packed(state_t *state, const qubit_t control, const qubit_t target, const double theta) {
+    GATE_VALIDATE(0, "cp: packed not yet implemented");
+}
+
+void cpdg_packed(state_t *state, const qubit_t control, const qubit_t target, const double theta) {
+    GATE_VALIDATE(0, "cpdg: packed not yet implemented");
+}
+
+void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
+    GATE_VALIDATE(0, "swap: packed not yet implemented");
+}
+
+void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
+    GATE_VALIDATE(0, "ccx: packed not yet implemented");
 }

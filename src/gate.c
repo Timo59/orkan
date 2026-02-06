@@ -1,311 +1,243 @@
-// gate.h   - Functions representing the action of local quantum gates to a general quantum state
-
-/*
- * =====================================================================================================================
- * includes
- * =====================================================================================================================
- */
+// gate.c   - Gate dispatchers with input validation and three-way type dispatch
 
 #ifndef GATE_H
 #include "gate.h"
 #endif
 
-#include <stdio.h>
-
 /*
  * =====================================================================================================================
- * Pauli gates
+ * Pure state gate implementations (gate_pure.c)
  * =====================================================================================================================
  */
 
-/*
- * @brief   Applies Pauli-X gate to pure state (internal implementation)
- * @param   state   Quantum state (must be non-NULL with valid data)
- * @param   target  Target qubit index (must be in range [0, state->qubits))
- * @note    Input validation is performed by dispatcher x(). This function trusts its inputs.
- */
 extern void x_pure(state_t *state, qubit_t target);
-
-/*
- * @brief   Applies Pauli-X gate to mixed state in packed storage (internal implementation)
- * @param   state   Quantum state with packed lower-triangular density matrix
- * @param   target  Target qubit index
- * @note    Operates directly on packed format via qHiPSTER stride indexing
- * @note    Input validation is performed by dispatcher x(). This function trusts its inputs.
- */
-extern void x_mixed(state_t *state, qubit_t target);
-
-/*
- * @brief   Applies Pauli-Y gate to pure state (internal implementation)
- */
 extern void y_pure(state_t *state, qubit_t target);
-
-/*
- * @brief   Applies Pauli-Y gate to mixed state in packed storage (internal implementation)
- */
-extern void y_mixed(state_t *state, qubit_t target);
-
-/*
- * @brief   Applies Pauli-Z gate to pure state (internal implementation)
- */
 extern void z_pure(state_t *state, qubit_t target);
-
-/*
- * @brief   Applies Pauli-Z gate to mixed state in packed storage (internal implementation)
- */
-extern void z_mixed(state_t *state, qubit_t target);
-
-/*
- * =====================================================================================================================
- * Clifford gates
- * =====================================================================================================================
- */
-
 extern void h_pure(state_t *state, qubit_t target);
-extern void h_mixed(state_t *state, qubit_t target);
-
 extern void s_pure(state_t *state, qubit_t target);
-extern void s_mixed(state_t *state, qubit_t target);
-
 extern void sdg_pure(state_t *state, qubit_t target);
-extern void sdg_mixed(state_t *state, qubit_t target);
-
 extern void t_pure(state_t *state, qubit_t target);
-extern void t_mixed(state_t *state, qubit_t target);
-
 extern void tdg_pure(state_t *state, qubit_t target);
-extern void tdg_mixed(state_t *state, qubit_t target);
-
-/*
- * =====================================================================================================================
- * Rotation gates
- * =====================================================================================================================
- */
+extern void hy_pure(state_t *state, qubit_t target);
 
 extern void rx_pure(state_t *state, qubit_t target, double theta);
 extern void ry_pure(state_t *state, qubit_t target, double theta);
 extern void rz_pure(state_t *state, qubit_t target, double theta);
+extern void p_pure(state_t *state, qubit_t target, double theta);
 
-extern void rx_mixed(state_t *state, qubit_t target, double theta);
-extern void ry_mixed(state_t *state, qubit_t target, double theta);
-extern void rz_mixed(state_t *state, qubit_t target, double theta);
+extern void cx_pure(state_t *state, qubit_t control, qubit_t target);
+extern void cy_pure(state_t *state, qubit_t control, qubit_t target);
+extern void cz_pure(state_t *state, qubit_t control, qubit_t target);
+extern void cs_pure(state_t *state, qubit_t control, qubit_t target);
+extern void csdg_pure(state_t *state, qubit_t control, qubit_t target);
+extern void ch_pure(state_t *state, qubit_t control, qubit_t target);
+extern void chy_pure(state_t *state, qubit_t control, qubit_t target);
+extern void ct_pure(state_t *state, qubit_t control, qubit_t target);
+extern void ctdg_pure(state_t *state, qubit_t control, qubit_t target);
+extern void cp_pure(state_t *state, qubit_t control, qubit_t target, double theta);
+extern void cpdg_pure(state_t *state, qubit_t control, qubit_t target, double theta);
+extern void swap_pure(state_t *state, qubit_t q1, qubit_t q2);
+
+extern void ccx_pure(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t target);
 
 /*
  * =====================================================================================================================
- * Two-qubit gates
+ * Packed mixed state gate implementations (gate_packed.c)
  * =====================================================================================================================
  */
 
-extern void cx_pure(state_t *state, qubit_t control, qubit_t target);
-extern void cx_mixed(state_t *state, qubit_t control, qubit_t target);
+extern void x_packed(state_t *state, qubit_t target);
+extern void y_packed(state_t *state, qubit_t target);
+extern void z_packed(state_t *state, qubit_t target);
+extern void h_packed(state_t *state, qubit_t target);
+extern void s_packed(state_t *state, qubit_t target);
+extern void sdg_packed(state_t *state, qubit_t target);
+extern void t_packed(state_t *state, qubit_t target);
+extern void tdg_packed(state_t *state, qubit_t target);
+extern void hy_packed(state_t *state, qubit_t target);
 
-qs_error_t x(state_t *state, const qubit_t target) {
-    // Input validation: state points to valid address and is initialized, target is in range
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
+extern void rx_packed(state_t *state, qubit_t target, double theta);
+extern void ry_packed(state_t *state, qubit_t target, double theta);
+extern void rz_packed(state_t *state, qubit_t target, double theta);
+extern void p_packed(state_t *state, qubit_t target, double theta);
+
+extern void cx_packed(state_t *state, qubit_t control, qubit_t target);
+extern void cy_packed(state_t *state, qubit_t control, qubit_t target);
+extern void cz_packed(state_t *state, qubit_t control, qubit_t target);
+extern void cs_packed(state_t *state, qubit_t control, qubit_t target);
+extern void csdg_packed(state_t *state, qubit_t control, qubit_t target);
+extern void ch_packed(state_t *state, qubit_t control, qubit_t target);
+extern void chy_packed(state_t *state, qubit_t control, qubit_t target);
+extern void ct_packed(state_t *state, qubit_t control, qubit_t target);
+extern void ctdg_packed(state_t *state, qubit_t control, qubit_t target);
+extern void cp_packed(state_t *state, qubit_t control, qubit_t target, double theta);
+extern void cpdg_packed(state_t *state, qubit_t control, qubit_t target, double theta);
+extern void swap_packed(state_t *state, qubit_t q1, qubit_t q2);
+
+extern void ccx_packed(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t target);
+
+/*
+ * =====================================================================================================================
+ * Tiled mixed state gate implementations (gate_tiled.c)
+ * =====================================================================================================================
+ */
+
+extern void x_tiled(state_t *state, qubit_t target);
+extern void y_tiled(state_t *state, qubit_t target);
+extern void z_tiled(state_t *state, qubit_t target);
+extern void h_tiled(state_t *state, qubit_t target);
+extern void s_tiled(state_t *state, qubit_t target);
+extern void sdg_tiled(state_t *state, qubit_t target);
+extern void t_tiled(state_t *state, qubit_t target);
+extern void tdg_tiled(state_t *state, qubit_t target);
+extern void hy_tiled(state_t *state, qubit_t target);
+
+extern void rx_tiled(state_t *state, qubit_t target, double theta);
+extern void ry_tiled(state_t *state, qubit_t target, double theta);
+extern void rz_tiled(state_t *state, qubit_t target, double theta);
+extern void p_tiled(state_t *state, qubit_t target, double theta);
+
+extern void cx_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void cy_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void cz_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void cs_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void csdg_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void ch_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void chy_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void ct_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void ctdg_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void cp_tiled(state_t *state, qubit_t control, qubit_t target, double theta);
+extern void cpdg_tiled(state_t *state, qubit_t control, qubit_t target, double theta);
+extern void swap_tiled(state_t *state, qubit_t q1, qubit_t q2);
+
+extern void ccx_tiled(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t target);
+
+/*
+ * =====================================================================================================================
+ * Single-qubit gate dispatchers
+ * =====================================================================================================================
+ */
+
+#define DISPATCH_1Q(name, state, target)                            \
+    GATE_VALIDATE((state) && (state)->data,                         \
+                  #name ": null state or data pointer");            \
+    GATE_VALIDATE((target) < (state)->qubits,                       \
+                  #name ": target qubit out of range");             \
+    switch ((state)->type) {                                        \
+        case PURE:         name##_pure(state, target);   break;     \
+        case MIXED_PACKED: name##_packed(state, target);  break;    \
+        case MIXED_TILED:  name##_tiled(state, target);   break;    \
     }
 
-    if (state->type == PURE) x_pure(state, target);
-    else x_mixed(state, target);
+void x(state_t *state, const qubit_t target) { DISPATCH_1Q(x, state, target); }
+void y(state_t *state, const qubit_t target) { DISPATCH_1Q(y, state, target); }
+void z(state_t *state, const qubit_t target) { DISPATCH_1Q(z, state, target); }
+void h(state_t *state, const qubit_t target) { DISPATCH_1Q(h, state, target); }
+void s(state_t *state, const qubit_t target) { DISPATCH_1Q(s, state, target); }
+void sdg(state_t *state, const qubit_t target) { DISPATCH_1Q(sdg, state, target); }
+void t(state_t *state, const qubit_t target) { DISPATCH_1Q(t, state, target); }
+void tdg(state_t *state, const qubit_t target) { DISPATCH_1Q(tdg, state, target); }
+void hy(state_t *state, const qubit_t target) { DISPATCH_1Q(hy, state, target); }
 
-    return QS_OK;
+/*
+ * =====================================================================================================================
+ * Rotation gate dispatchers
+ * =====================================================================================================================
+ */
+
+#define DISPATCH_ROT(name, state, target, theta)                            \
+    GATE_VALIDATE((state) && (state)->data,                                 \
+                  #name ": null state or data pointer");                    \
+    GATE_VALIDATE((target) < (state)->qubits,                               \
+                  #name ": target qubit out of range");                     \
+    switch ((state)->type) {                                                \
+        case PURE:         name##_pure(state, target, theta);   break;      \
+        case MIXED_PACKED: name##_packed(state, target, theta);  break;     \
+        case MIXED_TILED:  name##_tiled(state, target, theta);   break;     \
+    }
+
+void rx(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(rx, state, target, theta); }
+void ry(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(ry, state, target, theta); }
+void rz(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(rz, state, target, theta); }
+void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(p, state, target, theta); }
+
+/*
+ * =====================================================================================================================
+ * Two-qubit gate dispatchers
+ * =====================================================================================================================
+ */
+
+#define DISPATCH_2Q(name, state, control, target)                               \
+    GATE_VALIDATE((state) && (state)->data,                                     \
+                  #name ": null state or data pointer");                        \
+    GATE_VALIDATE((control) < (state)->qubits,                                  \
+                  #name ": control qubit out of range");                        \
+    GATE_VALIDATE((target) < (state)->qubits,                                   \
+                  #name ": target qubit out of range");                         \
+    GATE_VALIDATE((control) != (target),                                        \
+                  #name ": control and target must differ");                    \
+    switch ((state)->type) {                                                    \
+        case PURE:         name##_pure(state, control, target);   break;        \
+        case MIXED_PACKED: name##_packed(state, control, target);  break;       \
+        case MIXED_TILED:  name##_tiled(state, control, target);   break;       \
+    }
+
+#define DISPATCH_2Q_ROT(name, state, control, target, theta)                        \
+    GATE_VALIDATE((state) && (state)->data,                                         \
+                  #name ": null state or data pointer");                            \
+    GATE_VALIDATE((control) < (state)->qubits,                                      \
+                  #name ": control qubit out of range");                            \
+    GATE_VALIDATE((target) < (state)->qubits,                                       \
+                  #name ": target qubit out of range");                             \
+    GATE_VALIDATE((control) != (target),                                            \
+                  #name ": control and target must differ");                        \
+    switch ((state)->type) {                                                        \
+        case PURE:         name##_pure(state, control, target, theta);   break;     \
+        case MIXED_PACKED: name##_packed(state, control, target, theta);  break;    \
+        case MIXED_TILED:  name##_tiled(state, control, target, theta);   break;    \
+    }
+
+void cx(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cx, state, control, target); }
+void cy(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cy, state, control, target); }
+void cz(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cz, state, control, target); }
+void cs(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cs, state, control, target); }
+void csdg(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(csdg, state, control, target); }
+void ch(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(ch, state, control, target); }
+void chy(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(chy, state, control, target); }
+void ct(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(ct, state, control, target); }
+void ctdg(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(ctdg, state, control, target); }
+void cp(state_t *state, const qubit_t control, const qubit_t target, const double theta) { DISPATCH_2Q_ROT(cp, state, control, target, theta); }
+void cpdg(state_t *state, const qubit_t control, const qubit_t target, const double theta) { DISPATCH_2Q_ROT(cpdg, state, control, target, theta); }
+
+void swap_gate(state_t *state, const qubit_t q1, const qubit_t q2) {
+    GATE_VALIDATE(state && state->data, "swap: null state or data pointer");
+    GATE_VALIDATE(q1 < state->qubits, "swap: q1 qubit out of range");
+    GATE_VALIDATE(q2 < state->qubits, "swap: q2 qubit out of range");
+    GATE_VALIDATE(q1 != q2, "swap: q1 and q2 must differ");
+    switch (state->type) {
+        case PURE:         swap_pure(state, q1, q2);   break;
+        case MIXED_PACKED: swap_packed(state, q1, q2);  break;
+        case MIXED_TILED:  swap_tiled(state, q1, q2);   break;
+    }
 }
 
-qs_error_t y(state_t *state, const qubit_t target) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
+/*
+ * =====================================================================================================================
+ * Three-qubit gate dispatchers
+ * =====================================================================================================================
+ */
 
-    if (state->type == PURE) y_pure(state, target);
-    else y_mixed(state, target);
-
-    return QS_OK;
-}
-
-qs_error_t z(state_t *state, const qubit_t target) {
-    if (!state) {
-        return QS_ERR_NULL;
+void ccx(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
+    GATE_VALIDATE(state && state->data, "ccx: null state or data pointer");
+    GATE_VALIDATE(ctrl1 < state->qubits, "ccx: ctrl1 qubit out of range");
+    GATE_VALIDATE(ctrl2 < state->qubits, "ccx: ctrl2 qubit out of range");
+    GATE_VALIDATE(target < state->qubits, "ccx: target qubit out of range");
+    GATE_VALIDATE(ctrl1 != ctrl2, "ccx: ctrl1 and ctrl2 must differ");
+    GATE_VALIDATE(ctrl1 != target, "ccx: ctrl1 and target must differ");
+    GATE_VALIDATE(ctrl2 != target, "ccx: ctrl2 and target must differ");
+    switch (state->type) {
+        case PURE:         ccx_pure(state, ctrl1, ctrl2, target);   break;
+        case MIXED_PACKED: ccx_packed(state, ctrl1, ctrl2, target);  break;
+        case MIXED_TILED:  ccx_tiled(state, ctrl1, ctrl2, target);   break;
     }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) z_pure(state, target);
-    else z_mixed(state, target);
-
-    return QS_OK;
-}
-
-qs_error_t h(state_t *state, const qubit_t target) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) h_pure(state, target);
-    else h_mixed(state, target);
-
-    return QS_OK;
-}
-
-qs_error_t s(state_t *state, const qubit_t target) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) s_pure(state, target);
-    else s_mixed(state, target);
-
-    return QS_OK;
-}
-
-qs_error_t sdg(state_t *state, const qubit_t target) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) sdg_pure(state, target);
-    else sdg_mixed(state, target);
-
-    return QS_OK;
-}
-
-qs_error_t t(state_t *state, const qubit_t target) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) t_pure(state, target);
-    else t_mixed(state, target);
-
-    return QS_OK;
-}
-
-qs_error_t tdg(state_t *state, const qubit_t target) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) tdg_pure(state, target);
-    else tdg_mixed(state, target);
-
-    return QS_OK;
-}
-
-qs_error_t rx(state_t *state, const qubit_t target, const double theta) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) rx_pure(state, target, theta);
-    else rx_mixed(state, target, theta);
-
-    return QS_OK;
-}
-
-qs_error_t ry(state_t *state, const qubit_t target, const double theta) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) ry_pure(state, target, theta);
-    else ry_mixed(state, target, theta);
-
-    return QS_OK;
-}
-
-qs_error_t rz(state_t *state, const qubit_t target, const double theta) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) rz_pure(state, target, theta);
-    else rz_mixed(state, target, theta);
-
-    return QS_OK;
-}
-
-qs_error_t cx(state_t *state, const qubit_t control, const qubit_t target) {
-    if (!state) {
-        return QS_ERR_NULL;
-    }
-    if (!state->data) {
-        return QS_ERR_NULL;
-    }
-    if (control >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-    if (target >= state->qubits) {
-        return QS_ERR_QUBIT;
-    }
-    if (control == target) {
-        return QS_ERR_QUBIT;
-    }
-
-    if (state->type == PURE) cx_pure(state, control, target);
-    else cx_mixed(state, control, target);
-
-    return QS_OK;
 }

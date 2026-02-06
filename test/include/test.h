@@ -37,7 +37,7 @@ extern "C" {
  */
 
 #define MAXQUBITS   4
-#define PRECISION   1e-8
+#define PRECISION   1e-12
 #define SQRT2       1.4142135623730951
 #define INVSQRT2    0.7071067811865475
 #define INVSQRT4    0.5

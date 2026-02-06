@@ -1,4 +1,4 @@
-// qhipster.c - Quantum gates for pure states (Hilbert space vectors)
+// gate_pure.c - Quantum gates for pure states (Hilbert space vectors)
 
 #include "gate.h"
 
@@ -305,4 +305,91 @@ void rz_pure(state_t *state, const qubit_t target, const double theta) {
             *b = CMPLX(c * b_re - s * b_im, c * b_im + s * b_re);
         }
     }
+}
+
+/*
+ * =====================================================================================================================
+ * Stubs - to be replaced with real implementations in Phase 1, 2, 3
+ * =====================================================================================================================
+ */
+
+// Hy gate: a' = (a - b)/√2, b' = (a + b)/√2
+#define HY_OP(a, b) do {                            \
+    cplx_t diff = *(a) - *(b);                       \
+    cplx_t sum  = *(a) + *(b);                       \
+    *(a) = diff * M_SQRT1_2;                         \
+    *(b) = sum  * M_SQRT1_2;                         \
+} while(0)
+
+void hy_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, HY_OP);
+}
+
+// P(θ) gate: a unchanged, b *= e^(iθ)
+void p_pure(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta);
+    const double s = sin(theta);
+
+    const dim_t dim = POW2(state->qubits, dim_t);
+    const dim_t stride = POW2(target, dim_t);
+    const dim_t step = POW2(target + 1, dim_t);
+    cplx_t *data = state->data;
+
+    #pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
+    for (dim_t i = 0; i < dim; i += step) {
+        for (dim_t j = 0; j < stride; ++j) {
+            cplx_t *b = data + i + j + stride;
+            // b *= e^(iθ) = (c + is)*(x + yi) = (cx - sy) + i(sx + cy)
+            double re = creal(*b), im = cimag(*b);
+            *b = CMPLX(c * re - s * im, s * re + c * im);
+        }
+    }
+}
+
+void cy_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "cy: pure not yet implemented");
+}
+
+void cz_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "cz: pure not yet implemented");
+}
+
+void cs_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "cs: pure not yet implemented");
+}
+
+void csdg_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "csdg: pure not yet implemented");
+}
+
+void ch_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "ch: pure not yet implemented");
+}
+
+void chy_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "chy: pure not yet implemented");
+}
+
+void ct_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "ct: pure not yet implemented");
+}
+
+void ctdg_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    GATE_VALIDATE(0, "ctdg: pure not yet implemented");
+}
+
+void cp_pure(state_t *state, const qubit_t control, const qubit_t target, const double theta) {
+    GATE_VALIDATE(0, "cp: pure not yet implemented");
+}
+
+void cpdg_pure(state_t *state, const qubit_t control, const qubit_t target, const double theta) {
+    GATE_VALIDATE(0, "cpdg: pure not yet implemented");
+}
+
+void swap_pure(state_t *state, const qubit_t q1, const qubit_t q2) {
+    GATE_VALIDATE(0, "swap: pure not yet implemented");
+}
+
+void ccx_pure(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
+    GATE_VALIDATE(0, "ccx: pure not yet implemented");
 }
