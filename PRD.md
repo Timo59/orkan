@@ -162,6 +162,24 @@ Tile grid (N=64, TILE_DIM=32):        Linear storage:
 (store lower triangle of tiles)
 ```
 
+#### Layout Design Rationale
+
+**Hermitian storage:** Density matrices satisfy ρ† = ρ, so ρ[row,col] = conj(ρ[col,row]). Storing only the lower triangle reduces memory from N² to N(N+1)/2 — a ~2× saving that shifts the mixed-state feasibility boundary by one qubit (e.g., 15 → 16 qubits within 32 GB).
+
+**Column-major packed convention:** MIXED_PACKED uses column-major lower-triangle packing matching LAPACK's `uplo='L'` convention, enabling direct use of vendor-optimized routines (`zhpmv`, `zhpevd`) without format conversion.
+
+**Cache locality problem motivating tiled storage:** A single-qubit gate conjugates ρ → UρU†, accessing row/column pairs with stride 2^q. In packed column-major storage, these pairs have memory separation O(N), causing cache thrashing for large N.
+
+**Tiled layout cache hierarchy mapping:**
+- A single tile (TILE_DIM² × 16 B = 16 KB at default TILE_DIM=32) fits in L1 cache (~32–64 KB), accelerating local quantum operations on the rightmost LOG_TILE_DIM qubits whose stride fits within one tile.
+- Four tiles (64 KB) fit in L2 cache (~128–256 KB), accelerating operations on higher qubit indices that span multiple tiles in the same tile-row or tile-column.
+
+**Row-major within tiles:** Elements within each tile are stored row-major for SIMD-friendly sequential memory access during gate kernels.
+
+**Alignment:** All state buffers are 64-byte aligned (cache-line boundary on x86-64), enabling aligned SIMD loads/stores and preventing false sharing under OpenMP parallelization.
+
+**Memory scaling:** Pure: 2^n × 16 B → 64 GB at n=32. Mixed packed: N(N+1)/2 × 16 B → ~32 GB at n=16. The packed ~2× saving is the difference between 15 and 16 feasible mixed-state qubits.
+
 ### 3.3 Observables
 
 **Diagonal Hamiltonian** (for combinatorial optimization):
