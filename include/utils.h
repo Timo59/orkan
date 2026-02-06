@@ -96,6 +96,39 @@ inline void znprint(const double complex x) {
         printf("]\n"); \
     } while(0)
 
+/* Print Hermitian matrix from tiled lower-triangular storage.
+ * Requires TILE_DIM, TILE_SIZE, LOG_TILE_DIM from state.h at expansion site. */
+#define mprint_tiled(_tiled, _n) \
+    do { \
+        const unsigned _dim = (_n); \
+        printf("["); \
+        for (unsigned _row = 0; _row < _dim; ++_row) { \
+            if (_row != 0) printf(" "); \
+            printf("["); \
+            for (unsigned _col = 0; _col < _dim; ++_col) { \
+                if (_col <= _row) { \
+                    unsigned _tr = _row >> LOG_TILE_DIM; \
+                    unsigned _tc = _col >> LOG_TILE_DIM; \
+                    unsigned _lr = _row & (TILE_DIM - 1); \
+                    unsigned _lc = _col & (TILE_DIM - 1); \
+                    unsigned _idx = (_tr * (_tr + 1) / 2 + _tc) * TILE_SIZE + _lr * TILE_DIM + _lc; \
+                    nprint((_tiled)[_idx]); \
+                } else { \
+                    unsigned _tr = _col >> LOG_TILE_DIM; \
+                    unsigned _tc = _row >> LOG_TILE_DIM; \
+                    unsigned _lr = _col & (TILE_DIM - 1); \
+                    unsigned _lc = _row & (TILE_DIM - 1); \
+                    unsigned _idx = (_tr * (_tr + 1) / 2 + _tc) * TILE_SIZE + _lr * TILE_DIM + _lc; \
+                    nprint(conj((_tiled)[_idx])); \
+                } \
+                if (_col < _dim - 1) printf(", "); \
+            } \
+            printf("]"); \
+            if (_row < _dim - 1) printf("\n"); \
+        } \
+        printf("]\n"); \
+    } while(0)
+
 #ifdef __cplusplus
 }
 #endif
