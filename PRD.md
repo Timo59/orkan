@@ -457,40 +457,28 @@ Requires 2p circuit evaluations but only one state in memory at a time.
 
 OpenMP parallelization is enabled by default (`-DENABLE_OPENMP=ON`) and can be disabled at build time.
 Gates use conditional parallelization with workload-appropriate thresholds:
-- **Pure states**: `OMP_THRESHOLD = 2048` (n ≥ 11 qubits) — O(dim) work per gate
+- **Pure states**: `OMP_THRESHOLD = 4096` (n ≥ 12 qubits) — O(dim) work per gate
 - **Mixed states**: `OMP_THRESHOLD = 64` (n ≥ 6 qubits) — O(dim²) work per gate
 
 ```c
-// Pure states: parallelize over independent blocks
-#pragma omp parallel for if(dim >= OMP_THRESHOLD)
+// Pure states: collapse(2) flattens loop nest for even distribution
+#pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
 for (dim_t i = 0; i < dim; i += step) {
-    cblas_zswap(stride, state->data + i, 1, state->data + i + stride, 1);
-}
-
-// Leftmost qubit edge case: parallelize element-wise when outer loop has single iteration
-if (step >= dim && stride >= OMP_THRESHOLD) {
-    #pragma omp parallel for
     for (dim_t j = 0; j < stride; ++j) {
-        // Process element pairs directly
+        PAIR_OP(data + i + j, data + i + j + stride);
     }
 }
 ```
 
 **Mixed state parallelization:**
 
-The `TRAVERSE_MIXED_1Q` macro parallelizes the outer `col_block` loop when multiple independent
-column blocks exist. For the Hadamard gate, which processes independent 2×2 blocks, dynamic
-scheduling balances load across threads:
+The `TRAVERSE_PACKED_BLOCKS` macro parallelizes the outer `bc` loop with dynamic scheduling to
+balance load across threads (inner loop iteration count varies with `bc`):
 
 ```c
 #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-for (dim_t c = 0; c < dim; ++c) { /* process 2×2 blocks */ }
+for (dim_t bc = 0; bc < half_dim; ++bc) { /* process 2×2 blocks */ }
 ```
-
-**Note:** When targeting the leftmost qubit (target = n-1), the outer loop has only one iteration.
-Pure state gates handle this by switching to element-wise parallelization. Mixed state gates
-using `TRAVERSE_MIXED_1Q` do not parallelize in this case due to cross-column dependencies in
-the packed storage format.
 
 ### 5.5 Thread Safety
 
