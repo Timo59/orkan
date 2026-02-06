@@ -43,7 +43,8 @@
  * @return      Index into packed storage array
  */
 static inline dim_t packed_idx(dim_t dim, dim_t row, dim_t col) {
-    return col * dim - col * (col + 1) / 2 + row;
+    /* Cast to size_t to prevent overflow of col*dim on 32-bit dim_t */
+    return (dim_t)((size_t)col * dim - (size_t)col * (col + 1) / 2 + row);
 }
 
 /*
