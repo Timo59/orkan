@@ -35,20 +35,14 @@
  * =====================================================================================================================
  */
 
-static inline dim_t tile_off(dim_t tr, dim_t tc) {
+/* insertBit0() is defined in gate.h as a static inline shared across all gate backends. */
+
+static inline gate_idx_t tile_off(gate_idx_t tr, gate_idx_t tc) {
     return (tr * (tr + 1) / 2 + tc) * TILE_SIZE;
 }
 
-static inline dim_t elem_off(dim_t lr, dim_t lc) {
+static inline gate_idx_t elem_off(gate_idx_t lr, gate_idx_t lc) {
     return lr * TILE_DIM + lc;
-}
-
-/**
- * @brief Insert a 0 bit at position `pos` in value `val`
- */
-static inline dim_t insertBit0(dim_t val, qubit_t pos) {
-    dim_t mask = ((dim_t)1 << pos) - 1;
-    return (val & mask) | ((val & ~mask) << 1);
 }
 
 /*
@@ -66,61 +60,34 @@ static inline dim_t insertBit0(dim_t val, qubit_t pos) {
  *   - a10 = &tile[elem_off(lr1, lc0)]  -- local row has target bit 1
  *   - a11 = &tile[elem_off(lr1, lc1)]  -- both have target bit 1
  *
- * Diagonal tiles (tr == tc): Only process blocks where lr0 >= lc0 (lower triangle
- * within the tile). Also skip the block at lr0==lc0 for the (0,1) element since
- * it is the conjugate of the (1,0) element.
- *
- * Off-diagonal tiles (tr > tc): Process all blocks (full tile stored).
+ * Tiles store full TILE_DIM × TILE_DIM elements (including diagonal tiles), so
+ * all 4 elements are directly accessible with no conjugation logic needed.
  */
-#define TRAVERSE_TILED_WITHIN(state, target, OFFDIAG_OP, DIAG_OP)               \
+#define TRAVERSE_TILED_WITHIN(state, target, BLOCK_OP)                          \
 do {                                                                            \
-    const dim_t dim = POW2((state)->qubits, dim_t);                             \
-    const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;                \
-    const qubit_t tgt = (target);                                               \
-    const dim_t stride = (dim_t)1 << tgt;                                       \
-    const dim_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;                    \
-    const dim_t half_td = tile_dim >> 1;                                        \
+    const gate_idx_t dim = (gate_idx_t)1 << (state)->qubits;                    \
+    const gate_idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;            \
+    const gate_idx_t stride = (gate_idx_t)1 << (target);                        \
+    const gate_idx_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;              \
+    const gate_idx_t half_td = tile_dim >> 1;                                   \
     cplx_t *data = (state)->data;                                               \
                                                                                 \
-    /* Iterate lower-triangular tiles */                                        \
     _Pragma("omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)")      \
-    for (dim_t tr = 0; tr < n_tiles; ++tr) {                                    \
-        for (dim_t tc = 0; tc <= tr; ++tc) {                                    \
+    for (gate_idx_t tr = 0; tr < n_tiles; ++tr) {                               \
+        for (gate_idx_t tc = 0; tc <= tr; ++tc) {                               \
             cplx_t *tile = data + tile_off(tr, tc);                             \
-            int is_diag = (tr == tc);                                           \
                                                                                 \
-            /* Iterate blocks within the tile */                                \
-            for (dim_t br = 0; br < half_td; ++br) {                            \
-                dim_t lr0 = insertBit0(br, tgt);                                \
-                dim_t lr1 = lr0 | stride;                                       \
-                                                                                \
-                for (dim_t bc = 0; bc < half_td; ++bc) {                        \
-                    dim_t lc0 = insertBit0(bc, tgt);                            \
-                    dim_t lc1 = lc0 | stride;                                   \
-                                                                                \
-                    if (is_diag) {                                               \
-                        /* Only process blocks where lr0 >= lc0 */              \
-                        if (lr0 < lc0) continue;                                \
-                        /* On diagonal tile, a01 at (lr0,lc1) may be upper */   \
-                        /* triangle. If lr0 < lc1, read conj from (lc1,lr0) */ \
-                        int lower_01 = (lr0 >= lc1);                            \
-                        cplx_t *a01_ptr = lower_01                              \
-                            ? tile + elem_off(lr0, lc1)                         \
-                            : tile + elem_off(lc1, lr0);                        \
-                        int diag_block = (lr0 == lc0);                          \
-                        cplx_t *a00 = tile + elem_off(lr0, lc0);               \
-                        cplx_t *a10 = tile + elem_off(lr1, lc0);               \
-                        cplx_t *a11 = tile + elem_off(lr1, lc1);               \
-                        DIAG_OP(a00, a01_ptr, a10, a11,                         \
-                                lower_01, diag_block);                          \
-                    } else {                                                     \
-                        /* Off-diagonal tile: full tile stored, no conj */       \
-                        cplx_t *a00 = tile + elem_off(lr0, lc0);               \
-                        cplx_t *a01 = tile + elem_off(lr0, lc1);               \
-                        cplx_t *a10 = tile + elem_off(lr1, lc0);               \
-                        cplx_t *a11 = tile + elem_off(lr1, lc1);               \
-                        OFFDIAG_OP(a00, a01, a10, a11);                         \
-                    }                                                            \
+            for (gate_idx_t br = 0; br < half_td; ++br) {                       \
+                gate_idx_t lr0 = insertBit0(br, (target));                      \
+                gate_idx_t lr1 = lr0 | stride;                                  \
+                for (gate_idx_t bc = 0; bc < half_td; ++bc) {                   \
+                    gate_idx_t lc0 = insertBit0(bc, (target));                  \
+                    gate_idx_t lc1 = lc0 | stride;                              \
+                    cplx_t *a00 = tile + elem_off(lr0, lc0);                   \
+                    cplx_t *a01 = tile + elem_off(lr0, lc1);                   \
+                    cplx_t *a10 = tile + elem_off(lr1, lc0);                   \
+                    cplx_t *a11 = tile + elem_off(lr1, lc1);                   \
+                    BLOCK_OP(a00, a01, a10, a11);                               \
                 }                                                               \
             }                                                                   \
         }                                                                       \
@@ -150,26 +117,40 @@ do {                                                                            
  * We iterate over all (lr, lc) within the tile; for diagonal tile-blocks
  * (tc0 == tr0 at tile level), only the lower triangle needs processing.
  */
+/*
+ * Cross-tile traversal for diagonal tiles:
+ *
+ * When is_diag (i_tc == i_tr, so tr0 == tc0 and tr1 == tc1), tiles t00 and t11
+ * are diagonal tiles that store only the lower triangle (lr >= lc). To avoid
+ * reading uninitialized upper-triangle data, we iterate lc from 0 to lr
+ * (inclusive), ensuring lr >= lc. The BLOCK_OP then processes the lower-triangle
+ * stored values directly.
+ *
+ * For t10 = T(tr1, tc0): off-diagonal tile, all elements stored -- lr,lc fine.
+ * For t01: when is_diag, tr0 == tc0 < tc1, so lower_01 = 0, meaning
+ *          t01 = T(tc1, tr0) which is off-diagonal -- elem at (lc, lr).
+ *          But with the flipped iteration (lr >= lc), t01 elem is at (lc, lr).
+ */
 #define TRAVERSE_TILED_CROSS(state, target, BLOCK_OP)                           \
 do {                                                                            \
-    const dim_t dim = POW2((state)->qubits, dim_t);                             \
-    const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;                \
+    const gate_idx_t dim = (gate_idx_t)1 << (state)->qubits;                    \
+    const gate_idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;            \
     const qubit_t tile_bit = (target) - LOG_TILE_DIM;                           \
-    const dim_t tile_stride = (dim_t)1 << tile_bit;                             \
-    const dim_t half_nt = n_tiles >> 1;                                         \
+    const gate_idx_t tile_stride = (gate_idx_t)1 << tile_bit;                   \
+    const gate_idx_t half_nt = n_tiles >> 1;                                    \
     cplx_t *data = (state)->data;                                               \
                                                                                 \
-    /* Iterate tile-column pairs (tc0, tc1) with tile_bit=0 */                  \
+    /* Iterate tile-row pairs (tr0, tr1) with tile_bit=0 */                     \
     _Pragma("omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)")      \
-    for (dim_t i_tc = 0; i_tc < half_nt; ++i_tc) {                             \
-        dim_t tc0 = insertBit0(i_tc, tile_bit);                                \
-        dim_t tc1 = tc0 | tile_stride;                                         \
+    for (gate_idx_t i_tr = 0; i_tr < half_nt; ++i_tr) {                        \
+        gate_idx_t tr0 = insertBit0(i_tr, tile_bit);                            \
+        gate_idx_t tr1 = tr0 | tile_stride;                                     \
                                                                                 \
-        /* Iterate tile-row pairs (tr0, tr1) with tile_bit=0 */                \
-        /* Start from i_tc so that tr0 >= tc0 */                               \
-        for (dim_t i_tr = i_tc; i_tr < half_nt; ++i_tr) {                     \
-            dim_t tr0 = insertBit0(i_tr, tile_bit);                            \
-            dim_t tr1 = tr0 | tile_stride;                                     \
+        /* Iterate tile-column pairs (tc0, tc1) with tile_bit=0 */             \
+        /* Up to i_tr so that tr0 >= tc0 */                                    \
+        for (gate_idx_t i_tc = 0; i_tc <= i_tr; ++i_tc) {                      \
+            gate_idx_t tc0 = insertBit0(i_tc, tile_bit);                        \
+            gate_idx_t tc1 = tc0 | tile_stride;                                 \
                                                                                 \
             /* Tile pointers: T00, T11, T10 always in lower triangle */        \
             cplx_t *t00 = data + tile_off(tr0, tc0);                           \
@@ -183,10 +164,13 @@ do {                                                                            
                                                                                 \
             int is_diag = (i_tc == i_tr);                                      \
                                                                                 \
-            /* Iterate all (lr, lc) within tiles */                            \
-            for (dim_t lr = 0; lr < TILE_DIM; ++lr) {                          \
-                dim_t lc_start = is_diag ? lr : 0;                             \
-                for (dim_t lc = lc_start; lc < TILE_DIM; ++lc) {              \
+            /* Iterate all (lr, lc) within tiles.                              \
+             * For is_diag: iterate lr >= lc (lower triangle) because t00     \
+             * and t11 are diagonal tiles that only store lower-triangle       \
+             * elements. For !is_diag: iterate all elements. */                \
+            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {                     \
+                gate_idx_t lc_end = is_diag ? lr + 1 : TILE_DIM;              \
+                for (gate_idx_t lc = 0; lc < lc_end; ++lc) {                  \
                     cplx_t *a00 = t00 + elem_off(lr, lc);                      \
                     cplx_t *a11 = t11 + elem_off(lr, lc);                      \
                     cplx_t *a10 = t10 + elem_off(lr, lc);                      \
@@ -197,6 +181,11 @@ do {                                                                            
                     int diag_block = is_diag && (lr == lc);                     \
                                                                                 \
                     BLOCK_OP(a00, a01, a10, a11, lower_01, diag_block);        \
+                    /* Mirror upper triangle of diagonal tiles t00, t11 */      \
+                    if (is_diag && lr != lc) {                                  \
+                        *(t00 + elem_off(lc, lr)) = conj(*a00);                \
+                        *(t11 + elem_off(lc, lr)) = conj(*a11);                \
+                    }                                                           \
                 }                                                               \
             }                                                                   \
         }                                                                       \
@@ -208,15 +197,9 @@ do {                                                                            
  * Block operation macros: Within-tile (direct access, no conjugation)
  * =====================================================================================================================
  *
- * These macros receive pointers to the 4 elements and a diag_block flag.
- * On diagonal blocks, a01 and a10 point to the same conjugate pair.
- * Since tiles store full (non-packed) data, a01 and a10 are independent
- * EXCEPT on diagonal blocks of diagonal tiles where a01==conj(a10) by
- * Hermitian symmetry. But since we store both explicitly in the tile,
- * we operate on both and the result maintains Hermitian structure.
- *
- * For diagonal blocks: after the operation, we enforce Hermiticity by
- * setting a01 = conj(a10).
+ * These macros receive pointers to the 4 elements of a 2×2 block.
+ * Since tiles store full TILE_DIM × TILE_DIM data, all 4 elements are
+ * directly accessible with no conjugation logic needed.
  */
 
 /*
@@ -242,6 +225,7 @@ do {                                                                            
 } while(0)
 
 #define Z_OFFDIAG_OP(a00, a01, a10, a11) do { \
+    (void)(a00); (void)(a11);                  \
     *(a01) = -*(a01);                          \
     *(a10) = -*(a10);                          \
 } while(0)
@@ -256,16 +240,19 @@ do {                                                                            
 } while(0)
 
 #define S_OFFDIAG_OP(a00, a01, a10, a11) do { \
+    (void)(a00); (void)(a11);                        \
     *(a01) = CMPLX(cimag(*(a01)), -creal(*(a01)));  \
     *(a10) = CMPLX(-cimag(*(a10)), creal(*(a10)));  \
 } while(0)
 
 #define SDG_OFFDIAG_OP(a00, a01, a10, a11) do {\
+    (void)(a00); (void)(a11);                        \
     *(a01) = CMPLX(-cimag(*(a01)), creal(*(a01)));  \
     *(a10) = CMPLX(cimag(*(a10)), -creal(*(a10)));  \
 } while(0)
 
 #define T_OFFDIAG_OP(a00, a01, a10, a11) do { \
+    (void)(a00); (void)(a11);                         \
     double r01 = creal(*(a01)), i01 = cimag(*(a01)); \
     double r10 = creal(*(a10)), i10 = cimag(*(a10)); \
     *(a01) = CMPLX((r01 + i01) * M_SQRT1_2,          \
@@ -275,6 +262,7 @@ do {                                                                            
 } while(0)
 
 #define TDG_OFFDIAG_OP(a00, a01, a10, a11) do {\
+    (void)(a00); (void)(a11);                         \
     double r01 = creal(*(a01)), i01 = cimag(*(a01)); \
     double r10 = creal(*(a10)), i10 = cimag(*(a10)); \
     *(a01) = CMPLX((r01 - i01) * M_SQRT1_2,          \
@@ -345,11 +333,13 @@ do {                                                                            
     *a00 = 0.5 * (v00 + v01 + v10 + v11);                           \
     *a11 = 0.5 * (v00 - v01 - v10 + v11);                           \
     cplx_t new10 = 0.5 * (v00 + v01 - v10 - v11);                   \
-    cplx_t new01 = 0.5 * (v00 - v01 + v10 - v11);                   \
     *a10 = new10;                                                    \
-    *a01 = lower_01 ? new01 : conj(new01);                           \
     if (diag_block) {                                                \
-        *a01 = lower_01 ? conj(*a10) : *a10;                        \
+        /* On diagonal blocks, a01 = conj(a10) by Hermiticity */    \
+        *a01 = lower_01 ? conj(new10) : new10;                      \
+    } else {                                                         \
+        cplx_t new01 = 0.5 * (v00 - v01 + v10 - v11);              \
+        *a01 = lower_01 ? new01 : conj(new01);                      \
     }                                                                \
 } while(0)
 
@@ -431,11 +421,13 @@ do {                                                                            
     *a00 = 0.5 * (v00 - v01 - v10 + v11);                           \
     *a11 = 0.5 * (v00 + v01 + v10 + v11);                           \
     cplx_t new10 = 0.5 * (v00 - v01 + v10 - v11);                   \
-    cplx_t new01 = 0.5 * (v00 + v01 - v10 - v11);                   \
     *a10 = new10;                                                    \
-    *a01 = lower_01 ? new01 : conj(new01);                           \
     if (diag_block) {                                                \
-        *a01 = lower_01 ? conj(*a10) : *a10;                        \
+        /* On diagonal blocks, a01 = conj(a10) by Hermiticity */    \
+        *a01 = lower_01 ? conj(new10) : new10;                      \
+    } else {                                                         \
+        cplx_t new01 = 0.5 * (v00 + v01 - v10 - v11);              \
+        *a01 = lower_01 ? new01 : conj(new01);                      \
     }                                                                \
 } while(0)
 
@@ -445,10 +437,10 @@ do {                                                                            
  * =====================================================================================================================
  */
 
-#define DISPATCH_TILED_1Q(state, target, OFFDIAG_OP, CROSS_OP)      \
+#define DISPATCH_TILED_1Q(state, target, WITHIN_OP, CROSS_OP)      \
 do {                                                                \
     if ((target) < LOG_TILE_DIM) {                                  \
-        TRAVERSE_TILED_WITHIN(state, target, OFFDIAG_OP, CROSS_OP);\
+        TRAVERSE_TILED_WITHIN(state, target, WITHIN_OP);            \
     } else {                                                        \
         TRAVERSE_TILED_CROSS(state, target, CROSS_OP);              \
     }                                                               \
@@ -504,9 +496,128 @@ void hy_tiled(state_t *state, const qubit_t target) {
 
 /*
  * =====================================================================================================================
- * Rotation gates
+ * Rotation gates - Traversal macros to eliminate boilerplate
  * =====================================================================================================================
+ *
+ * Mixing rotation gates (Rx, Ry) share identical traversal structure: all 4 quadrants
+ * of each 2x2 block mix together. Only the computation formula differs. These macros
+ * factor out the common traversal, reading, and write-back logic.
+ *
+ * COMPUTE_OP(v00, v01, v10, v11, n00, n01, n10, n11): given input values v00..v11,
+ * compute and assign output values n00..n11. Captures trig constants from enclosing scope.
  */
+
+/*
+ * Within-tile traversal for mixing rotation gates.
+ * target < LOG_TILE_DIM: all 4 butterfly elements within the same tile.
+ * Tiles store full TILE_DIM × TILE_DIM data, so all elements are directly accessible.
+ */
+#define TRAVERSE_TILED_WITHIN_ROT(state, target, COMPUTE_OP)                    \
+do {                                                                            \
+    const gate_idx_t dim = (gate_idx_t)1 << (state)->qubits;                    \
+    const gate_idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;            \
+    const gate_idx_t stride = (gate_idx_t)1 << (target);                        \
+    const gate_idx_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;              \
+    const gate_idx_t half_td = tile_dim >> 1;                                   \
+    cplx_t *data = (state)->data;                                               \
+                                                                                \
+    _Pragma("omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)")      \
+    for (gate_idx_t tr = 0; tr < n_tiles; ++tr) {                               \
+        for (gate_idx_t tc = 0; tc <= tr; ++tc) {                               \
+            cplx_t *tile = data + tile_off(tr, tc);                             \
+                                                                                \
+            for (gate_idx_t br = 0; br < half_td; ++br) {                       \
+                gate_idx_t lr0 = insertBit0(br, (target));                      \
+                gate_idx_t lr1 = lr0 | stride;                                  \
+                for (gate_idx_t bc = 0; bc < half_td; ++bc) {                   \
+                    gate_idx_t lc0 = insertBit0(bc, (target));                  \
+                    gate_idx_t lc1 = lc0 | stride;                              \
+                                                                                \
+                    cplx_t v00 = tile[elem_off(lr0, lc0)];                      \
+                    cplx_t v01 = tile[elem_off(lr0, lc1)];                      \
+                    cplx_t v10 = tile[elem_off(lr1, lc0)];                      \
+                    cplx_t v11 = tile[elem_off(lr1, lc1)];                      \
+                                                                                \
+                    cplx_t n00, n01, n10, n11;                                  \
+                    COMPUTE_OP(v00, v01, v10, v11, n00, n01, n10, n11);         \
+                                                                                \
+                    tile[elem_off(lr0, lc0)] = n00;                             \
+                    tile[elem_off(lr0, lc1)] = n01;                             \
+                    tile[elem_off(lr1, lc0)] = n10;                             \
+                    tile[elem_off(lr1, lc1)] = n11;                             \
+                }                                                               \
+            }                                                                   \
+        }                                                                       \
+    }                                                                           \
+} while(0)
+
+/*
+ * Cross-tile traversal for mixing rotation gates.
+ * target >= LOG_TILE_DIM: the 4 elements span 4 tiles.
+ *
+ * NOTE: When is_diag (i_tc == i_tr), tiles t00 and t11 are diagonal tiles
+ * that only store the lower triangle (lr >= lc). We iterate lc from 0 to lr
+ * (inclusive) to ensure we only read valid lower-triangle positions.
+ */
+#define TRAVERSE_TILED_CROSS_ROT(state, target, COMPUTE_OP)                     \
+do {                                                                            \
+    const gate_idx_t dim = (gate_idx_t)1 << (state)->qubits;                    \
+    const gate_idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;            \
+    const qubit_t tile_bit = (target) - LOG_TILE_DIM;                           \
+    const gate_idx_t tile_stride = (gate_idx_t)1 << tile_bit;                   \
+    const gate_idx_t half_nt = n_tiles >> 1;                                    \
+    cplx_t *data = (state)->data;                                               \
+                                                                                \
+    _Pragma("omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)")      \
+    for (gate_idx_t i_tr = 0; i_tr < half_nt; ++i_tr) {                        \
+        gate_idx_t tr0 = insertBit0(i_tr, tile_bit);                            \
+        gate_idx_t tr1 = tr0 | tile_stride;                                     \
+        for (gate_idx_t i_tc = 0; i_tc <= i_tr; ++i_tc) {                      \
+            gate_idx_t tc0 = insertBit0(i_tc, tile_bit);                        \
+            gate_idx_t tc1 = tc0 | tile_stride;                                 \
+                                                                                \
+            cplx_t *t00 = data + tile_off(tr0, tc0);                           \
+            cplx_t *t11 = data + tile_off(tr1, tc1);                           \
+            cplx_t *t10 = data + tile_off(tr1, tc0);                           \
+            int lower_01 = (tr0 >= tc1);                                       \
+            cplx_t *t01 = lower_01 ? data + tile_off(tr0, tc1)                 \
+                                   : data + tile_off(tc1, tr0);                \
+            int is_diag = (i_tc == i_tr);                                      \
+                                                                                \
+            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {                     \
+                gate_idx_t lc_end = is_diag ? lr + 1 : TILE_DIM;              \
+                for (gate_idx_t lc = 0; lc < lc_end; ++lc) {                  \
+                    int diag_block = is_diag && (lr == lc);                     \
+                                                                                \
+                    cplx_t v00 = t00[elem_off(lr, lc)];                        \
+                    cplx_t v11 = t11[elem_off(lr, lc)];                        \
+                    cplx_t v10 = t10[elem_off(lr, lc)];                        \
+                    cplx_t v01 = lower_01 ? t01[elem_off(lr, lc)]              \
+                                          : conj(t01[elem_off(lc, lr)]);       \
+                                                                                \
+                    cplx_t n00, n01, n10, n11;                                  \
+                    COMPUTE_OP(v00, v01, v10, v11, n00, n01, n10, n11);         \
+                                                                                \
+                    t00[elem_off(lr, lc)] = n00;                               \
+                    t11[elem_off(lr, lc)] = n11;                               \
+                    t10[elem_off(lr, lc)] = n10;                               \
+                    if (diag_block) {                                            \
+                        if (lower_01) t01[elem_off(lr, lc)] = conj(n10);       \
+                        else          t01[elem_off(lc, lr)] = n10;             \
+                    } else {                                                     \
+                        if (lower_01) t01[elem_off(lr, lc)] = n01;             \
+                        else          t01[elem_off(lc, lr)] = conj(n01);       \
+                    }                                                            \
+                    /* Mirror upper triangle of diagonal tiles t00, t11 */      \
+                    if (is_diag && lr != lc) {                                  \
+                        t00[elem_off(lc, lr)] = conj(n00);                     \
+                        t11[elem_off(lc, lr)] = conj(n11);                     \
+                    }                                                            \
+                }                                                               \
+            }                                                                   \
+        }                                                                       \
+    }                                                                           \
+} while(0)
 
 /*
  * =====================================================================================================================
@@ -520,150 +631,29 @@ void hy_tiled(state_t *state, const qubit_t target) {
  *   ρ'_01 = ics(ρ00 - ρ11) + c²ρ01 + s²ρ10
  *   ρ'_10 = -ics(ρ00 - ρ11) + c²ρ10 + s²ρ01
  */
+#define RX_COMPUTE(v00, v01, v10, v11, n00, n01, n10, n11) do {                \
+    cplx_t _d01 = (v01) - (v10);                                               \
+    cplx_t _ics = CMPLX(-cs * cimag(_d01), cs * creal(_d01));                  \
+    cplx_t _dd  = (v00) - (v11);                                               \
+    cplx_t _icd = CMPLX(-cs * cimag(_dd), cs * creal(_dd));                    \
+    (n00) = c2 * (v00) + s2 * (v11) + _ics;                                    \
+    (n11) = s2 * (v00) + c2 * (v11) - _ics;                                    \
+    (n10) = -_icd + c2 * (v10) + s2 * (v01);                                   \
+    (n01) =  _icd + c2 * (v01) + s2 * (v10);                                   \
+} while(0)
+
 void rx_tiled(state_t *state, const qubit_t target, const double theta) {
     const double co = cos(theta / 2.0);
     const double si = sin(theta / 2.0);
     const double c2 = co * co, s2 = si * si, cs = co * si;
 
     if (target < LOG_TILE_DIM) {
-        /* Within-tile traversal */
-        const dim_t dim = POW2(state->qubits, dim_t);
-        const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
-        const dim_t stride = (dim_t)1 << target;
-        const dim_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;
-        const dim_t half_td = tile_dim >> 1;
-        cplx_t *data = state->data;
-
-        #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-        for (dim_t tr = 0; tr < n_tiles; ++tr) {
-            for (dim_t tc = 0; tc <= tr; ++tc) {
-                cplx_t *tile = data + tile_off(tr, tc);
-                int is_diag = (tr == tc);
-
-                for (dim_t br = 0; br < half_td; ++br) {
-                    dim_t lr0 = insertBit0(br, target);
-                    dim_t lr1 = lr0 | stride;
-                    for (dim_t bc = 0; bc < half_td; ++bc) {
-                        dim_t lc0 = insertBit0(bc, target);
-                        dim_t lc1 = lc0 | stride;
-
-                        if (is_diag && lr0 < lc0) continue;
-                        int diag_block = is_diag && (lr0 == lc0);
-
-                        cplx_t v00, v01, v10, v11;
-                        v00 = tile[elem_off(lr0, lc0)];
-                        v11 = tile[elem_off(lr1, lc1)];
-                        v10 = tile[elem_off(lr1, lc0)];
-
-                        if (is_diag) {
-                            int lower_01 = (lr0 >= lc1);
-                            v01 = lower_01 ? tile[elem_off(lr0, lc1)]
-                                           : conj(tile[elem_off(lc1, lr0)]);
-                        } else {
-                            v01 = tile[elem_off(lr0, lc1)];
-                        }
-
-                        cplx_t diff_01_10 = v01 - v10;
-                        cplx_t ics_diff = CMPLX(-cs * cimag(diff_01_10), cs * creal(diff_01_10));
-                        cplx_t diff_diag = v00 - v11;
-                        cplx_t ics_ddiag = CMPLX(-cs * cimag(diff_diag), cs * creal(diff_diag));
-
-                        cplx_t n00 = c2 * v00 + s2 * v11 + ics_diff;
-                        cplx_t n11 = s2 * v00 + c2 * v11 - ics_diff;
-                        cplx_t n10 = -ics_ddiag + c2 * v10 + s2 * v01;
-                        cplx_t n01 = ics_ddiag + c2 * v01 + s2 * v10;
-
-                        tile[elem_off(lr0, lc0)] = n00;
-                        tile[elem_off(lr1, lc1)] = n11;
-                        tile[elem_off(lr1, lc0)] = n10;
-
-                        if (is_diag) {
-                            int lower_01 = (lr0 >= lc1);
-                            if (diag_block) {
-                                if (lower_01)
-                                    tile[elem_off(lr0, lc1)] = conj(n10);
-                                else
-                                    tile[elem_off(lc1, lr0)] = n10;
-                            } else {
-                                if (lower_01)
-                                    tile[elem_off(lr0, lc1)] = n01;
-                                else
-                                    tile[elem_off(lc1, lr0)] = conj(n01);
-                            }
-                        } else {
-                            tile[elem_off(lr0, lc1)] = n01;
-                        }
-                    }
-                }
-            }
-        }
+        TRAVERSE_TILED_WITHIN_ROT(state, target, RX_COMPUTE);
     } else {
-        /* Cross-tile traversal */
-        const dim_t dim = POW2(state->qubits, dim_t);
-        const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
-        const qubit_t tile_bit = target - LOG_TILE_DIM;
-        const dim_t tile_stride = (dim_t)1 << tile_bit;
-        const dim_t half_nt = n_tiles >> 1;
-        cplx_t *data = state->data;
-
-        #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-        for (dim_t i_tc = 0; i_tc < half_nt; ++i_tc) {
-            dim_t tc0 = insertBit0(i_tc, tile_bit);
-            dim_t tc1 = tc0 | tile_stride;
-            for (dim_t i_tr = i_tc; i_tr < half_nt; ++i_tr) {
-                dim_t tr0 = insertBit0(i_tr, tile_bit);
-                dim_t tr1 = tr0 | tile_stride;
-
-                cplx_t *t00 = data + tile_off(tr0, tc0);
-                cplx_t *t11 = data + tile_off(tr1, tc1);
-                cplx_t *t10 = data + tile_off(tr1, tc0);
-
-                int lower_01 = (tr0 >= tc1);
-                cplx_t *t01 = lower_01 ? data + tile_off(tr0, tc1)
-                                       : data + tile_off(tc1, tr0);
-                int is_diag = (i_tc == i_tr);
-
-                for (dim_t lr = 0; lr < TILE_DIM; ++lr) {
-                    dim_t lc_start = is_diag ? lr : 0;
-                    for (dim_t lc = lc_start; lc < TILE_DIM; ++lc) {
-                        int diag_block = is_diag && (lr == lc);
-
-                        cplx_t v00 = t00[elem_off(lr, lc)];
-                        cplx_t v11 = t11[elem_off(lr, lc)];
-                        cplx_t v10 = t10[elem_off(lr, lc)];
-                        cplx_t rho01 = lower_01 ? t01[elem_off(lr, lc)]
-                                                : conj(t01[elem_off(lc, lr)]);
-
-                        cplx_t diff_01_10 = rho01 - v10;
-                        cplx_t ics_diff = CMPLX(-cs * cimag(diff_01_10), cs * creal(diff_01_10));
-                        cplx_t diff_diag = v00 - v11;
-                        cplx_t ics_ddiag = CMPLX(-cs * cimag(diff_diag), cs * creal(diff_diag));
-
-                        cplx_t n00 = c2 * v00 + s2 * v11 + ics_diff;
-                        cplx_t n11 = s2 * v00 + c2 * v11 - ics_diff;
-                        cplx_t n10 = -ics_ddiag + c2 * v10 + s2 * rho01;
-                        cplx_t n01 = ics_ddiag + c2 * rho01 + s2 * v10;
-
-                        t00[elem_off(lr, lc)] = n00;
-                        t11[elem_off(lr, lc)] = n11;
-                        t10[elem_off(lr, lc)] = n10;
-                        if (diag_block) {
-                            if (lower_01)
-                                t01[elem_off(lr, lc)] = conj(n10);
-                            else
-                                t01[elem_off(lc, lr)] = n10;
-                        } else {
-                            if (lower_01)
-                                t01[elem_off(lr, lc)] = n01;
-                            else
-                                t01[elem_off(lc, lr)] = conj(n01);
-                        }
-                    }
-                }
-            }
-        }
+        TRAVERSE_TILED_CROSS_ROT(state, target, RX_COMPUTE);
     }
 }
+#undef RX_COMPUTE
 
 /*
  * =====================================================================================================================
@@ -677,144 +667,27 @@ void rx_tiled(state_t *state, const qubit_t target, const double theta) {
  *   ρ'_01 = cs(ρ00 - ρ11) + c²ρ01 - s²ρ10
  *   ρ'_10 = cs(ρ00 - ρ11) + c²ρ10 - s²ρ01
  */
+#define RY_COMPUTE(v00, v01, v10, v11, n00, n01, n10, n11) do {                \
+    cplx_t _sum = (v01) + (v10);                                                \
+    cplx_t _dd  = (v00) - (v11);                                               \
+    (n00) = c2 * (v00) + s2 * (v11) - cs * _sum;                               \
+    (n11) = s2 * (v00) + c2 * (v11) + cs * _sum;                               \
+    (n10) = cs * _dd + c2 * (v10) - s2 * (v01);                                \
+    (n01) = cs * _dd + c2 * (v01) - s2 * (v10);                                \
+} while(0)
+
 void ry_tiled(state_t *state, const qubit_t target, const double theta) {
     const double co = cos(theta / 2.0);
     const double si = sin(theta / 2.0);
-    const double c2 = co * co, s2 = si * si, cs_val = co * si;
+    const double c2 = co * co, s2 = si * si, cs = co * si;
 
     if (target < LOG_TILE_DIM) {
-        const dim_t dim = POW2(state->qubits, dim_t);
-        const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
-        const dim_t stride = (dim_t)1 << target;
-        const dim_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;
-        const dim_t half_td = tile_dim >> 1;
-        cplx_t *data = state->data;
-
-        #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-        for (dim_t tr = 0; tr < n_tiles; ++tr) {
-            for (dim_t tc = 0; tc <= tr; ++tc) {
-                cplx_t *tile = data + tile_off(tr, tc);
-                int is_diag = (tr == tc);
-
-                for (dim_t br = 0; br < half_td; ++br) {
-                    dim_t lr0 = insertBit0(br, target);
-                    dim_t lr1 = lr0 | stride;
-                    for (dim_t bc = 0; bc < half_td; ++bc) {
-                        dim_t lc0 = insertBit0(bc, target);
-                        dim_t lc1 = lc0 | stride;
-
-                        if (is_diag && lr0 < lc0) continue;
-                        int diag_block = is_diag && (lr0 == lc0);
-
-                        cplx_t v00, v01, v10, v11;
-                        v00 = tile[elem_off(lr0, lc0)];
-                        v11 = tile[elem_off(lr1, lc1)];
-                        v10 = tile[elem_off(lr1, lc0)];
-
-                        if (is_diag) {
-                            int lower_01 = (lr0 >= lc1);
-                            v01 = lower_01 ? tile[elem_off(lr0, lc1)]
-                                           : conj(tile[elem_off(lc1, lr0)]);
-                        } else {
-                            v01 = tile[elem_off(lr0, lc1)];
-                        }
-
-                        cplx_t sum_01_10 = v01 + v10;
-                        cplx_t diff_diag = v00 - v11;
-
-                        cplx_t n00 = c2 * v00 + s2 * v11 - cs_val * sum_01_10;
-                        cplx_t n11 = s2 * v00 + c2 * v11 + cs_val * sum_01_10;
-                        cplx_t n10 = cs_val * diff_diag + c2 * v10 - s2 * v01;
-                        cplx_t n01 = cs_val * diff_diag + c2 * v01 - s2 * v10;
-
-                        tile[elem_off(lr0, lc0)] = n00;
-                        tile[elem_off(lr1, lc1)] = n11;
-                        tile[elem_off(lr1, lc0)] = n10;
-
-                        if (is_diag) {
-                            int lower_01 = (lr0 >= lc1);
-                            if (diag_block) {
-                                if (lower_01)
-                                    tile[elem_off(lr0, lc1)] = conj(n10);
-                                else
-                                    tile[elem_off(lc1, lr0)] = n10;
-                            } else {
-                                if (lower_01)
-                                    tile[elem_off(lr0, lc1)] = n01;
-                                else
-                                    tile[elem_off(lc1, lr0)] = conj(n01);
-                            }
-                        } else {
-                            tile[elem_off(lr0, lc1)] = n01;
-                        }
-                    }
-                }
-            }
-        }
+        TRAVERSE_TILED_WITHIN_ROT(state, target, RY_COMPUTE);
     } else {
-        const dim_t dim = POW2(state->qubits, dim_t);
-        const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
-        const qubit_t tile_bit = target - LOG_TILE_DIM;
-        const dim_t tile_stride = (dim_t)1 << tile_bit;
-        const dim_t half_nt = n_tiles >> 1;
-        cplx_t *data = state->data;
-
-        #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-        for (dim_t i_tc = 0; i_tc < half_nt; ++i_tc) {
-            dim_t tc0 = insertBit0(i_tc, tile_bit);
-            dim_t tc1 = tc0 | tile_stride;
-            for (dim_t i_tr = i_tc; i_tr < half_nt; ++i_tr) {
-                dim_t tr0 = insertBit0(i_tr, tile_bit);
-                dim_t tr1 = tr0 | tile_stride;
-
-                cplx_t *t00 = data + tile_off(tr0, tc0);
-                cplx_t *t11 = data + tile_off(tr1, tc1);
-                cplx_t *t10 = data + tile_off(tr1, tc0);
-
-                int lower_01 = (tr0 >= tc1);
-                cplx_t *t01 = lower_01 ? data + tile_off(tr0, tc1)
-                                       : data + tile_off(tc1, tr0);
-                int is_diag = (i_tc == i_tr);
-
-                for (dim_t lr = 0; lr < TILE_DIM; ++lr) {
-                    dim_t lc_start = is_diag ? lr : 0;
-                    for (dim_t lc = lc_start; lc < TILE_DIM; ++lc) {
-                        int diag_block = is_diag && (lr == lc);
-
-                        cplx_t v00 = t00[elem_off(lr, lc)];
-                        cplx_t v11 = t11[elem_off(lr, lc)];
-                        cplx_t v10 = t10[elem_off(lr, lc)];
-                        cplx_t rho01 = lower_01 ? t01[elem_off(lr, lc)]
-                                                : conj(t01[elem_off(lc, lr)]);
-
-                        cplx_t sum_01_10 = rho01 + v10;
-                        cplx_t diff_diag = v00 - v11;
-
-                        cplx_t n00 = c2 * v00 + s2 * v11 - cs_val * sum_01_10;
-                        cplx_t n11 = s2 * v00 + c2 * v11 + cs_val * sum_01_10;
-                        cplx_t n10 = cs_val * diff_diag + c2 * v10 - s2 * rho01;
-                        cplx_t n01 = cs_val * diff_diag + c2 * rho01 - s2 * v10;
-
-                        t00[elem_off(lr, lc)] = n00;
-                        t11[elem_off(lr, lc)] = n11;
-                        t10[elem_off(lr, lc)] = n10;
-                        if (diag_block) {
-                            if (lower_01)
-                                t01[elem_off(lr, lc)] = conj(n10);
-                            else
-                                t01[elem_off(lc, lr)] = n10;
-                        } else {
-                            if (lower_01)
-                                t01[elem_off(lr, lc)] = n01;
-                            else
-                                t01[elem_off(lc, lr)] = conj(n01);
-                        }
-                    }
-                }
-            }
-        }
+        TRAVERSE_TILED_CROSS_ROT(state, target, RY_COMPUTE);
     }
 }
+#undef RY_COMPUTE
 
 /*
  * =====================================================================================================================
@@ -824,78 +697,63 @@ void ry_tiled(state_t *state, const qubit_t target, const double theta) {
  * Rz(θ) = diag(e^(-iθ/2), e^(iθ/2)). Diagonal gate:
  *   ρ'_00 = ρ00, ρ'_11 = ρ11
  *   ρ'_10 = e^(iθ) ρ10, ρ'_01 = e^(-iθ) ρ01
+ *
+ * Rz is a diagonal gate that only applies phase to off-diagonal elements.
+ * The within-tile and cross-tile paths differ from the mixing gates (Rx, Ry)
+ * because diagonal elements are unchanged and only rho10/rho01 are modified.
  */
 void rz_tiled(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta), sn = sin(theta);
 
     if (target < LOG_TILE_DIM) {
-        const dim_t dim = POW2(state->qubits, dim_t);
-        const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
-        const dim_t stride = (dim_t)1 << target;
-        const dim_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;
-        const dim_t half_td = tile_dim >> 1;
+        const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+        const gate_idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
+        const gate_idx_t stride = (gate_idx_t)1 << target;
+        const gate_idx_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;
+        const gate_idx_t half_td = tile_dim >> 1;
         cplx_t *data = state->data;
 
         #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-        for (dim_t tr = 0; tr < n_tiles; ++tr) {
-            for (dim_t tc = 0; tc <= tr; ++tc) {
+        for (gate_idx_t tr = 0; tr < n_tiles; ++tr) {
+            for (gate_idx_t tc = 0; tc <= tr; ++tc) {
                 cplx_t *tile = data + tile_off(tr, tc);
-                int is_diag = (tr == tc);
 
-                for (dim_t br = 0; br < half_td; ++br) {
-                    dim_t lr0 = insertBit0(br, target);
-                    dim_t lr1 = lr0 | stride;
-                    for (dim_t bc = 0; bc < half_td; ++bc) {
-                        dim_t lc0 = insertBit0(bc, target);
-                        dim_t lc1 = lc0 | stride;
-
-                        if (is_diag && lr0 < lc0) continue;
-                        int diag_block = is_diag && (lr0 == lc0);
+                for (gate_idx_t br = 0; br < half_td; ++br) {
+                    gate_idx_t lr0 = insertBit0(br, target);
+                    gate_idx_t lr1 = lr0 | stride;
+                    for (gate_idx_t bc = 0; bc < half_td; ++bc) {
+                        gate_idx_t lc0 = insertBit0(bc, target);
+                        gate_idx_t lc1 = lc0 | stride;
 
                         /* rho10 *= e^(iθ) */
                         cplx_t *p10 = tile + elem_off(lr1, lc0);
                         double r10 = creal(*p10), i10 = cimag(*p10);
                         *p10 = CMPLX(r10 * c - i10 * sn, i10 * c + r10 * sn);
 
-                        if (diag_block) continue;
-
                         /* rho01 *= e^(-iθ) */
-                        if (is_diag) {
-                            int lower_01 = (lr0 >= lc1);
-                            cplx_t *p01 = lower_01 ? tile + elem_off(lr0, lc1)
-                                                   : tile + elem_off(lc1, lr0);
-                            double r01 = creal(*p01), i01 = cimag(*p01);
-                            if (lower_01) {
-                                *p01 = CMPLX(r01 * c + i01 * sn, i01 * c - r01 * sn);
-                            } else {
-                                /* stored = conj(rho01); new_stored = conj(e^(-iθ) * rho01)
-                                 * = e^(iθ) * conj(rho01) = e^(iθ) * stored */
-                                *p01 = CMPLX(r01 * c - i01 * sn, i01 * c + r01 * sn);
-                            }
-                        } else {
-                            cplx_t *p01 = tile + elem_off(lr0, lc1);
-                            double r01 = creal(*p01), i01 = cimag(*p01);
-                            *p01 = CMPLX(r01 * c + i01 * sn, i01 * c - r01 * sn);
-                        }
+                        cplx_t *p01 = tile + elem_off(lr0, lc1);
+                        double r01 = creal(*p01), i01 = cimag(*p01);
+                        *p01 = CMPLX(r01 * c + i01 * sn, i01 * c - r01 * sn);
                     }
                 }
             }
         }
     } else {
-        const dim_t dim = POW2(state->qubits, dim_t);
-        const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
+        /* Cross-tile traversal: iterate lr >= lc for diagonal tile-blocks */
+        const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+        const gate_idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
         const qubit_t tile_bit = target - LOG_TILE_DIM;
-        const dim_t tile_stride = (dim_t)1 << tile_bit;
-        const dim_t half_nt = n_tiles >> 1;
+        const gate_idx_t tile_stride = (gate_idx_t)1 << tile_bit;
+        const gate_idx_t half_nt = n_tiles >> 1;
         cplx_t *data = state->data;
 
         #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-        for (dim_t i_tc = 0; i_tc < half_nt; ++i_tc) {
-            dim_t tc0 = insertBit0(i_tc, tile_bit);
-            dim_t tc1 = tc0 | tile_stride;
-            for (dim_t i_tr = i_tc; i_tr < half_nt; ++i_tr) {
-                dim_t tr0 = insertBit0(i_tr, tile_bit);
-                dim_t tr1 = tr0 | tile_stride;
+        for (gate_idx_t i_tr = 0; i_tr < half_nt; ++i_tr) {
+            gate_idx_t tr0 = insertBit0(i_tr, tile_bit);
+            gate_idx_t tr1 = tr0 | tile_stride;
+            for (gate_idx_t i_tc = 0; i_tc <= i_tr; ++i_tc) {
+                gate_idx_t tc0 = insertBit0(i_tc, tile_bit);
+                gate_idx_t tc1 = tc0 | tile_stride;
 
                 cplx_t *t10 = data + tile_off(tr1, tc0);
 
@@ -904,9 +762,9 @@ void rz_tiled(state_t *state, const qubit_t target, const double theta) {
                                        : data + tile_off(tc1, tr0);
                 int is_diag = (i_tc == i_tr);
 
-                for (dim_t lr = 0; lr < TILE_DIM; ++lr) {
-                    dim_t lc_start = is_diag ? lr : 0;
-                    for (dim_t lc = lc_start; lc < TILE_DIM; ++lc) {
+                for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                    gate_idx_t lc_end = is_diag ? lr + 1 : TILE_DIM;
+                    for (gate_idx_t lc = 0; lc < lc_end; ++lc) {
                         int diag_block = is_diag && (lr == lc);
 
                         /* rho10 *= e^(iθ) */
@@ -926,7 +784,7 @@ void rz_tiled(state_t *state, const qubit_t target, const double theta) {
                         } else {
                             p01 = t01 + elem_off(lc, lr);
                             r01 = creal(*p01); i01 = cimag(*p01);
-                            /* stored = conj(rho01); new = conj(e^(-iθ)*rho01) = e^(iθ)*stored */
+                            /* stored = conj(rho01); new = e^(iθ)*stored */
                             *p01 = CMPLX(r01 * c - i01 * sn, i01 * c + r01 * sn);
                         }
                     }

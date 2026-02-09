@@ -159,9 +159,17 @@ void state_tiled_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
     if (row >= col) {
         /* Lower triangle: direct storage */
         state->data[tiled_index(row, col)] = val;
+        /* Diagonal tiles store full TILE_DIM × TILE_DIM: mirror to upper triangle */
+        if ((row >> LOG_TILE_DIM) == (col >> LOG_TILE_DIM) && row != col) {
+            state->data[tiled_index(col, row)] = conj(val);
+        }
     } else {
-        /* Upper triangle: store conjugate at (col, row) */
+        /* Upper triangle: store conjugate at transposed lower-triangle position */
         state->data[tiled_index(col, row)] = conj(val);
+        /* Diagonal tiles: also store directly at (row, col) */
+        if ((row >> LOG_TILE_DIM) == (col >> LOG_TILE_DIM)) {
+            state->data[tiled_index(row, col)] = val;
+        }
     }
 }
 
