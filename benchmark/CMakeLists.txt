@@ -31,7 +31,7 @@ if(QuEST_INCLUDE_DIR AND QuEST_LIBRARY)
     set(QuEST_FOUND TRUE)
 endif()
 
-# OpenMP - for Eigen3 parallelization in Quantum++
+# OpenMP - for parallelization in Qulacs
 # macOS requires explicit hints for Homebrew's libomp
 if(APPLE)
     execute_process(
@@ -51,25 +51,13 @@ if(APPLE)
 endif()
 find_package(OpenMP)
 
-# Quantum++ (requires Eigen3) - check extern/ first
-find_package(Eigen3 QUIET CONFIG HINTS /opt/homebrew/opt/eigen/share/eigen3/cmake)
-if(Eigen3_FOUND)
-    find_path(QPP_INCLUDE_DIR qpp/qpp.hpp
-        HINTS
-            ${EXTERN_DIR}/qpp/include
-            ${QPP_DIR}/include
-            $ENV{QPP_DIR}/include
-            /usr/local/include
-            /opt/qpp/include
-    )
-    if(QPP_INCLUDE_DIR)
-        set(QPP_FOUND TRUE)
-    endif()
-endif()
-
 # Qulacs - check extern/ first (requires Boost)
 # Qulacs provides dm_* functions for density matrix gate operations
-find_package(Boost 1.71.0 QUIET)
+# CMP0167 (CMake 3.30+): Use Boost's own BoostConfig.cmake instead of removed FindBoost module
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+find_package(Boost 1.71.0 QUIET CONFIG)
 if(Boost_FOUND)
     find_path(QULACS_INCLUDE_DIR csim/update_ops_dm.hpp
         HINTS
@@ -112,10 +100,6 @@ if(QuEST_FOUND)
     list(APPEND BENCH_MIXED_SRC "${BENCH_SRC_DIR}/bench_quest.c")
 endif()
 
-if(QPP_FOUND)
-    list(APPEND BENCH_MIXED_SRC "${BENCH_SRC_DIR}/bench_qpp.cpp")
-endif()
-
 if(QULACS_FOUND)
     list(APPEND BENCH_MIXED_SRC "${BENCH_SRC_DIR}/bench_qulacs.cpp")
 endif()
@@ -154,25 +138,8 @@ if(QuEST_FOUND)
     target_link_libraries(bench_mixed PRIVATE ${QuEST_LIBRARY})
 endif()
 
-if(QPP_FOUND)
-    target_compile_definitions(bench_mixed PRIVATE WITH_QPP)
-    target_include_directories(bench_mixed PRIVATE
-        ${QPP_INCLUDE_DIR}
-        ${EXTERN_DIR}/qpp/qasmtools/include  # qasmtools dependency
-    )
-    target_link_libraries(bench_mixed PRIVATE Eigen3::Eigen)
-    set_property(TARGET bench_mixed PROPERTY CXX_STANDARD 17)
-    set_property(TARGET bench_mixed PROPERTY CXX_STANDARD_REQUIRED ON)
-    # Enable OpenMP for Eigen3 parallelization in Quantum++
-    if(OpenMP_CXX_FOUND)
-        target_link_libraries(bench_mixed PRIVATE OpenMP::OpenMP_CXX)
-    endif()
-endif()
-
 if(QULACS_FOUND)
     target_compile_definitions(bench_mixed PRIVATE WITH_QULACS)
-    # Only include the csim headers directory, NOT the Qulacs Eigen directory
-    # (to avoid conflicts with Quantum++'s system Eigen)
     target_include_directories(bench_mixed PRIVATE
         ${QULACS_INCLUDE_DIR}
     )
@@ -192,6 +159,5 @@ endif()
 
 message(STATUS "Benchmark configuration:")
 message(STATUS "  QuEST:     ${QuEST_FOUND}")
-message(STATUS "  Quantum++: ${QPP_FOUND}")
 message(STATUS "  Qulacs:    ${QULACS_FOUND}")
 message(STATUS "  OpenMP:    ${OpenMP_CXX_FOUND}")

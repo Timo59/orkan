@@ -491,7 +491,7 @@ static const gate_def_t gates[] = {
 
 #define NUM_GATES 3
 #define MAX_QUBIT_CONFIGS 16
-#define NUM_METHODS 7  /* qlib_packed, qlib_tiled, blas, naive, quest, qpp, qulacs */
+#define NUM_METHODS 6  /* qlib_packed, qlib_tiled, blas, naive, quest, qulacs */
 
 /** @brief Storage for pgfplots output (collected during benchmark) */
 typedef struct {
@@ -504,13 +504,13 @@ typedef struct {
 static pgfplots_data_t pgf_data = {0};
 
 /** @brief Method indices for pgfplots data */
-enum { M_QLIB = 0, M_QLIB_TILED = 1, M_BLAS = 2, M_NAIVE = 3, M_QUEST = 4, M_QPP = 5, M_QULACS = 6 };
+enum { M_QLIB = 0, M_QLIB_TILED = 1, M_BLAS = 2, M_NAIVE = 3, M_QUEST = 4, M_QULACS = 5 };
 
 /** @brief Print pgfplots-compatible .dat output */
 static void print_pgfplots_output(void) {
-    const char *method_names[] = {"qlib", "qlib_tiled", "blas", "quest", "qpp", "qulacs"};
-    int method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS, M_QUEST, M_QPP, M_QULACS};
-    int num_methods = 6;
+    const char *method_names[] = {"qlib", "qlib_tiled", "blas", "quest", "qulacs"};
+    int method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS, M_QUEST, M_QULACS};
+    int num_methods = 5;
 
     /* Print timing tables (one per gate) */
     for (int g = 0; g < NUM_GATES; ++g) {
@@ -579,9 +579,6 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QUEST
         printf(" vs QuEST");
 #endif
-#ifdef WITH_QPP
-        printf(" vs Quantum++");
-#endif
 #ifdef WITH_QULACS
         printf(" vs Qulacs");
 #endif
@@ -589,9 +586,6 @@ int main(int argc, char *argv[]) {
         printf("Iterations: %d, Warm-up: %d\n", opts.iterations, opts.warmup);
 #ifdef WITH_QUEST
         printf("QuEST: enabled (https://quest.qtechtheory.org/)\n");
-#endif
-#ifdef WITH_QPP
-        printf("Quantum++: enabled (https://github.com/softwareQinc/qpp)\n");
 #endif
 #ifdef WITH_QULACS
         printf("Qulacs: enabled (https://github.com/qulacs/qulacs)\n");
@@ -659,13 +653,6 @@ int main(int argc, char *argv[]) {
                 opts.iterations, opts.warmup);
 #endif
 
-#ifdef WITH_QPP
-            /* Benchmark Quantum++ framework */
-            bench_result_t r_qpp = bench_qpp(
-                qubits, gates[g].name,
-                opts.iterations, opts.warmup);
-#endif
-
 #ifdef WITH_QULACS
             /* Benchmark Qulacs framework */
             bench_result_t r_qulacs = bench_qulacs(
@@ -687,10 +674,6 @@ int main(int argc, char *argv[]) {
                 pgf_data.time_ms[g][qi][M_QUEST] = r_quest.time_ms;
                 pgf_data.memory[g][qi][M_QUEST] = r_quest.memory_bytes;
 #endif
-#ifdef WITH_QPP
-                pgf_data.time_ms[g][qi][M_QPP] = r_qpp.time_ms;
-                pgf_data.memory[g][qi][M_QPP] = r_qpp.memory_bytes;
-#endif
 #ifdef WITH_QULACS
                 pgf_data.time_ms[g][qi][M_QULACS] = r_qulacs.time_ms;
                 pgf_data.memory[g][qi][M_QULACS] = r_qulacs.memory_bytes;
@@ -705,9 +688,6 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QUEST
                 bench_print_csv(&r_quest);
 #endif
-#ifdef WITH_QPP
-                bench_print_csv(&r_qpp);
-#endif
 #ifdef WITH_QULACS
                 bench_print_csv(&r_qulacs);
 #endif
@@ -718,9 +698,6 @@ int main(int argc, char *argv[]) {
                 if (qubits <= 8) bench_print_result(&r_naive, opts.verbose);
 #ifdef WITH_QUEST
                 bench_print_result(&r_quest, opts.verbose);
-#endif
-#ifdef WITH_QPP
-                bench_print_result(&r_qpp, opts.verbose);
 #endif
 #ifdef WITH_QULACS
                 bench_print_result(&r_qulacs, opts.verbose);
@@ -752,12 +729,6 @@ int main(int argc, char *argv[]) {
                     printf(", %.1fx vs QuEST", speedup_quest);
                 }
 #endif
-#ifdef WITH_QPP
-                if (r_qpp.time_ms > 0) {
-                    double speedup_qpp = r_qpp.time_ms / r_packed.time_ms;
-                    printf(", %.1fx vs Quantum++", speedup_qpp);
-                }
-#endif
 #ifdef WITH_QULACS
                 if (r_qulacs.time_ms > 0) {
                     double speedup_qulacs = r_qulacs.time_ms / r_packed.time_ms;
@@ -773,9 +744,6 @@ int main(int argc, char *argv[]) {
                 if (r_naive.memory_bytes > max_mem) max_mem = r_naive.memory_bytes;
 #ifdef WITH_QUEST
                 if (r_quest.memory_bytes > max_mem) max_mem = r_quest.memory_bytes;
-#endif
-#ifdef WITH_QPP
-                if (r_qpp.memory_bytes > max_mem) max_mem = r_qpp.memory_bytes;
 #endif
 #ifdef WITH_QULACS
                 if (r_qulacs.memory_bytes > max_mem) max_mem = r_qulacs.memory_bytes;
@@ -805,11 +773,6 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QUEST
                 if (r_quest.memory_bytes > 0) {
                     printf(", QuEST=%.1f %s", (double)r_quest.memory_bytes / scale, unit);
-                }
-#endif
-#ifdef WITH_QPP
-                if (r_qpp.memory_bytes > 0) {
-                    printf(", Qpp=%.1f %s", (double)r_qpp.memory_bytes / scale, unit);
                 }
 #endif
 #ifdef WITH_QULACS
