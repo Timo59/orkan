@@ -7,6 +7,13 @@ project(QSim
         LANGUAGES   C CXX   # Programming languages to build the project
 )
 
+# Default to Debug if no build type specified (single-config generators only)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (Debug, Release, RelWithDebInfo)" FORCE)
+    message(STATUS "No build type specified, defaulting to Debug")
+endif()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
 

@@ -4,13 +4,15 @@
 set(PROJECT_COMPILER_FLAGS "${PROJECT_NAME}_compiler_flags")
 
 # Interface library for project compiler flags
+# Optimization and debug flags come from CMAKE_BUILD_TYPE:
+#   Debug:   -O0 -g          (cmake default)
+#   Release: -O3 -DNDEBUG    (cmake default)
 add_library(${PROJECT_COMPILER_FLAGS} INTERFACE)
 
 target_compile_options(${PROJECT_COMPILER_FLAGS}
         INTERFACE
-            -O2
-            -g
             -fno-strict-aliasing
+            $<$<CONFIG:Release>:-march=native>
 )
 target_link_libraries(${PROJECT_COMPILER_FLAGS}
         INTERFACE $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lm>
