@@ -26,7 +26,6 @@ add_library(q SHARED ${Q_SOURCES})
 set_target_properties(q PROPERTIES
         VERSION         ${PROJECT_VERSION}
         SOVERSION       ${PROJECT_VERSION_MAJOR}
-        PUBLIC_HEADER   "${INCLUDE_DIR}/qlib.h"
 )
 target_include_directories(q
         PUBLIC
@@ -44,4 +43,19 @@ target_link_libraries(q
             ${PROJECT_COMPILER_FLAGS}
             blas_compiler_flags
             omp_compiler_flags
+)
+
+# Install rules
+include(GNUInstallDirs)
+
+install(TARGETS q
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(FILES
+    ${INCLUDE_DIR}/qlib.h
+    ${INCLUDE_DIR}/q_types.h
+    ${INCLUDE_DIR}/state.h
+    ${INCLUDE_DIR}/gate.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )

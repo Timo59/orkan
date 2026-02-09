@@ -1,4 +1,6 @@
 // gate.h   - Functions representing the action of local quantum gates to a general quantum state
+//
+// It includes <stdio.h> and <stdlib.h> because GATE_VALIDATE needs fprintf() and exit().
 
 #ifndef GATE_H
 #define GATE_H
@@ -8,12 +10,11 @@
  * Includes
  * =====================================================================================================================
  */
-#ifndef STATE_H
 #include "state.h"
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 /*
  * =====================================================================================================================
@@ -29,7 +30,7 @@ extern "C" {
  * Fortran BLAS function zrot_
  * =====================================================================================================================
  */
-#ifdef LINUX
+#ifdef __linux__
 void zrot_(
     const blasint *n,
     openblas_complex_double *x, const blasint *incx,
@@ -39,8 +40,45 @@ void zrot_(
 
 /*
  * =====================================================================================================================
+ * Index type for gate internals
+ * =====================================================================================================================
+ *
+ * gate_idx_t is an unsigned 64-bit type used for ALL index computations within the gate
+ * module (loop variables, dim, stride, step, pack_idx results). This avoids signed 32-bit
+ * overflow that would occur with dim_t (LAPACK int) for 16+ qubit mixed states where
+ * dim*(dim+1)/2 exceeds 2^31. dim_t is retained only at LAPACK/BLAS call boundaries.
+ */
+typedef uint64_t gate_idx_t;
+
+/*
+ * =====================================================================================================================
+ * Bit-insertion helper (shared across gate backends)
+ * =====================================================================================================================
+ */
+
+/**
+ * @brief Insert a 0 bit at position `pos` in value `val`
+ *
+ * For k from 0 to dim/2-1, insertBit0(k, target) produces all indices with bit
+ * `target` equal to 0. This enables direct enumeration without wasted iterations.
+ *
+ * Example: pos=2, val=0b101 -> 0b1001 (insert 0 at bit 2)
+ */
+static inline gate_idx_t insertBit0(gate_idx_t val, qubit_t pos) {
+    gate_idx_t mask = ((gate_idx_t)1 << pos) - 1;
+    return (val & mask) | ((val & ~mask) << 1);
+}
+
+/*
+ * =====================================================================================================================
  * Error handling
  * =====================================================================================================================
+ *
+ * GATE_VALIDATE calls exit() on failure. This is a deliberate design choice for a
+ * scientific computing library where correctness is paramount: passing an out-of-range
+ * qubit index or null pointer indicates a programming error (not a recoverable runtime
+ * condition), and continuing would silently produce wrong simulation results. The
+ * fail-fast behavior ensures such bugs surface immediately during development and testing.
  */
 
 #define GATE_VALIDATE(cond, msg) do {                           \
