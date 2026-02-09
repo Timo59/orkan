@@ -19,14 +19,6 @@
 #include "gate.h"
 #endif
 
-#ifndef PQC_H
-#include "pqc.h"
-#endif
-
-#ifndef EXACT_H
-#include "exact.h"
-#endif
-
 /*
  * =====================================================================================================================
  *                                                      C++ check

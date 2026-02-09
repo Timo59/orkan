@@ -56,12 +56,13 @@ if (BUILD_TESTS AND EXISTS "${CMAKE_SOURCE_DIR}/test")
     enable_testing()
     add_subdirectory(test)
 
-    # Require tests to pass before install
-    add_custom_target(check
+    # Run tests then install (usage: cmake --build . --target verified_install)
+    add_custom_target(verified_install
             COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+            COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR}
+            DEPENDS test_state test_gate
+            COMMENT "Running tests before install..."
     )
-
-    # add_dependencies(install check)
 endif ()
 
 if(BUILD_EXAMPLES AND EXISTS "${CMAKE_SOURCE_DIR}/examples")
