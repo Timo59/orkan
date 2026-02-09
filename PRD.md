@@ -554,43 +554,109 @@ typedef enum {
 | complex.h | C99 complex numbers | Yes |
 | OpenMP | Shared-memory parallelism | Optional (enabled by default) |
 | Unity | Unit testing framework | Testing only |
-| CMake | Build system | Yes |
-
-**CMake options:**
-```bash
-cmake -DENABLE_OPENMP=ON ..   # Enable OpenMP parallelization (default)
-cmake -DENABLE_OPENMP=OFF ..  # Disable OpenMP (single-threaded)
-```
+| CMake ≥ 3.27 | Build system | Yes |
 
 ---
 
 ## 9. Build System
 
-### 9.1 CMake Structure
+### 9.1 Build Types
+
+The project uses `CMAKE_BUILD_TYPE` to select compiler flags:
+
+| Build type | Compiler flags | Use case |
+|-----------|---------------|----------|
+| `Debug` (default) | `-O0 -g` | Development, debugging, testing |
+| `Release` | `-O3 -DNDEBUG -march=native` | Benchmarking, installation |
+
+Common flags applied in all configurations: `-fno-strict-aliasing`.
+
+The `Release` configuration enables `-march=native` for platform-specific SIMD vectorization (NEON on Apple Silicon, AVX2/AVX-512 on x86-64).
+
+### 9.2 CMake Options
+
+```bash
+cmake -DCMAKE_BUILD_TYPE=Debug ..    # Development (default if omitted)
+cmake -DCMAKE_BUILD_TYPE=Release ..  # Benchmarking and installation
+
+cmake -DENABLE_OPENMP=ON ..         # Enable OpenMP parallelization (default)
+cmake -DENABLE_OPENMP=OFF ..        # Disable OpenMP (single-threaded)
+cmake -DLOG_TILE_DIM=5 ..           # Tile dimension: 2^5 = 32×32 (default)
+```
+
+### 9.3 Build Targets
+
+| Target | Built in | Description |
+|--------|----------|-------------|
+| `q` | Debug, Release | Shared library (`libq.dylib` / `libq.so`) |
+| `test_state` | Debug, Release | State module tests (15 tests) |
+| `test_gate` | Debug, Release | Gate module tests (~11,800 per gate) |
+| `bench_mixed` | Release only | Benchmark executable |
+| `bench` | Release only | Custom target: runs CTest, then benchmark |
+| `verified_install` | Debug, Release | Custom target: runs CTest, then installs libq |
+
+### 9.4 Typical Workflows
+
+**Development:**
+```bash
+mkdir cmake-build-debug && cd cmake-build-debug
+cmake ..
+cmake --build .
+ctest                              # Run all tests
+```
+
+**Benchmarking:**
+```bash
+mkdir cmake-build-release && cd cmake-build-release
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build .
+ctest --output-on-failure          # Verify correctness at -O3
+./benchmark/bench_mixed            # Run benchmark
+
+# Or in one command (tests then benchmark):
+cmake --build . --target bench
+```
+
+**Install:**
+```bash
+cmake --build . --target verified_install  # Tests must pass before install
+```
+
+### 9.5 Build Outputs
+
+- `libq.dylib` / `libq.so` — Shared library (version 1.0.0, soversion 1)
+- `test_state`, `test_gate` — Test executables (linked against libq)
+- `bench_mixed` — Benchmark executable (Release only, linked against libq)
+
+### 9.6 Project Structure
 
 ```
 qlib/
-├── CMakeLists.txt
-├── src/
-│   ├── state.c
-│   ├── gate.c
-│   ├── measure.c
-│   └── util.c
+├── CMakeLists.txt              # Root build configuration
+├── cmake/
+│   ├── CompilerFlags.cmake     # Per-config compiler flags
+│   ├── Dependencies.cmake      # BLAS/LAPACK detection
+│   └── PlatformConfig.cmake    # Platform detection
 ├── include/
-│   └── qlib.h          # Public API header
-├── tests/
-│   ├── test_state.c
-│   ├── test_gate.c
-│   └── test_measure.c
-└── examples/
-    └── qaoa_maxcut.c
+│   ├── qlib.h                  # Umbrella public header
+│   ├── q_types.h               # Type definitions
+│   ├── state.h                 # State module API
+│   └── gate.h                  # Gate module API
+├── src/
+│   ├── CMakeLists.txt          # libq shared library target
+│   ├── state.c, state_pure.c, state_packed.c, state_tiled.c
+│   └── gate.c, gate_pure.c, gate_packed.c, gate_tiled.c
+├── test/
+│   ├── CMakeLists.txt          # Test targets (link libq)
+│   └── src/
+├── benchmark/
+│   ├── CMakeLists.txt          # Benchmark target (Release only, link libq)
+│   └── src/
+└── extern/
+    ├── Unity/                  # Test framework (submodule)
+    ├── QuEST/                  # Benchmark competitor (submodule)
+    └── qulacs/                 # Benchmark competitor (submodule)
 ```
-
-### 9.2 Build Outputs
-
-- `libqlib.a` — Static library
-- `libqlib.so` / `libqlib.dylib` — Shared library (optional)
-- Test executables
 
 ---
 
@@ -667,4 +733,4 @@ Qubit 0 is the **rightmost** (least significant) bit.
 ---
 
 *Document generated via Socratic design process.*
-*Last updated: 2026-01-23 (OpenMP parallelization for gate operations)*
+*Last updated: 2026-02-09 (Release/Debug build types, benchmark links libq)*
