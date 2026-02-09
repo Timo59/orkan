@@ -1,6 +1,11 @@
 # benchmark/CMakeLists.txt - Mixed state benchmark executables
 
-set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
+# Benchmarks require Release build for meaningful results
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(STATUS "Skipping benchmark (requires -DCMAKE_BUILD_TYPE=Release)")
+    return()
+endif()
+
 set(BENCH_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(EXTERN_DIR "${CMAKE_SOURCE_DIR}/extern")
 
@@ -85,14 +90,6 @@ endif()
 #=======================================================================================================================
 
 set(BENCH_MIXED_SRC
-        "${SRC_DIR}/state.c"
-        "${SRC_DIR}/state_pure.c"
-        "${SRC_DIR}/state_packed.c"
-        "${SRC_DIR}/state_tiled.c"
-        "${SRC_DIR}/gate.c"
-        "${SRC_DIR}/gate_pure.c"
-        "${SRC_DIR}/gate_packed.c"
-        "${SRC_DIR}/gate_tiled.c"
         "${BENCH_SRC_DIR}/bench_mixed.c"
 )
 
@@ -106,22 +103,20 @@ endif()
 
 add_executable(bench_mixed ${BENCH_MIXED_SRC})
 
-# Output binary to cmake-build-debug/benchmark/
+# Output binary to cmake-build-*/benchmark/
 set_target_properties(bench_mixed PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
 )
 
 target_include_directories(bench_mixed
         PRIVATE
-            "${CMAKE_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
+# Link libq — inherits compiler flags, BLAS, OpenMP, and include dirs via PUBLIC deps
 target_link_libraries(bench_mixed
         PRIVATE
-            blas_compiler_flags
-            omp_compiler_flags
-            ${PROJECT_COMPILER_FLAGS}
+            q
 )
 
 target_compile_definitions(bench_mixed
@@ -151,6 +146,19 @@ if(QULACS_FOUND)
     if(OpenMP_CXX_FOUND)
         target_link_libraries(bench_mixed PRIVATE OpenMP::OpenMP_CXX)
     endif()
+endif()
+
+#=======================================================================================================================
+# bench target - Run tests then benchmark in one command
+#=======================================================================================================================
+
+if(BUILD_TESTS)
+    add_custom_target(bench
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+        COMMAND $<TARGET_FILE:bench_mixed>
+        DEPENDS test_state test_gate bench_mixed
+        COMMENT "Running tests, then benchmark..."
+    )
 endif()
 
 #=======================================================================================================================
