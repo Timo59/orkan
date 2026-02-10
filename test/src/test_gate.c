@@ -39,6 +39,7 @@ void test_Rx_pure(void) {testRotationGate(rx, mat_rx);}
 void test_Ry_pure(void) {testRotationGate(ry, mat_ry);}
 void test_Rz_pure(void) {testRotationGate(rz, mat_rz);}
 void test_CX_pure(void) {testTwoQubitGate(cx, CXMAT);}
+void test_SWAP_pure(void) {testTwoQubitGate(swap_gate, SWAPMAT);}
 
 /*
  * =====================================================================================================================
@@ -58,6 +59,7 @@ void test_Rx_packed(void) {testRotationGateMixed(rx, mat_rx);}
 void test_Ry_packed(void) {testRotationGateMixed(ry, mat_ry);}
 void test_Rz_packed(void) {testRotationGateMixed(rz, mat_rz);}
 void test_CX_packed(void) {testTwoQubitGateMixed(cx, CXMAT);}
+void test_SWAP_packed(void) {testTwoQubitGateMixed(swap_gate, SWAPMAT);}
 
 /*
  * =====================================================================================================================
@@ -105,6 +107,7 @@ int main(void) {
     RUN_TEST(test_Ry_pure);
     RUN_TEST(test_Rz_pure);
     RUN_TEST(test_CX_pure);
+    // RUN_TEST(test_SWAP_pure);  // swap_pure not yet implemented
 
     // Packed mixed state tests
     RUN_TEST(test_X_packed);
@@ -119,6 +122,7 @@ int main(void) {
     RUN_TEST(test_Ry_packed);
     RUN_TEST(test_Rz_packed);
     RUN_TEST(test_CX_packed);
+    RUN_TEST(test_SWAP_packed);
 
     // Tiled mixed state tests
     RUN_TEST(test_X_tiled);
