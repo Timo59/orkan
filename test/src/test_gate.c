@@ -31,6 +31,7 @@ void test_X_pure(void) {testSingleQubitGate(x, XMAT);}
 void test_Y_pure(void) {testSingleQubitGate(y, YMAT);}
 void test_Z_pure(void) {testSingleQubitGate(z, ZMAT);}
 void test_H_pure(void) {testSingleQubitGate(h, HMAT);}
+void test_Hy_pure(void) {testSingleQubitGate(hy, HYMAT);}
 void test_S_pure(void) {testSingleQubitGate(s, SMAT);}
 void test_Sdg_pure(void) {testSingleQubitGate(sdg, SDGMAT);}
 void test_T_pure(void) {testSingleQubitGate(t, TMAT);}
@@ -38,6 +39,7 @@ void test_Tdg_pure(void) {testSingleQubitGate(tdg, TDGMAT);}
 void test_Rx_pure(void) {testRotationGate(rx, mat_rx);}
 void test_Ry_pure(void) {testRotationGate(ry, mat_ry);}
 void test_Rz_pure(void) {testRotationGate(rz, mat_rz);}
+void test_P_pure(void) {testRotationGate(p, mat_p);}
 void test_CX_pure(void) {testTwoQubitGate(cx, CXMAT);}
 void test_SWAP_pure(void) {testTwoQubitGate(swap_gate, SWAPMAT);}
 
@@ -51,6 +53,7 @@ void test_X_packed(void) {testSingleQubitGateMixed(x, XMAT);}
 void test_Y_packed(void) {testSingleQubitGateMixed(y, YMAT);}
 void test_Z_packed(void) {testSingleQubitGateMixed(z, ZMAT);}
 void test_H_packed(void) {testSingleQubitGateMixed(h, HMAT);}
+void test_Hy_packed(void) {testSingleQubitGateMixed(hy, HYMAT);}
 void test_S_packed(void) {testSingleQubitGateMixed(s, SMAT);}
 void test_Sdg_packed(void) {testSingleQubitGateMixed(sdg, SDGMAT);}
 void test_T_packed(void) {testSingleQubitGateMixed(t, TMAT);}
@@ -58,6 +61,7 @@ void test_Tdg_packed(void) {testSingleQubitGateMixed(tdg, TDGMAT);}
 void test_Rx_packed(void) {testRotationGateMixed(rx, mat_rx);}
 void test_Ry_packed(void) {testRotationGateMixed(ry, mat_ry);}
 void test_Rz_packed(void) {testRotationGateMixed(rz, mat_rz);}
+void test_P_packed(void) {testRotationGateMixed(p, mat_p);}
 void test_CX_packed(void) {testTwoQubitGateMixed(cx, CXMAT);}
 void test_SWAP_packed(void) {testTwoQubitGateMixed(swap_gate, SWAPMAT);}
 
@@ -71,18 +75,14 @@ void test_X_tiled(void) {testSingleQubitGateTiled(x, XMAT);}
 void test_Y_tiled(void) {testSingleQubitGateTiled(y, YMAT);}
 void test_Z_tiled(void) {testSingleQubitGateTiled(z, ZMAT);}
 void test_H_tiled(void) {testSingleQubitGateTiled(h, HMAT);}
+void test_Hy_tiled(void) {testSingleQubitGateTiled(hy, HYMAT);}
 void test_S_tiled(void) {testSingleQubitGateTiled(s, SMAT);}
 void test_Sdg_tiled(void) {testSingleQubitGateTiled(sdg, SDGMAT);}
 void test_T_tiled(void) {testSingleQubitGateTiled(t, TMAT);}
 void test_Tdg_tiled(void) {testSingleQubitGateTiled(tdg, TDGMAT);}
-void test_Hy_pure(void) {testSingleQubitGate(hy, HYMAT);}
-void test_Hy_packed(void) {testSingleQubitGateMixed(hy, HYMAT);}
-void test_Hy_tiled(void) {testSingleQubitGateTiled(hy, HYMAT);}
 void test_Rx_tiled(void) {testRotationGateTiled(rx, mat_rx);}
 void test_Ry_tiled(void) {testRotationGateTiled(ry, mat_ry);}
 void test_Rz_tiled(void) {testRotationGateTiled(rz, mat_rz);}
-void test_P_pure(void) {testRotationGate(p, mat_p);}
-void test_P_packed(void) {testRotationGateMixed(p, mat_p);}
 void test_P_tiled(void) {testRotationGateTiled(p, mat_p);}
 
 /*
@@ -94,11 +94,12 @@ void test_P_tiled(void) {testRotationGateTiled(p, mat_p);}
 int main(void) {
     UNITY_BEGIN();
 
-    // Pure state tests
+    printf("\n========== PURE Gate Tests ==========\n");
     RUN_TEST(test_X_pure);
     RUN_TEST(test_Y_pure);
     RUN_TEST(test_Z_pure);
     RUN_TEST(test_H_pure);
+    RUN_TEST(test_Hy_pure);
     RUN_TEST(test_S_pure);
     RUN_TEST(test_Sdg_pure);
     RUN_TEST(test_T_pure);
@@ -106,14 +107,16 @@ int main(void) {
     RUN_TEST(test_Rx_pure);
     RUN_TEST(test_Ry_pure);
     RUN_TEST(test_Rz_pure);
+    RUN_TEST(test_P_pure);
     RUN_TEST(test_CX_pure);
-    // RUN_TEST(test_SWAP_pure);  // swap_pure not yet implemented
+    RUN_TEST(test_SWAP_pure);
 
-    // Packed mixed state tests
+    printf("\n========== MIXED_PACKED Gate Tests ==========\n");
     RUN_TEST(test_X_packed);
     RUN_TEST(test_Y_packed);
     RUN_TEST(test_Z_packed);
     RUN_TEST(test_H_packed);
+    RUN_TEST(test_Hy_packed);
     RUN_TEST(test_S_packed);
     RUN_TEST(test_Sdg_packed);
     RUN_TEST(test_T_packed);
@@ -121,32 +124,23 @@ int main(void) {
     RUN_TEST(test_Rx_packed);
     RUN_TEST(test_Ry_packed);
     RUN_TEST(test_Rz_packed);
+    RUN_TEST(test_P_packed);
     RUN_TEST(test_CX_packed);
     RUN_TEST(test_SWAP_packed);
 
-    // Tiled mixed state tests
+    printf("\n========== MIXED_TILED Gate Tests ==========\n");
     RUN_TEST(test_X_tiled);
     RUN_TEST(test_Y_tiled);
     RUN_TEST(test_Z_tiled);
     RUN_TEST(test_H_tiled);
+    RUN_TEST(test_Hy_tiled);
     RUN_TEST(test_S_tiled);
     RUN_TEST(test_Sdg_tiled);
     RUN_TEST(test_T_tiled);
     RUN_TEST(test_Tdg_tiled);
-
-    // Hy tests (all layouts)
-    RUN_TEST(test_Hy_pure);
-    RUN_TEST(test_Hy_packed);
-    RUN_TEST(test_Hy_tiled);
-
-    // Rotation gates (tiled)
     RUN_TEST(test_Rx_tiled);
     RUN_TEST(test_Ry_tiled);
     RUN_TEST(test_Rz_tiled);
-
-    // P gate (all layouts)
-    RUN_TEST(test_P_pure);
-    RUN_TEST(test_P_packed);
     RUN_TEST(test_P_tiled);
 
     return UNITY_END();
