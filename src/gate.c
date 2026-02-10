@@ -1,8 +1,6 @@
 // gate.c   - Gate dispatchers with input validation and three-way type dispatch
 
-#ifndef GATE_H
 #include "gate.h"
-#endif
 
 /*
  * =====================================================================================================================
@@ -127,6 +125,7 @@ extern void ccx_tiled(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t targ
         case PURE:         name##_pure(state, target);   break;     \
         case MIXED_PACKED: name##_packed(state, target);  break;    \
         case MIXED_TILED:  name##_tiled(state, target);   break;    \
+        default: GATE_VALIDATE(0, #name ": unknown state type");    \
     }
 
 void x(state_t *state, const qubit_t target) { DISPATCH_1Q(x, state, target); }
@@ -154,6 +153,7 @@ void hy(state_t *state, const qubit_t target) { DISPATCH_1Q(hy, state, target); 
         case PURE:         name##_pure(state, target, theta);   break;      \
         case MIXED_PACKED: name##_packed(state, target, theta);  break;     \
         case MIXED_TILED:  name##_tiled(state, target, theta);   break;     \
+        default: GATE_VALIDATE(0, #name ": unknown state type");            \
     }
 
 void rx(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(rx, state, target, theta); }
@@ -180,6 +180,7 @@ void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(
         case PURE:         name##_pure(state, control, target);   break;        \
         case MIXED_PACKED: name##_packed(state, control, target);  break;       \
         case MIXED_TILED:  name##_tiled(state, control, target);   break;       \
+        default: GATE_VALIDATE(0, #name ": unknown state type");                \
     }
 
 #define DISPATCH_2Q_ROT(name, state, control, target, theta)                        \
@@ -195,6 +196,7 @@ void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(
         case PURE:         name##_pure(state, control, target, theta);   break;     \
         case MIXED_PACKED: name##_packed(state, control, target, theta);  break;    \
         case MIXED_TILED:  name##_tiled(state, control, target, theta);   break;    \
+        default: GATE_VALIDATE(0, #name ": unknown state type");                    \
     }
 
 void cx(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cx, state, control, target); }
@@ -218,6 +220,7 @@ void swap_gate(state_t *state, const qubit_t q1, const qubit_t q2) {
         case PURE:         swap_pure(state, q1, q2);   break;
         case MIXED_PACKED: swap_packed(state, q1, q2);  break;
         case MIXED_TILED:  swap_tiled(state, q1, q2);   break;
+        default: GATE_VALIDATE(0, "swap: unknown state type");
     }
 }
 
@@ -239,5 +242,6 @@ void ccx(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t
         case PURE:         ccx_pure(state, ctrl1, ctrl2, target);   break;
         case MIXED_PACKED: ccx_packed(state, ctrl1, ctrl2, target);  break;
         case MIXED_TILED:  ccx_tiled(state, ctrl1, ctrl2, target);   break;
+        default: GATE_VALIDATE(0, "ccx: unknown state type");
     }
 }

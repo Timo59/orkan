@@ -876,31 +876,39 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
     cplx_t * restrict data = state->data;
     const gate_idx_t quarter_dim = dim >> 2;
 
+    #pragma omp parallel for schedule(guided) if(dim >= OMP_THRESHOLD)
     for (gate_idx_t bc = 0; bc < quarter_dim; ++bc) {
-        const gate_idx_t c00 = insertBit0(insertBit0(bc, lo), hi);
+        const gate_idx_t c00 = insertBits2_0(bc, lo, hi);
         const gate_idx_t c01 = c00 | incr_lo, c10 = c00 | incr_hi, c11 = c10 | incr_lo;
 
+        /* Precompute offsets of columns */
+        gate_idx_t offset_c00 = c00 * (2 * dim - c00 + 1) / 2;
+        gate_idx_t offset_c01 = c01 * (2 * dim - c01 + 1) / 2;
+        gate_idx_t offset_c10 = c10 * (2 * dim - c10 + 1) / 2;
+        gate_idx_t offset_c11 = c11 * (2 * dim - c11 + 1) / 2;
+
+
         for (gate_idx_t br = bc; br < quarter_dim; ++br) {
-            const gate_idx_t r00 = insertBit0(insertBit0(br, lo), hi);
+            const gate_idx_t r00 = insertBits2_0(br, lo, hi);
             const gate_idx_t r01 = r00 | incr_lo, r10 = r00 | incr_hi, r11 = r10 | incr_lo;
 
             /* Pair 1: (r01, c00) <-> (r10, c00) — both always in lower triangle */
-            gate_idx_t idx_a = pack_idx(dim, r01, c00);
-            gate_idx_t idx_b = pack_idx(dim, r10, c00);
-            register cplx_t tmp = data[idx_a];
+            gate_idx_t idx_a = (r01 - c00) + offset_c00;
+            gate_idx_t idx_b = (r10 - c00) + offset_c00;
+            cplx_t tmp = data[idx_a];
             data[idx_a] = data[idx_b];
             data[idx_b] = tmp;
 
             /* Pair 2: (r01, c01) <-> (r10, c10) — both always in lower triangle */
-            idx_a = pack_idx(dim, r01, c01);
-            idx_b = pack_idx(dim, r10, c10);
+            idx_a = (r01 - c01) + offset_c01;
+            idx_b = (r10 - c10) + offset_c10;
             tmp = data[idx_a];
             data[idx_a] = data[idx_b];
             data[idx_b] = tmp;
 
             /* Pair 3: (r11, c01) <-> (r11, c10) — both always in lower triangle */
-            idx_a = pack_idx(dim, r11, c01);
-            idx_b = pack_idx(dim, r11, c10);
+            idx_a = (r11 - c01) + offset_c01;
+            idx_b = (r11 - c10) + offset_c10;
             tmp = data[idx_a];
             data[idx_a] = data[idx_b];
             data[idx_b] = tmp;
@@ -911,10 +919,10 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
              *   r01 <= c10: (r01, c10) is upper-tri; its packed representative is
              *     conj(data) at (c10, r01). That position belongs to block (bc, br),
              *     never iterated, so we must write both directions here. */
-            idx_a = pack_idx(dim, r10, c01);
+            idx_a = (r10 - c01) + offset_c01;
             tmp = data[idx_a];
             if (r01 > c10) {
-                idx_b = pack_idx(dim, r01, c10);
+                idx_b = (r01 - c10) + offset_c10;
                 data[idx_a] = data[idx_b];
                 data[idx_b] = tmp;
             }
@@ -926,7 +934,7 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
 
             /* Pairs 5+6: (r00, c01) <-> (r00, c10) and (r10, c11) <-> (r01, c11)
              *
-             * Three regimes based on how r00 compares to c01 and c10:
+             * Cases based on how r00 compares to c01 and c10:
              *
              * (a) r00 > c10 > c01: all elements in lower triangle, plain swaps.
              * (b) r00 > c01 but r00 <= c10: (r00, c01) is lower-tri but (r00, c10)
@@ -938,17 +946,17 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
              *     the lower triangle but in unreachable block (bc, br). Swap directly.
              */
             if (r00 > c01) {
-                idx_a = pack_idx(dim, r00, c01);
-                const gate_idx_t idx_aa = pack_idx(dim, r10, c11);
+                idx_a = (r00 - c01) + offset_c01;
+                const gate_idx_t idx_aa = (r10 - c11) + offset_c11;
 
                 if (r00 > c10) {
                     /* (a) Both lower-tri: plain swap */
-                    idx_b = pack_idx(dim, r00, c10);
+                    idx_b = (r00 - c10) + offset_c10;
                     tmp = data[idx_a];
                     data[idx_a] = data[idx_b];
                     data[idx_b] = tmp;
 
-                    idx_b = pack_idx(dim, r01, c11);
+                    idx_b = (r01 - c11) + offset_c11;
                     tmp = data[idx_aa];
                     data[idx_aa] = data[idx_b];
                     data[idx_b] = tmp;
