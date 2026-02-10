@@ -16,15 +16,12 @@
  * Key optimizations:
  *   - Direct enumeration using insertBit0() - no wasted iterations
  *   - Zero-multiplication for phase gates (S, T, etc.)
- *   - All operations inline - no BLAS overhead
  *   - Auto-vectorization-friendly code structure
  */
 
 #include "gate.h"
 #include <complex.h>
 #include <math.h>
-#include <stdlib.h>
-#include <string.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -44,24 +41,12 @@
  * =====================================================================================================================
  */
 
-/**
- * @brief Insert a 0 bit at position `pos` in value `val`
- *
- * This allows direct enumeration of indices with bit t=0, avoiding wasted
- * iterations and conditional skipping. For k from 0 to dim/2-1,
- * insertBit0(k, target) produces all indices with bit t=0.
- *
- * Example: pos=2, val=0b101 -> 0b1001 (insert 0 at bit 2)
- */
-static inline dim_t insertBit0(dim_t val, qubit_t pos) {
-    dim_t mask = ((dim_t)1 << pos) - 1;
-    return (val & mask) | ((val & ~mask) << 1);
-}
+/* insertBit0() is defined in gate.h as a static inline shared across all gate backends. */
 
 /**
  * @brief Compute packed array index for element (r, c) where r >= c
  */
-static inline dim_t pack_idx(dim_t dim, dim_t r, dim_t c) {
+static inline gate_idx_t pack_idx(gate_idx_t dim, gate_idx_t r, gate_idx_t c) {
     return c * (2 * dim - c + 1) / 2 + (r - c);
 }
 
@@ -85,29 +70,36 @@ static inline dim_t pack_idx(dim_t dim, dim_t r, dim_t c) {
  */
 #define TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)                         \
 do {                                                                            \
-    const dim_t dim = (dim_t)1 << (state)->qubits;                              \
-    const dim_t incr = (dim_t)1 << (target);                                    \
-    const dim_t half_dim = dim >> 1;                                            \
+    const gate_idx_t dim = (gate_idx_t)1 << (state)->qubits;                    \
+    const gate_idx_t incr = (gate_idx_t)1 << (target);                          \
+    const gate_idx_t half_dim = dim >> 1;                                       \
     cplx_t * restrict data = (state)->data;                                     \
                                                                                 \
-    _Pragma("omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)")      \
-    for (dim_t bc = 0; bc < half_dim; ++bc) {                                   \
-        dim_t c0 = insertBit0(bc, target);                                      \
-        dim_t c1 = c0 | incr;                                                   \
+    _Pragma("omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)")       \
+    for (gate_idx_t bc = 0; bc < half_dim; ++bc) {                              \
+        gate_idx_t c0 = insertBit0(bc, target);                                 \
+        gate_idx_t c1 = c0 | incr;                                              \
                                                                                 \
-        for (dim_t br = bc; br < half_dim; ++br) {                              \
-            dim_t r0 = insertBit0(br, target);                                  \
-            dim_t r1 = r0 | incr;                                               \
+        /* Precompute column base for c1: pack_idx(dim, c1, c1) */             \
+        gate_idx_t col1_base = c1 * (2 * dim - c1 + 1) / 2;                    \
+        /* Precompute column base for c0: pack_idx(dim, c0, c0) */             \
+        gate_idx_t col0_base = c0 * (2 * dim - c0 + 1) / 2;                    \
                                                                                 \
-            /* Compute packed indices for the 4 elements */                     \
-            dim_t idx00 = pack_idx(dim, r0, c0);                                \
-            dim_t idx11 = pack_idx(dim, r1, c1);                                \
-            dim_t idx10 = pack_idx(dim, r1, c0);                                \
+        for (gate_idx_t br = bc; br < half_dim; ++br) {                         \
+            gate_idx_t r0 = insertBit0(br, target);                             \
+            gate_idx_t r1 = r0 | incr;                                          \
+                                                                                \
+            /* Compute idx00 = pack_idx(dim, r0, c0) from col0_base */         \
+            gate_idx_t idx00 = col0_base + (r0 - c0);                           \
+            /* idx10 = pack_idx(dim, r1, c0): same column, row offset by incr */\
+            gate_idx_t idx10 = idx00 + incr;                                    \
+            /* idx11 = pack_idx(dim, r1, c1) from col1_base */                 \
+            gate_idx_t idx11 = col1_base + (r1 - c1);                           \
                                                                                 \
             /* (r0, c1): in lower triangle if r0 >= c1 */                       \
             int lower_01 = (r0 >= c1);                                          \
-            dim_t idx01 = lower_01 ? pack_idx(dim, r0, c1)                       \
-                                   : pack_idx(dim, c1, r0);                     \
+            gate_idx_t idx01 = lower_01 ? (col1_base + (r0 - c1))               \
+                                        : pack_idx(dim, c1, r0);               \
                                                                                 \
             /* On diagonal blocks (bc==br), idx01==idx10 points to same elem */ \
             int diag_block = (bc == br);                                        \
@@ -269,6 +261,44 @@ void h_packed(state_t *state, const qubit_t target) {
 }
 
 
+/*
+ * =====================================================================================================================
+ * Hy (Hadamard-Y) gate: ρ → Hy ρ Hy†
+ * =====================================================================================================================
+ *
+ * Hy = [[1,-1],[1,1]]/√2, Hy† = [[1,1],[-1,1]]/√2  (NOT self-adjoint)
+ *
+ * For ρ' = Hy ρ Hy†:
+ *   ρ'_00 = (ρ00 - ρ01 - ρ10 + ρ11) / 2
+ *   ρ'_01 = (ρ00 + ρ01 - ρ10 - ρ11) / 2
+ *   ρ'_10 = (ρ00 - ρ01 + ρ10 - ρ11) / 2
+ *   ρ'_11 = (ρ00 + ρ01 + ρ10 + ρ11) / 2
+ */
+
+#define HY_BLOCK_OP(data, idx00, idx01, idx10, idx11, lower_01, diag_block) do { \
+    cplx_t rho00 = data[idx00];                                                 \
+    cplx_t rho11 = data[idx11];                                                 \
+    cplx_t rho10 = data[idx10];                                                 \
+    cplx_t rho01 = diag_block ? conj(rho10)                                     \
+                  : (lower_01 ? data[idx01] : conj(data[idx01]));               \
+                                                                                \
+    cplx_t new00 = 0.5 * (rho00 - rho01 - rho10 + rho11);                       \
+    cplx_t new11 = 0.5 * (rho00 + rho01 + rho10 + rho11);                       \
+    cplx_t new01 = 0.5 * (rho00 + rho01 - rho10 - rho11);                       \
+    cplx_t new10 = 0.5 * (rho00 - rho01 + rho10 - rho11);                       \
+                                                                                \
+    data[idx00] = new00;                                                        \
+    data[idx11] = new11;                                                        \
+    data[idx10] = new10;                                                        \
+    if (!diag_block) {                                                          \
+        data[idx01] = lower_01 ? new01 : conj(new01);                           \
+    }                                                                           \
+} while (0)
+
+void hy_packed(state_t *state, const qubit_t target) {
+    TRAVERSE_PACKED_BLOCKS(state, target, HY_BLOCK_OP);
+}
+
 
 /*
  * =====================================================================================================================
@@ -293,18 +323,18 @@ void h_packed(state_t *state, const qubit_t target) {
     data[idx10] = CMPLX(-im10, re10);                                           \
                                                                                 \
     /* On diagonal blocks, idx01 == idx10, so skip (already processed) */       \
-    if (diag_block) break;                                                      \
-                                                                                \
-    /* (0,1) *= -i: if in lower, (a+bi) -> (b-ai) */                            \
-    /* if in upper (stored as conj), we read conj and write conj(-i * val) */   \
-    double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);                \
-    if (lower_01) {                                                             \
-        data[idx01] = CMPLX(im01, -re01);                                       \
-    } else {                                                                    \
-        /* stored = conj(rho01), rho01 = conj(stored) = (re01, -im01) */        \
-        /* new_rho01 = -i * rho01 = -i * (re01 - i*im01) = -im01 - i*re01 */    \
-        /* store conj(new_rho01) = (-im01, re01) */                             \
-        data[idx01] = CMPLX(-im01, re01);                                       \
+    if (!diag_block) {                                                          \
+        /* (0,1) *= -i: if in lower, (a+bi) -> (b-ai) */                        \
+        /* if in upper (stored as conj), we read conj and write conj(-i*val) */ \
+        double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);            \
+        if (lower_01) {                                                         \
+            data[idx01] = CMPLX(im01, -re01);                                   \
+        } else {                                                                \
+            /* stored = conj(rho01), rho01 = conj(stored) = (re01, -im01) */    \
+            /* new_rho01 = -i * rho01 = -i*(re01 - i*im01) = -im01 - i*re01 */ \
+            /* store conj(new_rho01) = (-im01, re01) */                         \
+            data[idx01] = CMPLX(-im01, re01);                                   \
+        }                                                                       \
     }                                                                           \
 } while (0)
 
@@ -333,18 +363,18 @@ void s_packed(state_t *state, const qubit_t target) {
     data[idx10] = CMPLX(im10, -re10);                                           \
                                                                                 \
     /* On diagonal blocks, idx01 == idx10, so skip (already processed) */       \
-    if (diag_block) break;                                                      \
-                                                                                \
-    /* (0,1) *= i */                                                            \
-    double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);                \
-    if (lower_01) {                                                             \
-        /* (a+bi)*i = (-b+ai) */                                                \
-        data[idx01] = CMPLX(-im01, re01);                                       \
-    } else {                                                                    \
-        /* stored = conj(rho01), rho01 = (re01, -im01) */                       \
-        /* new_rho01 = i * rho01 = i * (re01 - i*im01) = im01 + i*re01 */       \
-        /* store conj(new_rho01) = (im01, -re01) */                             \
-        data[idx01] = CMPLX(im01, -re01);                                       \
+    if (!diag_block) {                                                          \
+        /* (0,1) *= i */                                                        \
+        double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);            \
+        if (lower_01) {                                                         \
+            /* (a+bi)*i = (-b+ai) */                                            \
+            data[idx01] = CMPLX(-im01, re01);                                   \
+        } else {                                                                \
+            /* stored = conj(rho01), rho01 = (re01, -im01) */                   \
+            /* new_rho01 = i*(re01 - i*im01) = im01 + i*re01 */                \
+            /* store conj(new_rho01) = (im01, -re01) */                         \
+            data[idx01] = CMPLX(im01, -re01);                                   \
+        }                                                                       \
     }                                                                           \
 } while (0)
 
@@ -372,25 +402,25 @@ void sdg_packed(state_t *state, const qubit_t target) {
 
 #define T_BLOCK_OP(data, idx00, idx01, idx10, idx11, lower_01, diag_block) do { \
     (void)idx00; (void)idx11;                                                   \
-    /* (1,0) *= e^(iπ/4): (a+bi) -> ((a-b)*√½, (a+b)*√½) */                     \
+    /* (1,0) *= e^(iπ/4): (a+bi) -> ((a-b)*sqrt(1/2), (a+b)*sqrt(1/2)) */      \
     double re10 = creal(data[idx10]), im10 = cimag(data[idx10]);                \
     data[idx10] = CMPLX((re10 - im10) * M_SQRT1_2,                              \
                         (re10 + im10) * M_SQRT1_2);                             \
                                                                                 \
     /* On diagonal blocks, idx01 == idx10, so skip (already processed) */       \
-    if (diag_block) break;                                                      \
-                                                                                \
-    /* (0,1) *= e^(-iπ/4): (a+bi) -> ((a+b)*√½, (b-a)*√½) */                    \
-    double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);                \
-    if (lower_01) {                                                             \
-        data[idx01] = CMPLX((re01 + im01) * M_SQRT1_2,                          \
-                            (im01 - re01) * M_SQRT1_2);                         \
-    } else {                                                                    \
-        /* stored = conj(rho01), rho01 = (re01, -im01) */                       \
-        /* new = e^(-iπ/4) * (re01 - i*im01) = ((re01-im01) + (-im01-re01)i)/√2*/\
-        /* store conj = ((re01-im01)/√2, (im01+re01)/√2) */                     \
-        data[idx01] = CMPLX((re01 - im01) * M_SQRT1_2,                          \
-                            (im01 + re01) * M_SQRT1_2);                         \
+    if (!diag_block) {                                                          \
+        /* (0,1) *= e^(-iπ/4): (a+bi) -> ((a+b)*sqrt(1/2), (b-a)*sqrt(1/2)) */\
+        double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);            \
+        if (lower_01) {                                                         \
+            data[idx01] = CMPLX((re01 + im01) * M_SQRT1_2,                      \
+                                (im01 - re01) * M_SQRT1_2);                     \
+        } else {                                                                \
+            /* stored = conj(rho01), rho01 = (re01, -im01) */                   \
+            /* new = e^(-iπ/4)*(re01 - i*im01) = ((re01-im01)+(-im01-re01)i)/sqrt(2) */\
+            /* store conj = ((re01-im01)/sqrt(2), (im01+re01)/sqrt(2)) */       \
+            data[idx01] = CMPLX((re01 - im01) * M_SQRT1_2,                      \
+                                (im01 + re01) * M_SQRT1_2);                     \
+        }                                                                       \
     }                                                                           \
 } while (0)
 
@@ -414,25 +444,25 @@ void t_packed(state_t *state, const qubit_t target) {
 
 #define TDG_BLOCK_OP(data, idx00, idx01, idx10, idx11, lower_01, diag_block) do {\
     (void)idx00; (void)idx11;                                                   \
-    /* (1,0) *= e^(-iπ/4): (a+bi) -> ((a+b)*√½, (b-a)*√½) */                    \
+    /* (1,0) *= e^(-iπ/4): (a+bi) -> ((a+b)*sqrt(1/2), (b-a)*sqrt(1/2)) */     \
     double re10 = creal(data[idx10]), im10 = cimag(data[idx10]);                \
     data[idx10] = CMPLX((re10 + im10) * M_SQRT1_2,                              \
                         (im10 - re10) * M_SQRT1_2);                             \
                                                                                 \
     /* On diagonal blocks, idx01 == idx10, so skip (already processed) */       \
-    if (diag_block) break;                                                      \
-                                                                                \
-    /* (0,1) *= e^(iπ/4): (a+bi) -> ((a-b)*√½, (a+b)*√½) */                     \
-    double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);                \
-    if (lower_01) {                                                             \
-        data[idx01] = CMPLX((re01 - im01) * M_SQRT1_2,                          \
-                            (re01 + im01) * M_SQRT1_2);                         \
-    } else {                                                                    \
-        /* stored = conj(rho01), rho01 = (re01, -im01) */                       \
-        /* new = e^(iπ/4) * (re01 - i*im01) = ((re01+im01) + (re01-im01)i)/√2 */ \
-        /* store conj = ((re01+im01)/√2, (im01-re01)/√2) */                     \
-        data[idx01] = CMPLX((re01 + im01) * M_SQRT1_2,                          \
-                            (im01 - re01) * M_SQRT1_2);                         \
+    if (!diag_block) {                                                          \
+        /* (0,1) *= e^(iπ/4): (a+bi) -> ((a-b)*sqrt(1/2), (a+b)*sqrt(1/2)) */ \
+        double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);            \
+        if (lower_01) {                                                         \
+            data[idx01] = CMPLX((re01 - im01) * M_SQRT1_2,                      \
+                                (re01 + im01) * M_SQRT1_2);                     \
+        } else {                                                                \
+            /* stored = conj(rho01), rho01 = (re01, -im01) */                   \
+            /* new = e^(iπ/4)*(re01 - i*im01) = ((re01+im01)+(re01-im01)i)/sqrt(2) */\
+            /* store conj = ((re01+im01)/sqrt(2), (im01-re01)/sqrt(2)) */       \
+            data[idx01] = CMPLX((re01 + im01) * M_SQRT1_2,                      \
+                                (im01 - re01) * M_SQRT1_2);                     \
+        }                                                                       \
     }                                                                           \
 } while (0)
 
@@ -442,61 +472,62 @@ void tdg_packed(state_t *state, const qubit_t target) {
 
 
 /*
- * =====================================================================================================================
- * Two-qubit gates
- * =====================================================================================================================
+ * P(θ) gate: ρ → P(θ)ρP(θ)†. P(θ) = diag(1, e^(iθ)).
+ *   - ρ'_00 = ρ00 (unchanged)
+ *   - ρ'_11 = ρ11 (unchanged)
+ *   - ρ'_01 = e^(-iθ)·ρ01
+ *   - ρ'_10 = e^(iθ)·ρ10
+ *
+ * This is a diagonal gate: only applies phase to off-diagonal elements.
+ * e^(-iθ)·(a+bi) = (a·cos(θ) + b·sin(θ)) + i·(b·cos(θ) - a·sin(θ))
+ * e^(iθ)·(a+bi) = (a·cos(θ) - b·sin(θ)) + i·(b·cos(θ) + a·sin(θ))
+ * The density matrix conjugation is identical to Rz(θ):
+ *   ρ'_00 = ρ00, ρ'_11 = ρ11, ρ'_10 = e^(iθ)ρ10, ρ'_01 = e^(-iθ)ρ01
  */
+void p_packed(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta);
+    const double s = sin(theta);
 
-/*
- * =====================================================================================================================
- * CNOT gate: ρ → CX · ρ · CX†  (CX = CX† for CNOT)
- * =====================================================================================================================
- *
- * CNOT is a permutation gate that swaps basis states |ctrl=1,tgt=0> <-> |ctrl=1,tgt=1>.
- * For density matrices ρ' = CX·ρ·CX†, the transformation permutes rows and columns:
- *   new_rho[i,j] = rho[perm(i), perm(j)]
- * where perm(x) = x XOR (1<<target) if (x & (1<<control)), else x.
- *
- * This is a "zero-flop" gate in the sense that CNOT involves no matrix multiplication,
- * only permutation of elements. However, for packed Hermitian storage, some elements
- * require conjugation when they cross the diagonal.
- */
-void cx_packed(state_t *state, const qubit_t control, const qubit_t target) {
-    const dim_t dim = (dim_t)1 << state->qubits;
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const gate_idx_t incr = (gate_idx_t)1 << target;
+    const gate_idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
-    const dim_t packed_len = dim * (dim + 1) / 2;
 
-    const dim_t incr_ctrl = (dim_t)1 << control;
-    const dim_t incr_tgt = (dim_t)1 << target;
-
-    // Allocate output buffer (needed because permutation cycles can be complex)
-    cplx_t *out = malloc(packed_len * sizeof(*out));
-    if (!out) return;  // Allocation failure - state unchanged
-
-    // For each stored element (r,c) where r >= c, compute its new value
     #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-    for (dim_t c = 0; c < dim; ++c) {
-        for (dim_t r = c; r < dim; ++r) {
-            // Compute permuted source indices
-            dim_t pr = (r & incr_ctrl) ? (r ^ incr_tgt) : r;
-            dim_t pc = (c & incr_ctrl) ? (c ^ incr_tgt) : c;
+    for (gate_idx_t bc = 0; bc < half_dim; ++bc) {
+        gate_idx_t c0 = insertBit0(bc, target);
+        gate_idx_t c1 = c0 | incr;
 
-            // new_rho[r,c] = old_rho[pr, pc]
-            cplx_t val;
-            if (pr >= pc) {
-                val = data[pack_idx(dim, pr, pc)];
+        for (gate_idx_t br = bc; br < half_dim; ++br) {
+            gate_idx_t r0 = insertBit0(br, target);
+            gate_idx_t r1 = r0 | incr;
+
+            gate_idx_t idx10 = pack_idx(dim, r1, c0);
+
+            int lower_01 = (r0 >= c1);
+            gate_idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            int diag_block = (bc == br);
+
+            /* (1,0) *= e^(iθ): (a+bi) -> (a·c - b·s) + i·(b·c + a·s) */
+            double re10 = creal(data[idx10]), im10 = cimag(data[idx10]);
+            data[idx10] = CMPLX(re10 * c - im10 * s, im10 * c + re10 * s);
+
+            if (diag_block) continue;
+
+            /* (0,1) *= e^(-iθ): (a+bi) -> (a·c + b·s) + i·(b·c - a·s) */
+            double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);
+            if (lower_01) {
+                data[idx01] = CMPLX(re01 * c + im01 * s, im01 * c - re01 * s);
             } else {
-                val = conj(data[pack_idx(dim, pc, pr)]);
+                /* stored = conj(rho01), rho01 = (re01, -im01) */
+                /* new = e^(-iθ) * (re01 - i·im01) = (re01·c - im01·s) + i·(-im01·c - re01·s) */
+                /* store conj = (re01·c - im01·s) + i·(im01·c + re01·s) */
+                data[idx01] = CMPLX(re01 * c - im01 * s, im01 * c + re01 * s);
             }
-
-            out[pack_idx(dim, r, c)] = val;
         }
     }
-
-    // Copy result back
-    memcpy(data, out, packed_len * sizeof(*data));
-    free(out);
 }
+
 
 /*
  * =====================================================================================================================
@@ -531,26 +562,26 @@ void rx_packed(state_t *state, const qubit_t target, const double theta) {
     const double s2 = s * s;
     const double cs = c * s;
 
-    const dim_t dim = (dim_t)1 << state->qubits;
-    const dim_t incr = (dim_t)1 << target;
-    const dim_t half_dim = dim >> 1;
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const gate_idx_t incr = (gate_idx_t)1 << target;
+    const gate_idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
 
-    #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-    for (dim_t bc = 0; bc < half_dim; ++bc) {
-        dim_t c0 = insertBit0(bc, target);
-        dim_t c1 = c0 | incr;
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t bc = 0; bc < half_dim; ++bc) {
+        gate_idx_t c0 = insertBit0(bc, target);
+        gate_idx_t c1 = c0 | incr;
 
-        for (dim_t br = bc; br < half_dim; ++br) {
-            dim_t r0 = insertBit0(br, target);
-            dim_t r1 = r0 | incr;
+        for (gate_idx_t br = bc; br < half_dim; ++br) {
+            gate_idx_t r0 = insertBit0(br, target);
+            gate_idx_t r1 = r0 | incr;
 
-            dim_t idx00 = pack_idx(dim, r0, c0);
-            dim_t idx11 = pack_idx(dim, r1, c1);
-            dim_t idx10 = pack_idx(dim, r1, c0);
+            gate_idx_t idx00 = pack_idx(dim, r0, c0);
+            gate_idx_t idx11 = pack_idx(dim, r1, c1);
+            gate_idx_t idx10 = pack_idx(dim, r1, c0);
 
             int lower_01 = (r0 >= c1);
-            dim_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            gate_idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
             int diag_block = (bc == br);
 
             cplx_t rho00 = data[idx00];
@@ -605,26 +636,26 @@ void ry_packed(state_t *state, const qubit_t target, const double theta) {
     const double s2 = s * s;
     const double cs = c * s;
 
-    const dim_t dim = (dim_t)1 << state->qubits;
-    const dim_t incr = (dim_t)1 << target;
-    const dim_t half_dim = dim >> 1;
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const gate_idx_t incr = (gate_idx_t)1 << target;
+    const gate_idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
 
-    #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-    for (dim_t bc = 0; bc < half_dim; ++bc) {
-        dim_t c0 = insertBit0(bc, target);
-        dim_t c1 = c0 | incr;
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t bc = 0; bc < half_dim; ++bc) {
+        gate_idx_t c0 = insertBit0(bc, target);
+        gate_idx_t c1 = c0 | incr;
 
-        for (dim_t br = bc; br < half_dim; ++br) {
-            dim_t r0 = insertBit0(br, target);
-            dim_t r1 = r0 | incr;
+        for (gate_idx_t br = bc; br < half_dim; ++br) {
+            gate_idx_t r0 = insertBit0(br, target);
+            gate_idx_t r1 = r0 | incr;
 
-            dim_t idx00 = pack_idx(dim, r0, c0);
-            dim_t idx11 = pack_idx(dim, r1, c1);
-            dim_t idx10 = pack_idx(dim, r1, c0);
+            gate_idx_t idx00 = pack_idx(dim, r0, c0);
+            gate_idx_t idx11 = pack_idx(dim, r1, c1);
+            gate_idx_t idx10 = pack_idx(dim, r1, c0);
 
             int lower_01 = (r0 >= c1);
-            dim_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            gate_idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
             int diag_block = (bc == br);
 
             cplx_t rho00 = data[idx00];
@@ -668,103 +699,109 @@ void ry_packed(state_t *state, const qubit_t target, const double theta) {
  * This is a diagonal gate: only applies phase to off-diagonal elements.
  * e^(-iθ)·(a+bi) = (a·cos(θ) + b·sin(θ)) + i·(b·cos(θ) - a·sin(θ))
  * e^(iθ)·(a+bi) = (a·cos(θ) - b·sin(θ)) + i·(b·cos(θ) + a·sin(θ))
+ * Its effect is identical to the P(θ) gate.
  */
 void rz_packed(state_t *state, const qubit_t target, const double theta) {
-    const double c = cos(theta);
-    const double s = sin(theta);
+    p_packed(state, target, theta);
+}
 
-    const dim_t dim = (dim_t)1 << state->qubits;
-    const dim_t incr = (dim_t)1 << target;
-    const dim_t half_dim = dim >> 1;
+
+/*
+ * =====================================================================================================================
+ * Two-qubit gates
+ * =====================================================================================================================
+ */
+
+/*
+ * =====================================================================================================================
+ * CNOT gate: ρ → CX · ρ · CX†  (CX = CX† for CNOT)
+ * =====================================================================================================================
+ *
+ * CNOT is a permutation gate that swaps basis states |ctrl=1,tgt=0> <-> |ctrl=1,tgt=1>.
+ * For density matrices ρ' = CX·ρ·CX†, the transformation permutes rows and columns:
+ *   new_rho[i,j] = rho[perm(i), perm(j)]
+ * where perm(x) = x XOR (1<<target) if (x & (1<<control)), else x.
+ *
+ * This is a "zero-flop" gate in the sense that CNOT involves no matrix multiplication,
+ * only permutation of elements. However, for packed Hermitian storage, some elements
+ * require conjugation when they cross the diagonal.
+ */
+/*
+ * In-place CNOT for packed storage.
+ *
+ * CNOT is an involution: perm(perm(x)) = x, where perm(x) = x ^ target_bit
+ * when control_bit is set. Since the density matrix transformation is
+ * new_rho[r,c] = old_rho[perm(r), perm(c)], and the permutation is its own
+ * inverse, every stored element is either a fixed point or part of a 2-cycle.
+ *
+ * For each stored (r,c) with r >= c, we compute the destination (r',c') =
+ * (perm(r), perm(c)) canonicalized to lower-triangle form. If this differs
+ * from (r,c), we swap the two packed elements. To avoid double-swapping,
+ * we only swap when the source packed index < destination packed index.
+ *
+ * When the source and destination are on opposite sides of the diagonal
+ * (one has r>=c, the other has r<c), the values must be conjugated.
+ */
+void cx_packed(state_t *state, const qubit_t control, const qubit_t target) {
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
     cplx_t * restrict data = state->data;
 
-    #pragma omp parallel for schedule(dynamic) if(dim >= OMP_THRESHOLD)
-    for (dim_t bc = 0; bc < half_dim; ++bc) {
-        dim_t c0 = insertBit0(bc, target);
-        dim_t c1 = c0 | incr;
+    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
+    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
 
-        for (dim_t br = bc; br < half_dim; ++br) {
-            dim_t r0 = insertBit0(br, target);
-            dim_t r1 = r0 | incr;
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t c = 0; c < dim; ++c) {
+        for (gate_idx_t r = c; r < dim; ++r) {
+            /* Compute permuted row and column */
+            gate_idx_t pr = (r & incr_ctrl) ? (r ^ incr_tgt) : r;
+            gate_idx_t pc = (c & incr_ctrl) ? (c ^ incr_tgt) : c;
 
-            dim_t idx10 = pack_idx(dim, r1, c0);
+            /* Fixed point: nothing to do */
+            if (pr == r && pc == c) continue;
 
-            int lower_01 = (r0 >= c1);
-            dim_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
-            int diag_block = (bc == br);
+            /* Canonicalize destination to lower triangle */
+            int dst_conj = (pr < pc);  /* Need conjugation if dest was upper-tri */
+            gate_idx_t dr = dst_conj ? pc : pr;
+            gate_idx_t dc = dst_conj ? pr : pc;
 
-            /* (1,0) *= e^(iθ): (a+bi) -> (a·c - b·s) + i·(b·c + a·s) */
-            double re10 = creal(data[idx10]), im10 = cimag(data[idx10]);
-            data[idx10] = CMPLX(re10 * c - im10 * s, im10 * c + re10 * s);
+            /* Compute packed indices */
+            gate_idx_t src_idx = pack_idx(dim, r, c);
+            gate_idx_t dst_idx = pack_idx(dim, dr, dc);
 
-            if (diag_block) continue;
-
-            /* (0,1) *= e^(-iθ): (a+bi) -> (a·c + b·s) + i·(b·c - a·s) */
-            double re01 = creal(data[idx01]), im01 = cimag(data[idx01]);
-            if (lower_01) {
-                data[idx01] = CMPLX(re01 * c + im01 * s, im01 * c - re01 * s);
-            } else {
-                /* stored = conj(rho01), rho01 = (re01, -im01) */
-                /* new = e^(-iθ) * (re01 - i·im01) = (re01·c - im01·s) + i·(-im01·c - re01·s) */
-                /* store conj = (re01·c - im01·s) + i·(im01·c + re01·s) */
-                data[idx01] = CMPLX(re01 * c - im01 * s, im01 * c + re01 * s);
+            /* Self-conjugation: element stays in place but crosses the diagonal.
+             * This happens when (r,c) maps to (pr,pc) with pr < pc, and after
+             * canonicalization (dr,dc) == (r,c). The stored value must be conjugated. */
+            if (src_idx == dst_idx) {
+                if (dst_conj) data[src_idx] = conj(data[src_idx]);
+                continue;
             }
+
+            /* Only swap once per 2-cycle: process when src < dst */
+            if (src_idx > dst_idx) continue;
+
+            /* Swap, applying conjugation if the permutation crosses the diagonal.
+             *
+             * new_rho[r,c] = old_rho[pr,pc]. In packed storage:
+             *   - src stores rho[r,c] directly (r >= c, lower triangle)
+             *   - dst stores rho[dr,dc] directly (dr >= dc, lower triangle)
+             *
+             * If dst_conj: the logical source for (r,c) is rho[pr,pc] where pr<pc,
+             * which is conj(rho[pc,pr]) = conj(data[dst_idx]). And the logical
+             * source for (dr,dc)=(pc,pr) is rho[r,c] = data[src_idx], but we need
+             * to store it in lower-tri form, which is conj(rho[r,c]) since the
+             * destination represents the transposed position.
+             */
+            cplx_t src_val = data[src_idx];
+            cplx_t dst_val = data[dst_idx];
+            data[src_idx] = dst_conj ? conj(dst_val) : dst_val;
+            data[dst_idx] = dst_conj ? conj(src_val) : src_val;
         }
     }
 }
 
-/*
- * =====================================================================================================================
- * Stubs - to be replaced with real implementations in Phase 1, 2, 3
- * =====================================================================================================================
- */
 
-/*
- * =====================================================================================================================
- * Hy (Hadamard-Y) gate: ρ → Hy ρ Hy†
- * =====================================================================================================================
- *
- * Hy = [[1,-1],[1,1]]/√2, Hy† = [[1,1],[-1,1]]/√2  (NOT self-adjoint)
- *
- * For ρ' = Hy ρ Hy†:
- *   ρ'_00 = (ρ00 - ρ01 - ρ10 + ρ11) / 2
- *   ρ'_01 = (ρ00 + ρ01 - ρ10 - ρ11) / 2
- *   ρ'_10 = (ρ00 - ρ01 + ρ10 - ρ11) / 2
- *   ρ'_11 = (ρ00 + ρ01 + ρ10 + ρ11) / 2
- */
 
-#define HY_BLOCK_OP(data, idx00, idx01, idx10, idx11, lower_01, diag_block) do { \
-    cplx_t rho00 = data[idx00];                                                 \
-    cplx_t rho11 = data[idx11];                                                 \
-    cplx_t rho10 = data[idx10];                                                 \
-    cplx_t rho01 = diag_block ? conj(rho10)                                     \
-                  : (lower_01 ? data[idx01] : conj(data[idx01]));               \
-                                                                                \
-    cplx_t new00 = 0.5 * (rho00 - rho01 - rho10 + rho11);                       \
-    cplx_t new11 = 0.5 * (rho00 + rho01 + rho10 + rho11);                       \
-    cplx_t new01 = 0.5 * (rho00 + rho01 - rho10 - rho11);                       \
-    cplx_t new10 = 0.5 * (rho00 - rho01 + rho10 - rho11);                       \
-                                                                                \
-    data[idx00] = new00;                                                        \
-    data[idx11] = new11;                                                        \
-    data[idx10] = new10;                                                        \
-    if (!diag_block) {                                                          \
-        data[idx01] = lower_01 ? new01 : conj(new01);                           \
-    }                                                                           \
-} while (0)
 
-void hy_packed(state_t *state, const qubit_t target) {
-    TRAVERSE_PACKED_BLOCKS(state, target, HY_BLOCK_OP);
-}
-
-/*
- * P(θ) gate: ρ → P(θ)ρP(θ)†. P(θ) = diag(1, e^(iθ)).
- * The density matrix conjugation is identical to Rz(θ):
- *   ρ'_00 = ρ00, ρ'_11 = ρ11, ρ'_10 = e^(iθ)ρ10, ρ'_01 = e^(-iθ)ρ01
- */
-void p_packed(state_t *state, const qubit_t target, const double theta) {
-    rz_packed(state, target, theta);
-}
 
 void cy_packed(state_t *state, const qubit_t control, const qubit_t target) {
     GATE_VALIDATE(0, "cy: packed not yet implemented");
@@ -806,8 +843,145 @@ void cpdg_packed(state_t *state, const qubit_t control, const qubit_t target, co
     GATE_VALIDATE(0, "cpdg: packed not yet implemented");
 }
 
+/*
+ * In-place SWAP for packed storage.
+ *
+ * SWAP permutes basis states by exchanging bits `lo` and `hi`:
+ *   perm(x) = x with bit lo and bit hi swapped
+ * For density matrices: new_rho[r,c] = old_rho[perm(r), perm(c)].
+ *
+ * Like CNOT, SWAP is a zero-flop permutation gate — no arithmetic, only
+ * element moves. The permutation maps each 4×4 block (indexed by the two-bit
+ * pattern at positions lo,hi) into swap pairs:
+ *
+ *   Pair 1: (r01, c00) <-> (r10, c00)   always lower triangle
+ *   Pair 2: (r01, c01) <-> (r10, c10)   always lower triangle
+ *   Pair 3: (r11, c01) <-> (r11, c10)   always lower triangle
+ *   Pair 4: (r10, c01) <-> (r01, c10)   may cross diagonal
+ *   Pair 5: (r00, c01) <-> (r00, c10)   may cross diagonal
+ *   Pair 6: (r10, c11) <-> (r01, c11)   may cross diagonal
+ *
+ * We iterate only the lower-triangular half of the block grid (br >= bc).
+ * When a swap partner falls in the upper triangle (r < c), its packed
+ * representative is at the transposed position with a conjugate. These
+ * elements belong to block (bc, br) which is never iterated, so both
+ * directions of the swap must be written in the current iteration.
+ */
 void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
-    GATE_VALIDATE(0, "swap: packed not yet implemented");
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const qubit_t hi = q1 > q2 ? q1 : q2;
+    const qubit_t lo = q1 < q2 ? q1 : q2;
+    const gate_idx_t incr_hi = (gate_idx_t)1 << hi;
+    const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
+    cplx_t * restrict data = state->data;
+    const gate_idx_t quarter_dim = dim >> 2;
+
+    for (gate_idx_t bc = 0; bc < quarter_dim; ++bc) {
+        const gate_idx_t c00 = insertBit0(insertBit0(bc, lo), hi);
+        const gate_idx_t c01 = c00 | incr_lo, c10 = c00 | incr_hi, c11 = c10 | incr_lo;
+
+        for (gate_idx_t br = bc; br < quarter_dim; ++br) {
+            const gate_idx_t r00 = insertBit0(insertBit0(br, lo), hi);
+            const gate_idx_t r01 = r00 | incr_lo, r10 = r00 | incr_hi, r11 = r10 | incr_lo;
+
+            /* Pair 1: (r01, c00) <-> (r10, c00) — both always in lower triangle */
+            gate_idx_t idx_a = pack_idx(dim, r01, c00);
+            gate_idx_t idx_b = pack_idx(dim, r10, c00);
+            register cplx_t tmp = data[idx_a];
+            data[idx_a] = data[idx_b];
+            data[idx_b] = tmp;
+
+            /* Pair 2: (r01, c01) <-> (r10, c10) — both always in lower triangle */
+            idx_a = pack_idx(dim, r01, c01);
+            idx_b = pack_idx(dim, r10, c10);
+            tmp = data[idx_a];
+            data[idx_a] = data[idx_b];
+            data[idx_b] = tmp;
+
+            /* Pair 3: (r11, c01) <-> (r11, c10) — both always in lower triangle */
+            idx_a = pack_idx(dim, r11, c01);
+            idx_b = pack_idx(dim, r11, c10);
+            tmp = data[idx_a];
+            data[idx_a] = data[idx_b];
+            data[idx_b] = tmp;
+
+            /* Pair 4: (r10, c01) <-> (r01, c10)
+             * (r10, c01) is always lower-tri. (r01, c10) may cross the diagonal:
+             *   r01 > c10: both lower-tri, plain swap.
+             *   r01 <= c10: (r01, c10) is upper-tri; its packed representative is
+             *     conj(data) at (c10, r01). That position belongs to block (bc, br),
+             *     never iterated, so we must write both directions here. */
+            idx_a = pack_idx(dim, r10, c01);
+            tmp = data[idx_a];
+            if (r01 > c10) {
+                idx_b = pack_idx(dim, r01, c10);
+                data[idx_a] = data[idx_b];
+                data[idx_b] = tmp;
+            }
+            else {
+                idx_b = pack_idx(dim, c10, r01);
+                data[idx_a] = conj(data[idx_b]);
+                data[idx_b] = conj(tmp);
+            }
+
+            /* Pairs 5+6: (r00, c01) <-> (r00, c10) and (r10, c11) <-> (r01, c11)
+             *
+             * Three regimes based on how r00 compares to c01 and c10:
+             *
+             * (a) r00 > c10 > c01: all elements in lower triangle, plain swaps.
+             * (b) r00 > c01 but r00 <= c10: (r00, c01) is lower-tri but (r00, c10)
+             *     is upper-tri. Swap via conjugated packed representatives at
+             *     (c10, r00) and (c11, r01). Same logic as Pair 4.
+             * (c) r00 <= c01 (only for br > bc, starting at 4+ qubits): both
+             *     elements of each pair are upper-tri. Their packed representatives
+             *     (c01, r00) <-> (c10, r00) and (c11, r10) <-> (c11, r01) are in
+             *     the lower triangle but in unreachable block (bc, br). Swap directly.
+             */
+            if (r00 > c01) {
+                idx_a = pack_idx(dim, r00, c01);
+                const gate_idx_t idx_aa = pack_idx(dim, r10, c11);
+
+                if (r00 > c10) {
+                    /* (a) Both lower-tri: plain swap */
+                    idx_b = pack_idx(dim, r00, c10);
+                    tmp = data[idx_a];
+                    data[idx_a] = data[idx_b];
+                    data[idx_b] = tmp;
+
+                    idx_b = pack_idx(dim, r01, c11);
+                    tmp = data[idx_aa];
+                    data[idx_aa] = data[idx_b];
+                    data[idx_b] = tmp;
+                }
+                else {
+                    /* (b) Cross-diagonal: conjugated swap via (c10,r00) and (c11,r01) */
+                    idx_b = pack_idx(dim, c10, r00);
+                    tmp = data[idx_a];
+                    data[idx_a] = conj(data[idx_b]);
+                    data[idx_b] = conj(tmp);
+
+                    idx_b = pack_idx(dim, c11, r01);
+                    tmp = data[idx_aa];
+                    data[idx_aa] = conj(data[idx_b]);
+                    data[idx_b] = conj(tmp);
+                }
+            }
+            else if (bc != br) {
+                /* (c) Both upper-tri: swap packed representatives directly */
+                idx_a = pack_idx(dim, c01, r00);
+                idx_b = pack_idx(dim, c10, r00);
+                tmp = data[idx_a];
+                data[idx_a] = data[idx_b];
+                data[idx_b] = tmp;
+
+                idx_a = pack_idx(dim, c11, r10);
+                idx_b = pack_idx(dim, c11, r01);
+                tmp = data[idx_a];
+                data[idx_a] = data[idx_b];
+                data[idx_b] = tmp;
+            }
+        }
+    }
 }
 
 void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
