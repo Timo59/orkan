@@ -104,7 +104,7 @@ static const unsigned NUM_THETAS = sizeof(TEST_THETAS) / sizeof(TEST_THETAS[0]);
 
 void testTwoQubitGateMixed(const two_qubit_gate gate, const cplx_t *mat) {
     state_t test_state = {0};
-    test_state.type = MIXED;
+    test_state.type = MIXED_PACKED;
     cplx_t **test_rhos = NULL, *gateMat = NULL;
     cplx_t *rho_full = NULL, *ref_full = NULL;
     unsigned nmixed = 0;
@@ -214,13 +214,13 @@ void testTwoQubitGateMixed(const two_qubit_gate gate, const cplx_t *mat) {
 
 void testSingleQubitGateMixed(const single_qubit_gate gate, const cplx_t *mat) {
     state_t test_state = {0}; // Mixed test state
-    test_state.type = MIXED;
+    test_state.type = MIXED_PACKED;
     cplx_t **test_rhos = NULL, *gateMat = NULL;  // Test density matrices, matrix representation of the quantum gate
     cplx_t *rho_full = NULL, *ref_full = NULL;  // Temporary matrices for reference computation
     unsigned nmixed = 0;    // Number of test density matrices
 
-    // Iterate the number of qubits
-    for (unsigned nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+    // Iterate the number of qubits (start from 1 to cover 1-qubit mixed states)
+    for (unsigned nqubits = 1; nqubits <= MAXQUBITS; ++nqubits) {
         const unsigned dim = POW2(nqubits, dim_t);
 
         // Iterate target qubits
@@ -424,7 +424,7 @@ void multiQubitGate(const unsigned n, cplx_t *h, const unsigned k, const unsigne
 
 void testRotationGateMixed(const rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat)) {
     state_t test_state = {0};
-    test_state.type = MIXED;
+    test_state.type = MIXED_PACKED;
     cplx_t **test_rhos = NULL, *gateMat = NULL;
     cplx_t *rho_full = NULL, *ref_full = NULL;
     cplx_t mat2x2[4];
@@ -437,8 +437,8 @@ void testRotationGateMixed(const rotation_gate gate, void (*mat_fn)(double theta
         // Build 2x2 matrix for this angle
         mat_fn(theta, mat2x2);
 
-        // Iterate the number of qubits
-        for (unsigned nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+        // Iterate the number of qubits (start from 1 to cover 1-qubit mixed states)
+        for (unsigned nqubits = 1; nqubits <= MAXQUBITS; ++nqubits) {
             const unsigned dim = POW2(nqubits, dim_t);
 
             // Iterate target qubits

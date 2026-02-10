@@ -56,12 +56,12 @@ extern "C" {
  */
 #define TEST_ASSERT_EQUAL_DOUBLE_ARRAY_TOL(expected, actual, num_elements, tol) \
     do { \
-        for (index_t _i = 0; _i < (num_elements); ++_i) { \
+        for (size_t _i = 0; _i < (num_elements); ++_i) { \
             int _fail = fabs((expected)[_i] - (actual)[_i]) > (tol); \
             if (_fail) { \
                 char _msg[256]; \
                 snprintf(_msg, sizeof(_msg), \
-                    "Element %u Expected %.7g, Was %.7g", _i, (expected)[_i], (actual)[_i]); \
+                    "Element %zu Expected %.7g, Was %.7g", _i, (expected)[_i], (actual)[_i]); \
                     UNITY_TEST_FAIL(__LINE__, _msg); \
             } \
         } \
@@ -73,7 +73,7 @@ extern "C" {
  */
 #define TEST_ASSERT_EQUAL_DOUBLE_ARRAY_ABS(expected, actual, num_elements) \
     do { \
-        for (index_t _i = 0; _i < (num_elements); ++_i) { \
+        for (size_t _i = 0; _i < (num_elements); ++_i) { \
             double _expected = fabs((expected)[_i]); \
             double _actual = fabs((actual)[_i]); \
             int _fail = fabs(_expected - _actual) > (1e-7); \

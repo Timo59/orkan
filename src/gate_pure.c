@@ -32,20 +32,26 @@
  */
 #define TRAVERSE_PURE_1Q(state, target, PAIR_OP)                               \
 do {                                                                           \
-    const dim_t dim = POW2((state)->qubits, dim_t);                            \
-    const dim_t stride = POW2(target, dim_t);                                  \
-    const dim_t step = POW2((target) + 1, dim_t);                              \
+    const gate_idx_t dim = (gate_idx_t)1 << (state)->qubits;                   \
+    const gate_idx_t stride = (gate_idx_t)1 << (target);                       \
+    const gate_idx_t step = (gate_idx_t)1 << ((target) + 1);                   \
     cplx_t *data = (state)->data;                                              \
                                                                                \
     _Pragma("omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)")           \
-    for (dim_t i = 0; i < dim; i += step) {                                    \
-        for (dim_t j = 0; j < stride; ++j) {                                   \
+    for (gate_idx_t i = 0; i < dim; i += step) {                               \
+        for (gate_idx_t j = 0; j < stride; ++j) {                              \
             cplx_t *a = data + i + j;                                          \
             cplx_t *b = data + i + j + stride;                                 \
             PAIR_OP(a, b);                                                     \
         }                                                                      \
     }                                                                          \
 } while(0)
+
+/*
+ * Rotation gate pair-op macros: these capture trig constants (c, s) from the
+ * enclosing scope and are used with TRAVERSE_PURE_1Q. Defined adjacent to
+ * their use in the rotation gate section below.
+ */
 
 /*
  * =====================================================================================================================
@@ -143,6 +149,19 @@ void h_pure(state_t *state, const qubit_t target) {
     TRAVERSE_PURE_1Q(state, target, H_OP);
 }
 
+// Hy gate: a' = (a - b)/√2, b' = (a + b)/√2
+#define HY_OP(a, b) do {                            \
+    cplx_t diff = *(a) - *(b);                       \
+    cplx_t sum  = *(a) + *(b);                       \
+    *(a) = diff * M_SQRT1_2;                         \
+    *(b) = sum  * M_SQRT1_2;                         \
+} while(0)
+
+void hy_pure(state_t *state, const qubit_t target) {
+    TRAVERSE_PURE_1Q(state, target, HY_OP);
+}
+#undef HY_OP
+
 void s_pure(state_t *state, const qubit_t target) {
     TRAVERSE_PURE_1Q(state, target, S_OP);
 }
@@ -159,59 +178,22 @@ void tdg_pure(state_t *state, const qubit_t target) {
     TRAVERSE_PURE_1Q(state, target, TDG_OP);
 }
 
-/*
- * =====================================================================================================================
- * Two-qubit gates
- * =====================================================================================================================
- */
+// P(θ) gate: a unchanged, b *= e^(iθ)
+// b *= e^(iθ) = (c+is)*(x+yi) = (cx-sy) + i(sx+cy)
+#define P_OP(a, b) do {                                                      \
+    (void)(a);                                                               \
+    double re = creal(*(b));                                                 \
+    double im = cimag(*(b));                                                 \
+    *(b) = CMPLX(c * re - s * im, s * re + c * im);                         \
+} while(0)
 
-/**
- * @brief Insert a 0 bit at two positions in value `val`
- *
- * For CNOT, we iterate over indices where both control and target bits are 0.
- * This helper inserts 0 bits at positions lo and hi (lo < hi).
- */
-static inline dim_t insertBits2_0(dim_t val, qubit_t lo, qubit_t hi) {
-    // Insert 0 at position lo first
-    dim_t mask_lo = ((dim_t)1 << lo) - 1;
-    val = (val & mask_lo) | ((val & ~mask_lo) << 1);
-    // Insert 0 at position hi (already shifted by 1 due to lo insertion)
-    dim_t mask_hi = ((dim_t)1 << hi) - 1;
-    return (val & mask_hi) | ((val & ~mask_hi) << 1);
+void p_pure(state_t *state, const qubit_t target, const double theta) {
+    const double c = cos(theta);
+    const double s = sin(theta);
+    TRAVERSE_PURE_1Q(state, target, P_OP);
 }
+#undef P_OP
 
-/*
- * CNOT (Controlled-X) gate: Flips target qubit when control qubit is |1>
- *
- * For each basis state index with control=1, we swap amplitudes where target=0 and target=1.
- * This is a "zero-flop" gate requiring only conditional memory swaps.
- */
-void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    const dim_t dim = POW2(state->qubits, dim_t);
-    cplx_t *data = state->data;
-
-    // Determine which qubit index is lower/higher for bit insertion
-    qubit_t lo = (control < target) ? control : target;
-    qubit_t hi = (control < target) ? target : control;
-
-    const dim_t incr_ctrl = POW2(control, dim_t);
-    const dim_t incr_tgt = POW2(target, dim_t);
-    const dim_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
-
-    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-    for (dim_t k = 0; k < n_base; ++k) {
-        // Insert 0 bits at positions lo and hi to get base index
-        dim_t base = insertBits2_0(k, lo, hi);
-
-        // Only swap when control=1: swap |ctrl=1,tgt=0> <-> |ctrl=1,tgt=1>
-        dim_t idx_c1_t0 = base | incr_ctrl;           // control=1, target=0
-        dim_t idx_c1_t1 = base | incr_ctrl | incr_tgt; // control=1, target=1
-
-        cplx_t tmp = data[idx_c1_t0];
-        data[idx_c1_t0] = data[idx_c1_t1];
-        data[idx_c1_t1] = tmp;
-    }
-}
 
 /*
  * =====================================================================================================================
@@ -231,120 +213,99 @@ void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
  *         |    0       e^(iθ/2)  |
  */
 
+/*
+ * Rotation pair-op macros: capture c, s from enclosing scope.
+ * These are #undef'd after use to avoid polluting the namespace.
+ */
+
+// Rx: a' = c*a - i*s*b,  b' = -i*s*a + c*b
+// -i*(x + yi) = y - xi
+#define RX_OP(a, b) do {                                                     \
+    cplx_t a_new = c * (*(a)) + CMPLX(s * cimag(*(b)), -s * creal(*(b)));   \
+    cplx_t b_new = CMPLX(s * cimag(*(a)), -s * creal(*(a))) + c * (*(b));   \
+    *(a) = a_new;                                                            \
+    *(b) = b_new;                                                            \
+} while(0)
+
 void rx_pure(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta / 2.0);
     const double s = sin(theta / 2.0);
-
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    cplx_t *data = state->data;
-
-    #pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
-    for (dim_t i = 0; i < dim; i += step) {
-        for (dim_t j = 0; j < stride; ++j) {
-            cplx_t *a = data + i + j;
-            cplx_t *b = data + i + j + stride;
-
-            // a' = c*a - i*s*b,  b' = -i*s*a + c*b
-            // -i*(x + yi) = y - xi
-            cplx_t a_new = c * (*a) + CMPLX(s * cimag(*b), -s * creal(*b));
-            cplx_t b_new = CMPLX(s * cimag(*a), -s * creal(*a)) + c * (*b);
-            *a = a_new;
-            *b = b_new;
-        }
-    }
+    TRAVERSE_PURE_1Q(state, target, RX_OP);
 }
+#undef RX_OP
+
+// Ry: a' = c*a - s*b,  b' = s*a + c*b
+#define RY_OP(a, b) do {                                                     \
+    cplx_t a_new = c * (*(a)) - s * (*(b));                                  \
+    cplx_t b_new = s * (*(a)) + c * (*(b));                                  \
+    *(a) = a_new;                                                            \
+    *(b) = b_new;                                                            \
+} while(0)
 
 void ry_pure(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta / 2.0);
     const double s = sin(theta / 2.0);
-
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    cplx_t *data = state->data;
-
-    #pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
-    for (dim_t i = 0; i < dim; i += step) {
-        for (dim_t j = 0; j < stride; ++j) {
-            cplx_t *a = data + i + j;
-            cplx_t *b = data + i + j + stride;
-
-            // a' = c*a - s*b,  b' = s*a + c*b
-            cplx_t a_new = c * (*a) - s * (*b);
-            cplx_t b_new = s * (*a) + c * (*b);
-            *a = a_new;
-            *b = b_new;
-        }
-    }
+    TRAVERSE_PURE_1Q(state, target, RY_OP);
 }
+#undef RY_OP
+
+// Rz: a' = e^(-iθ/2)*a = (c-is)*a,  b' = e^(iθ/2)*b = (c+is)*b
+// (c-is)*(x+yi) = cx+sy + i(cy-sx),  (c+is)*(x+yi) = cx-sy + i(cy+sx)
+#define RZ_OP(a, b) do {                                                     \
+    double a_re = creal(*(a));                                               \
+    double a_im = cimag(*(a));                                               \
+    double b_re = creal(*(b));                                               \
+    double b_im = cimag(*(b));                                               \
+    *(a) = CMPLX(c * a_re + s * a_im, c * a_im - s * a_re);                 \
+    *(b) = CMPLX(c * b_re - s * b_im, c * b_im + s * b_re);                 \
+} while(0)
 
 void rz_pure(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta / 2.0);
     const double s = sin(theta / 2.0);
-
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
-    cplx_t *data = state->data;
-
-    #pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
-    for (dim_t i = 0; i < dim; i += step) {
-        for (dim_t j = 0; j < stride; ++j) {
-            cplx_t *a = data + i + j;
-            cplx_t *b = data + i + j + stride;
-
-            // a' = e^(-iθ/2)*a = (c - is)*a
-            // b' = e^(iθ/2)*b = (c + is)*b
-            // (c - is)*(x + yi) = cx + sy + i(cy - sx)
-            // (c + is)*(x + yi) = cx - sy + i(cy + sx)
-            double a_re = creal(*a), a_im = cimag(*a);
-            double b_re = creal(*b), b_im = cimag(*b);
-            *a = CMPLX(c * a_re + s * a_im, c * a_im - s * a_re);
-            *b = CMPLX(c * b_re - s * b_im, c * b_im + s * b_re);
-        }
-    }
+    TRAVERSE_PURE_1Q(state, target, RZ_OP);
 }
+#undef RZ_OP
 
 /*
  * =====================================================================================================================
- * Stubs - to be replaced with real implementations in Phase 1, 2, 3
+ * Two-qubit gates
  * =====================================================================================================================
  */
 
-// Hy gate: a' = (a - b)/√2, b' = (a + b)/√2
-#define HY_OP(a, b) do {                            \
-    cplx_t diff = *(a) - *(b);                       \
-    cplx_t sum  = *(a) + *(b);                       \
-    *(a) = diff * M_SQRT1_2;                         \
-    *(b) = sum  * M_SQRT1_2;                         \
-} while(0)
-
-void hy_pure(state_t *state, const qubit_t target) {
-    TRAVERSE_PURE_1Q(state, target, HY_OP);
-}
-
-// P(θ) gate: a unchanged, b *= e^(iθ)
-void p_pure(state_t *state, const qubit_t target, const double theta) {
-    const double c = cos(theta);
-    const double s = sin(theta);
-
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t stride = POW2(target, dim_t);
-    const dim_t step = POW2(target + 1, dim_t);
+/*
+ * CNOT (Controlled-X) gate: Flips target qubit when control qubit is |1>
+ *
+ * For each basis state index with control=1, we swap amplitudes where target=0 and target=1.
+ * This is a "zero-flop" gate requiring only conditional memory swaps.
+ */
+void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
     cplx_t *data = state->data;
 
-    #pragma omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)
-    for (dim_t i = 0; i < dim; i += step) {
-        for (dim_t j = 0; j < stride; ++j) {
-            cplx_t *b = data + i + j + stride;
-            // b *= e^(iθ) = (c + is)*(x + yi) = (cx - sy) + i(sx + cy)
-            double re = creal(*b), im = cimag(*b);
-            *b = CMPLX(c * re - s * im, s * re + c * im);
-        }
+    // Determine which qubit index is lower/higher for bit insertion
+    qubit_t lo = (control < target) ? control : target;
+    qubit_t hi = (control < target) ? target : control;
+
+    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
+    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+    const gate_idx_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
+
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t k = 0; k < n_base; ++k) {
+        // Insert 0 bits at positions lo and hi to get base index
+        const gate_idx_t base = insertBits2_0(k, lo, hi);
+
+        // Only swap when control=1: swap |ctrl=1,tgt=0> <-> |ctrl=1,tgt=1>
+        const gate_idx_t idx_c1_t0 = base | incr_ctrl;           // control=1, target=0
+        const gate_idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt; // control=1, target=1
+
+        cplx_t tmp = data[idx_c1_t0];
+        data[idx_c1_t0] = data[idx_c1_t1];
+        data[idx_c1_t1] = tmp;
     }
 }
+
 
 void cy_pure(state_t *state, const qubit_t control, const qubit_t target) {
     GATE_VALIDATE(0, "cy: pure not yet implemented");
@@ -386,8 +347,33 @@ void cpdg_pure(state_t *state, const qubit_t control, const qubit_t target, cons
     GATE_VALIDATE(0, "cpdg: pure not yet implemented");
 }
 
+/*
+ * SWAP gate: Exchanges two qubits by swapping amplitudes where q1 and q2 differ.
+ *
+ * For each basis state with both bits = 0, we swap |q1=0,q2=1> <-> |q1=1,q2=0>.
+ * This is a zero-flop gate requiring only memory swaps, no arithmetic.
+ */
 void swap_pure(state_t *state, const qubit_t q1, const qubit_t q2) {
-    GATE_VALIDATE(0, "swap: pure not yet implemented");
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    cplx_t *data = state->data;
+
+    const qubit_t lo = (q1 < q2) ? q1 : q2;
+    const qubit_t hi = (q1 < q2) ? q2 : q1;
+    const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
+    const gate_idx_t incr_hi = (gate_idx_t)1 << hi;
+    const gate_idx_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
+
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t k = 0; k < n_base; ++k) {
+        const gate_idx_t base = insertBits2_0(k, lo, hi);
+
+        // Swap |q1=0,q2=1> <-> |q1=1,q2=0>
+        const gate_idx_t idx01 = base | incr_lo;
+        const gate_idx_t idx10 = base | incr_hi;
+        cplx_t tmp = data[idx01];
+        data[idx01] = data[idx10];
+        data[idx10] = tmp;
+    }
 }
 
 void ccx_pure(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {

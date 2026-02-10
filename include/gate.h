@@ -69,6 +69,19 @@ static inline gate_idx_t insertBit0(gate_idx_t val, qubit_t pos) {
     return (val & mask) | ((val & ~mask) << 1);
 }
 
+/**
+ * @brief Insert 0 bits at two positions in value `val`
+ *
+ * For two-qubit gates, we iterate over indices where both qubit bits are 0.
+ * This helper inserts 0 bits at positions lo and hi (lo < hi).
+ */
+static inline gate_idx_t insertBits2_0(gate_idx_t val, qubit_t lo, qubit_t hi) {
+    gate_idx_t mask_lo = ((gate_idx_t)1 << lo) - 1;
+    val = (val & mask_lo) | ((val & ~mask_lo) << 1);
+    gate_idx_t mask_hi = ((gate_idx_t)1 << hi) - 1;
+    return (val & mask_hi) | ((val & ~mask_hi) << 1);
+}
+
 /*
  * =====================================================================================================================
  * Error handling
