@@ -742,59 +742,117 @@ void rz_packed(state_t *state, const qubit_t target, const double theta) {
  * When the source and destination are on opposite sides of the diagonal
  * (one has r>=c, the other has r<c), the values must be conjugated.
  */
-void cx_packed(state_t *state, const qubit_t control, const qubit_t target) {
+void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    cplx_t * restrict data = state->data;
-
+    const qubit_t hi = (control > target) ? control : target;
+    const qubit_t lo = (control < target) ? control : target;
     const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
     const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+    const gate_idx_t quarter_dim = dim >> 2;
+    
+    for (gate_idx_t bc = 0; bc < quarter_dim; ++bc) {
+        const gate_idx_t c00 = insertBits2_0(bc, lo, hi);
+        const gate_idx_t c01 = c00 | incr_tgt, c10 = c00 | incr_ctrl, c11 = c10 | incr_tgt;
 
-    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t c = 0; c < dim; ++c) {
-        for (gate_idx_t r = c; r < dim; ++r) {
-            /* Compute permuted row and column */
-            gate_idx_t pr = (r & incr_ctrl) ? (r ^ incr_tgt) : r;
-            gate_idx_t pc = (c & incr_ctrl) ? (c ^ incr_tgt) : c;
+        /* Precompute offsets of columns */
+        gate_idx_t offset_c00 = c00 * (2 * dim - c00 + 1) / 2;
+        gate_idx_t offset_c01 = c01 * (2 * dim - c01 + 1) / 2;
+        gate_idx_t offset_c10 = c10 * (2 * dim - c10 + 1) / 2;
+        gate_idx_t offset_c11 = c11 * (2 * dim - c11 + 1) / 2;
 
-            /* Fixed point: nothing to do */
-            if (pr == r && pc == c) continue;
+        for (gate_idx_t br = bc; br < quarter_dim; ++br) {
+            const gate_idx_t r00 = insertBits2_0(br, lo, hi);
+            const gate_idx_t r01 = r00 | incr_tgt, r10 = r00 | incr_ctrl, r11 = r10 | incr_tgt;
 
-            /* Canonicalize destination to lower triangle */
-            int dst_conj = (pr < pc);  /* Need conjugation if dest was upper-tri */
-            gate_idx_t dr = dst_conj ? pc : pr;
-            gate_idx_t dc = dst_conj ? pr : pc;
+            /* |c=1,t=0><c=0,t=0| <--> |c=1,t=1><c=0,t=0| */
+            gate_idx_t idx_a = (r10 - c00) + offset_c00;
+            gate_idx_t idx_b = (r11 - c00) + offset_c00;
+            cplx_t tmp = state->data[idx_a];
+            state->data[idx_a] = state->data[idx_b];
+            state->data[idx_b] = tmp;
 
-            /* Compute packed indices */
-            gate_idx_t src_idx = pack_idx(dim, r, c);
-            gate_idx_t dst_idx = pack_idx(dim, dr, dc);
+            /* |c=1,t=0><c=1,t=0| <--> |c=1,t=1><c=1,t=1| */
+            idx_a = (r10 - c10) + offset_c10;
+            idx_b = (r11 - c11) + offset_c11;
+            tmp = state->data[idx_a];
+            state->data[idx_a] = state->data[idx_b];
+            state->data[idx_b] = tmp;
 
-            /* Self-conjugation: element stays in place but crosses the diagonal.
-             * This happens when (r,c) maps to (pr,pc) with pr < pc, and after
-             * canonicalization (dr,dc) == (r,c). The stored value must be conjugated. */
-            if (src_idx == dst_idx) {
-                if (dst_conj) data[src_idx] = conj(data[src_idx]);
-                continue;
+            /* |c=1,t=1><c=0,t=1| <--> |c=1,t=0><c=0,t=1| */
+            idx_a = (r11 - c01) + offset_c01;
+            tmp = state->data[idx_a];
+            if (r10 > c01) {
+                idx_b = (r10 - c01) + offset_c01;
+                state->data[idx_a] = state->data[idx_b];
+                state->data[idx_b] = tmp;
+            }
+            else {
+                idx_b = pack_idx(dim, c01, r10);
+                state->data[idx_a] = conj(state->data[idx_b]);
+                state->data[idx_b] = conj(tmp);
             }
 
-            /* Only swap once per 2-cycle: process when src < dst */
-            if (src_idx > dst_idx) continue;
+            /* |c=1,t=1><c=1,t=0| <--> |c=1,t=0><c=1,t=1| */
+            idx_a = (r11 - c10) + offset_c10;
+            tmp = state->data[idx_a];
+            if (r10 > c11) {
+                idx_b = (r10 - c11) + offset_c11;
+                state->data[idx_a] = state->data[idx_b];
+                state->data[idx_b] = tmp;
+            }
+            else {
+                idx_b = pack_idx(dim, c11, r10);
+                state->data[idx_a] = conj(state->data[idx_b]);
+                state->data[idx_b] = conj(tmp);
+            }
 
-            /* Swap, applying conjugation if the permutation crosses the diagonal.
-             *
-             * new_rho[r,c] = old_rho[pr,pc]. In packed storage:
-             *   - src stores rho[r,c] directly (r >= c, lower triangle)
-             *   - dst stores rho[dr,dc] directly (dr >= dc, lower triangle)
-             *
-             * If dst_conj: the logical source for (r,c) is rho[pr,pc] where pr<pc,
-             * which is conj(rho[pc,pr]) = conj(data[dst_idx]). And the logical
-             * source for (dr,dc)=(pc,pr) is rho[r,c] = data[src_idx], but we need
-             * to store it in lower-tri form, which is conj(rho[r,c]) since the
-             * destination represents the transposed position.
-             */
-            cplx_t src_val = data[src_idx];
-            cplx_t dst_val = data[dst_idx];
-            data[src_idx] = dst_conj ? conj(dst_val) : dst_val;
-            data[dst_idx] = dst_conj ? conj(src_val) : src_val;
+            if (bc != br) {
+                /* |c=0,t=1><c=1,t=0| <--> |c=0,t=1><c=1,t=1| */
+                if (r01 > c10) {
+                    idx_a = (r01 - c10) + offset_c10;
+                    tmp = state->data[idx_a];
+                    if (r01 > c11) {
+                        idx_b = (r01 - c11) + offset_c11;
+                        state->data[idx_a] = state->data[idx_b];
+                        state->data[idx_b] = tmp;
+                    }
+                    else {
+                        idx_b = pack_idx(dim, c11, r01);
+                        state->data[idx_a] = conj(state->data[idx_b]);
+                        state->data[idx_b] = conj(tmp);
+                    }
+                }
+                else {
+                    idx_a = pack_idx(dim, c10, r01);
+                    idx_b = pack_idx(dim, c11, r01);
+                    tmp = state->data[idx_a];
+                    state->data[idx_a] = state->data[idx_b];
+                    state->data[idx_b] = tmp;
+                }
+
+                /* |c=0,t=0><c=1,t=0| <--> |c=0,t=0><c=1,t=1| */
+                if (r00 > c10) {
+                    idx_a = (r00 - c10) + offset_c10;
+                    tmp = state->data[idx_a];
+                    if (r00 > c11) {
+                        idx_b = (r00 - c11) + offset_c11;
+                        state->data[idx_a] = state->data[idx_b];
+                        state->data[idx_b] = tmp;
+                    }
+                    else {
+                        idx_b = pack_idx(dim, c11, r00);
+                        state->data[idx_a] = conj(state->data[idx_b]);
+                        state->data[idx_b] = conj(tmp);
+                    }
+                }
+                else {
+                    idx_a = pack_idx(dim, c10, r00);
+                    idx_b = pack_idx(dim, c11, r00);
+                    tmp = state->data[idx_a];
+                    state->data[idx_a] = state->data[idx_b];
+                    state->data[idx_b] = tmp;
+                }
+            }
         }
     }
 }
