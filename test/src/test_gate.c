@@ -63,6 +63,7 @@ void test_Ry_packed(void) {testRotationGateMixed(ry, mat_ry);}
 void test_Rz_packed(void) {testRotationGateMixed(rz, mat_rz);}
 void test_P_packed(void) {testRotationGateMixed(p, mat_p);}
 void test_CX_packed(void) {testTwoQubitGateMixed(cx, CXMAT);}
+void test_CY_packed(void) {testTwoQubitGateMixed(cy, CYMAT);}
 void test_CZ_packed(void) {testTwoQubitGateMixed(cz, CZMAT);}
 void test_SWAP_packed(void) {testTwoQubitGateMixed(swap_gate, SWAPMAT);}
 
@@ -85,6 +86,7 @@ void test_Rx_tiled(void) {testRotationGateTiled(rx, mat_rx);}
 void test_Ry_tiled(void) {testRotationGateTiled(ry, mat_ry);}
 void test_Rz_tiled(void) {testRotationGateTiled(rz, mat_rz);}
 void test_P_tiled(void) {testRotationGateTiled(p, mat_p);}
+void test_CX_tiled(void) {testTwoQubitGateTiled(cx, CXMAT);}
 void test_SWAP_tiled(void) {testTwoQubitGateTiled(swap_gate, SWAPMAT);}
 
 /*
@@ -128,6 +130,7 @@ int main(void) {
     RUN_TEST(test_Rz_packed);
     RUN_TEST(test_P_packed);
     RUN_TEST(test_CX_packed);
+    RUN_TEST(test_CY_packed);
     RUN_TEST(test_CZ_packed);
     RUN_TEST(test_SWAP_packed);
 
@@ -145,6 +148,7 @@ int main(void) {
     RUN_TEST(test_Ry_tiled);
     RUN_TEST(test_Rz_tiled);
     RUN_TEST(test_P_tiled);
+    RUN_TEST(test_CX_tiled);
     RUN_TEST(test_SWAP_tiled);
 
     return UNITY_END();
