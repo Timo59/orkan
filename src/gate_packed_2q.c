@@ -1,13 +1,18 @@
 /**
  * @file gate_packed_2q.c
- * @brief Two-qubit gates for mixed states (density matrices in packed lower-triangular storage)
+ * @brief Two-qubit gates for mixed states in packed lower-triangular storage
  *
- * Mixed states are stored in LAPACK packed lower-triangular column-major format.
- * For an N×N density matrix, we store N(N+1)/2 complex elements.
+ * Storage: LAPACK packed lower-triangle, column-major, N(N+1)/2 complex elements.
  *
- * Two-qubit permutation gates (CX, SWAP) transform ρ → UρU† by permuting rows
- * and columns of the density matrix. For packed Hermitian storage, elements that
- * cross the diagonal require conjugation.
+ * All two-qubit gates iterate over quarter-dim blocks indexed by (br, bc) with
+ * br >= bc. Each block addresses 4 rows (r00, r01, r10, r11) × 4 columns,
+ * producing 6 element-swap pairs. Three pairs always land in the lower triangle;
+ * three may cross the diagonal and require conjugation on read/write.
+ *
+ * Key pitfalls:
+ *   - Upper-triangle access: read/write as conj(data[pack_idx(dim, c, r)])
+ *   - Diagonal blocks (bc == br): Hermitian pairs share storage; skip one side
+ *   - insertBits2_0() requires lo < hi
  */
 
 #include "gate.h"
@@ -31,40 +36,15 @@ static inline gate_idx_t pack_idx(gate_idx_t dim, gate_idx_t r, gate_idx_t c) {
 
 
 /*
- * =====================================================================================================================
- * Two-qubit gates
- * =====================================================================================================================
- */
-
-/*
- * =====================================================================================================================
- * CNOT gate: ρ → CX · ρ · CX†  (CX = CX† for CNOT)
- * =====================================================================================================================
+ * CX (CNOT): ρ' = CX·ρ·CX, zero-flop permutation gate (CX is self-adjoint).
  *
- * CNOT is a permutation gate that swaps basis states |ctrl=1,tgt=0> <-> |ctrl=1,tgt=1>.
- * For density matrices ρ' = CX·ρ·CX†, the transformation permutes rows and columns:
- *   new_rho[i,j] = rho[perm(i), perm(j)]
- * where perm(x) = x XOR (1<<target) if (x & (1<<control)), else x.
+ * perm(x) = x ^ (1<<target) when bit control is set, else x.
+ * ρ'[r,c] = ρ[perm(r), perm(c)].  Involution: each element is fixed or in a 2-cycle.
  *
- * This is a "zero-flop" gate in the sense that CNOT involves no matrix multiplication,
- * only permutation of elements. However, for packed Hermitian storage, some elements
- * require conjugation when they cross the diagonal.
- */
-/*
- * In-place CNOT for packed storage.
- *
- * CNOT is an involution: perm(perm(x)) = x, where perm(x) = x ^ target_bit
- * when control_bit is set. Since the density matrix transformation is
- * new_rho[r,c] = old_rho[perm(r), perm(c)], and the permutation is its own
- * inverse, every stored element is either a fixed point or part of a 2-cycle.
- *
- * For each stored (r,c) with r >= c, we compute the destination (r',c') =
- * (perm(r), perm(c)) canonicalized to lower-triangle form. If this differs
- * from (r,c), we swap the two packed elements. To avoid double-swapping,
- * we only swap when the source packed index < destination packed index.
- *
- * When the source and destination are on opposite sides of the diagonal
- * (one has r>=c, the other has r<c), the values must be conjugated.
+ * For each block (br, bc) the 6 swap pairs split into:
+ *   - Fast path (r00 > c11): all lower-tri, plain swaps
+ *   - Slow path: up to 4 pairs may cross the diagonal, requiring conjugation
+ *   - Diagonal blocks (bc == br): skip group B (Hermitian pairs share storage)
  */
 void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
@@ -196,20 +176,19 @@ void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t ta
 }
 
 /*
- * In-place CY (controlled-Y) for packed storage.
- *
- * CY has the same permutation structure as CX (swap target bit when control
- * is set) but with phase factors: CY|10⟩ = i|11⟩, CY|11⟩ = -i|10⟩.
- *
- * For density matrices: ρ'[a,b] = φ(a)·conj(φ(b))·ρ[perm(a), perm(b)]
+ * CY (controlled-Y): same permutation as CX with per-element phase factors.
+ * CY|10⟩ = i|11⟩, CY|11⟩ = -i|10⟩.  ρ'[a,b] = φ(a)·φ*(b)·ρ[perm(a), perm(b)]
  * where φ(00)=φ(01)=1, φ(10)=-i, φ(11)=i.
  *
- * This yields the same 6 swap pairs as CX, with per-pair phase factors:
- *   Pair A (r10,c00 ↔ r11,c00): phases (-i, i)
- *   Pair E (r10,c10 ↔ r11,c11): plain swap (phases cancel)
- *   Pair B (r11,c01 ↔ r10,c01): phases (i, -i)
- *   Pair F (r11,c10 ↔ r10,c11): negate-swap (phase = -1)
- *   Pairs C,D (r00/r01,c10 ↔ c11): phases (i, -i)
+ * Per-pair phases (same 6 pairs as CX):
+ *   A (r10,c00 ↔ r11,c00): ×(-i, i)     E (r10,c10 ↔ r11,c11): plain swap
+ *   B (r11,c01 ↔ r10,c01): ×(i, -i)     F (r11,c10 ↔ r10,c11): negate-swap
+ *   C,D (r00/r01,c10 ↔ c11): ×(i, -i)
+ *
+ * Pitfall: when a pair crosses the diagonal, phase and conj() compose
+ * differently.  E.g. ×i on lower-tri value v: CMPLX(-Im(v), Re(v)); but
+ * ×i on upper-tri stored s (where rho = conj(s)): result stored as
+ * CMPLX(Im(s), Re(s)), not CMPLX(-Im(s), Re(s)).
  */
 void cy_packed(state_t * restrict state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
@@ -334,18 +313,13 @@ void cy_packed(state_t * restrict state, const qubit_t control, const qubit_t ta
 }
 
 /*
- * In-place CZ for packed storage.
+ * CZ: diag(1,1,1,-1), zero-flop diagonal gate — only sign flips.
  *
- * CZ = diag(1, 1, 1, -1) is a diagonal phase gate that negates elements
- * where exactly one of the row/column indices has both control and target
- * bits set. This is a zero-flop gate: only sign flips, no multiplications.
+ * Negate elements where exactly one of (row, col) has both ctrl+tgt bits set:
+ *   Group A (row=11): (r11,c00), (r11,c01), (r11,c10) — always lower-tri
+ *   Group B (col=11): (r00,c11), (r01,c11), (r10,c11) — may cross diagonal
  *
- * For each block (br, bc) with br >= bc, we negate:
- *   Group A (row=11): (r11, c00), (r11, c01), (r11, c10) — always lower tri
- *   Group B (col=11): (r00, c11), (r01, c11), (r10, c11) — may cross diagonal
- *
- * When bc == br, groups A and B refer to the same stored elements (Hermitian
- * pairs), so we skip group B to avoid double-negation.
+ * Diagonal blocks (bc == br): skip group B (same storage as A, avoids double-negate).
  */
 void cz_packed(state_t *state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
@@ -439,28 +413,17 @@ void cpdg_packed(state_t *state, const qubit_t control, const qubit_t target, co
 }
 
 /*
- * In-place SWAP for packed storage.
+ * SWAP: zero-flop permutation gate.  perm(x) = x with bits lo and hi exchanged.
+ * ρ'[r,c] = ρ[perm(r), perm(c)].
  *
- * SWAP permutes basis states by exchanging bits `lo` and `hi`:
- *   perm(x) = x with bit lo and bit hi swapped
- * For density matrices: new_rho[r,c] = old_rho[perm(r), perm(c)].
+ * Swap pairs per block:
+ *   1: (r01,c00) ↔ (r10,c00)  always lower    4: (r10,c01) ↔ (r01,c10)  may cross
+ *   2: (r01,c01) ↔ (r10,c10)  always lower    5: (r00,c01) ↔ (r00,c10)  may cross
+ *   3: (r11,c01) ↔ (r11,c10)  always lower    6: (r10,c11) ↔ (r01,c11)  may cross
  *
- * Like CNOT, SWAP is a zero-flop permutation gate — no arithmetic, only
- * element moves. The permutation maps each 4×4 block (indexed by the two-bit
- * pattern at positions lo,hi) into swap pairs:
- *
- *   Pair 1: (r01, c00) <-> (r10, c00)   always lower triangle
- *   Pair 2: (r01, c01) <-> (r10, c10)   always lower triangle
- *   Pair 3: (r11, c01) <-> (r11, c10)   always lower triangle
- *   Pair 4: (r10, c01) <-> (r01, c10)   may cross diagonal
- *   Pair 5: (r00, c01) <-> (r00, c10)   may cross diagonal
- *   Pair 6: (r10, c11) <-> (r01, c11)   may cross diagonal
- *
- * We iterate only the lower-triangular half of the block grid (br >= bc).
- * When a swap partner falls in the upper triangle (r < c), its packed
- * representative is at the transposed position with a conjugate. These
- * elements belong to block (bc, br) which is never iterated, so both
- * directions of the swap must be written in the current iteration.
+ * Fast path: r00 > c10 ⟹ all lower-tri.  Slow path: upper-tri partners live
+ * in block (bc, br) which is never iterated; both swap directions must be
+ * written here with conjugation.
  */
 void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
@@ -502,19 +465,19 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
             data[(r11 - c01) + offset_c01] = data[(r11 - c10) + offset_c10];
             data[(r11 - c10) + offset_c10] = tmp;
 
-            /* Fast path: If r00 > c10, all elements are contained in the lower triangle */
+            /* Fast path: r00 > c10 ⟹ all remaining pairs in lower triangle */
             if (r00 > c10) {
-                /* |q1=0,q2=0><q1=0,q2=1| <--> |q1=0,q2=0><q1=1,q2=0| */
+                /* Pair 5: (r00,c01) ↔ (r00,c10) */
                 tmp = data[(r00 - c01) + offset_c01];
                 data[(r00 - c01) + offset_c01] = data[(r00 - c10) + offset_c10];
                 data[(r00 - c10) + offset_c10] = tmp;
 
-                /* |q1=0,q2=1><q1=1,q2=1| <--> |q1=1,q2=0><q1=1,q2=1| */
+                /* Pair 6: (r01,c11) ↔ (r10,c11) */
                 tmp = data[(r01 - c11) + offset_c11];
                 data[(r01 - c11) + offset_c11] = data[(r10 - c11) + offset_c11];
                 data[(r10 - c11) + offset_c11] = tmp;
 
-                /* |q1=0,q2=1><q1=1,q2=0| <--> |q1=1,q2=0><q1=0,q2=1| */
+                /* Pair 4: (r01,c10) ↔ (r10,c01) */
                 tmp = data[(r01 - c10) + offset_c10];
                 data[(r01 - c10) + offset_c10] = data[(r10 - c01) + offset_c01];
                 data[(r10 - c01) + offset_c01] = tmp;
@@ -538,23 +501,23 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
 
                 /* r00 > c01 implies r10 > c11 */
                 if (r00 > c01) {
-                    /* |q1=0,q2=0><q1=0,q2=1| <--> |q1=0,q2=0><q1=1,q2=0| */
+                    /* Pair 5: (r00,c01) lower ↔ (r00,c10) upper — conj swap */
                     tmp = data[(r00 - c01) + offset_c01];
                     data[(r00 - c01) + offset_c01] = conj(data[pack_idx(dim, c10, r00)]);
                     data[pack_idx(dim, c10, r00)] = conj(tmp);
 
-                    /* |q1=0,q2=1><q1=1,q2=1| <--> |q1=1,q2=0><q1=1,q2=1| */
+                    /* Pair 6: (r10,c11) lower ↔ (r01,c11) upper — conj swap */
                     tmp = data[(r10 - c11) + offset_c11];
                     data[(r10 - c11) + offset_c11] = conj(data[pack_idx(dim, c11, r01)]);
                     data[pack_idx(dim, c11, r01)] = conj(tmp);
                 }
                 else if (bc != br) {
-                    /* |q1=0,q2=0><q1=0,q2=1| <--> |q1=0,q2=0><q1=1,q2=0| */
+                    /* Pair 5: (r00,c01) ↔ (r00,c10) — both upper-tri */
                     tmp = data[pack_idx(dim, c01, r00)];
                     data[pack_idx(dim, c01, r00)] = data[pack_idx(dim, c10, r00)];
                     data[pack_idx(dim, c10, r00)] = tmp;
 
-                    /* |q1=0,q2=1><q1=1,q2=1| <--> |q1=1,q2=0><q1=1,q2=1| */
+                    /* Pair 6: (r01,c11) ↔ (r10,c11) — both upper-tri */
                     tmp = data[pack_idx(dim, c11, r10)];
                     data[pack_idx(dim, c11, r10)] = data[pack_idx(dim, c11, r01)];
                     data[pack_idx(dim, c11, r01)] = tmp;
