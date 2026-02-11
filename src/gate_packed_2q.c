@@ -36,46 +36,6 @@ static inline gate_idx_t pack_idx(gate_idx_t dim, gate_idx_t r, gate_idx_t c) {
  * =====================================================================================================================
  */
 
-#define SINGLE_CONTROL_SINGLE_TARGET_PACKED(state, control, target, BLOCK_OP) \
-do {  \
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;  \
-    const qubit_t hi = (control > target) ? control : target; \
-    const qubit_t lo = (control < target) ? control : target; \
-    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;  \
-    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;  \
-    cplx_t * restrict data = state->data; \
-    const gate_idx_t quarter_dim = dim >> 2;  \
-  \
-    _Pragma("omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)")       \
-    for (gate_idx_t bc = 0; bc < quarter_dim; ++bc) { \
-        const gate_idx_t c00 = insertBits2_0(bc, lo, hi); \
-        const gate_idx_t c01 = c00 | incr_tgt, c10 = c00 | incr_ctrl, c11 = c10 | incr_tgt; \
-  \
-        /* Precompute offsets of columns */ \
-        gate_idx_t offset_c00 = c00 * (2 * dim - c00 + 1) / 2;  \
-        gate_idx_t offset_c01 = c01 * (2 * dim - c01 + 1) / 2;  \
-        gate_idx_t offset_c10 = c10 * (2 * dim - c10 + 1) / 2;  \
-        gate_idx_t offset_c11 = c11 * (2 * dim - c11 + 1) / 2;  \
-  \
-        for (gate_idx_t br = bc; br < quarter_dim; ++br) {  \
-            const gate_idx_t r00 = insertBits2_0(br, lo, hi); \
-            const gate_idx_t r01 = r00 | incr_tgt, r10 = r00 | incr_ctrl, r11 = r10 | incr_tgt; \
-  \
-            /* The first two pairs are always in the lower triangle */  \
-            /* |c=1,t=0><c=0,t=0| <--> |c=1,t=1><c=0,t=0| */  \
-            gate_idx_t idx_a = (r10 - c00) + offset_c00;  \
-            gate_idx_t idx_b = (r11 - c00) + offset_c00;  \
-            cplx_t tmp = data[idx_a]; \
-            data[idx_a] = data[idx_b];  \
-            data[idx_b] = tmp;  \
-  \
-            /* |c=1,t=0><c=1,t=0| <--> |c=1,t=1><c=1,t=1| */  \
-            idx_a = (r10 - c10) + offset_c10; \
-            idx_b = (r11 - c11) + offset_c11; \
-            tmp = data[idx_a];  \
-            data[idx_a] = data[idx_b];  \
-            data[idx_b] = tmp;  \
-} while(0)
 /*
  * =====================================================================================================================
  * CNOT gate: ρ → CX · ρ · CX†  (CX = CX† for CNOT)
@@ -132,86 +92,65 @@ void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t ta
 
             /* The first two pairs are always in the lower triangle */
             /* |c=1,t=0><c=0,t=0| <--> |c=1,t=1><c=0,t=0| */
-            gate_idx_t idx_a = (r10 - c00) + offset_c00;
-            gate_idx_t idx_b = (r11 - c00) + offset_c00;
-            cplx_t tmp = data[idx_a];
-            data[idx_a] = data[idx_b];
-            data[idx_b] = tmp;
+            cplx_t tmp = data[(r10 - c00) + offset_c00];
+            data[(r10 - c00) + offset_c00] = data[(r11 - c00) + offset_c00];
+            data[(r11 - c00) + offset_c00] = tmp;
 
             /* |c=1,t=0><c=1,t=0| <--> |c=1,t=1><c=1,t=1| */
-            idx_a = (r10 - c10) + offset_c10;
-            idx_b = (r11 - c11) + offset_c11;
-            tmp = data[idx_a];
-            data[idx_a] = data[idx_b];
-            data[idx_b] = tmp;
+            tmp = data[(r10 - c10) + offset_c10];
+            data[(r10 - c10) + offset_c10] = data[(r11 - c11) + offset_c11];
+            data[(r11 - c11) + offset_c11] = tmp;
 
             /* Fast-path: Remaining 4 pairs are in the lower triangle. */
             if (r00 > c11) {
                 /* |c=1,t=1><c=0,t=1| <--> |c=1,t=0><c=0,t=1| */
-                idx_a = (r11 - c01) + offset_c01;
-                idx_b = (r10 - c01) + offset_c01;
-                tmp = data[idx_a];
-                data[idx_a] = data[idx_b];
-                data[idx_b] = tmp;
+                tmp = data[(r11 - c01) + offset_c01];
+                data[(r11 - c01) + offset_c01] = data[(r10 - c01) + offset_c01];
+                data[(r10 - c01) + offset_c01] = tmp;
 
                 /* |c=1,t=1><c=1,t=0| <--> |c=1,t=0><c=1,t=1| */
-                idx_a = (r11 - c10) + offset_c10;
-                idx_b = (r10 - c11) + offset_c11;
-                tmp = data[idx_a];
-                data[idx_a] = data[idx_b];
-                data[idx_b] = tmp;
+                tmp = data[(r11 - c10) + offset_c10];
+                data[(r11 - c10) + offset_c10] = data[(r10 - c11) + offset_c11];
+                data[(r10 - c11) + offset_c11] = tmp;
 
                 /* |c=0,t=1><c=1,t=0| <--> |c=0,t=1><c=1,t=1| */
-                idx_a = (r01 - c10) + offset_c10;
-                idx_b = (r01 - c11) + offset_c11;
-                tmp = data[idx_a];
-                data[idx_a] = data[idx_b];
-                data[idx_b] = tmp;
+                tmp = data[(r01 - c10) + offset_c10];
+                data[(r01 - c10) + offset_c10] = data[(r01 - c11) + offset_c11];
+                data[(r01 - c11) + offset_c11] = tmp;
 
                 /* |c=0,t=0><c=1,t=0| <--> |c=0,t=0><c=1,t=1| */
-                idx_a = (r00 - c10) + offset_c10;
-                idx_b = (r00 - c11) + offset_c11;
-                tmp = data[idx_a];
-                data[idx_a] = data[idx_b];
-                data[idx_b] = tmp;
+                tmp = data[(r00 - c10) + offset_c10];
+                data[(r00 - c10) + offset_c10] = data[(r00 - c11) + offset_c11];
+                data[(r00 - c11) + offset_c11] = tmp;
             }
             else {
                 /* r10 > c11 implies r10 > c01 */
                 if (r10 > c11) {
                     /* |c=1,t=1><c=1,t=0| <--> |c=1,t=0><c=1,t=1| */
-                    idx_a = (r11 - c10) + offset_c10;
-                    idx_b = (r10 - c11) + offset_c11;
-                    tmp = data[idx_a];
-                    data[idx_a] = data[idx_b];
-                    data[idx_b] = tmp;
+                    tmp = data[(r11 - c10) + offset_c10];
+                    data[(r11 - c10) + offset_c10] = data[(r10 - c11) + offset_c11];
+                    data[(r10 - c11) + offset_c11] = tmp;
 
                     /* |c=1,t=1><c=0,t=1| <--> |c=1,t=0><c=0,t=1| */
-                    idx_a = (r11 - c01) + offset_c01;
-                    idx_b = (r10 - c01) + offset_c01;
-                    tmp = data[idx_a];
-                    data[idx_a] = data[idx_b];
-                    data[idx_b] = tmp;
+                    tmp = data[(r11 - c01) + offset_c01];
+                    data[(r11 - c01) + offset_c01] = data[(r10 - c01) + offset_c01];
+                    data[(r10 - c01) + offset_c01] = tmp;
                 }
                 else {
                     /* |c=1,t=1><c=1,t=0| <--> |c=1,t=0><c=1,t=1| */
-                    idx_a = (r11 - c10) + offset_c10;
-                    idx_b = pack_idx(dim, c11, r10);
-                    tmp = data[idx_a];
-                    data[idx_a] = conj(data[idx_b]);
-                    data[idx_b] = conj(tmp);
+                    tmp = data[(r11 - c10) + offset_c10];
+                    data[(r11 - c10) + offset_c10] = conj(data[pack_idx(dim, c11, r10)]);
+                    data[pack_idx(dim, c11, r10)] = conj(tmp);
 
                     /* |c=1,t=1><c=0,t=1| <--> |c=1,t=0><c=0,t=1| */
-                    idx_a = (r11 - c01) + offset_c01;
-                    tmp = data[idx_a];
+                    tmp = data[(r11 - c01) + offset_c01];
                     if (r10 > c01) {
-                        idx_b = (r10 - c01) + offset_c01;
-                        data[idx_a] = data[idx_b];
-                        data[idx_b] = tmp;
+                        data[(r11 - c01) + offset_c01] = data[(r10 - c01) + offset_c01];
+                        data[(r10 - c01) + offset_c01] = tmp;
                     }
                     else {
-                        idx_b = pack_idx(dim, c01, r10);
-                        data[idx_a] = conj(data[idx_b]);
-                        data[idx_b] = conj(tmp);
+                        data[(r11 - c01) + offset_c01] = conj(data[pack_idx(dim, c01, r10)]);
+                        data[pack_idx(dim, c01, r10)] = conj(tmp);
                     }
                 }
 
@@ -221,42 +160,33 @@ void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t ta
                         /* |c=0,t=0><c=1,t=0| <--> |c=0,t=0><c=1,t=1| */
                         /* r00 < c11, otherwise fast path would have been taken */
                         /* (r00, c11) is in the upper triangle => conj(c11, r00) */
-                        idx_a = (r00 - c10) + offset_c10;
-                        idx_b = pack_idx(dim, c11, r00);
-                        tmp = data[idx_a];
-                        data[idx_a] = conj(data[idx_b]);
-                        data[idx_b] = conj(tmp);
+                        tmp = data[(r00 - c10) + offset_c10];
+                        data[(r00 - c10) + offset_c10] = conj(data[pack_idx(dim, c11, r00)]);
+                        data[pack_idx(dim, c11, r00)] = conj(tmp);
 
                         /* |c=0,t=1><c=1,t=0| <--> |c=0,t=1><c=1,t=1| */
                         /* r00 > c10 also implies r01 > c11 */
-                        idx_a = (r01 - c10) + offset_c10;
-                        idx_b = (r01 - c11) + offset_c11;
-                        tmp = data[idx_a];
-                        data[idx_a] = data[idx_b];
-                        data[idx_b] = tmp;
+                        tmp = data[(r01 - c10) + offset_c10];
+                        data[(r01 - c10) + offset_c10] = data[(r01 - c11) + offset_c11];
+                        data[(r01 - c11) + offset_c11] = tmp;
                     }
                     else {
                         /* |c=0,t=0><c=1,t=0| <--> |c=0,t=0><c=1,t=1| */
                         /* r00 < c10 implies both elements are in the upper triangle of a lower triangle block */
-                        idx_a = pack_idx(dim, c10, r00);
-                        idx_b = pack_idx(dim, c11, r00);
-                        tmp = data[idx_a];
-                        data[idx_a] = data[idx_b];
-                        data[idx_b] = tmp;
+                        tmp = data[pack_idx(dim, c10, r00)];
+                        data[pack_idx(dim, c10, r00)] = data[pack_idx(dim, c11, r00)];
+                        data[pack_idx(dim, c11, r00)] = tmp;
 
                         /* |c=0,t=1><c=1,t=0| <--> |c=0,t=1><c=1,t=1| */
                         /* r00 < c10 implies r01 < c11 */
-                        idx_a = pack_idx(dim, c11, r01);
-                        tmp = data[idx_a];
+                        tmp = data[pack_idx(dim, c11, r01)];
                         if (r01 > c10) {
-                            idx_b = (r01 - c10) + offset_c10;
-                            data[idx_a] = conj(data[idx_b]);
-                            data[idx_b] = conj(tmp);
+                            data[pack_idx(dim, c11, r01)] = conj(data[(r01 - c10) + offset_c10]);
+                            data[(r01 - c10) + offset_c10] = conj(tmp);
                         }
                         else {
-                            idx_b = pack_idx(dim, c10, r01);
-                            data[idx_a] = data[idx_b];
-                            data[idx_b] = tmp;
+                            data[pack_idx(dim, c11, r01)] = data[pack_idx(dim, c10, r01)];
+                            data[pack_idx(dim, c10, r01)] = tmp;
                         }
                     }
                 }
@@ -269,8 +199,77 @@ void cy_packed(state_t *state, const qubit_t control, const qubit_t target) {
     GATE_VALIDATE(0, "cy: packed not yet implemented");
 }
 
+/*
+ * In-place CZ for packed storage.
+ *
+ * CZ = diag(1, 1, 1, -1) is a diagonal phase gate that negates elements
+ * where exactly one of the row/column indices has both control and target
+ * bits set. This is a zero-flop gate: only sign flips, no multiplications.
+ *
+ * For each block (br, bc) with br >= bc, we negate:
+ *   Group A (row=11): (r11, c00), (r11, c01), (r11, c10) — always lower tri
+ *   Group B (col=11): (r00, c11), (r01, c11), (r10, c11) — may cross diagonal
+ *
+ * When bc == br, groups A and B refer to the same stored elements (Hermitian
+ * pairs), so we skip group B to avoid double-negation.
+ */
 void cz_packed(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "cz: packed not yet implemented");
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const qubit_t hi = (control > target) ? control : target;
+    const qubit_t lo = (control < target) ? control : target;
+    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
+    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+    cplx_t * restrict data = state->data;
+    const gate_idx_t quarter_dim = dim >> 2;
+
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t bc = 0; bc < quarter_dim; ++bc) {
+        const gate_idx_t c00 = insertBits2_0(bc, lo, hi);
+        const gate_idx_t c01 = c00 | incr_tgt, c10 = c00 | incr_ctrl, c11 = c10 | incr_tgt;
+
+        gate_idx_t offset_c00 = c00 * (2 * dim - c00 + 1) / 2;
+        gate_idx_t offset_c01 = c01 * (2 * dim - c01 + 1) / 2;
+        gate_idx_t offset_c10 = c10 * (2 * dim - c10 + 1) / 2;
+        gate_idx_t offset_c11 = c11 * (2 * dim - c11 + 1) / 2;
+
+        for (gate_idx_t br = bc; br < quarter_dim; ++br) {
+            const gate_idx_t r00 = insertBits2_0(br, lo, hi);
+            const gate_idx_t r01 = r00 | incr_tgt, r10 = r00 | incr_ctrl, r11 = r10 | incr_tgt;
+
+            /* Group A: row = 11 — always in lower triangle */
+            data[(r11 - c00) + offset_c00] = -data[(r11 - c00) + offset_c00];
+            data[(r11 - c01) + offset_c01] = -data[(r11 - c01) + offset_c01];
+            data[(r11 - c10) + offset_c10] = -data[(r11 - c10) + offset_c10];
+
+            /* Group B: col = 11 — skip on diagonal block (Hermitian pairs already negated) */
+            if (bc != br) {
+                if (r00 > c11) {
+                    /* Fast path: all in lower triangle */
+                    data[(r00 - c11) + offset_c11] = -data[(r00 - c11) + offset_c11];
+                    data[(r01 - c11) + offset_c11] = -data[(r01 - c11) + offset_c11];
+                    data[(r10 - c11) + offset_c11] = -data[(r10 - c11) + offset_c11];
+                }
+                else {
+                    /* (r00, c11): always upper tri here — negate stored at (c11, r00) */
+                    data[pack_idx(dim, c11, r00)] = -data[pack_idx(dim, c11, r00)];
+
+                    /* (r01, c11) */
+                    if (r01 > c11) {
+                        data[(r01 - c11) + offset_c11] = -data[(r01 - c11) + offset_c11];
+                    } else {
+                        data[pack_idx(dim, c11, r01)] = -data[pack_idx(dim, c11, r01)];
+                    }
+
+                    /* (r10, c11) */
+                    if (r10 > c11) {
+                        data[(r10 - c11) + offset_c11] = -data[(r10 - c11) + offset_c11];
+                    } else {
+                        data[pack_idx(dim, c11, r10)] = -data[pack_idx(dim, c11, r10)];
+                    }
+                }
+            }
+        }
+    }
 }
 
 void cs_packed(state_t *state, const qubit_t control, const qubit_t target) {
@@ -355,48 +354,36 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
             const gate_idx_t r01 = r00 | incr_lo, r10 = r00 | incr_hi, r11 = r10 | incr_lo;
 
             /* Pair 1: (r01, c00) <-> (r10, c00) — both always in lower triangle */
-            gate_idx_t idx_a = (r01 - c00) + offset_c00;
-            gate_idx_t idx_b = (r10 - c00) + offset_c00;
-            cplx_t tmp = data[idx_a];
-            data[idx_a] = data[idx_b];
-            data[idx_b] = tmp;
+            cplx_t tmp = data[(r01 - c00) + offset_c00];
+            data[(r01 - c00) + offset_c00] = data[(r10 - c00) + offset_c00];
+            data[(r10 - c00) + offset_c00] = tmp;
 
             /* Pair 2: (r01, c01) <-> (r10, c10) — both always in lower triangle */
-            idx_a = (r01 - c01) + offset_c01;
-            idx_b = (r10 - c10) + offset_c10;
-            tmp = data[idx_a];
-            data[idx_a] = data[idx_b];
-            data[idx_b] = tmp;
+            tmp = data[(r01 - c01) + offset_c01];
+            data[(r01 - c01) + offset_c01] = data[(r10 - c10) + offset_c10];
+            data[(r10 - c10) + offset_c10] = tmp;
 
             /* Pair 3: (r11, c01) <-> (r11, c10) — both always in lower triangle */
-            idx_a = (r11 - c01) + offset_c01;
-            idx_b = (r11 - c10) + offset_c10;
-            tmp = data[idx_a];
-            data[idx_a] = data[idx_b];
-            data[idx_b] = tmp;
+            tmp = data[(r11 - c01) + offset_c01];
+            data[(r11 - c01) + offset_c01] = data[(r11 - c10) + offset_c10];
+            data[(r11 - c10) + offset_c10] = tmp;
 
             /* Fast path: If r00 > c10, all elements are contained in the lower triangle */
             if (r00 > c10) {
                 /* |q1=0,q2=0><q1=0,q2=1| <--> |q1=0,q2=0><q1=1,q2=0| */
-                idx_a = (r00 - c01) + offset_c01;
-                idx_b = (r00 - c10) + offset_c10;
-                tmp = data[idx_a];
-                data[idx_a] = data[idx_b];
-                data[idx_b] = tmp;
+                tmp = data[(r00 - c01) + offset_c01];
+                data[(r00 - c01) + offset_c01] = data[(r00 - c10) + offset_c10];
+                data[(r00 - c10) + offset_c10] = tmp;
 
                 /* |q1=0,q2=1><q1=1,q2=1| <--> |q1=1,q2=0><q1=1,q2=1| */
-                idx_a = (r01 - c11) + offset_c11;
-                idx_b = (r10 - c11) + offset_c11;
-                tmp = data[idx_a];
-                data[idx_a] = data[idx_b];
-                data[idx_b] = tmp;
+                tmp = data[(r01 - c11) + offset_c11];
+                data[(r01 - c11) + offset_c11] = data[(r10 - c11) + offset_c11];
+                data[(r10 - c11) + offset_c11] = tmp;
 
                 /* |q1=0,q2=1><q1=1,q2=0| <--> |q1=1,q2=0><q1=0,q2=1| */
-                idx_a = (r01 - c10) + offset_c10;
-                idx_b = (r10 - c01) + offset_c01;
-                tmp = data[idx_a];
-                data[idx_a] = data[idx_b];
-                data[idx_b] = tmp;
+                tmp = data[(r01 - c10) + offset_c10];
+                data[(r01 - c10) + offset_c10] = data[(r10 - c01) + offset_c01];
+                data[(r10 - c01) + offset_c01] = tmp;
             }
             else {
                 /* Pair 4: (r10, c01) <-> (r01, c10)
@@ -405,49 +392,38 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
                  *   r01 <= c10: (r01, c10) is upper-tri; its packed representative is
                  *     conj(data) at (c10, r01). That position belongs to block (bc, br),
                  *     never iterated, so we must write both directions here. */
-                idx_a = (r10 - c01) + offset_c01;
-                tmp = data[idx_a];
+                tmp = data[(r10 - c01) + offset_c01];
                 if (r01 > c10) {
-                    idx_b = (r01 - c10) + offset_c10;
-                    data[idx_a] = data[idx_b];
-                    data[idx_b] = tmp;
+                    data[(r10 - c01) + offset_c01] = data[(r01 - c10) + offset_c10];
+                    data[(r01 - c10) + offset_c10] = tmp;
                 }
                 else {
-                    idx_b = pack_idx(dim, c10, r01);
-                    data[idx_a] = conj(data[idx_b]);
-                    data[idx_b] = conj(tmp);
+                    data[(r10 - c01) + offset_c01] = conj(data[pack_idx(dim, c10, r01)]);
+                    data[pack_idx(dim, c10, r01)] = conj(tmp);
                 }
 
                 /* r00 > c01 implies r10 > c11 */
                 if (r00 > c01) {
                     /* |q1=0,q2=0><q1=0,q2=1| <--> |q1=0,q2=0><q1=1,q2=0| */
-                    idx_a = (r00 - c01) + offset_c01;
-                    idx_b = pack_idx(dim, c10, r00);
-                    tmp = data[idx_a];
-                    data[idx_a] = conj(data[idx_b]);
-                    data[idx_b] = conj(tmp);
+                    tmp = data[(r00 - c01) + offset_c01];
+                    data[(r00 - c01) + offset_c01] = conj(data[pack_idx(dim, c10, r00)]);
+                    data[pack_idx(dim, c10, r00)] = conj(tmp);
 
                     /* |q1=0,q2=1><q1=1,q2=1| <--> |q1=1,q2=0><q1=1,q2=1| */
-                    idx_a = (r10 - c11) + offset_c11;
-                    idx_b = pack_idx(dim, c11, r01);
-                    tmp = data[idx_a];
-                    data[idx_a] = conj(data[idx_b]);
-                    data[idx_b] = conj(tmp);
+                    tmp = data[(r10 - c11) + offset_c11];
+                    data[(r10 - c11) + offset_c11] = conj(data[pack_idx(dim, c11, r01)]);
+                    data[pack_idx(dim, c11, r01)] = conj(tmp);
                 }
                 else if (bc != br) {
                     /* |q1=0,q2=0><q1=0,q2=1| <--> |q1=0,q2=0><q1=1,q2=0| */
-                    idx_a = pack_idx(dim, c01, r00);
-                    idx_b = pack_idx(dim, c10, r00);
-                    tmp = data[idx_a];
-                    data[idx_a] = data[idx_b];
-                    data[idx_b] = tmp;
+                    tmp = data[pack_idx(dim, c01, r00)];
+                    data[pack_idx(dim, c01, r00)] = data[pack_idx(dim, c10, r00)];
+                    data[pack_idx(dim, c10, r00)] = tmp;
 
                     /* |q1=0,q2=1><q1=1,q2=1| <--> |q1=1,q2=0><q1=1,q2=1| */
-                    idx_a = pack_idx(dim, c11, r10);
-                    idx_b = pack_idx(dim, c11, r01);
-                    tmp = data[idx_a];
-                    data[idx_a] = data[idx_b];
-                    data[idx_b] = tmp;
+                    tmp = data[pack_idx(dim, c11, r10)];
+                    data[pack_idx(dim, c11, r10)] = data[pack_idx(dim, c11, r01)];
+                    data[pack_idx(dim, c11, r01)] = tmp;
                 }
             }
         }
