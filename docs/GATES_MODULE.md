@@ -2,7 +2,7 @@
 
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
-**Implementation:** `src/gate_pure.c` (pure), `src/gate_packed.c` (mixed packed), `src/gate_tiled.c` (mixed tiled), `src/gate.c` (dispatchers)
+**Implementation:** `src/gate_pure.c` (pure), `src/gate_packed_1q.c` + `src/gate_packed_2q.c` (mixed packed), `src/gate_tiled.c` (mixed tiled), `src/gate.c` (dispatchers)
 **Dependencies:** `state.h`, `q_types.h`, `<complex.h>`, `<math.h>`, OpenMP (optional)
 
 ---
@@ -246,54 +246,47 @@ For ρ → UρU†, the conjugation mixes 2×2 blocks of the density matrix inde
     }
 ```
 
-OpenMP: `schedule(dynamic)` on the outer `bc` loop. Threshold: `dim >= 64` (n ≥ 6 qubits).
+OpenMP: `schedule(static)` on the outer `bc` loop. Threshold: `dim >= 64` (n ≥ 6 qubits).
 
-### 5.2 Controlled Gates: One-Bit Insertion with Four-Block Decomposition
+### 5.2 Two-Qubit Gates: Two-Bit Insertion with 4×4 Block Pairs
 
-A controlled-U gate V = P₀⊗I + P₁⊗U produces four density matrix blocks under conjugation VρV†:
-
-```
-H'₀₀ = H₀₀                   (control=0 in both row and col: unchanged)
-H'₀₁ = H₀₁ · U†              (control=0 in row, 1 in col: right-multiply by U†)
-H'₁₀ = U · H₁₀               (control=1 in row, 0 in col: left-multiply by U)
-H'₁₁ = U · H₁₁ · U†          (control=1 in both: full conjugation)
-```
-
-**Implementation:** Use the same `TRAVERSE_PACKED_BLOCKS` with `insertBit0` at the **target** position.
-The control bits remain as natural values in the loop indices. The BLOCK_OP checks control bit values
-and branches:
+Two-qubit gates use `insertBits2_0(idx, lo, hi)` to enumerate base indices where both qubit bits
+are zero, producing 4×4 sub-blocks of the density matrix. Each block has 4 row indices
+(r00, r01, r10, r11) and 4 column indices (c00, c01, c10, c11).
 
 ```c
-int row_ctrl = (r0 >> control) & 1;
-int col_ctrl = (c0 >> control) & 1;
-if (!row_ctrl && !col_ctrl) { /* H_00: skip */ }
-else if (row_ctrl && col_ctrl) { /* H_11: full conjugation */ }
-else if (row_ctrl) { /* H_10: left-multiply by U */ }
-else { /* H_01: right-multiply by U† */ }
+quarter_dim = dim >> 2;
+for (bc = 0; bc < quarter_dim; ++bc) {
+    c00 = insertBits2_0(bc, lo, hi);
+    c01 = c00 | incr_tgt;  c10 = c00 | incr_ctrl;  c11 = c10 | incr_tgt;
+    for (br = bc; br < quarter_dim; ++br) {
+        r00 = insertBits2_0(br, lo, hi);
+        r01 = r00 | incr_tgt;  r10 = r00 | incr_ctrl;  r11 = r10 | incr_tgt;
+        // Process element pairs within the 4×4 block
+    }
+}
 ```
 
-**One-sided operations for specific gates:**
+The triangular iteration (br >= bc) visits each block once. Within each block, the gate's
+action decomposes into swap/transform pairs. Triangle membership determines access mode:
 
-| Gate | H₁₁ (full conj) | H₁₀ (left U) | H₀₁ (right U†) |
-|------|------------------|---------------|-----------------|
-| CX | swap 00↔11, swap 01↔10 | swap rows (00↔10, 01↔11) | swap cols (00↔01, 10↔11) |
-| CZ | negate off-diag (01, 10) | negate row 1 (10, 11) | negate col 1 (01, 11) |
-| CY | swap + phase | swap + phase rows | swap + phase cols |
-| CS | rotate off-diag by i | rotate row 1 by i | rotate col 1 by -i |
-| CH | butterfly on block | butterfly on rows | butterfly on cols |
+- **Fast path** (r00 > c11): all 16 elements in lower triangle — direct access
+- **Slow path**: some elements cross the diagonal; access via `conj(data[pack_idx(dim, c, r)])`
+- **Diagonal blocks** (bc == br): Hermitian pairs share storage; one side must be skipped
 
-**CX and CZ are zero-flop in all four blocks** — only memory moves and sign flips.
+OpenMP: `schedule(static, 1)` on the outer `bc` loop (round-robin balances the triangular
+iteration). Threshold: `dim >= 64`.
 
-**Multi-controlled gates (Toffoli):** The same pattern extends to multiple controls. For CCX with
-controls c1, c2:
+**Per-gate operations:**
 
-```c
-dim_t ctrl_mask = (1 << ctrl1) | (1 << ctrl2);
-int row_ctrl = (r0 & ctrl_mask) == ctrl_mask;
-int col_ctrl = (c0 & ctrl_mask) == ctrl_mask;
-```
+| Gate | Type | Operation |
+|------|------|-----------|
+| CX | Zero-flop permutation | 6 swap pairs; perm(x) = x ^ (1<<target) when control bit set |
+| CY | Phased permutation | 6 swap pairs with per-pair phase factors (±i, negation) |
+| CZ | Zero-flop diagonal | Negate elements where exactly one of (row, col) has both bits set |
+| SWAP | Zero-flop permutation | 6 swap pairs; perm(x) = x with bits lo and hi exchanged |
 
-The four-way branch is identical.
+**CX, CZ, and SWAP are zero-flop** — only memory moves and sign flips.
 
 ---
 
@@ -416,8 +409,9 @@ Gates: CX, CY, CZ, CS, CSdg, CH, CHy, CT, CTdg, CP, CPdg, SWAP.
 **Prerequisites:** `TRAVERSE_PURE_2Q` macro, `mat_two_qubit_gate()` reference builder,
 `testTwoQubitGate()` and `testTwoQubitGateMixed()` harnesses.
 
-**Action required:** Replace `cx_mixed()` output-buffer approach with in-place four-block decomposition
-(Section 5.2) before implementing remaining controlled gates.
+**Note:** CX, CY, CZ, and SWAP are implemented in-place using the two-bit insertion approach
+(Section 5.2). Remaining controlled gates (CS, CSdg, CH, CHy, CT, CTdg, CP, CPdg) follow the
+same pattern.
 
 ### Phase 3: Three-Qubit Gate (Toffoli)
 

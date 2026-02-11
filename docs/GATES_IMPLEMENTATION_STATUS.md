@@ -60,9 +60,10 @@ All 13 single-qubit gates implemented across all 3 memory layouts (pure, packed,
 | Rz | pre-existing | pre-existing | new | TESTED |
 | P | **new** | **new** | **new** | TESTED |
 
-**P gate implementation note:** `p_packed()` and `p_tiled()` delegate to `rz_packed()` and
-`rz_tiled()` respectively, since `P(θ)=diag(1, e^(iθ))` and `Rz(θ)=diag(e^(-iθ/2), e^(iθ/2))`
+**P/Rz delegation note:** `rz_packed()` and `rz_tiled()` delegate to `p_packed()` and
+`p_tiled()` respectively, since `P(θ)=diag(1, e^(iθ))` and `Rz(θ)=diag(e^(-iθ/2), e^(iθ/2))`
 produce identical density matrix conjugations (the global phase cancels in ρ'=UρU†).
+`p_packed()` contains the actual implementation; `rz_packed()` is a one-line wrapper.
 `p_pure()` is distinct — it only phases the |1⟩ amplitude.
 
 ---
@@ -74,7 +75,7 @@ produce identical density matrix conjugations (the global phase cancels in ρ'=U
 12 two-qubit gates need implementation across 3 layouts = 36 functions.
 
 **Pre-existing implementations (pure + packed only):**
-- CX (CNOT): `cx_pure` in `src/gate_pure.c:189`, `cx_packed` in `src/gate_packed.c:464`
+- CX (CNOT): `cx_pure` in `src/gate_pure.c`, `cx_packed` in `src/gate_packed_2q.c`
 
 **Remaining stubs** (all call `GATE_VALIDATE(0, ...)`):
 
@@ -119,14 +120,13 @@ Matrix builder functions that are **declared but NOT implemented:**
 The original plan (in `/Users/timo/.claude/plans/silly-squishing-harbor.md`) recommended:
 
 1. **CX tiled** first (establishes tiled 2Q traversal pattern)
-2. **CX packed refactor** (optional: replace output-buffer with in-place four-block)
-3. **TRAVERSE_PURE_2Q macro** (optional: refactor cx_pure to use it, then all 2Q pure gates reuse)
-4. Then gate-by-gate: CY, CZ, CS, CSdg, CH, CHy, CT, CTdg, CP, CPdg, SWAP
+2. **TRAVERSE_PURE_2Q macro** (optional: refactor cx_pure to use it, then all 2Q pure gates reuse)
+3. Then gate-by-gate: CY, CZ, CS, CSdg, CH, CHy, CT, CTdg, CP, CPdg, SWAP
 
 For each gate (except SWAP): the pattern is a **controlled-U** gate where:
 - Pure: iterate over (control,target) pairs; when control=1, apply single-qubit U_OP
-- Packed: four-block decomposition — H_00 unchanged, H_11 gets full UρU†, H_10 left-multiply by U, H_01 right-multiply by U†
-- Tiled: same four-block logic but with tile coordinate arithmetic
+- Packed: two-bit insertion with `insertBits2_0()`, processing swap/transform pairs per 4×4 block
+- Tiled: same two-bit insertion logic but with tile coordinate arithmetic
 
 **SWAP is different** — it's a permutation gate, not a controlled gate. It swaps basis states
 |...01...> <-> |...10...> where the two qubit positions differ.
@@ -209,13 +209,16 @@ DISPATCH_TILED_1Q(state, target, OFFDIAG_OP, CROSS_OP)
 For rotation gates (Rx, Ry, Rz), the angle parameter prevents using macros; the traversal
 logic is inlined directly in the function body.
 
-### Key Macros in `src/gate_packed.c`
+### Key Macros in `src/gate_packed_1q.c`
 
 ```
 TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)
   - BLOCK_OP(data, idx00, idx01, idx10, idx11, lower_01, diag_block)
   - data is the packed array, idx* are packed indices
 ```
+
+Two-qubit packed gates (`src/gate_packed_2q.c`) do not use a traversal macro; each gate
+inlines the `insertBits2_0()` loop with gate-specific pair handling.
 
 ### Key Macros in `src/gate_pure.c`
 
@@ -239,11 +242,11 @@ No 2Q traversal macro exists yet. `cx_pure` uses `insertBits2_0()` manually.
 both control and target bits = 0. Then for each base, swaps amplitudes where control=1.
 Simple loop: `n_base = dim/4` iterations.
 
-**`cx_packed` (gate_packed.c:464):** Uses an **output buffer** approach — allocates a
-`packed_len`-sized buffer, computes permuted indices for each (r,c) pair, reads from
-source with conjugation if needed, copies back. This is NOT the in-place four-block
-approach planned in the spec. The plan suggested refactoring this to in-place, but it's
-optional — the output-buffer approach works and passes tests.
+**`cx_packed` (gate_packed_2q.c):** In-place permutation using `insertBits2_0()` to
+enumerate quarter-dim blocks. Each block produces 4 row × 4 column indices; 6 swap
+pairs are processed per block. Fast path (r00 > c11) handles all pairs in lower triangle;
+slow path handles upper-triangle crossings with conjugation. CY, CZ, and SWAP follow the
+same structural pattern.
 
 ---
 
@@ -254,7 +257,8 @@ optional — the output-buffer approach works and passes tests.
 | `include/gate.h` | 119 | GATE_VALIDATE, all 26 gate declarations |
 | `src/gate.c` | 243 | Dispatchers with validation, extern declarations |
 | `src/gate_pure.c` | 395 | 14 pure implementations + 12 stubs |
-| `src/gate_packed.c` | 815 | 14 packed implementations + 12 stubs |
+| `src/gate_packed_1q.c` | ~710 | 13 single-qubit packed implementations |
+| `src/gate_packed_2q.c` | ~530 | 4 two-qubit packed implementations (CX, CY, CZ, SWAP) + 8 stubs |
 | `src/gate_tiled.c` | 1012 | 14 tiled implementations + 13 stubs (incl cx) |
 | `test/src/test_gate.c` | ~150 | Test function defs + main() with 41 RUN_TESTs |
 | `test/src/test_gate_pure.c` | ~370 | Pure harnesses + rotation matrix builders |
