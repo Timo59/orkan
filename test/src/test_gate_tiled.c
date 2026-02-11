@@ -31,6 +31,15 @@
 #include <stdlib.h>
 
 /*
+ * Maximum qubits for tiled tests. Set to 6 (dim=64) to exercise cross-tile
+ * code paths, which require dim > TILE_DIM (32 with LOG_TILE_DIM=5).
+ * For 6-qubit mixed states the full density matrix is 64x64 = 4096 elements,
+ * and the reference computation (U rho U^dag) runs in O(dim^3) which is
+ * fast enough for testing.
+ */
+#define MAXQUBITS_TILED 6
+
+/*
  * =====================================================================================================================
  * Tiled storage utilities
  * =====================================================================================================================
@@ -123,7 +132,7 @@ void testSingleQubitGateTiled(const single_qubit_gate gate, const cplx_t *mat) {
     cplx_t *rho_full = NULL, *ref_full = NULL;
     unsigned nmixed = 0;
 
-    for (unsigned nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+    for (unsigned nqubits = 1; nqubits <= MAXQUBITS_TILED; ++nqubits) {
         const unsigned dim = POW2(nqubits, dim_t);
 
         for (unsigned pos = 0; pos < nqubits; ++pos) {
@@ -224,7 +233,7 @@ void testRotationGateTiled(const rotation_gate gate, void (*mat_fn)(double theta
 
         mat_fn(theta, mat2x2);
 
-        for (unsigned nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+        for (unsigned nqubits = 1; nqubits <= MAXQUBITS_TILED; ++nqubits) {
             const unsigned dim = POW2(nqubits, dim_t);
 
             for (unsigned pos = 0; pos < nqubits; ++pos) {
@@ -314,7 +323,7 @@ void testTwoQubitGateTiled(const two_qubit_gate gate, const cplx_t *mat) {
     cplx_t *rho_full = NULL, *ref_full = NULL;
     unsigned nmixed = 0;
 
-    for (unsigned nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+    for (unsigned nqubits = 2; nqubits <= MAXQUBITS_TILED; ++nqubits) {
         const unsigned dim = POW2(nqubits, dim_t);
 
         for (unsigned q1 = 0; q1 < nqubits; ++q1) {
@@ -414,7 +423,7 @@ void testTwoQubitRotationGateTiled(const two_qubit_rotation_gate gate,
 
         mat_fn(theta, mat4x4);
 
-        for (unsigned nqubits = 2; nqubits <= MAXQUBITS; ++nqubits) {
+        for (unsigned nqubits = 2; nqubits <= MAXQUBITS_TILED; ++nqubits) {
             const unsigned dim = POW2(nqubits, dim_t);
 
             for (unsigned q1 = 0; q1 < nqubits; ++q1) {
