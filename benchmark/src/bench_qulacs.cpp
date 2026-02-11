@@ -71,15 +71,25 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
      */
     result.memory_bytes = matrix_size;
 
-    /* Select gate function based on name */
-    void (*gate_fn)(UINT, CTYPE*, ITYPE) = nullptr;
-    if (gate_name[0] == 'X') {
-        gate_fn = dm_X_gate;
-    } else if (gate_name[0] == 'H') {
-        gate_fn = dm_H_gate;
-    } else if (gate_name[0] == 'Z') {
-        gate_fn = dm_Z_gate;
-    } else {
+    /* Dispatch: single-qubit gates */
+    void (*gate_fn_1q)(UINT, CTYPE*, ITYPE) = nullptr;
+    if (std::strcmp(gate_name, "X") == 0) {
+        gate_fn_1q = dm_X_gate;
+    } else if (std::strcmp(gate_name, "H") == 0) {
+        gate_fn_1q = dm_H_gate;
+    } else if (std::strcmp(gate_name, "Z") == 0) {
+        gate_fn_1q = dm_Z_gate;
+    }
+
+    /* Dispatch: two-qubit gates */
+    void (*gate_fn_2q)(UINT, UINT, CTYPE*, ITYPE) = nullptr;
+    if (std::strcmp(gate_name, "CX") == 0) {
+        gate_fn_2q = dm_CNOT_gate;
+    } else if (std::strcmp(gate_name, "SWAP") == 0) {
+        gate_fn_2q = dm_SWAP_gate;
+    }
+
+    if (!gate_fn_1q && !gate_fn_2q) {
         /* Unknown gate */
         std::free(rho);
         write(write_fd, &result, sizeof(result));
@@ -87,23 +97,43 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
         _exit(1);
     }
 
-    /* Warm-up: apply gate to qubit 0 */
-    for (int i = 0; i < warmup; ++i) {
-        gate_fn(0, rho, dim);
-    }
-
-    /* Timed iterations: apply gate to each qubit */
-    auto start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < qubits; ++t) {
-            gate_fn(static_cast<UINT>(t), rho, dim);
+    if (gate_fn_1q) {
+        /* Single-qubit gate benchmark */
+        for (int i = 0; i < warmup; ++i) {
+            gate_fn_1q(0, rho, dim);
         }
-    }
-    auto end = std::chrono::high_resolution_clock::now();
 
-    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-    result.time_ms = static_cast<double>(duration.count()) / 1000000.0;
-    result.ops_per_sec = static_cast<double>(iterations * qubits) / (result.time_ms / 1000.0);
+        auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < iterations; ++i) {
+            for (qubit_t t = 0; t < qubits; ++t) {
+                gate_fn_1q(static_cast<UINT>(t), rho, dim);
+            }
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        result.time_ms = static_cast<double>(duration.count()) / 1000000.0;
+        result.ops_per_sec = static_cast<double>(iterations * qubits) / (result.time_ms / 1000.0);
+    } else {
+        /* Two-qubit gate benchmark: adjacent pairs (t, t+1) */
+        qubit_t num_pairs = qubits - 1;
+
+        for (int i = 0; i < warmup; ++i) {
+            gate_fn_2q(0, 1, rho, dim);
+        }
+
+        auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < iterations; ++i) {
+            for (qubit_t t = 0; t < num_pairs; ++t) {
+                gate_fn_2q(static_cast<UINT>(t), static_cast<UINT>(t + 1), rho, dim);
+            }
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        result.time_ms = static_cast<double>(duration.count()) / 1000000.0;
+        result.ops_per_sec = static_cast<double>(iterations * num_pairs) / (result.time_ms / 1000.0);
+    }
 
     std::free(rho);
 

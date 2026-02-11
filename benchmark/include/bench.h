@@ -184,6 +184,27 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
                                  const cplx_t gate_mat[4],
                                  int iterations, int warmup);
 
+/*
+ * =====================================================================================================================
+ * Two-qubit gate benchmarks (implemented in bench_mixed.c)
+ * =====================================================================================================================
+ */
+
+/** @brief Run qlib packed implementation benchmark for two-qubit gate */
+bench_result_t bench_qlib_packed_2q(qubit_t qubits, const char *gate_name,
+                                      void (*gate_fn)(state_t*, qubit_t, qubit_t),
+                                      int iterations, int warmup);
+
+/** @brief Run qlib tiled implementation benchmark for two-qubit gate */
+bench_result_t bench_qlib_tiled_2q(qubit_t qubits, const char *gate_name,
+                                     void (*gate_fn)(state_t*, qubit_t, qubit_t),
+                                     int iterations, int warmup);
+
+/** @brief Run dense BLAS reference benchmark for two-qubit gate */
+bench_result_t bench_blas_dense_2q(qubit_t qubits, const char *gate_name,
+                                     const cplx_t gate_mat[16],
+                                     int iterations, int warmup);
+
 /** @brief Print benchmark result to console */
 void bench_print_result(const bench_result_t *result, int verbose);
 
