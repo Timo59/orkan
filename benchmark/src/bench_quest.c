@@ -63,16 +63,26 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
     size_t mem_after = bench_get_rss();
     result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : 0;
 
-    /* Select gate function based on name */
-    void (*gate_fn)(Qureg, int) = NULL;
-    if (gate_name[0] == 'X') {
-        gate_fn = applyPauliX;
-    } else if (gate_name[0] == 'H') {
-        gate_fn = applyHadamard;
-    } else if (gate_name[0] == 'Z') {
-        gate_fn = applyPauliZ;
-    } else {
-        /* Write empty result and exit */
+    /* Dispatch: single-qubit gates */
+    void (*gate_fn_1q)(Qureg, int) = NULL;
+    if (strcmp(gate_name, "X") == 0) {
+        gate_fn_1q = applyPauliX;
+    } else if (strcmp(gate_name, "H") == 0) {
+        gate_fn_1q = applyHadamard;
+    } else if (strcmp(gate_name, "Z") == 0) {
+        gate_fn_1q = applyPauliZ;
+    }
+
+    /* Dispatch: two-qubit gates */
+    void (*gate_fn_2q)(Qureg, int, int) = NULL;
+    if (strcmp(gate_name, "CX") == 0) {
+        gate_fn_2q = applyControlledPauliX;
+    } else if (strcmp(gate_name, "SWAP") == 0) {
+        gate_fn_2q = applySwap;
+    }
+
+    if (!gate_fn_1q && !gate_fn_2q) {
+        /* Unknown gate - write empty result and exit */
         write(write_fd, &result, sizeof(result));
         close(write_fd);
         destroyQureg(rho);
@@ -80,22 +90,41 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
         _exit(1);
     }
 
-    /* Warm-up */
-    for (int i = 0; i < warmup; ++i) {
-        gate_fn(rho, 0);
-    }
-
-    /* Timed iterations */
-    uint64_t start = bench_time_ns();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < qubits; ++t) {
-            gate_fn(rho, (int)t);
+    if (gate_fn_1q) {
+        /* Single-qubit gate benchmark */
+        for (int i = 0; i < warmup; ++i) {
+            gate_fn_1q(rho, 0);
         }
-    }
-    uint64_t end = bench_time_ns();
 
-    result.time_ms = bench_ns_to_ms(end - start);
-    result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
+        uint64_t start = bench_time_ns();
+        for (int i = 0; i < iterations; ++i) {
+            for (qubit_t t = 0; t < qubits; ++t) {
+                gate_fn_1q(rho, (int)t);
+            }
+        }
+        uint64_t end = bench_time_ns();
+
+        result.time_ms = bench_ns_to_ms(end - start);
+        result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
+    } else {
+        /* Two-qubit gate benchmark: adjacent pairs (t, t+1) */
+        qubit_t num_pairs = qubits - 1;
+
+        for (int i = 0; i < warmup; ++i) {
+            gate_fn_2q(rho, 0, 1);
+        }
+
+        uint64_t start = bench_time_ns();
+        for (int i = 0; i < iterations; ++i) {
+            for (qubit_t t = 0; t < num_pairs; ++t) {
+                gate_fn_2q(rho, (int)t, (int)(t + 1));
+            }
+        }
+        uint64_t end = bench_time_ns();
+
+        result.time_ms = bench_ns_to_ms(end - start);
+        result.ops_per_sec = (double)(iterations * num_pairs) / (result.time_ms / 1000.0);
+    }
 
     /* Write result to parent */
     write(write_fd, &result, sizeof(result));
