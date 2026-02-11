@@ -63,6 +63,7 @@ void test_Ry_packed(void) {testRotationGateMixed(ry, mat_ry);}
 void test_Rz_packed(void) {testRotationGateMixed(rz, mat_rz);}
 void test_P_packed(void) {testRotationGateMixed(p, mat_p);}
 void test_CX_packed(void) {testTwoQubitGateMixed(cx, CXMAT);}
+void test_CZ_packed(void) {testTwoQubitGateMixed(cz, CZMAT);}
 void test_SWAP_packed(void) {testTwoQubitGateMixed(swap_gate, SWAPMAT);}
 
 /*
@@ -127,6 +128,7 @@ int main(void) {
     RUN_TEST(test_Rz_packed);
     RUN_TEST(test_P_packed);
     RUN_TEST(test_CX_packed);
+    RUN_TEST(test_CZ_packed);
     RUN_TEST(test_SWAP_packed);
 
     printf("\n========== MIXED_TILED Gate Tests ==========\n");
