@@ -6,10 +6,15 @@
  * perm(x) = x ^ (1<<target) when bit control is set, else x.
  * ρ'[r,c] = ρ[perm(r), perm(c)].  Involution: each element is fixed or in a 2-cycle.
  *
+ * Per-pair operations (6 swap pairs):
+ *   A (r10,c00 <-> r11,c00): plain swap    E (r10,c10 <-> r11,c11): plain swap
+ *   B (r11,c01 <-> r10,c01): plain swap    F (r11,c10 <-> r10,c11): plain swap
+ *   C,D (r00/r01,c10 <-> c11): plain swap
+ *
  * For each block (br, bc) the 6 swap pairs split into:
  *   - Fast path (r00 > c11): all lower-tri, plain swaps
  *   - Slow path: up to 4 pairs may cross the diagonal, requiring conjugation
- *   - Diagonal blocks (bc == br): skip group B (Hermitian pairs share storage)
+ *   - Diagonal blocks (bc == br): skip pairs C,D (Hermitian pairs share storage)
  */
 
 #include "gate.h"
@@ -45,59 +50,57 @@ void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t ta
             const gate_idx_t r00 = insertBits2_0(br, lo, hi);
             const gate_idx_t r01 = r00 | incr_tgt, r10 = r00 | incr_ctrl, r11 = r10 | incr_tgt;
 
-            /* The first two pairs are always in the lower triangle */
-            /* |c=1,t=0><c=0,t=0| <--> |c=1,t=1><c=0,t=0| */
+            /* Pair A: (r10,c00) <-> (r11,c00) — always lower tri; plain swap */
             cplx_t tmp = data[(r10 - c00) + offset_c00];
             data[(r10 - c00) + offset_c00] = data[(r11 - c00) + offset_c00];
             data[(r11 - c00) + offset_c00] = tmp;
 
-            /* |c=1,t=0><c=1,t=0| <--> |c=1,t=1><c=1,t=1| */
+            /* Pair E: (r10,c10) <-> (r11,c11) — always lower tri; plain swap */
             tmp = data[(r10 - c10) + offset_c10];
             data[(r10 - c10) + offset_c10] = data[(r11 - c11) + offset_c11];
             data[(r11 - c11) + offset_c11] = tmp;
 
-            /* Fast-path: Remaining 4 pairs are in the lower triangle. */
+            /* Fast path: all remaining pairs in lower triangle */
             if (r00 > c11) {
-                /* |c=1,t=1><c=0,t=1| <--> |c=1,t=0><c=0,t=1| */
+                /* Pair B: (r11,c01) <-> (r10,c01); plain swap */
                 tmp = data[(r11 - c01) + offset_c01];
                 data[(r11 - c01) + offset_c01] = data[(r10 - c01) + offset_c01];
                 data[(r10 - c01) + offset_c01] = tmp;
 
-                /* |c=1,t=1><c=1,t=0| <--> |c=1,t=0><c=1,t=1| */
+                /* Pair F: (r11,c10) <-> (r10,c11); plain swap */
                 tmp = data[(r11 - c10) + offset_c10];
                 data[(r11 - c10) + offset_c10] = data[(r10 - c11) + offset_c11];
                 data[(r10 - c11) + offset_c11] = tmp;
 
-                /* |c=0,t=1><c=1,t=0| <--> |c=0,t=1><c=1,t=1| */
+                /* Pair D: (r01,c10) <-> (r01,c11); plain swap */
                 tmp = data[(r01 - c10) + offset_c10];
                 data[(r01 - c10) + offset_c10] = data[(r01 - c11) + offset_c11];
                 data[(r01 - c11) + offset_c11] = tmp;
 
-                /* |c=0,t=0><c=1,t=0| <--> |c=0,t=0><c=1,t=1| */
+                /* Pair C: (r00,c10) <-> (r00,c11); plain swap */
                 tmp = data[(r00 - c10) + offset_c10];
                 data[(r00 - c10) + offset_c10] = data[(r00 - c11) + offset_c11];
                 data[(r00 - c11) + offset_c11] = tmp;
             }
             else {
-                /* r10 > c11 implies r10 > c01 */
                 if (r10 > c11) {
-                    /* |c=1,t=1><c=1,t=0| <--> |c=1,t=0><c=1,t=1| */
+                    /* Pair F: plain swap, both lower tri */
                     tmp = data[(r11 - c10) + offset_c10];
                     data[(r11 - c10) + offset_c10] = data[(r10 - c11) + offset_c11];
                     data[(r10 - c11) + offset_c11] = tmp;
 
-                    /* |c=1,t=1><c=0,t=1| <--> |c=1,t=0><c=0,t=1| */
+                    /* Pair B: plain swap, both lower tri */
                     tmp = data[(r11 - c01) + offset_c01];
                     data[(r11 - c01) + offset_c01] = data[(r10 - c01) + offset_c01];
                     data[(r10 - c01) + offset_c01] = tmp;
                 }
                 else {
-                    /* |c=1,t=1><c=1,t=0| <--> |c=1,t=0><c=1,t=1| */
+                    /* Pair F: (r11,c10) lower, (r10,c11) upper — conj swap */
                     tmp = data[(r11 - c10) + offset_c10];
                     data[(r11 - c10) + offset_c10] = conj(data[pack_idx(dim, c11, r10)]);
                     data[pack_idx(dim, c11, r10)] = conj(tmp);
 
-                    /* |c=1,t=1><c=0,t=1| <--> |c=1,t=0><c=0,t=1| */
+                    /* Pair B: (r11,c01) lower; (r10,c01) may cross diagonal */
                     tmp = data[(r11 - c01) + offset_c01];
                     if (r10 > c01) {
                         data[(r11 - c01) + offset_c01] = data[(r10 - c01) + offset_c01];
@@ -110,29 +113,25 @@ void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t ta
                 }
 
                 if (bc != br) {
-                    /* r00 > c10 implies r01 > c10 */
                     if (r00 > c10) {
-                        /* |c=0,t=0><c=1,t=0| <--> |c=0,t=0><c=1,t=1| */
+                        /* Pair C: (r00,c10) lower, (r00,c11) upper */
                         /* r00 < c11, otherwise fast path would have been taken */
-                        /* (r00, c11) is in the upper triangle => conj(c11, r00) */
                         tmp = data[(r00 - c10) + offset_c10];
                         data[(r00 - c10) + offset_c10] = conj(data[pack_idx(dim, c11, r00)]);
                         data[pack_idx(dim, c11, r00)] = conj(tmp);
 
-                        /* |c=0,t=1><c=1,t=0| <--> |c=0,t=1><c=1,t=1| */
-                        /* r00 > c10 also implies r01 > c11 */
+                        /* Pair D: both lower tri (r00 > c10 implies r01 > c11) */
                         tmp = data[(r01 - c10) + offset_c10];
                         data[(r01 - c10) + offset_c10] = data[(r01 - c11) + offset_c11];
                         data[(r01 - c11) + offset_c11] = tmp;
                     }
                     else {
-                        /* |c=0,t=0><c=1,t=0| <--> |c=0,t=0><c=1,t=1| */
-                        /* r00 < c10 implies both elements are in the upper triangle of a lower triangle block */
+                        /* Pair C: both upper tri */
                         tmp = data[pack_idx(dim, c10, r00)];
                         data[pack_idx(dim, c10, r00)] = data[pack_idx(dim, c11, r00)];
                         data[pack_idx(dim, c11, r00)] = tmp;
 
-                        /* |c=0,t=1><c=1,t=0| <--> |c=0,t=1><c=1,t=1| */
+                        /* Pair D: (r01,c11) always upper; (r01,c10) may cross */
                         /* r00 < c10 implies r01 < c11 */
                         tmp = data[pack_idx(dim, c11, r01)];
                         if (r01 > c10) {
