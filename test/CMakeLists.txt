@@ -27,17 +27,19 @@ if (NOT UNITY_SRC)
 endif ()
 
 # Set source directories
-set(TEST_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(STATE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/state")
+set(GATE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/gate")
+set(UTILITY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/utility")
 
 #=======================================================================================================================
 # test_state
 #=======================================================================================================================
 
 set(TEST_STATE_SRC
-        "${TEST_SRC_DIR}/test_state.c"
-        "${TEST_SRC_DIR}/test_state_pure.c"
-        "${TEST_SRC_DIR}/test_state_packed.c"
-        "${TEST_SRC_DIR}/test_state_tiled.c"
+        "${STATE_DIR}/test_state.c"
+        "${STATE_DIR}/test_state_pure.c"
+        "${STATE_DIR}/test_state_packed.c"
+        "${STATE_DIR}/test_state_tiled.c"
         "${UNITY_SRC}/unity.c"
 )
 
@@ -64,14 +66,14 @@ add_test(NAME test_state COMMAND test_state)
 #=======================================================================================================================
 
 set(TEST_GATE_SRC
-        "${TEST_SRC_DIR}/test_gate.c"
-        "${TEST_SRC_DIR}/test_gate_pure.c"
-        "${TEST_SRC_DIR}/test_gate_packed.c"
-        "${TEST_SRC_DIR}/test_gate_tiled.c"
-        "${TEST_SRC_DIR}/test_pure_states.c"
-        "${TEST_SRC_DIR}/test_mixed_states.c"
-        "${TEST_SRC_DIR}/gatemat.c"
-        "${TEST_SRC_DIR}/linalg.c"
+        "${GATE_DIR}/test_gate.c"
+        "${GATE_DIR}/test_gate_pure.c"
+        "${GATE_DIR}/test_gate_packed.c"
+        "${GATE_DIR}/test_gate_tiled.c"
+        "${UTILITY_DIR}/test_pure_states.c"
+        "${UTILITY_DIR}/test_mixed_states.c"
+        "${UTILITY_DIR}/gatemat.c"
+        "${UTILITY_DIR}/linalg.c"
         "${UNITY_SRC}/unity.c"
 )
 
