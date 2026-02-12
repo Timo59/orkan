@@ -56,7 +56,7 @@ void test_packed_zero_qubit(void);
  */
 
 void test_tiled_len_small(void);
-void test_tiled_len_8_qubits(void);
+void test_tiled_len_multi_tile(void);
 void test_tiled_init_null_data(void);
 void test_tiled_init_ownership(void);
 void test_tiled_free_double_free(void);
@@ -70,7 +70,7 @@ void test_tiled_hermitian_symmetry(void);
 void test_tiled_single_qubit(void);
 void test_tiled_tile_boundaries(void);
 void test_tiled_set_upper(void);
-void test_tiled_6_qubits(void);
+void test_tiled_multi_tile(void);
 
 /*
  * =====================================================================================================================
@@ -202,7 +202,7 @@ int main(void) {
      */
     printf("\n========== MIXED_TILED State Tests ==========\n");
     RUN_TEST(test_tiled_len_small);
-    RUN_TEST(test_tiled_len_8_qubits);
+    RUN_TEST(test_tiled_len_multi_tile);
     RUN_TEST(test_tiled_init_null_data);
     RUN_TEST(test_tiled_init_ownership);
     RUN_TEST(test_tiled_free_double_free);
@@ -216,7 +216,7 @@ int main(void) {
     RUN_TEST(test_tiled_single_qubit);
     RUN_TEST(test_tiled_tile_boundaries);
     RUN_TEST(test_tiled_set_upper);
-    RUN_TEST(test_tiled_6_qubits);
+    RUN_TEST(test_tiled_multi_tile);
 
     /*
      * Dispatch layer tests (2 tests)

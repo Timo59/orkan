@@ -28,7 +28,13 @@ option(ENABLE_ASAN "Enable AddressSanitizer for memory debugging" OFF)
 option(ENABLE_OPENMP "Enable OpenMP parallelization" ON)
 
 # Tile dimension configuration (2^LOG_TILE_DIM x 2^LOG_TILE_DIM tiles)
-set(LOG_TILE_DIM 5 CACHE STRING "Log2 of tile dimension (default: 5 = 32x32)")
+# Debug uses small tiles (8x8) so multi-tile code paths are exercised with few qubits.
+# Release uses production tiles (32x32) for cache-optimal performance.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(LOG_TILE_DIM 3 CACHE STRING "Log2 of tile dimension (default: 3 for Debug, 5 for Release)")
+else()
+    set(LOG_TILE_DIM 5 CACHE STRING "Log2 of tile dimension (default: 3 for Debug, 5 for Release)")
+endif()
 
 if(LOG_TILE_DIM LESS 3 OR LOG_TILE_DIM GREATER 8)
     message(FATAL_ERROR "LOG_TILE_DIM must be between 3 and 8")
