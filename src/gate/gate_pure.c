@@ -307,12 +307,63 @@ void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
 }
 
 
+/*
+ * CY (Controlled-Y) gate: Applies Y to target qubit when control qubit is |1>
+ *
+ * When control=1: a' = -i*b, b' = i*a  (where a=target|0>, b=target|1>)
+ * This is a "zero-flop" gate requiring only swaps and sign/component shuffles.
+ */
 void cy_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "cy: pure not yet implemented");
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    cplx_t *data = state->data;
+
+    qubit_t lo = (control < target) ? control : target;
+    qubit_t hi = (control < target) ? target : control;
+
+    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
+    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+    const gate_idx_t n_base = dim >> 2;
+
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t k = 0; k < n_base; ++k) {
+        const gate_idx_t base = insertBits2_0(k, lo, hi);
+
+        const gate_idx_t idx_c1_t0 = base | incr_ctrl;
+        const gate_idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt;
+
+        // Y gate: a' = -i*b, b' = i*a
+        double a_re = creal(data[idx_c1_t0]), a_im = cimag(data[idx_c1_t0]);
+        double b_re = creal(data[idx_c1_t1]), b_im = cimag(data[idx_c1_t1]);
+        data[idx_c1_t0] = CMPLX(b_im, -b_re);   // -i*b
+        data[idx_c1_t1] = CMPLX(-a_im, a_re);    //  i*a
+    }
 }
 
+/*
+ * CZ (Controlled-Z) gate: Applies Z to target qubit when control qubit is |1>
+ *
+ * When control=1: only the |1> component of the target is negated.
+ * This is a "zero-flop" gate requiring only a sign flip.
+ */
 void cz_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "cz: pure not yet implemented");
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    cplx_t *data = state->data;
+
+    qubit_t lo = (control < target) ? control : target;
+    qubit_t hi = (control < target) ? target : control;
+
+    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
+    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+    const gate_idx_t n_base = dim >> 2;
+
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t k = 0; k < n_base; ++k) {
+        const gate_idx_t base = insertBits2_0(k, lo, hi);
+
+        // Negate amplitude where both control=1 and target=1
+        const gate_idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt;
+        data[idx_c1_t1] = -data[idx_c1_t1];
+    }
 }
 
 /*
@@ -344,6 +395,40 @@ void swap_pure(state_t *state, const qubit_t q1, const qubit_t q2) {
     }
 }
 
+/*
+ * CCX (Toffoli) gate: Flips target qubit when both control qubits are |1>
+ *
+ * For each basis state index with ctrl1=1 and ctrl2=1, we swap amplitudes
+ * where target=0 and target=1. This is a zero-flop gate requiring only
+ * conditional memory swaps.
+ */
 void ccx_pure(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
-    GATE_VALIDATE(0, "ccx: pure not yet implemented");
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    cplx_t *data = state->data;
+
+    // Sort qubit positions into lo < med < hi for bit insertion
+    qubit_t q[3] = {ctrl1, ctrl2, target};
+    if (q[0] > q[1]) { qubit_t t = q[0]; q[0] = q[1]; q[1] = t; }
+    if (q[1] > q[2]) { qubit_t t = q[1]; q[1] = q[2]; q[2] = t; }
+    if (q[0] > q[1]) { qubit_t t = q[0]; q[0] = q[1]; q[1] = t; }
+    const qubit_t lo = q[0], med = q[1], hi = q[2];
+
+    const gate_idx_t incr_ctrl1 = (gate_idx_t)1 << ctrl1;
+    const gate_idx_t incr_ctrl2 = (gate_idx_t)1 << ctrl2;
+    const gate_idx_t incr_tgt   = (gate_idx_t)1 << target;
+    const gate_idx_t n_base = dim >> 3;  // dim / 8: iterate over indices with all three bits = 0
+
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    for (gate_idx_t k = 0; k < n_base; ++k) {
+        // Insert 0 bits at positions lo, med, hi to get base index
+        const gate_idx_t base = insertBit0(insertBit0(insertBit0(k, lo), med), hi);
+
+        // Only swap when both controls are 1
+        const gate_idx_t idx_c11_t0 = base | incr_ctrl1 | incr_ctrl2;
+        const gate_idx_t idx_c11_t1 = base | incr_ctrl1 | incr_ctrl2 | incr_tgt;
+
+        cplx_t tmp = data[idx_c11_t0];
+        data[idx_c11_t0] = data[idx_c11_t1];
+        data[idx_c11_t1] = tmp;
+    }
 }
