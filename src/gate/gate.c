@@ -26,14 +26,6 @@ extern void p_pure(state_t *state, qubit_t target, double theta);
 extern void cx_pure(state_t *state, qubit_t control, qubit_t target);
 extern void cy_pure(state_t *state, qubit_t control, qubit_t target);
 extern void cz_pure(state_t *state, qubit_t control, qubit_t target);
-extern void cs_pure(state_t *state, qubit_t control, qubit_t target);
-extern void csdg_pure(state_t *state, qubit_t control, qubit_t target);
-extern void ch_pure(state_t *state, qubit_t control, qubit_t target);
-extern void chy_pure(state_t *state, qubit_t control, qubit_t target);
-extern void ct_pure(state_t *state, qubit_t control, qubit_t target);
-extern void ctdg_pure(state_t *state, qubit_t control, qubit_t target);
-extern void cp_pure(state_t *state, qubit_t control, qubit_t target, double theta);
-extern void cpdg_pure(state_t *state, qubit_t control, qubit_t target, double theta);
 extern void swap_pure(state_t *state, qubit_t q1, qubit_t q2);
 
 extern void ccx_pure(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t target);
@@ -223,15 +215,6 @@ void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(
 void cx(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cx, state, control, target); }
 void cy(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(cy, state, control, target); }
 void cz(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(cz, state, control, target); }
-void cs(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(cs, state, control, target); }
-void csdg(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(csdg, state, control, target); }
-void ch(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(ch, state, control, target); }
-void chy(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(chy, state, control, target); }
-void ct(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(ct, state, control, target); }
-void ctdg(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(ctdg, state, control, target); }
-void cp(state_t *state, const qubit_t control, const qubit_t target, const double theta) { DISPATCH_2Q_ROT_NO_TILED(cp, state, control, target, theta); }
-void cpdg(state_t *state, const qubit_t control, const qubit_t target, const double theta) { DISPATCH_2Q_ROT_NO_TILED(cpdg, state, control, target, theta); }
-
 void swap_gate(state_t *state, const qubit_t q1, const qubit_t q2) {
     GATE_VALIDATE(state && state->data, "swap: null state or data pointer");
     GATE_VALIDATE(q1 < state->qubits, "swap: q1 qubit out of range");

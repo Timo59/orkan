@@ -153,14 +153,6 @@ void p(state_t* state, qubit_t target, double theta);
 void cx(state_t* state, qubit_t control, qubit_t target);
 void cy(state_t* state, qubit_t control, qubit_t target);
 void cz(state_t* state, qubit_t control, qubit_t target);
-void cs(state_t* state, qubit_t control, qubit_t target);
-void csdg(state_t* state, qubit_t control, qubit_t target);
-void ch(state_t* state, qubit_t control, qubit_t target);
-void chy(state_t* state, qubit_t control, qubit_t target);
-void ct(state_t* state, qubit_t control, qubit_t target);
-void ctdg(state_t* state, qubit_t control, qubit_t target);
-void cp(state_t* state, qubit_t control, qubit_t target, double theta);
-void cpdg(state_t* state, qubit_t control, qubit_t target, double theta);
 void swap_gate(state_t* state, qubit_t q1, qubit_t q2);
 
 /*

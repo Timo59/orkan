@@ -42,9 +42,6 @@ typedef void (*rotation_gate)(state_t *state, qubit_t target, double theta);
 // Function representing a two-qubit gate (e.g., CNOT)
 typedef void (*two_qubit_gate)(state_t *state, qubit_t q1, qubit_t q2);
 
-// Function representing a parameterized two-qubit gate (e.g., CP)
-typedef void (*two_qubit_rotation_gate)(state_t *state, qubit_t q1, qubit_t q2, double theta);
-
 // Function representing a three-qubit gate (e.g., Toffoli)
 typedef void (*three_qubit_gate)(state_t *state, qubit_t q1, qubit_t q2, qubit_t q3);
 
@@ -201,7 +198,6 @@ static const cplx_t CCXMAT[64] = {
 void testSingleQubitGate(single_qubit_gate gate, const cplx_t *mat);
 void testRotationGate(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 void testTwoQubitGate(two_qubit_gate gate, const cplx_t *mat);
-void testTwoQubitRotationGate(two_qubit_rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 void testThreeQubitGate(three_qubit_gate gate, const cplx_t *mat);
 
 /*
@@ -213,7 +209,6 @@ void testThreeQubitGate(three_qubit_gate gate, const cplx_t *mat);
 void testSingleQubitGateMixed(single_qubit_gate gate, const cplx_t *mat);
 void testRotationGateMixed(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 void testTwoQubitGateMixed(two_qubit_gate gate, const cplx_t *mat);
-void testTwoQubitRotationGateMixed(two_qubit_rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 void testThreeQubitGateMixed(three_qubit_gate gate, const cplx_t *mat);
 
 /*
@@ -225,7 +220,6 @@ void testThreeQubitGateMixed(three_qubit_gate gate, const cplx_t *mat);
 void testSingleQubitGateTiled(single_qubit_gate gate, const cplx_t *mat);
 void testRotationGateTiled(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 void testTwoQubitGateTiled(two_qubit_gate gate, const cplx_t *mat);
-void testTwoQubitRotationGateTiled(two_qubit_rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 void testThreeQubitGateTiled(three_qubit_gate gate, const cplx_t *mat);
 
 /*
@@ -238,8 +232,6 @@ void mat_rx(double theta, cplx_t *mat);
 void mat_ry(double theta, cplx_t *mat);
 void mat_rz(double theta, cplx_t *mat);
 void mat_p(double theta, cplx_t *mat);
-void mat_cp(double theta, cplx_t *mat);
-void mat_cpdg(double theta, cplx_t *mat);
 
 /*
  * =====================================================================================================================

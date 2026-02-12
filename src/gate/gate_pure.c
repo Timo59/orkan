@@ -315,38 +315,6 @@ void cz_pure(state_t *state, const qubit_t control, const qubit_t target) {
     GATE_VALIDATE(0, "cz: pure not yet implemented");
 }
 
-void cs_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "cs: pure not yet implemented");
-}
-
-void csdg_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "csdg: pure not yet implemented");
-}
-
-void ch_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "ch: pure not yet implemented");
-}
-
-void chy_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "chy: pure not yet implemented");
-}
-
-void ct_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "ct: pure not yet implemented");
-}
-
-void ctdg_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    GATE_VALIDATE(0, "ctdg: pure not yet implemented");
-}
-
-void cp_pure(state_t *state, const qubit_t control, const qubit_t target, const double theta) {
-    GATE_VALIDATE(0, "cp: pure not yet implemented");
-}
-
-void cpdg_pure(state_t *state, const qubit_t control, const qubit_t target, const double theta) {
-    GATE_VALIDATE(0, "cpdg: pure not yet implemented");
-}
-
 /*
  * SWAP gate: Exchanges two qubits by swapping amplitudes where q1 and q2 differ.
  *
