@@ -27,15 +27,6 @@
 #define OMP_THRESHOLD 64
 
 
-/**
- * @brief Compute packed array index for element (r, c) where r >= c
- */
-static inline gate_idx_t pack_idx(gate_idx_t dim, gate_idx_t r, gate_idx_t c) {
-    return c * (2 * dim - c + 1) / 2 + (r - c);
-}
-
 void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-
-    cplx_t * restrict data = state->data;
+    GATE_VALIDATE(0, "ccx: packed not yet implemented");
 }

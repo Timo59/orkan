@@ -3,7 +3,7 @@
 **File**: `src/gate_tiled.c`, lines 846-1561  
 **Reviewer**: Claude Opus 4.6  
 **Date**: 2026-02-11  
-**Reference**: `cx_packed()` in `src/gate_packed_2q.c`, lines 38-176  
+**Reference**: `cx_packed()` in `src/gate_packed_cx.c`  
 
 ---
 

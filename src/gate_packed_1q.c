@@ -41,14 +41,7 @@
  * =====================================================================================================================
  */
 
-/* insertBit0() is defined in gate.h as a static inline shared across all gate backends. */
-
-/**
- * @brief Compute packed array index for element (r, c) where r >= c
- */
-static inline gate_idx_t pack_idx(gate_idx_t dim, gate_idx_t r, gate_idx_t c) {
-    return c * (2 * dim - c + 1) / 2 + (r - c);
-}
+/* insertBit0() and pack_idx() are defined in gate.h as static inlines shared across all gate backends. */
 
 
 /*

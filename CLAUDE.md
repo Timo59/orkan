@@ -12,7 +12,7 @@ This codebase implements the algorithms described in the thesis chapter. When im
 |-----------|------------------|-----------------|
 | `src/state.c` | sec4.tex (Eq 6-10, Alg 5) | Packed column major format, offset/stride formulas |
 | `src/gate_pure.c` | sec3.tex (Alg 4) | Pure state gate algorithm, invariant subspace decomposition |
-| `src/gate_packed.c` | sec2.tex (Alg 1-3), sec5.tex (Alg 6-8) | Bit-insertion, hermitian conjugation, Pauli-X optimization |
+| `src/gate_packed_*.c` | sec2.tex (Alg 1-3), sec5.tex (Alg 6-8) | Bit-insertion, hermitian conjugation, Pauli-X optimization |
 | `src/gate.c` | sec1.tex (Prop 1-3) | k-local complexity bounds, dispatch strategy |
 | `include/state.h` | sec4.tex | Memory layout specification |
 
@@ -44,7 +44,9 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 | `src/state.c` | State allocation, initialization, copy |
 | `src/gate.c` | Gate dispatchers with input validation |
 | `src/gate_pure.c` | Pure state gate implementations |
-| `src/gate_packed.c` | Mixed state packed gate implementations |
+| `src/gate_packed_1q.c` | Mixed state packed 1-qubit gate implementations |
+| `src/gate_packed_<name>.c` | Mixed state packed 2-qubit gates (one file per gate) |
+| `src/gate_packed_3q.c` | Mixed state packed 3-qubit gate stubs |
 | `src/gate_tiled.c` | Mixed state tiled gate implementations |
 | `test/src/test_gate_pure.c` | Pure state test harness |
 | `test/src/test_gate_packed.c` | Mixed state test harness |

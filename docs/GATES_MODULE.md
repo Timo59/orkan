@@ -2,7 +2,7 @@
 
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
-**Implementation:** `src/gate_pure.c` (pure), `src/gate_packed_1q.c` + `src/gate_packed_2q.c` (mixed packed), `src/gate_tiled.c` (mixed tiled), `src/gate.c` (dispatchers)
+**Implementation:** `src/gate_pure.c` (pure), `src/gate_packed_1q.c` + `src/gate_packed_<name>.c` (mixed packed, one file per two-qubit gate), `src/gate_packed_3q.c` (three-qubit), `src/gate_tiled.c` (mixed tiled), `src/gate.c` (dispatchers)
 **Dependencies:** `state.h`, `q_types.h`, `<complex.h>`, `<math.h>`, OpenMP (optional)
 
 ---

@@ -75,7 +75,7 @@ produce identical density matrix conjugations (the global phase cancels in ρ'=U
 12 two-qubit gates need implementation across 3 layouts = 36 functions.
 
 **Pre-existing implementations (pure + packed only):**
-- CX (CNOT): `cx_pure` in `src/gate_pure.c`, `cx_packed` in `src/gate_packed_2q.c`
+- CX (CNOT): `cx_pure` in `src/gate_pure.c`, `cx_packed` in `src/gate_packed_cx.c`
 
 **Remaining stubs** (all call `GATE_VALIDATE(0, ...)`):
 
@@ -217,8 +217,8 @@ TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)
   - data is the packed array, idx* are packed indices
 ```
 
-Two-qubit packed gates (`src/gate_packed_2q.c`) do not use a traversal macro; each gate
-inlines the `insertBits2_0()` loop with gate-specific pair handling.
+Two-qubit packed gates (`src/gate_packed_<name>.c`, one file per gate) do not use a
+traversal macro; each gate inlines the `insertBits2_0()` loop with gate-specific pair handling.
 
 ### Key Macros in `src/gate_pure.c`
 
@@ -242,7 +242,7 @@ No 2Q traversal macro exists yet. `cx_pure` uses `insertBits2_0()` manually.
 both control and target bits = 0. Then for each base, swaps amplitudes where control=1.
 Simple loop: `n_base = dim/4` iterations.
 
-**`cx_packed` (gate_packed_2q.c):** In-place permutation using `insertBits2_0()` to
+**`cx_packed` (gate_packed_cx.c):** In-place permutation using `insertBits2_0()` to
 enumerate quarter-dim blocks. Each block produces 4 row × 4 column indices; 6 swap
 pairs are processed per block. Fast path (r00 > c11) handles all pairs in lower triangle;
 slow path handles upper-triangle crossings with conjugation. CY, CZ, and SWAP follow the
@@ -258,7 +258,8 @@ same structural pattern.
 | `src/gate.c` | 243 | Dispatchers with validation, extern declarations |
 | `src/gate_pure.c` | 395 | 14 pure implementations + 12 stubs |
 | `src/gate_packed_1q.c` | ~710 | 13 single-qubit packed implementations |
-| `src/gate_packed_2q.c` | ~530 | 4 two-qubit packed implementations (CX, CY, CZ, SWAP) + 8 stubs |
+| `src/gate_packed_<name>.c` | varies | One file per two-qubit packed gate (CX, CY, CZ, SWAP + stubs) |
+| `src/gate_packed_3q.c` | ~20 | Three-qubit packed gate stubs (CCX) |
 | `src/gate_tiled.c` | 1012 | 14 tiled implementations + 13 stubs (incl cx) |
 | `test/src/test_gate.c` | ~150 | Test function defs + main() with 41 RUN_TESTs |
 | `test/src/test_gate_pure.c` | ~370 | Pure harnesses + rotation matrix builders |
