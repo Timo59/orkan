@@ -2,25 +2,25 @@
 
 # Collect state module source files
 set(STATE_SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/state.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/state_pure.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/state_packed.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/state_tiled.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/state/state.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/state/state_pure.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/state/state_packed.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/state/state_tiled.c"
 )
 
 # Collect packed gate sources (one file per gate)
-file(GLOB GATE_PACKED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate_packed_*.c")
+file(GLOB GATE_PACKED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_*.c")
 
 # Collect tiled gate sources (one file per 2Q gate)
-file(GLOB GATE_TILED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate_tiled_*.c")
+file(GLOB GATE_TILED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_*.c")
 
 # Collect all source files
 set(Q_SOURCES
         ${STATE_SOURCES}
-        "${CMAKE_CURRENT_SOURCE_DIR}/gate.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/gate_pure.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate_pure.c"
         ${GATE_PACKED_SOURCES}
-        "${CMAKE_CURRENT_SOURCE_DIR}/gate_tiled.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled.c"
         ${GATE_TILED_SOURCES}
 )
 

@@ -2,7 +2,7 @@
 
 **Module:** Quantum State Representation
 **Header:** `include/state.h`
-**Implementation:** `src/state.c`
+**Implementation:** `src/state/state.c`
 **Dependencies:** `q_types.h`, `utils.h`, BLAS (`cblas_zcopy`)
 
 ---

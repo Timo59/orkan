@@ -32,12 +32,12 @@ All infrastructure refactoring is complete:
 2. **Suffix rename**: `_mixed` -> `_packed` in all internal function names.
 3. **GATE_VALIDATE macro** added to `include/gate.h` with `exit(EXIT_FAILURE)` semantics.
    All gate signatures changed from `qs_error_t` to `void`.
-4. **Three-way dispatch** in `src/gate.c`: `switch(state->type)` dispatches to `*_pure()`,
+4. **Three-way dispatch** in `src/gate/gate.c`: `switch(state->type)` dispatches to `*_pure()`,
    `*_packed()`, `*_tiled()` for all 26 gates. Macros: `DISPATCH_1Q`, `DISPATCH_ROT`,
    `DISPATCH_2Q`, `DISPATCH_2Q_ROT`, `DISPATCH_2Q_NO_TILED`, `DISPATCH_2Q_ROT_NO_TILED`.
 5. **Tolerance tightened** to `1e-12` in `test/include/test.h`.
 6. **Tiled test harnesses** created in `test/src/test_gate_tiled.c` with all needed helpers.
-7. **Tiled gate files created**: `src/gate_tiled.c` (1Q + rotation), `src/gate_tiled_cx.c`, `src/gate_tiled_swap.c`. Shared inline helpers in `src/gate_tiled.h`.
+7. **Tiled gate files created**: `src/gate/tiled/gate_tiled.c` (1Q + rotation), `src/gate/tiled/gate_tiled_cx.c`, `src/gate/tiled/gate_tiled_swap.c`. Shared inline helpers in `src/gate/tiled/gate_tiled.h`.
 8. **CMakeLists.txt updated** for all renames and new files.
 
 ### Phase 1: Single-Qubit Gates (DONE)
@@ -75,8 +75,8 @@ produce identical density matrix conjugations (the global phase cancels in ρ'=U
 12 two-qubit gates need implementation across 3 layouts = 36 functions.
 
 **Implemented two-qubit gates:**
-- CX (CNOT): `cx_pure` in `src/gate_pure.c`, `cx_packed` in `src/gate_packed_cx.c`, `cx_tiled` in `src/gate_tiled_cx.c`
-- SWAP: `swap_packed` in `src/gate_packed_swap.c`, `swap_tiled` in `src/gate_tiled_swap.c`
+- CX (CNOT): `cx_pure` in `src/gate/gate_pure.c`, `cx_packed` in `src/gate/packed/gate_packed_cx.c`, `cx_tiled` in `src/gate/tiled/gate_tiled_cx.c`
+- SWAP: `swap_packed` in `src/gate/packed/gate_packed_swap.c`, `swap_tiled` in `src/gate/tiled/gate_tiled_swap.c`
 
 **Remaining stubs** (pure/packed call `GATE_VALIDATE(0, ...)`; tiled dispatchers reject with "not implemented for tiled"):
 
@@ -193,7 +193,7 @@ The tiled storage is the most complex layout. Key facts discovered during Phase 
    For mixing gates (H, Hy, Rx, Ry), the diag_block case must enforce Hermitian
    symmetry: set a01 = conj(a10) after computing a10.
 
-### Key Macros in `src/gate_tiled.c`
+### Key Macros in `src/gate/tiled/gate_tiled.c`
 
 ```
 TRAVERSE_TILED_WITHIN(state, target, OFFDIAG_OP, DIAG_OP)
@@ -210,7 +210,7 @@ DISPATCH_TILED_1Q(state, target, OFFDIAG_OP, CROSS_OP)
 For rotation gates (Rx, Ry, Rz), the angle parameter prevents using macros; the traversal
 logic is inlined directly in the function body.
 
-### Key Macros in `src/gate_packed_1q.c`
+### Key Macros in `src/gate/packed/gate_packed_1q.c`
 
 ```
 TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)
@@ -218,10 +218,10 @@ TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)
   - data is the packed array, idx* are packed indices
 ```
 
-Two-qubit packed gates (`src/gate_packed_<name>.c`, one file per gate) do not use a
+Two-qubit packed gates (`src/gate/packed/gate_packed_<name>.c`, one file per gate) do not use a
 traversal macro; each gate inlines the `insertBits2_0()` loop with gate-specific pair handling.
 
-### Key Macros in `src/gate_pure.c`
+### Key Macros in `src/gate/gate_pure.c`
 
 ```
 TRAVERSE_PURE_1Q(state, target, PAIR_OP)
@@ -233,7 +233,7 @@ No 2Q traversal macro exists yet. `cx_pure` uses `insertBits2_0()` manually.
 ### Public API Naming
 
 - All gates: `void name(state_t*, ...)` in `include/gate.h`
-- Internal: `name_pure()`, `name_packed()`, `name_tiled()` — declared `extern` in `src/gate.c`
+- Internal: `name_pure()`, `name_packed()`, `name_tiled()` — declared `extern` in `src/gate/gate.c`
 - Exception: SWAP is `swap_gate()` in the public API (avoids C keyword clash), but
   internal functions are `swap_pure()`, `swap_packed()`, `swap_tiled()`
 
@@ -256,15 +256,14 @@ same structural pattern.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `include/gate.h` | 119 | GATE_VALIDATE, all 26 gate declarations |
-| `src/gate.c` | 268 | Dispatchers with validation, extern declarations |
-| `src/gate_pure.c` | 395 | 14 pure implementations + 12 stubs |
-| `src/gate_packed_1q.c` | ~710 | 13 single-qubit packed implementations |
-| `src/gate_packed_<name>.c` | varies | One file per two-qubit packed gate (CX, CY, CZ, SWAP + stubs) |
-| `src/gate_packed_3q.c` | ~20 | Three-qubit packed gate stubs (CCX) |
-| `src/gate_tiled.c` | 791 | 13 tiled 1Q + rotation implementations |
-| `src/gate_tiled_cx.c` | 721 | cx_tiled implementation |
-| `src/gate_tiled_swap.c` | 503 | swap_tiled implementation |
-| `src/gate_tiled.h` | 70 | Shared inline helpers (tile_off, elem_off, dtile_read/write) |
+| `src/gate/gate.c` | 268 | Dispatchers with validation, extern declarations |
+| `src/gate/gate_pure.c` | 395 | 14 pure implementations + 12 stubs |
+| `src/gate/packed/gate_packed_1q.c` | ~710 | 13 single-qubit packed implementations |
+| `src/gate/packed/gate_packed_<name>.c` | varies | One file per two-qubit packed gate (CX, CY, CZ, SWAP + stubs) |
+| `src/gate/tiled/gate_tiled.c` | 791 | 13 tiled 1Q + rotation implementations |
+| `src/gate/tiled/gate_tiled_cx.c` | 721 | cx_tiled implementation |
+| `src/gate/tiled/gate_tiled_swap.c` | 503 | swap_tiled implementation |
+| `src/gate/tiled/gate_tiled.h` | 70 | Shared inline helpers (tile_off, elem_off, dtile_read/write) |
 | `test/src/test_gate.c` | ~150 | Test function defs + main() with 41 RUN_TESTs |
 | `test/src/test_gate_pure.c` | ~370 | Pure harnesses + rotation matrix builders |
 | `test/src/test_gate_packed.c` | ~180 | Packed harnesses |

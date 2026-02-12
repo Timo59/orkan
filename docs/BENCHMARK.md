@@ -3,8 +3,8 @@
 This document summarizes performance analysis of mixed-state gate operations, including memory layout considerations, profiling results, and optimization recommendations.
 
 The two mixed-state implementations are:
-- **Packed** (`gate_packed.c`): LAPACK packed lower-triangular column-major storage
-- **Tiled** (`gate_tiled.c`, `gate_tiled_cx.c`, `gate_tiled_swap.c`): Cache-friendly tiled lower-triangular storage
+- **Packed** (`gate/packed/`): LAPACK packed lower-triangular column-major storage
+- **Tiled** (`gate/tiled/`): Cache-friendly tiled lower-triangular storage
 
 ## Executive Summary
 
@@ -62,7 +62,7 @@ Tile grid (N=64, TILE_DIM=32):
 
 ### Gate Traversal Structure (Packed)
 
-Single-qubit gates in `gate_packed.c` use the `TRAVERSE_MIXED_1Q` macro with three operation types:
+Single-qubit gates in `gate/packed/gate_packed_1q.c` use the `TRAVERSE_PACKED_BLOCKS` macro with three operation types:
 
 1. **DIAG_OP**: Process (0,0)↔(1,1) quadrant pairs (contiguous, uses `cblas_zswap`)
 2. **CONJ_OP**: Process (1,0)↔(0,1) pairs where (0,1) is in upper triangle (variable stride, scalar loop)

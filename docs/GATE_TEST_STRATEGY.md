@@ -445,7 +445,7 @@ Grand total: ~960 tests
 
 **State Module Extensions:**
 ```c
-// File: include/state_tiled.h, src/state_tiled.c
+// File: include/state.h, src/state/state_tiled.c
 void state_tiled_init(state_tiled_t *state, qubit_t qubits, cplx_t **data);
 void state_tiled_free(state_tiled_t *state);
 dim_t state_tiled_len(qubit_t qubits);
