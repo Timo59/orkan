@@ -48,9 +48,6 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 | `src/gate/packed/gate_packed_<name>.c` | Mixed state packed 2-qubit gates (one file per gate) |
 | `src/gate/tiled/gate_tiled.c` | Mixed state tiled 1Q + rotation gate implementations |
 | `src/gate/tiled/gate_tiled_<name>.c` | Mixed state tiled 2Q gates (one file per gate) |
-| `test/src/test_gate_pure.c` | Pure state test harness |
-| `test/src/test_gate_packed.c` | Mixed state test harness |
-| `test/src/gatemat.c` | Reference implementations (Kronecker products) |
 
 ## Current Status
 
@@ -64,4 +61,5 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 - `PRD.md` - Architecture, data structures, API design
 - `docs/GATES_MODULE.md` - Gate implementation details and test strategy
 - `docs/STATE_MODULE.md` - State module specification
+- `docs/TEST_SUITE.md` - Test directory structure and how to run tests (read only when working on tests)
 - `~/Projects/thesis/2.Simulation/NOTES.md` - Full theoretical background

@@ -101,11 +101,8 @@ Test harnesses that **already exist and work:**
 - `testTwoQubitGate()` — pure (in `test/src/test_gate_pure.c:186`)
 - `testTwoQubitGateMixed()` — packed (in `test/src/test_gate_packed.c:105`)
 - `testTwoQubitGateTiled()` — tiled (in `test/src/test_gate_tiled.c:310`)
-- `testTwoQubitRotationGateTiled()` — tiled parameterized 2Q (in `test/src/test_gate_tiled.c:403`)
 
 Test harnesses that are **declared but NOT implemented:**
-- `testTwoQubitRotationGate()` — pure parameterized 2Q (needed for CP, CPdg)
-- `testTwoQubitRotationGateMixed()` — packed parameterized 2Q (needed for CP, CPdg)
 - `testThreeQubitGate()` — pure (needed for Phase 3)
 - `testThreeQubitGateMixed()` — packed (needed for Phase 3)
 - `testThreeQubitGateTiled()` — tiled (needed for Phase 3)
@@ -113,8 +110,6 @@ Test harnesses that are **declared but NOT implemented:**
 Matrix builder functions that are **declared but NOT implemented:**
 - `mat_ch_build()` — builds 4x4 CH matrix (contains irrational √2 entries)
 - `mat_chy_build()` — builds 4x4 CHy matrix
-- `mat_cp(double theta, cplx_t *mat)` — builds 4x4 CP(θ) matrix
-- `mat_cpdg(double theta, cplx_t *mat)` — builds 4x4 CPdg(θ) matrix
 
 ### Recommended Implementation Order
 
@@ -147,8 +142,6 @@ RUN_TEST(test_CY_pure);
 RUN_TEST(test_CY_packed);
 RUN_TEST(test_CY_tiled);
 ```
-
-For parameterized gates (CP, CPdg), use `testTwoQubitRotationGate*` harnesses instead.
 
 ---
 
