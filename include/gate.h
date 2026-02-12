@@ -82,6 +82,15 @@ static inline gate_idx_t insertBits2_0(gate_idx_t val, qubit_t lo, qubit_t hi) {
     return (val & mask_hi) | ((val & ~mask_hi) << 1);
 }
 
+/**
+ * @brief Compute packed array index for element (r, c) where r >= c
+ *
+ * LAPACK packed lower-triangle, column-major: index = c*(2*dim - c + 1)/2 + (r - c)
+ */
+static inline gate_idx_t pack_idx(gate_idx_t dim, gate_idx_t r, gate_idx_t c) {
+    return c * (2 * dim - c + 1) / 2 + (r - c);
+}
+
 /*
  * =====================================================================================================================
  * Error handling
