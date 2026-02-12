@@ -27,6 +27,10 @@
 #include "utils.h"
 #endif
 
+#ifndef TEST_MIXED_UTILS_H
+#include "test_mixed_utils.h"
+#endif
+
 #include <math.h>
 #include <stdlib.h>
 
@@ -38,37 +42,6 @@
  * fast enough for testing.
  */
 #define MAXQUBITS_TILED 6
-
-/*
- * =====================================================================================================================
- * Tiled storage utilities
- * =====================================================================================================================
- */
-
-/*
- * @brief   Unpack a packed lower-triangular density matrix to full matrix
- */
-static cplx_t* density_unpack(const unsigned n, const cplx_t *packed) {
-    cplx_t *full = NULL;
-
-    if (!((full = malloc(n * n * sizeof(*full))))) {
-        fprintf(stderr, "density_unpack(): full allocation failed\n");
-        return full;
-    }
-
-    unsigned packed_idx = 0;
-    for (unsigned col = 0; col < n; ++col) {
-        for (unsigned row = col; row < n; ++row) {
-            full[row + col * n] = packed[packed_idx];
-            if (row != col) {
-                full[col + row * n] = conj(packed[packed_idx]);
-            }
-            ++packed_idx;
-        }
-    }
-
-    return full;
-}
 
 /*
  * @brief   Create a MIXED_TILED state from a full density matrix
@@ -112,8 +85,6 @@ static void assert_tiled_equals_full(const state_t *state, const cplx_t *ref_ful
         }
     }
 }
-
-extern cplx_t* mat_two_qubit_gate(unsigned nqubits, const cplx_t *gate, unsigned q1, unsigned q2);
 
 /*
  * =====================================================================================================================
