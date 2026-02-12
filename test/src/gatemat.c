@@ -142,3 +142,52 @@ cplx_t* mat_two_qubit_gate(const unsigned nqubits, const cplx_t *gate, const uns
 
     return out;
 }
+
+cplx_t* mat_three_qubit_gate(const unsigned nqubits, const cplx_t *gate,
+                             const unsigned q1, const unsigned q2, const unsigned q3) {
+    if (nqubits < 3) {
+        fprintf(stderr, "mat_three_qubit_gate(): nqubits must be >= 3; Was %u\n", nqubits);
+        return NULL;
+    }
+    if (q1 >= nqubits || q2 >= nqubits || q3 >= nqubits) {
+        fprintf(stderr, "mat_three_qubit_gate(): qubit out of scope\n");
+        return NULL;
+    }
+    if (q1 == q2 || q1 == q3 || q2 == q3) {
+        fprintf(stderr, "mat_three_qubit_gate(): q1, q2, q3 must all differ; Were %u, %u, %u\n", q1, q2, q3);
+        return NULL;
+    }
+
+    const unsigned dim = 1u << nqubits;
+    cplx_t *out = calloc(dim * dim, sizeof(*out));
+    if (!out) {
+        fprintf(stderr, "mat_three_qubit_gate(): out allocation failed\n");
+        return NULL;
+    }
+
+    for (unsigned j = 0; j < dim; ++j) {
+        unsigned j_q1 = (j >> q1) & 1;
+        unsigned j_q2 = (j >> q2) & 1;
+        unsigned j_q3 = (j >> q3) & 1;
+        unsigned j_gate_idx = 4 * j_q1 + 2 * j_q2 + j_q3;
+
+        for (unsigned out_q1 = 0; out_q1 < 2; ++out_q1) {
+            for (unsigned out_q2 = 0; out_q2 < 2; ++out_q2) {
+                for (unsigned out_q3 = 0; out_q3 < 2; ++out_q3) {
+                    unsigned i_gate_idx = 4 * out_q1 + 2 * out_q2 + out_q3;
+                    cplx_t gate_elem = gate[i_gate_idx + j_gate_idx * 8];
+
+                    if (gate_elem == 0.0) continue;
+
+                    unsigned i = j;
+                    i &= ~((1u << q1) | (1u << q2) | (1u << q3));
+                    i |= (out_q1 << q1) | (out_q2 << q2) | (out_q3 << q3);
+
+                    out[i + j * dim] += gate_elem;
+                }
+            }
+        }
+    }
+
+    return out;
+}

@@ -66,6 +66,7 @@ void test_CX_packed(void) {testTwoQubitGateMixed(cx, CXMAT);}
 void test_CY_packed(void) {testTwoQubitGateMixed(cy, CYMAT);}
 void test_CZ_packed(void) {testTwoQubitGateMixed(cz, CZMAT);}
 void test_SWAP_packed(void) {testTwoQubitGateMixed(swap_gate, SWAPMAT);}
+void test_CCX_packed(void) {testThreeQubitGateMixed(ccx, CCXMAT);}
 
 /*
  * =====================================================================================================================
@@ -133,6 +134,7 @@ int main(void) {
     RUN_TEST(test_CY_packed);
     RUN_TEST(test_CZ_packed);
     RUN_TEST(test_SWAP_packed);
+    RUN_TEST(test_CCX_packed);
 
     printf("\n========== MIXED_TILED Gate Tests ==========\n");
     RUN_TEST(test_X_tiled);
