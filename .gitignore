@@ -38,6 +38,6 @@
 
 # Under construction
 **/circ
-**/gate
+/gate/
 **/internal
 **/meas
