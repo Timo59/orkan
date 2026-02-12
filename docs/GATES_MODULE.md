@@ -2,7 +2,7 @@
 
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
-**Implementation:** `src/gate/gate_pure.c` (pure), `src/gate/packed/gate_packed_1q.c` + `src/gate/packed/gate_packed_<name>.c` (mixed packed, one file per two-qubit gate), `src/gate/tiled/gate_tiled.c` (mixed tiled 1Q + rotation), `src/gate/tiled/gate_tiled_<name>.c` (mixed tiled, one file per two-qubit gate), `src/gate/gate.c` (dispatchers)
+**Implementation:** `src/gate/gate_pure.c` (pure), `src/gate/packed/gate_packed_1q.c` + `src/gate/packed/gate_packed_<name>.c` (mixed packed, one file per multi-qubit gate), `src/gate/tiled/gate_tiled.c` (mixed tiled 1Q + rotation), `src/gate/tiled/gate_tiled_<name>.c` (mixed tiled, one file per multi-qubit gate), `src/gate/gate.c` (dispatchers)
 **Dependencies:** `state.h`, `q_types.h`, `<complex.h>`, `<math.h>`, OpenMP (optional)
 
 ---
@@ -26,41 +26,35 @@ stride indexing rather than constructing full gate matrices via Kronecker produc
 
 ### 2.1 Single-Qubit Gates
 
-| Gate | Function | Matrix | Category | Pure | Packed | Tiled |
-|------|----------|--------|----------|------|--------|-------|
-| Pauli-X | `x(state, target)` | `[[0,1],[1,0]]` | Pauli | TODO | TODO | TODO |
-| Pauli-Y | `y(state, target)` | `[[0,-i],[i,0]]` | Pauli | TODO | TODO | TODO |
-| Pauli-Z | `z(state, target)` | `[[1,0],[0,-1]]` | Pauli | TODO | TODO | TODO |
-| Hadamard | `h(state, target)` | `[[1,1],[1,-1]]/√2` | Clifford | TODO | TODO | TODO |
-| Phase S | `s(state, target)` | `[[1,0],[0,i]]` | Clifford | TODO | TODO | TODO |
-| S-dagger | `sdg(state, target)` | `[[1,0],[0,-i]]` | Clifford | TODO | TODO | TODO |
-| T | `t(state, target)` | `[[1,0],[0,e^(iπ/4)]]` | Non-Clifford | TODO | TODO | TODO |
-| T-dagger | `tdg(state, target)` | `[[1,0],[0,e^(-iπ/4)]]` | Non-Clifford | TODO | TODO | TODO |
-| Hadamard-Y | `hy(state, target)` | `[[1,-1],[1,1]]/√2` | Clifford | TODO | TODO | TODO |
-| P(θ) | `p(state, target, θ)` | `[[1,0],[0,e^(iθ)]]` | Rotation | TODO | TODO | TODO |
-| Rx(θ) | `rx(state, target, θ)` | `[[c,-is],[-is,c]]` | Rotation | TODO | TODO | TODO |
-| Ry(θ) | `ry(state, target, θ)` | `[[c,-s],[s,c]]` | Rotation | TODO | TODO | TODO |
-| Rz(θ) | `rz(state, target, θ)` | `[[e^(-iθ/2),0],[0,e^(iθ/2)]]` | Rotation | TODO | TODO | TODO |
+| Gate | Function | Matrix | Category | Pure | Packed | Tiled* |
+|------|----------|--------|----------|------|--------|--------|
+| Pauli-X | `x(state, target)` | `[[0,1],[1,0]]` | Pauli | ✓ | ✓ | ✓ |
+| Pauli-Y | `y(state, target)` | `[[0,-i],[i,0]]` | Pauli | ✓ | ✓ | ✓ |
+| Pauli-Z | `z(state, target)` | `[[1,0],[0,-1]]` | Pauli | ✓ | ✓ | ✓ |
+| Hadamard | `h(state, target)` | `[[1,1],[1,-1]]/√2` | Clifford | ✓ | ✓ | ✓ |
+| Phase S | `s(state, target)` | `[[1,0],[0,i]]` | Clifford | ✓ | ✓ | ✓ |
+| S-dagger | `sdg(state, target)` | `[[1,0],[0,-i]]` | Clifford | ✓ | ✓ | ✓ |
+| T | `t(state, target)` | `[[1,0],[0,e^(iπ/4)]]` | Non-Clifford | ✓ | ✓ | ✓ |
+| T-dagger | `tdg(state, target)` | `[[1,0],[0,e^(-iπ/4)]]` | Non-Clifford | ✓ | ✓ | ✓ |
+| Hadamard-Y | `hy(state, target)` | `[[1,-1],[1,1]]/√2` | Clifford | ✓ | ✓ | ✓ |
+| P(θ) | `p(state, target, θ)` | `[[1,0],[0,e^(iθ)]]` | Rotation | ✓ | ✓ | ✓ |
+| Rx(θ) | `rx(state, target, θ)` | `[[c,-is],[-is,c]]` | Rotation | ✓ | ✓ | ✓ |
+| Ry(θ) | `ry(state, target, θ)` | `[[c,-s],[s,c]]` | Rotation | ✓ | ✓ | ✓ |
+| Rz(θ) | `rz(state, target, θ)` | `[[e^(-iθ/2),0],[0,e^(iθ/2)]]` | Rotation | ✓ | ✓ | ✓ |
+
+*Tiled implementations exist but dispatch is temporarily disabled (under construction).
 
 ### 2.2 Two-Qubit Gates
 
 Two-qubit gates take `(state, control, target)` for controlled gates or `(state, q1, q2)` for symmetric
 gates.
 
-| Gate | Function | Category | Pure | Packed | Tiled |
-|------|----------|----------|------|--------|-------|
-| CNOT | `cx(state, ctrl, tgt)` | Controlled-Pauli | TODO | TODO | TODO |
-| CY | `cy(state, ctrl, tgt)` | Controlled-Pauli | TODO | TODO | TODO |
-| CZ | `cz(state, ctrl, tgt)` | Controlled-Pauli | TODO | TODO | TODO |
-| CS | `cs(state, ctrl, tgt)` | Controlled-Phase | TODO | TODO | TODO |
-| CSdg | `csdg(state, ctrl, tgt)` | Controlled-Phase | TODO | TODO | TODO |
-| CH | `ch(state, ctrl, tgt)` | Controlled-Clifford | TODO | TODO | TODO |
-| CHy | `chy(state, ctrl, tgt)` | Controlled-Clifford | TODO | TODO | TODO |
-| CT | `ct(state, ctrl, tgt)` | Controlled-Non-Clifford | TODO | TODO | TODO |
-| CTdg | `ctdg(state, ctrl, tgt)` | Controlled-Non-Clifford | TODO | TODO | TODO |
-| CP(θ) | `cp(state, ctrl, tgt, θ)` | Controlled-Rotation | TODO | TODO | TODO |
-| CPdg(θ) | `cpdg(state, ctrl, tgt, θ)` | Controlled-Rotation | TODO | TODO | TODO |
-| SWAP | `swap(state, q1, q2)` | Permutation | TODO | TODO | TODO |
+| Gate | Function | Category | Pure | Packed | Tiled* |
+|------|----------|----------|------|--------|--------|
+| CNOT | `cx(state, ctrl, tgt)` | Controlled-Pauli | ✓ | ✓ | ✓ |
+| CY | `cy(state, ctrl, tgt)` | Controlled-Pauli | ✓ | ✓ | — |
+| CZ | `cz(state, ctrl, tgt)` | Controlled-Pauli | ✓ | ✓ | — |
+| SWAP | `swap(state, q1, q2)` | Permutation | ✓ | ✓ | ✓ |
 
 **CZ symmetry:** CZ(a,b) = CZ(b,a).
 
@@ -71,9 +65,9 @@ future revision.
 
 ### 2.3 Three-Qubit Gates
 
-| Gate | Function | Description | Pure | Packed | Tiled |
-|------|----------|-------------|------|--------|-------|
-| Toffoli | `ccx(state, ctrl1, ctrl2, tgt)` | Doubly-controlled X | TODO | TODO | TODO |
+| Gate | Function | Description | Pure | Packed | Tiled* |
+|------|----------|-------------|------|--------|--------|
+| Toffoli | `ccx(state, ctrl1, ctrl2, tgt)` | Doubly-controlled X | ✓ | ✓ | — |
 
 ---
 
@@ -91,7 +85,7 @@ void x(state_t *state, const qubit_t target) {
     switch (state->type) {
         case PURE:         x_pure(state, target);   break;
         case MIXED_PACKED: x_packed(state, target);  break;
-        case MIXED_TILED:  x_tiled(state, target);   break;
+        case MIXED_TILED:  /* temporarily disabled (under construction) */
     }
 }
 ```
@@ -140,69 +134,58 @@ For qubit q in an n-qubit state, pairs (ψ[idx], ψ[idx + 2^q]) are processed in
 
 OpenMP threshold: `dim >= 4096` (n ≥ 12 qubits).
 
-### 4.2 Two-Qubit Gates: TRAVERSE_PURE_2Q
+### 4.2 Two-Qubit Gates: Flat Loop with Two-Bit Insertion
 
 For a controlled-U gate with control c and target t, enumerate all base indices where both c and t bits
-are 0 using a three-level nested loop. Define `lo = min(c, t)`, `hi = max(c, t)`:
+are 0 using `insertBits2_0()`. Define `lo = min(c, t)`, `hi = max(c, t)`:
 
 ```c
-#define TRAVERSE_PURE_2Q(state, control, target, PAIR_OP)
-    lo = min(control, target);
-    hi = max(control, target);
-    stride_lo = 1 << lo;
-    stride_hi = 1 << hi;
-    step_lo   = 1 << (lo + 1);
-    step_hi   = 1 << (hi + 1);
-    incr_ctrl = 1 << control;
-    incr_tgt  = 1 << target;
+lo = min(control, target);
+hi = max(control, target);
+incr_ctrl = 1 << control;
+incr_tgt  = 1 << target;
+n_base = dim >> 2;  // dim / 4
 
-    for (i = 0; i < dim; i += step_hi) {           // upper bits (above hi)
-        for (j = 0; j < stride_hi; j += step_lo) { // middle bits (between lo and hi)
-            for (k = 0; k < stride_lo; ++k) {       // lower bits (below lo)
-                base = i + j + k;
-                a = data + base + incr_ctrl;             // control=1, target=0
-                b = data + base + incr_ctrl + incr_tgt;  // control=1, target=1
-                PAIR_OP(a, b);
-            }
-        }
-    }
+#pragma omp parallel for if(dim >= OMP_THRESHOLD)
+for (k = 0; k < n_base; ++k) {
+    base = insertBits2_0(k, lo, hi);
+    a = data + base + incr_ctrl;             // control=1, target=0
+    b = data + base + incr_ctrl + incr_tgt;  // control=1, target=1
+    PAIR_OP(a, b);
+}
 ```
 
-OpenMP: `collapse(2)` on the outer two loops.
+No traversal macro exists for two-qubit gates; each gate inlines the loop with gate-specific operations.
 
-**SWAP:** Not a controlled-U gate. Uses the same three-level stride loop but applies to a different pair:
+**SWAP:** Not a controlled-U gate. Uses the same flat loop but swaps a different pair:
 
 ```c
-for (i, j, k as above) {
-    base = i + j + k;
-    idx_01 = base | incr_hi;    // lo-bit=0, hi-bit=1
-    idx_10 = base | incr_lo;    // lo-bit=1, hi-bit=0
+for (k = 0; k < n_base; ++k) {
+    base = insertBits2_0(k, lo, hi);
+    idx_01 = base | incr_lo;    // lo-bit=1, hi-bit=0
+    idx_10 = base | incr_hi;    // lo-bit=0, hi-bit=1
     swap(data[idx_01], data[idx_10]);
 }
 ```
 
-### 4.3 Three-Qubit Gates: Four-Level Stride
+### 4.3 Three-Qubit Gates: Flat Loop with Three-Bit Insertion
 
-For Toffoli (CCX) with controls c1, c2 and target t, the stride approach extends to four nested loops.
-Sort the three qubit positions: `lo < mid < hi`.
+For Toffoli (CCX) with controls c1, c2 and target t, sort the three qubit positions: `lo < mid < hi`,
+then enumerate base indices using chained `insertBit0()`:
 
 ```c
-for (i = 0; i < dim; i += step_hi) {
-    for (j = 0; j < stride_hi; j += step_mid) {
-        for (k = 0; k < stride_mid; k += step_lo) {
-            for (l = 0; l < stride_lo; ++l) {       // stride-1 inner loop
-                base = i + j + k + l;
-                idx_c1c2_t0 = base | incr_c1 | incr_c2;
-                idx_c1c2_t1 = base | incr_c1 | incr_c2 | incr_tgt;
-                swap(data[idx_c1c2_t0], data[idx_c1c2_t1]);
-            }
-        }
-    }
+n_base = dim >> 3;  // dim / 8
+
+#pragma omp parallel for if(dim >= OMP_THRESHOLD)
+for (k = 0; k < n_base; ++k) {
+    base = insertBit0(insertBit0(insertBit0(k, lo), mid), hi);
+    idx_c11_t0 = base | incr_c1 | incr_c2;
+    idx_c11_t1 = base | incr_c1 | incr_c2 | incr_tgt;
+    swap(data[idx_c11_t0], data[idx_c11_t1]);
 }
 ```
 
-OpenMP: `collapse(3)` on the outer three loops. Higher-order multi-controlled gates belong to a separate
-decomposition module.
+Higher-order multi-controlled gates belong to a separate decomposition module.
 
 ### 4.4 Per-Gate Optimizations (Pure State)
 
@@ -218,7 +201,7 @@ decomposition module.
 | H | butterfly | 2 adds per pair, 2 muls (by 1/√2) |
 | Rx | 2×2 unitary mixing | cos/sin precomputed |
 | Ry | 2×2 real rotation | Real coefficients only |
-| Rz | diagonal phases | a unchanged, b phase-rotated |
+| Rz | diagonal phases | a' = e^(-iθ/2)a, b' = e^(iθ/2)b |
 
 ---
 
@@ -287,6 +270,13 @@ iteration). Threshold: `dim >= 64`.
 | SWAP | Zero-flop permutation | 6 swap pairs; perm(x) = x with bits lo and hi exchanged |
 
 **CX, CZ, and SWAP are zero-flop** — only memory moves and sign flips.
+
+### 5.3 Three-Qubit Gates: Three-Bit Insertion with 8×8 Block Pairs
+
+CCX (Toffoli) uses the same structural pattern as two-qubit packed gates but with three-bit insertion
+via chained `insertBit0()` (same as the pure state algorithm in Section 4.3). The outer loop iterates
+over `dim >> 3` base indices; each block produces 8 row × 8 column indices. OpenMP:
+`schedule(static, 1)` on the outer loop. Threshold: `dim >= 64`.
 
 ---
 
@@ -379,15 +369,17 @@ mixtures (10-20 per system size, deterministic seed).
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `testSingleQubitGate()` | `test/src/test_gate_pure.c` | Pure state harness |
-| `testSingleQubitGateMixed()` | `test/src/test_gate_packed.c` | Mixed packed harness |
-| `testRotationGate()` | `test/src/test_gate_pure.c` | Rotation pure harness |
-| `testRotationGateMixed()` | `test/src/test_gate_packed.c` | Rotation mixed harness |
-| `testTwoQubitGate()` | `test/src/test_gate_pure.c` | Two-qubit pure harness |
-| `testTwoQubitGateMixed()` | `test/src/test_gate_packed.c` | Two-qubit mixed harness |
-| `mat_single_qubit_gate()` | `test/src/gatemat.c` | Single-qubit reference matrix |
-| `mat_two_qubit_gate()` | `test/src/gatemat.c` | Two-qubit reference matrix |
-| `mat_three_qubit_gate()` | `test/src/gatemat.c` | Three-qubit reference matrix (TODO) |
+| `testSingleQubitGate()` | `test/gate/test_gate_pure_1q.c` | Pure state 1Q harness |
+| `testSingleQubitGateMixed()` | `test/gate/test_gate_packed_1q.c` | Mixed packed 1Q harness |
+| `testRotationGate()` | `test/gate/test_gate_pure_1q.c` | Rotation pure harness |
+| `testRotationGateMixed()` | `test/gate/test_gate_packed_1q.c` | Rotation mixed harness |
+| `testTwoQubitGate()` | `test/gate/test_gate_pure_2q.c` | Two-qubit pure harness |
+| `testTwoQubitGateMixed()` | `test/gate/test_gate_packed_2q.c` | Two-qubit mixed harness |
+| `testThreeQubitGate()` | `test/gate/test_gate_pure_3q.c` | Three-qubit pure harness |
+| `testThreeQubitGateMixed()` | `test/gate/test_gate_packed_3q.c` | Three-qubit mixed harness |
+| `mat_single_qubit_gate()` | `test/utility/gatemat.c` | Single-qubit reference matrix |
+| `mat_two_qubit_gate()` | `test/utility/gatemat.c` | Two-qubit reference matrix |
+| `mat_three_qubit_gate()` | `test/utility/gatemat.c` | Three-qubit reference matrix |
 
 See `docs/GATE_TEST_STRATEGY.md` for comprehensive test counts and implementation plan.
 
@@ -404,14 +396,12 @@ Gates: X, Y, Z, H, S, Sdg, T, Tdg, Hy, P, Rx, Ry, Rz.
 
 ### Phase 2: Two-Qubit Gates
 
-Gates: CX, CY, CZ, CS, CSdg, CH, CHy, CT, CTdg, CP, CPdg, SWAP.
+Gates: CX, CY, CZ, SWAP.
 
-**Prerequisites:** `TRAVERSE_PURE_2Q` macro, `mat_two_qubit_gate()` reference builder,
+**Prerequisites:** `mat_two_qubit_gate()` reference builder,
 `testTwoQubitGate()` and `testTwoQubitGateMixed()` harnesses.
 
-**Note:** CX, CY, CZ, and SWAP are implemented in-place using the two-bit insertion approach
-(Section 5.2). Remaining controlled gates (CS, CSdg, CH, CHy, CT, CTdg, CP, CPdg) follow the
-same pattern.
+**Note:** All four gates are implemented in-place using the two-bit insertion approach (Section 5.2).
 
 ### Phase 3: Three-Qubit Gate (Toffoli)
 

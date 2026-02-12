@@ -1,7 +1,7 @@
 # Gates Module Implementation Status
 
-**Last updated:** 2026-02-06
-**Last verified build:** 41 tests, 0 failures (all at 1e-12 tolerance)
+**Last updated:** 2026-02-12
+**Last verified build:** 36 gate tests, 0 failures (all at 1e-12 tolerance)
 
 ## How to Build and Test
 
@@ -33,10 +33,10 @@ All infrastructure refactoring is complete:
 3. **GATE_VALIDATE macro** added to `include/gate.h` with `exit(EXIT_FAILURE)` semantics.
    All gate signatures changed from `qs_error_t` to `void`.
 4. **Three-way dispatch** in `src/gate/gate.c`: `switch(state->type)` dispatches to `*_pure()`,
-   `*_packed()`, `*_tiled()` for all 26 gates. Macros: `DISPATCH_1Q`, `DISPATCH_ROT`,
-   `DISPATCH_2Q`, `DISPATCH_2Q_ROT`, `DISPATCH_2Q_NO_TILED`, `DISPATCH_2Q_ROT_NO_TILED`.
+   `*_packed()`, `*_tiled()` for all 18 public gates. Macros: `DISPATCH_1Q`, `DISPATCH_ROT`,
+   `DISPATCH_2Q`, `DISPATCH_2Q_NO_TILED`.
 5. **Tolerance tightened** to `1e-12` in `test/include/test.h`.
-6. **Tiled test harnesses** created in `test/src/test_gate_tiled.c` with all needed helpers.
+6. **Tiled test harnesses** created in `test/gate/test_gate_tiled_1q.c` and `test/gate/test_gate_tiled_2q.c`.
 7. **Tiled gate files created**: `src/gate/tiled/gate_tiled.c` (1Q + rotation), `src/gate/tiled/gate_tiled_cx.c`, `src/gate/tiled/gate_tiled_swap.c`. Shared inline helpers in `src/gate/tiled/gate_tiled.h`.
 8. **CMakeLists.txt updated** for all renames and new files.
 
@@ -68,71 +68,55 @@ produce identical density matrix conjugations (the global phase cancels in ρ'=U
 
 ---
 
-## Current Work: Phase 2 — Two-Qubit Gates (NOT STARTED)
+## Phase 2: Two-Qubit Gates (DONE for pure + packed)
 
-### What Needs to Be Done
-
-12 two-qubit gates need implementation across 3 layouts = 36 functions.
-
-**Implemented two-qubit gates:**
-- CX (CNOT): `cx_pure` in `src/gate/gate_pure.c`, `cx_packed` in `src/gate/packed/gate_packed_cx.c`, `cx_tiled` in `src/gate/tiled/gate_tiled_cx.c`
-- SWAP: `swap_packed` in `src/gate/packed/gate_packed_swap.c`, `swap_tiled` in `src/gate/tiled/gate_tiled_swap.c`
-
-**Remaining stubs** (pure/packed call `GATE_VALIDATE(0, ...)`; tiled dispatchers reject with "not implemented for tiled"):
+4 two-qubit gates implemented across pure and packed layouts. Tiled dispatch temporarily
+disabled (under construction).
 
 | Gate | Pure | Packed | Tiled | Test matrix constant |
 |------|------|--------|-------|---------------------|
-| CX | done | done | done | `CXMAT` (exists) |
-| CY | STUB | STUB | — | `CYMAT` (exists) |
-| CZ | STUB | STUB | — | `CZMAT` (exists) |
-| CS | STUB | STUB | — | `CSMAT` (exists) |
-| CSdg | STUB | STUB | — | `CSDGMAT` (exists) |
-| CH | STUB | STUB | — | declared `mat_ch_build()` **NOT IMPLEMENTED** |
-| CHy | STUB | STUB | — | declared `mat_chy_build()` **NOT IMPLEMENTED** |
-| CT | STUB | STUB | — | `CTMAT` (exists) |
-| CTdg | STUB | STUB | — | `CTDGMAT` (exists) |
-| CP(θ) | STUB | STUB | — | declared `mat_cp()` **NOT IMPLEMENTED** |
-| CPdg(θ) | STUB | STUB | — | declared `mat_cpdg()` **NOT IMPLEMENTED** |
-| SWAP | STUB | STUB | done | `SWAPMAT` (exists) |
+| CX | done | done | done* | `CXMAT` |
+| CY | done | done | — | `CYMAT` |
+| CZ | done | done | — | `CZMAT` |
+| SWAP | done | done | done* | `SWAPMAT` |
+
+*Tiled implementations exist but dispatch is temporarily disabled.
+
+**Implementation locations:**
+- CX: `cx_pure` in `gate_pure.c`, `cx_packed` in `packed/gate_packed_cx.c`, `cx_tiled` in `tiled/gate_tiled_cx.c`
+- CY: `cy_pure` in `gate_pure.c`, `cy_packed` in `packed/gate_packed_cy.c`
+- CZ: `cz_pure` in `gate_pure.c`, `cz_packed` in `packed/gate_packed_cz.c`
+- SWAP: `swap_pure` in `gate_pure.c`, `swap_packed` in `packed/gate_packed_swap.c`, `swap_tiled` in `tiled/gate_tiled_swap.c`
 
 ### Test Harness Status
 
-Test harnesses that **already exist and work:**
-- `testTwoQubitGate()` — pure (in `test/src/test_gate_pure.c:186`)
-- `testTwoQubitGateMixed()` — packed (in `test/src/test_gate_packed.c:105`)
-- `testTwoQubitGateTiled()` — tiled (in `test/src/test_gate_tiled.c:310`)
+Test harnesses that **exist and work:**
+- `testTwoQubitGate()` — pure
+- `testTwoQubitGateMixed()` — packed
+- `testTwoQubitGateTiled()` — tiled
+- `testThreeQubitGate()` — pure
+- `testThreeQubitGateMixed()` — packed
+- `mat_three_qubit_gate()` — reference matrix builder for 3Q gates
 
 Test harnesses that are **declared but NOT implemented:**
-- `testThreeQubitGate()` — pure (needed for Phase 3)
-- `testThreeQubitGateMixed()` — packed (needed for Phase 3)
-- `testThreeQubitGateTiled()` — tiled (needed for Phase 3)
+- `testThreeQubitGateTiled()` — tiled (needed when tiled CCX is implemented)
 
-Matrix builder functions that are **declared but NOT implemented:**
-- `mat_ch_build()` — builds 4x4 CH matrix (contains irrational √2 entries)
-- `mat_chy_build()` — builds 4x4 CHy matrix
+### Implementation Pattern
 
-### Recommended Implementation Order
-
-The original plan (in `/Users/timo/.claude/plans/silly-squishing-harbor.md`) recommended:
-
-1. **CX tiled** first (establishes tiled 2Q traversal pattern)
-2. **TRAVERSE_PURE_2Q macro** (optional: refactor cx_pure to use it, then all 2Q pure gates reuse)
-3. Then gate-by-gate: CY, CZ, CS, CSdg, CH, CHy, CT, CTdg, CP, CPdg, SWAP
-
-For each gate (except SWAP): the pattern is a **controlled-U** gate where:
-- Pure: iterate over (control,target) pairs; when control=1, apply single-qubit U_OP
-- Packed: two-bit insertion with `insertBits2_0()`, processing swap/transform pairs per 4×4 block
-- Tiled: same two-bit insertion logic but with tile coordinate arithmetic
+All two-qubit gates use flat loops with `insertBits2_0()` for index enumeration (no traversal macro):
+- **Pure:** iterate over base indices; when control=1, apply single-qubit operation
+- **Packed:** two-bit insertion with `insertBits2_0()`, processing swap/transform pairs per 4×4 block
+- **Tiled:** same two-bit insertion logic but with tile coordinate arithmetic
 
 **SWAP is different** — it's a permutation gate, not a controlled gate. It swaps basis states
 |...01...> <-> |...10...> where the two qubit positions differ.
 
 ### Adding a New Test
 
-For each new gate, add to `test/src/test_gate.c`:
+For each new gate, add to `test/gate/test_gate.c`:
 
 ```c
-// Function definition (near line 80)
+// Function definition
 void test_CY_pure(void) {testTwoQubitGate(cy, CYMAT);}
 void test_CY_packed(void) {testTwoQubitGateMixed(cy, CYMAT);}
 void test_CY_tiled(void) {testTwoQubitGateTiled(cy, CYMAT);}
@@ -145,13 +129,21 @@ RUN_TEST(test_CY_tiled);
 
 ---
 
-## Phase 3: Three-Qubit Gate — Toffoli (NOT STARTED)
+## Phase 3: Three-Qubit Gate — Toffoli (DONE for pure + packed)
 
-Single gate (CCX) across 3 layouts. Requires:
-1. `mat_three_qubit_gate()` in `test/src/gatemat.c` (builds 8x8 Kronecker product)
-2. `CCXMAT` 8x8 constant in test header
-3. `testThreeQubitGate()`, `testThreeQubitGateMixed()`, `testThreeQubitGateTiled()` harness implementations
-4. CCX implementations in all 3 layout files
+| Component | Status |
+|-----------|--------|
+| `mat_three_qubit_gate()` reference builder | done |
+| `CCXMAT` 8x8 test constant | done |
+| `testThreeQubitGate()` (pure) | done |
+| `testThreeQubitGateMixed()` (packed) | done |
+| `testThreeQubitGateTiled()` (tiled) | declared, not implemented |
+| `ccx_pure` | done |
+| `ccx_packed` | done |
+| `ccx_tiled` | not implemented |
+
+**Implementation locations:**
+- CCX: `ccx_pure` in `gate_pure.c`, `ccx_packed` in `packed/gate_packed_ccx.c`
 
 ---
 
@@ -211,8 +203,8 @@ TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)
   - data is the packed array, idx* are packed indices
 ```
 
-Two-qubit packed gates (`src/gate/packed/gate_packed_<name>.c`, one file per gate) do not use a
-traversal macro; each gate inlines the `insertBits2_0()` loop with gate-specific pair handling.
+Multi-qubit packed gates (`src/gate/packed/gate_packed_<name>.c`, one file per gate) do not use a
+traversal macro; each gate inlines its own loop with gate-specific pair handling.
 
 ### Key Macros in `src/gate/gate_pure.c`
 
@@ -221,7 +213,7 @@ TRAVERSE_PURE_1Q(state, target, PAIR_OP)
   - PAIR_OP(a, b) — pointers to amplitudes with target bit 0 and 1
 ```
 
-No 2Q traversal macro exists yet. `cx_pure` uses `insertBits2_0()` manually.
+No multi-qubit traversal macro exists. All two-qubit and three-qubit pure gates inline their flat loops.
 
 ### Public API Naming
 
@@ -230,9 +222,9 @@ No 2Q traversal macro exists yet. `cx_pure` uses `insertBits2_0()` manually.
 - Exception: SWAP is `swap_gate()` in the public API (avoids C keyword clash), but
   internal functions are `swap_pure()`, `swap_packed()`, `swap_tiled()`
 
-### Existing CX Implementations (reference for 2Q pattern)
+### CX Implementation (reference for 2Q pattern)
 
-**`cx_pure` (gate_pure.c:189):** Uses `insertBits2_0()` to enumerate base indices with
+**`cx_pure` (gate_pure.c:282):** Uses `insertBits2_0()` to enumerate base indices with
 both control and target bits = 0. Then for each base, swaps amplitudes where control=1.
 Simple loop: `n_base = dim/4` iterations.
 
@@ -248,21 +240,27 @@ same structural pattern.
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `include/gate.h` | 119 | GATE_VALIDATE, all 26 gate declarations |
-| `src/gate/gate.c` | 268 | Dispatchers with validation, extern declarations |
-| `src/gate/gate_pure.c` | 395 | 14 pure implementations + 12 stubs |
-| `src/gate/packed/gate_packed_1q.c` | ~710 | 13 single-qubit packed implementations |
-| `src/gate/packed/gate_packed_<name>.c` | varies | One file per two-qubit packed gate (CX, CY, CZ, SWAP + stubs) |
-| `src/gate/tiled/gate_tiled.c` | 791 | 13 tiled 1Q + rotation implementations |
+| `include/gate.h` | 170 | GATE_VALIDATE, 18 gate declarations |
+| `src/gate/gate.c` | ~210 | Dispatchers with validation, extern declarations |
+| `src/gate/gate_pure.c` | ~435 | 18 pure implementations (13 1Q + 4 2Q + 1 3Q) |
+| `src/gate/packed/gate_packed_1q.c` | ~700 | 13 single-qubit packed implementations |
+| `src/gate/packed/gate_packed_<name>.c` | varies | One file per multi-qubit packed gate (CX, CY, CZ, SWAP, CCX) |
+| `src/gate/tiled/gate_tiled.c` | ~845 | 13 tiled 1Q + rotation implementations |
 | `src/gate/tiled/gate_tiled_cx.c` | 721 | cx_tiled implementation |
 | `src/gate/tiled/gate_tiled_swap.c` | 503 | swap_tiled implementation |
 | `src/gate/tiled/gate_tiled.h` | 70 | Shared inline helpers (tile_off, elem_off, dtile_read/write) |
-| `test/src/test_gate.c` | ~150 | Test function defs + main() with 41 RUN_TESTs |
-| `test/src/test_gate_pure.c` | ~370 | Pure harnesses + rotation matrix builders |
-| `test/src/test_gate_packed.c` | ~180 | Packed harnesses |
-| `test/src/test_gate_tiled.c` | ~485 | Tiled harnesses (1Q, 2Q, 2Q-rotation all done) |
-| `test/include/test_gate.h` | 241 | Typedefs, matrices, harness declarations |
-| `test/CMakeLists.txt` | 117 | Build config for test_state and test_gate |
+| `test/gate/test_gate.c` | ~165 | Test function defs + main() with 36 RUN_TESTs |
+| `test/gate/test_gate_pure_1q.c` | ~270 | Pure 1Q harnesses + rotation matrix builders |
+| `test/gate/test_gate_pure_2q.c` | ~120 | Pure 2Q harness |
+| `test/gate/test_gate_pure_3q.c` | ~125 | Pure 3Q harness |
+| `test/gate/test_gate_packed_1q.c` | ~275 | Packed 1Q harnesses |
+| `test/gate/test_gate_packed_2q.c` | ~150 | Packed 2Q harness |
+| `test/gate/test_gate_packed_3q.c` | ~155 | Packed 3Q harness |
+| `test/gate/test_gate_tiled_1q.c` | ~225 | Tiled 1Q harnesses |
+| `test/gate/test_gate_tiled_2q.c` | ~130 | Tiled 2Q harness |
+| `test/include/test_gate.h` | ~220 | Typedefs, matrices, harness declarations |
+| `test/utility/gatemat.c` | ~195 | Reference matrix builders (1Q, 2Q, 3Q) |
+| `test/CMakeLists.txt` | ~105 | Build config for test_state and test_gate |
 
 ---
 
