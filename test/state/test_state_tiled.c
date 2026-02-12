@@ -10,45 +10,34 @@
 
 /*
  * =====================================================================================================================
- * Test: state_tiled_len() - small systems (1-4 qubits, fit in single tile)
+ * Test: state_tiled_len() - sub-tile and exact-tile systems (1 to LOG_TILE_DIM qubits)
  * =====================================================================================================================
  */
 
 void test_tiled_len_small(void) {
-    // For small systems that fit in a single tile (TILE_DIM=32 by default)
-    // 1 qubit: dim=2, n_tiles=1, len = 1*TILE_SIZE
-    // 2 qubits: dim=4, n_tiles=1, len = 1*TILE_SIZE
-    // 3 qubits: dim=8, n_tiles=1, len = 1*TILE_SIZE
-    // 4 qubits: dim=16, n_tiles=1, len = 1*TILE_SIZE
-
-    // With TILE_DIM=32, TILE_SIZE=1024
-    // Single tile systems store full TILE_SIZE elements
-    dim_t tile_size = TILE_SIZE;
-
-    TEST_ASSERT_EQUAL_INT64(tile_size, state_tiled_len(1));
-    TEST_ASSERT_EQUAL_INT64(tile_size, state_tiled_len(2));
-    TEST_ASSERT_EQUAL_INT64(tile_size, state_tiled_len(3));
-    TEST_ASSERT_EQUAL_INT64(tile_size, state_tiled_len(4));
+    // Sub-tile (dim < TILE_DIM) and exact-tile (dim == TILE_DIM) cases
+    for (qubit_t n = 1; n <= LOG_TILE_DIM; n++) {
+        dim_t dim = POW2(n, dim_t);
+        dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+        dim_t expected = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE;
+        TEST_ASSERT_EQUAL_INT64(expected, state_tiled_len(n));
+    }
 }
 
 /*
  * =====================================================================================================================
- * Test: state_tiled_len() - 8 qubits (crosses tile boundaries)
+ * Test: state_tiled_len() - multi-tile system (LOG_TILE_DIM+1 qubits)
  * =====================================================================================================================
  */
 
-void test_tiled_len_8_qubits(void) {
-    // 8 qubits: dim = 256
-    // With TILE_DIM=32: n_tiles = ceil(256/32) = 8
-    // Lower triangle: 8*(8+1)/2 = 36 tiles
-    // Total elements: 36 * TILE_SIZE
+void test_tiled_len_multi_tile(void) {
+    // LOG_TILE_DIM+1 qubits: dim = 2*TILE_DIM, n_tiles = 2, 3 lower-triangular tiles
+    const qubit_t n = LOG_TILE_DIM + 1;
+    dim_t dim = POW2(n, dim_t);
+    dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+    dim_t expected_len = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE;
 
-    dim_t dim = 256;
-    dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;  // ceil(256/32) = 8
-    dim_t expected_tiles = n_tiles * (n_tiles + 1) / 2;  // 8*9/2 = 36
-    dim_t expected_len = expected_tiles * TILE_SIZE;
-
-    TEST_ASSERT_EQUAL_INT64(expected_len, state_tiled_len(8));
+    TEST_ASSERT_EQUAL_INT64(expected_len, state_tiled_len(n));
 }
 
 /*
@@ -58,7 +47,7 @@ void test_tiled_len_8_qubits(void) {
  */
 
 void test_tiled_init_null_data(void) {
-    for (qubit_t n = 1; n <= 4; n++) {
+    for (qubit_t n = 1; n <= LOG_TILE_DIM + 1; n++) {
         state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
         state_init(&state, n, NULL);
@@ -146,10 +135,9 @@ void test_tiled_free_double_free(void) {
  */
 
 void test_tiled_plus_values(void) {
-    // Test for 1-4 qubits
     // The plus state |+>^n has density matrix rho = |+><+|^⊗n where ALL elements equal 1/dim
-    // This matches the behavior of state_packed_plus()
-    for (qubit_t n = 1; n <= 4; n++) {
+    // Covers sub-tile, exact-tile, and multi-tile cases
+    for (qubit_t n = 1; n <= LOG_TILE_DIM + 1; n++) {
         state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
         state_tiled_plus(&state, n);
@@ -214,39 +202,38 @@ void test_tiled_get_within_tile(void) {
 
 /*
  * =====================================================================================================================
- * Test: state_tiled_get() - across tile boundaries (8 qubits)
+ * Test: state_tiled_get() - across tile boundaries (LOG_TILE_DIM+1 qubits)
  * =====================================================================================================================
  */
 
 void test_tiled_get_cross_tile(void) {
+    const qubit_t n = LOG_TILE_DIM + 1;
+    const dim_t T = TILE_DIM;
     state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
-    state_init(&state, 8, NULL);  // 256x256 matrix, crosses multiple 32x32 tiles
+    state_init(&state, n, NULL);  // dim = 2*T, 3 lower-triangular tiles
 
-    // Set some elements in different tiles
-    // Diagonal tiles
-    state_tiled_set(&state, 0, 0, 1.0 + 0.0*I);      // Tile (0,0), element (0,0)
-    state_tiled_set(&state, 31, 31, 2.0 + 0.0*I);    // Tile (0,0), element (31,31)
-    state_tiled_set(&state, 32, 32, 3.0 + 0.0*I);    // Tile (1,1), element (0,0)
-    state_tiled_set(&state, 63, 63, 4.0 + 0.0*I);    // Tile (1,1), element (31,31)
-    state_tiled_set(&state, 255, 255, 5.0 + 0.0*I);  // Tile (7,7), element (31,31)
+    // Diagonal tile T(0,0)
+    state_tiled_set(&state, 0, 0, 1.0 + 0.0*I);
+    state_tiled_set(&state, T-1, T-1, 2.0 + 0.0*I);
 
-    // Off-diagonal tiles
-    state_tiled_set(&state, 32, 0, 6.0 + 1.0*I);     // Tile (1,0), element (0,0)
-    state_tiled_set(&state, 63, 31, 7.0 + 2.0*I);    // Tile (1,0), element (31,31)
-    state_tiled_set(&state, 64, 0, 8.0 + 3.0*I);     // Tile (2,0), element (0,0)
-    state_tiled_set(&state, 128, 64, 9.0 + 4.0*I);   // Tile (4,2), element (0,0)
+    // Diagonal tile T(1,1)
+    state_tiled_set(&state, T, T, 3.0 + 0.0*I);
+    state_tiled_set(&state, 2*T-1, 2*T-1, 4.0 + 0.0*I);
+
+    // Off-diagonal tile T(1,0)
+    state_tiled_set(&state, T, 0, 5.0 + 1.0*I);
+    state_tiled_set(&state, 2*T-1, T-1, 6.0 + 2.0*I);
+    state_tiled_set(&state, T+1, 1, 7.0 + 3.0*I);
 
     // Verify retrieval
     TEST_ASSERT_COMPLEX_WITHIN(1.0 + 0.0*I, state_tiled_get(&state, 0, 0), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(2.0 + 0.0*I, state_tiled_get(&state, 31, 31), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(3.0 + 0.0*I, state_tiled_get(&state, 32, 32), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(4.0 + 0.0*I, state_tiled_get(&state, 63, 63), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(5.0 + 0.0*I, state_tiled_get(&state, 255, 255), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(6.0 + 1.0*I, state_tiled_get(&state, 32, 0), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(7.0 + 2.0*I, state_tiled_get(&state, 63, 31), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(8.0 + 3.0*I, state_tiled_get(&state, 64, 0), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(9.0 + 4.0*I, state_tiled_get(&state, 128, 64), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(2.0 + 0.0*I, state_tiled_get(&state, T-1, T-1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(3.0 + 0.0*I, state_tiled_get(&state, T, T), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(4.0 + 0.0*I, state_tiled_get(&state, 2*T-1, 2*T-1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(5.0 + 1.0*I, state_tiled_get(&state, T, 0), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(6.0 + 2.0*I, state_tiled_get(&state, 2*T-1, T-1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(7.0 + 3.0*I, state_tiled_get(&state, T+1, 1), PRECISION);
 
     state_free(&state);
 }
@@ -430,35 +417,32 @@ void test_tiled_single_qubit(void) {
 
 /*
  * =====================================================================================================================
- * Test: Tile boundary conditions (8 qubits) - verify tile transitions
+ * Test: Tile boundary conditions (LOG_TILE_DIM+1 qubits) - verify tile transitions
  * =====================================================================================================================
  */
 
 void test_tiled_tile_boundaries(void) {
+    const qubit_t n = LOG_TILE_DIM + 1;
+    const dim_t T = TILE_DIM;
     state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
-    state_init(&state, 8, NULL);  // 256x256 matrix
+    state_init(&state, n, NULL);  // dim = 2*T
 
-    // Test elements at tile boundaries (with TILE_DIM=32)
-    // Boundary positions: 31, 32, 63, 64, etc.
-
-    // Set values at boundaries
-    state_tiled_set(&state, 31, 0, 1.0 + 0.1*I);   // Last row of tile (0,0)
-    state_tiled_set(&state, 32, 0, 2.0 + 0.2*I);   // First row of tile (1,0)
-    state_tiled_set(&state, 31, 31, 3.0 + 0.3*I);  // Corner of tile (0,0)
-    state_tiled_set(&state, 32, 31, 4.0 + 0.4*I);  // Boundary between tiles
-    state_tiled_set(&state, 32, 32, 5.0 + 0.5*I);  // Corner of tile (1,1)
-    state_tiled_set(&state, 63, 32, 6.0 + 0.6*I);  // Last row of tile (1,1)
-    state_tiled_set(&state, 64, 32, 7.0 + 0.7*I);  // First row of tile (2,1)
+    // Set values at tile boundaries: T-1 is last index of tile 0, T is first of tile 1
+    state_tiled_set(&state, T-1, 0, 1.0 + 0.1*I);       // Last row of T(0,0)
+    state_tiled_set(&state, T, 0, 2.0 + 0.2*I);          // First row of T(1,0)
+    state_tiled_set(&state, T-1, T-1, 3.0 + 0.3*I);      // Corner of T(0,0)
+    state_tiled_set(&state, T, T-1, 4.0 + 0.4*I);        // Boundary: T(1,0) adjacent to T(0,0)
+    state_tiled_set(&state, T, T, 5.0 + 0.5*I);          // Corner of T(1,1)
+    state_tiled_set(&state, 2*T-1, T, 6.0 + 0.6*I);      // Last row of T(1,1)
 
     // Verify values are correctly stored and retrieved
-    TEST_ASSERT_COMPLEX_WITHIN(1.0 + 0.1*I, state_tiled_get(&state, 31, 0), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(2.0 + 0.2*I, state_tiled_get(&state, 32, 0), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(3.0 + 0.3*I, state_tiled_get(&state, 31, 31), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(4.0 + 0.4*I, state_tiled_get(&state, 32, 31), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(5.0 + 0.5*I, state_tiled_get(&state, 32, 32), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(6.0 + 0.6*I, state_tiled_get(&state, 63, 32), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(7.0 + 0.7*I, state_tiled_get(&state, 64, 32), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(1.0 + 0.1*I, state_tiled_get(&state, T-1, 0), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(2.0 + 0.2*I, state_tiled_get(&state, T, 0), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(3.0 + 0.3*I, state_tiled_get(&state, T-1, T-1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(4.0 + 0.4*I, state_tiled_get(&state, T, T-1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(5.0 + 0.5*I, state_tiled_get(&state, T, T), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(6.0 + 0.6*I, state_tiled_get(&state, 2*T-1, T), PRECISION);
 
     state_free(&state);
 }
@@ -498,47 +482,50 @@ void test_tiled_set_upper(void) {
 
 /*
  * =====================================================================================================================
- * Test: 6-qubit tiled - minimal multi-tile case
+ * Test: Multi-tile end-to-end (LOG_TILE_DIM+1 qubits) - set/get in all 3 tiles
  * =====================================================================================================================
  */
 
-void test_tiled_6_qubits(void) {
+void test_tiled_multi_tile(void) {
+    const qubit_t n = LOG_TILE_DIM + 1;
+    const dim_t T = TILE_DIM;
     state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
-    state_init(&state, 6, NULL);  // 64x64 matrix, n_tiles = 2, total 3 tiles: T(0,0), T(1,0), T(1,1)
+    state_init(&state, n, NULL);  // dim = 2*T, 3 lower-triangular tiles
 
-    // Verify storage length: 3 * TILE_SIZE
-    dim_t expected_len = 3 * TILE_SIZE;
-    TEST_ASSERT_EQUAL_INT64(expected_len, state_tiled_len(6));
-    TEST_ASSERT_EQUAL_UINT8(6, state.qubits);
+    // Verify storage length
+    dim_t dim = POW2(n, dim_t);
+    dim_t nt = (dim + TILE_DIM - 1) / TILE_DIM;
+    dim_t expected_len = nt * (nt + 1) / 2 * TILE_SIZE;
+    TEST_ASSERT_EQUAL_INT64(expected_len, state_tiled_len(n));
+    TEST_ASSERT_EQUAL_UINT8(n, state.qubits);
     TEST_ASSERT_NOT_NULL(state.data);
 
-    // Set elements in each of the 3 tiles
-    // Tile T(0,0): rows 0-31, cols 0-31
+    // Tile T(0,0): rows 0..T-1, cols 0..T-1
     state_tiled_set(&state, 0, 0, 1.0 + 0.0*I);
-    state_tiled_set(&state, 15, 10, 2.0 + 1.0*I);
-    state_tiled_set(&state, 31, 31, 3.0 + 2.0*I);
+    state_tiled_set(&state, T/2, T/4, 2.0 + 1.0*I);
+    state_tiled_set(&state, T-1, T-1, 3.0 + 2.0*I);
 
-    // Tile T(1,0): rows 32-63, cols 0-31
-    state_tiled_set(&state, 32, 0, 4.0 + 3.0*I);
-    state_tiled_set(&state, 50, 20, 5.0 + 4.0*I);
-    state_tiled_set(&state, 63, 31, 6.0 + 5.0*I);
+    // Tile T(1,0): rows T..2T-1, cols 0..T-1
+    state_tiled_set(&state, T, 0, 4.0 + 3.0*I);
+    state_tiled_set(&state, T + T/2, T/4, 5.0 + 4.0*I);
+    state_tiled_set(&state, 2*T-1, T-1, 6.0 + 5.0*I);
 
-    // Tile T(1,1): rows 32-63, cols 32-63
-    state_tiled_set(&state, 32, 32, 7.0 + 6.0*I);
-    state_tiled_set(&state, 45, 40, 8.0 + 7.0*I);
-    state_tiled_set(&state, 63, 63, 9.0 + 8.0*I);
+    // Tile T(1,1): rows T..2T-1, cols T..2T-1
+    state_tiled_set(&state, T, T, 7.0 + 6.0*I);
+    state_tiled_set(&state, T + T/4, T + T/8, 8.0 + 7.0*I);
+    state_tiled_set(&state, 2*T-1, 2*T-1, 9.0 + 8.0*I);
 
     // Verify get returns correct values
     TEST_ASSERT_COMPLEX_WITHIN(1.0 + 0.0*I, state_tiled_get(&state, 0, 0), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(2.0 + 1.0*I, state_tiled_get(&state, 15, 10), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(3.0 + 2.0*I, state_tiled_get(&state, 31, 31), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(4.0 + 3.0*I, state_tiled_get(&state, 32, 0), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(5.0 + 4.0*I, state_tiled_get(&state, 50, 20), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(6.0 + 5.0*I, state_tiled_get(&state, 63, 31), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(7.0 + 6.0*I, state_tiled_get(&state, 32, 32), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(8.0 + 7.0*I, state_tiled_get(&state, 45, 40), PRECISION);
-    TEST_ASSERT_COMPLEX_WITHIN(9.0 + 8.0*I, state_tiled_get(&state, 63, 63), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(2.0 + 1.0*I, state_tiled_get(&state, T/2, T/4), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(3.0 + 2.0*I, state_tiled_get(&state, T-1, T-1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(4.0 + 3.0*I, state_tiled_get(&state, T, 0), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(5.0 + 4.0*I, state_tiled_get(&state, T + T/2, T/4), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(6.0 + 5.0*I, state_tiled_get(&state, 2*T-1, T-1), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(7.0 + 6.0*I, state_tiled_get(&state, T, T), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(8.0 + 7.0*I, state_tiled_get(&state, T + T/4, T + T/8), PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(9.0 + 8.0*I, state_tiled_get(&state, 2*T-1, 2*T-1), PRECISION);
 
     state_free(&state);
 }
