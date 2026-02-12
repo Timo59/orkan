@@ -1,4 +1,4 @@
-// test_mixed_utils.h - Utility functions for converting between packed and full density matrix formats
+// test_mixed_utils.h - Utility functions for mixed state test harnesses (packed and tiled)
 
 #ifndef TEST_MIXED_UTILS_H
 #define TEST_MIXED_UTILS_H
@@ -11,6 +11,10 @@
 
 #ifndef Q_TEST_H
 #include "test.h"
+#endif
+
+#ifndef STATE_H
+#include "state.h"
 #endif
 
 /*
@@ -52,6 +56,27 @@ cplx_t* density_unpack(unsigned n, const cplx_t *packed);
  *          Caller is responsible for freeing the returned pointer.
  */
 cplx_t* density_pack(unsigned n, const cplx_t *full);
+
+/*
+ * Maximum qubits for tiled tests. Set to 6 (dim=64) to exercise cross-tile
+ * code paths, which require dim > TILE_DIM (32 with LOG_TILE_DIM=5).
+ * For 6-qubit mixed states the full density matrix is 64x64 = 4096 elements,
+ * and the reference computation (U rho U^dag) runs in O(dim^3) which is
+ * fast enough for testing.
+ */
+#define MAXQUBITS_TILED 6
+
+/*
+ * @brief   Create a MIXED_TILED state from a full density matrix
+ *
+ * Allocates a tiled state and populates it element by element using state_set().
+ */
+void tiled_state_from_full(state_t *state, unsigned nqubits, const cplx_t *full);
+
+/*
+ * @brief   Compare a tiled state against a full reference matrix element by element
+ */
+void assert_tiled_equals_full(const state_t *state, const cplx_t *ref_full, unsigned dim);
 
 #ifdef __cplusplus
 }

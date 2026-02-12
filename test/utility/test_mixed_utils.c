@@ -1,4 +1,4 @@
-// test_mixed_utils.c - Utility functions for converting between packed and full density matrix formats
+// test_mixed_utils.c - Utility functions for mixed state test harnesses (packed and tiled)
 
 /*
  * =====================================================================================================================
@@ -64,4 +64,45 @@ cplx_t* density_pack(unsigned n, const cplx_t *full) {
     }
 
     return packed;
+}
+
+/*
+ * =====================================================================================================================
+ * Tiled storage utilities
+ * =====================================================================================================================
+ */
+
+void tiled_state_from_full(state_t *state, unsigned nqubits, const cplx_t *full) {
+    const unsigned dim = POW2(nqubits, dim_t);
+
+    state->type = MIXED_TILED;
+    state_init(state, nqubits, NULL);  // Allocate zero-initialized tiled storage
+
+    if (!state->data) return;
+
+    // Populate via state_set -- only need lower triangle (Hermitian)
+    for (unsigned col = 0; col < dim; ++col) {
+        for (unsigned row = col; row < dim; ++row) {
+            state_set(state, row, col, full[row + col * dim]);
+        }
+    }
+}
+
+void assert_tiled_equals_full(const state_t *state, const cplx_t *ref_full, unsigned dim) {
+    for (unsigned col = 0; col < dim; ++col) {
+        for (unsigned row = 0; row < dim; ++row) {
+            cplx_t got = state_get(state, row, col);
+            cplx_t exp = ref_full[row + col * dim];
+            double re_diff = creal(got) - creal(exp);
+            double im_diff = cimag(got) - cimag(exp);
+            if (re_diff > PRECISION || re_diff < -PRECISION ||
+                im_diff > PRECISION || im_diff < -PRECISION) {
+                char msg[256];
+                snprintf(msg, sizeof(msg),
+                    "Tiled mismatch at (%u,%u): got (%.15e, %.15e) expected (%.15e, %.15e)",
+                    row, col, creal(got), cimag(got), creal(exp), cimag(exp));
+                TEST_FAIL_MESSAGE(msg);
+            }
+        }
+    }
 }

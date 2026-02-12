@@ -14,7 +14,7 @@ test/
 │   ├── test_gate.h         Gate test declarations
 │   ├── test_pure_states.h  Pure state fixture declarations
 │   ├── test_mixed_states.h Mixed state fixture declarations
-│   ├── test_mixed_utils.h  Packed density matrix conversion utilities
+│   ├── test_mixed_utils.h  Mixed state test utilities (packed and tiled)
 │   ├── gatemat.h           Reference gate matrix declarations
 │   └── linalg.h            Linear algebra helper declarations
 ├── state/                  State module tests (→ test_state executable)
@@ -29,13 +29,14 @@ test/
 │   ├── test_gate_packed_1q.c Packed mixed state single-qubit gate tests
 │   ├── test_gate_packed_2q.c Packed mixed state two-qubit gate tests
 │   ├── test_gate_packed_3q.c Packed mixed state three-qubit gate tests
-│   └── test_gate_tiled.c   Tiled mixed state gate tests
+│   ├── test_gate_tiled_1q.c Tiled mixed state single-qubit gate tests
+│   └── test_gate_tiled_2q.c Tiled mixed state two-qubit gate tests
 └── utility/                Test helpers and fixtures
     ├── gatemat.c           Reference gate matrices (Kronecker products)
     ├── linalg.c            Linear algebra helpers
     ├── test_pure_states.c  Pre-built pure state fixtures
     ├── test_mixed_states.c Pre-built mixed state fixtures
-    └── test_mixed_utils.c  Packed density matrix conversion utilities
+    └── test_mixed_utils.c  Mixed state test utilities (packed and tiled)
 ```
 
 ## Executables
