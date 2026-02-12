@@ -54,41 +54,33 @@ extern void p_packed(state_t *state, qubit_t target, double theta);
 extern void cx_packed(state_t *state, qubit_t control, qubit_t target);
 extern void cy_packed(state_t *state, qubit_t control, qubit_t target);
 extern void cz_packed(state_t *state, qubit_t control, qubit_t target);
-extern void cs_packed(state_t *state, qubit_t control, qubit_t target);
-extern void csdg_packed(state_t *state, qubit_t control, qubit_t target);
-extern void ch_packed(state_t *state, qubit_t control, qubit_t target);
-extern void chy_packed(state_t *state, qubit_t control, qubit_t target);
-extern void ct_packed(state_t *state, qubit_t control, qubit_t target);
-extern void ctdg_packed(state_t *state, qubit_t control, qubit_t target);
-extern void cp_packed(state_t *state, qubit_t control, qubit_t target, double theta);
-extern void cpdg_packed(state_t *state, qubit_t control, qubit_t target, double theta);
 extern void swap_packed(state_t *state, qubit_t q1, qubit_t q2);
 
 extern void ccx_packed(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t target);
 
 /*
  * =====================================================================================================================
- * Tiled mixed state gate implementations (gate_tiled.c, gate_tiled_cx.c, gate_tiled_swap.c)
+ * Tiled mixed state gate implementations (temporarily disabled)
  * =====================================================================================================================
  */
 
-extern void x_tiled(state_t *state, qubit_t target);
-extern void y_tiled(state_t *state, qubit_t target);
-extern void z_tiled(state_t *state, qubit_t target);
-extern void h_tiled(state_t *state, qubit_t target);
-extern void s_tiled(state_t *state, qubit_t target);
-extern void sdg_tiled(state_t *state, qubit_t target);
-extern void t_tiled(state_t *state, qubit_t target);
-extern void tdg_tiled(state_t *state, qubit_t target);
-extern void hy_tiled(state_t *state, qubit_t target);
-
-extern void rx_tiled(state_t *state, qubit_t target, double theta);
-extern void ry_tiled(state_t *state, qubit_t target, double theta);
-extern void rz_tiled(state_t *state, qubit_t target, double theta);
-extern void p_tiled(state_t *state, qubit_t target, double theta);
-
-extern void cx_tiled(state_t *state, qubit_t control, qubit_t target);
-extern void swap_tiled(state_t *state, qubit_t q1, qubit_t q2);
+// extern void x_tiled(state_t *state, qubit_t target);
+// extern void y_tiled(state_t *state, qubit_t target);
+// extern void z_tiled(state_t *state, qubit_t target);
+// extern void h_tiled(state_t *state, qubit_t target);
+// extern void s_tiled(state_t *state, qubit_t target);
+// extern void sdg_tiled(state_t *state, qubit_t target);
+// extern void t_tiled(state_t *state, qubit_t target);
+// extern void tdg_tiled(state_t *state, qubit_t target);
+// extern void hy_tiled(state_t *state, qubit_t target);
+//
+// extern void rx_tiled(state_t *state, qubit_t target, double theta);
+// extern void ry_tiled(state_t *state, qubit_t target, double theta);
+// extern void rz_tiled(state_t *state, qubit_t target, double theta);
+// extern void p_tiled(state_t *state, qubit_t target, double theta);
+//
+// extern void cx_tiled(state_t *state, qubit_t control, qubit_t target);
+// extern void swap_tiled(state_t *state, qubit_t q1, qubit_t q2);
 
 /*
  * =====================================================================================================================
@@ -104,7 +96,7 @@ extern void swap_tiled(state_t *state, qubit_t q1, qubit_t q2);
     switch ((state)->type) {                                        \
         case PURE:         name##_pure(state, target);   break;     \
         case MIXED_PACKED: name##_packed(state, target);  break;    \
-        case MIXED_TILED:  name##_tiled(state, target);   break;    \
+        case MIXED_TILED:  GATE_VALIDATE(0, #name ": tiled temporarily disabled"); \
         default: GATE_VALIDATE(0, #name ": unknown state type");    \
     }
 
@@ -132,7 +124,7 @@ void hy(state_t *state, const qubit_t target) { DISPATCH_1Q(hy, state, target); 
     switch ((state)->type) {                                                \
         case PURE:         name##_pure(state, target, theta);   break;      \
         case MIXED_PACKED: name##_packed(state, target, theta);  break;     \
-        case MIXED_TILED:  name##_tiled(state, target, theta);   break;     \
+        case MIXED_TILED:  GATE_VALIDATE(0, #name ": tiled temporarily disabled"); \
         default: GATE_VALIDATE(0, #name ": unknown state type");            \
     }
 
@@ -159,24 +151,8 @@ void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(
     switch ((state)->type) {                                                    \
         case PURE:         name##_pure(state, control, target);   break;        \
         case MIXED_PACKED: name##_packed(state, control, target);  break;       \
-        case MIXED_TILED:  name##_tiled(state, control, target);   break;       \
+        case MIXED_TILED:  GATE_VALIDATE(0, #name ": tiled temporarily disabled"); \
         default: GATE_VALIDATE(0, #name ": unknown state type");                \
-    }
-
-#define DISPATCH_2Q_ROT(name, state, control, target, theta)                        \
-    GATE_VALIDATE((state) && (state)->data,                                         \
-                  #name ": null state or data pointer");                            \
-    GATE_VALIDATE((control) < (state)->qubits,                                      \
-                  #name ": control qubit out of range");                            \
-    GATE_VALIDATE((target) < (state)->qubits,                                       \
-                  #name ": target qubit out of range");                             \
-    GATE_VALIDATE((control) != (target),                                            \
-                  #name ": control and target must differ");                        \
-    switch ((state)->type) {                                                        \
-        case PURE:         name##_pure(state, control, target, theta);   break;     \
-        case MIXED_PACKED: name##_packed(state, control, target, theta);  break;    \
-        case MIXED_TILED:  name##_tiled(state, control, target, theta);   break;    \
-        default: GATE_VALIDATE(0, #name ": unknown state type");                    \
     }
 
 /* Variants for 2Q gates without tiled implementation */
@@ -196,22 +172,6 @@ void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(
         default: GATE_VALIDATE(0, #name ": unknown state type");                     \
     }
 
-#define DISPATCH_2Q_ROT_NO_TILED(name, state, control, target, theta)                    \
-    GATE_VALIDATE((state) && (state)->data,                                              \
-                  #name ": null state or data pointer");                                 \
-    GATE_VALIDATE((control) < (state)->qubits,                                           \
-                  #name ": control qubit out of range");                                 \
-    GATE_VALIDATE((target) < (state)->qubits,                                            \
-                  #name ": target qubit out of range");                                  \
-    GATE_VALIDATE((control) != (target),                                                 \
-                  #name ": control and target must differ");                             \
-    switch ((state)->type) {                                                             \
-        case PURE:         name##_pure(state, control, target, theta);   break;          \
-        case MIXED_PACKED: name##_packed(state, control, target, theta);  break;         \
-        case MIXED_TILED:  GATE_VALIDATE(0, #name ": not implemented for tiled");        \
-        default: GATE_VALIDATE(0, #name ": unknown state type");                         \
-    }
-
 void cx(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cx, state, control, target); }
 void cy(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(cy, state, control, target); }
 void cz(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(cz, state, control, target); }
@@ -223,7 +183,7 @@ void swap_gate(state_t *state, const qubit_t q1, const qubit_t q2) {
     switch (state->type) {
         case PURE:         swap_pure(state, q1, q2);   break;
         case MIXED_PACKED: swap_packed(state, q1, q2);  break;
-        case MIXED_TILED:  swap_tiled(state, q1, q2);   break;
+        case MIXED_TILED:  GATE_VALIDATE(0, "swap: tiled temporarily disabled");
         default: GATE_VALIDATE(0, "swap: unknown state type");
     }
 }

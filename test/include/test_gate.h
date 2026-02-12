@@ -147,30 +147,6 @@ static const cplx_t CZMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.
                                  0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
                                  0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, -1.0 + 0.0 * I};
 
-// CS (Controlled-S) matrix: diag(1, 1, 1, i)
-static const cplx_t CSMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 1.0 * I};
-
-// CSdg (Controlled-S-dagger) matrix: diag(1, 1, 1, -i)
-static const cplx_t CSDGMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                   0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                   0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                   0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 - 1.0 * I};
-
-// CT (Controlled-T) matrix: diag(1, 1, 1, e^(iπ/4))
-static const cplx_t CTMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, INVSQRT2 + INVSQRT2 * I};
-
-// CTdg (Controlled-T-dagger) matrix: diag(1, 1, 1, e^(-iπ/4))
-static const cplx_t CTDGMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                   0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                   0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, \
-                                   0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, INVSQRT2 - INVSQRT2 * I};
-
 /*
  * =====================================================================================================================
  * Three-qubit gate matrices
@@ -238,19 +214,6 @@ void mat_p(double theta, cplx_t *mat);
 // Test angles: representative values covering identity, small, π/2, π, and negative
 static const double TEST_THETAS[] = {0.0, M_PI/4, M_PI/2, M_PI, 3*M_PI/2, -M_PI/3};
 static const unsigned NUM_THETAS = sizeof(TEST_THETAS) / sizeof(TEST_THETAS[0]);
-
-/*
- * =====================================================================================================================
- * CH matrix builder (4x4, used for CH controlled gate test)
- * =====================================================================================================================
- */
-
-// CH (Controlled-Hadamard) -- built dynamically since it contains irrational entries
-void mat_ch_build(cplx_t *mat);
-
-// CHy (Controlled-Hadamard-Y) -- built dynamically
-void mat_chy_build(cplx_t *mat);
-
 
 #ifdef __cplusplus
 }
