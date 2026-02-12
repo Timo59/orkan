@@ -1,23 +1,26 @@
 /**
- * @file gate_packed_3q.c
- * @brief Three-qubit gates for mixed states in packed lower-triangular storage
+ * @file gate_packed_ccx.c
+ * @brief CCX (Toffoli) gate for mixed states in packed lower-triangular storage
  *
- * Storage: LAPACK packed lower-triangle, column-major, N(N+1)/2 complex elements.
+ * CCX is a zero-flop permutation gate (self-adjoint): ρ' = CCX·ρ·CCX.
+ * perm(x) = x ^ (1<<target) when bits ctrl1 AND ctrl2 are both set, else x.
+ * ρ'[r,c] = ρ[perm(r), perm(c)].  Involution: each element is fixed or in a 2-cycle.
  *
- * All two-qubit gates iterate over quarter-dim blocks indexed by (br, bc) with
- * br >= bc. Each block addresses 4 rows (r00, r01, r10, r11) × 4 columns,
- * producing 6 element-swap pairs. Three pairs always land in the lower triangle;
- * three may cross the diagonal and require conjugation on read/write.
+ * Per-pair operations (14 swap pairs):
+ *   A (r110,c000 <-> r111,c000): plain swap   E (r111,c001 <-> r110,c001): plain swap
+ *   B (r110,c010 <-> r111,c010): plain swap   F (r111,c011 <-> r110,c011): plain swap
+ *   C (r110,c100 <-> r111,c100): plain swap   G (r111,c101 <-> r110,c101): plain swap
+ *   D (r110,c110 <-> r111,c111): plain swap   H (r111,c110 <-> r110,c111): plain swap
+ *   I-N (rXXX,c110 <-> rXXX,c111): plain swap, rXXX in {r000..r101}
  *
- * Key pitfalls:
- *   - Upper-triangle access: read/write as conj(data[pack_idx(dim, c, r)])
- *   - Diagonal blocks (bc == br): Hermitian pairs share storage; skip one side
- *   - insertBits2_0() requires lo < hi
+ * For each block (br, bc) the 14 swap pairs split into:
+ *   - Fast path (r000 > c111): all lower-tri, plain swaps
+ *   - Slow path: pairs E-N may cross the diagonal, requiring conjugation
+ *   - Diagonal blocks (bc == br): skip pairs I-N (Hermitian pairs share storage)
  */
 
 #include "gate.h"
 #include <complex.h>
-#include <math.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -84,82 +87,80 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
             gate_idx_t r011 = r001 | incr_ctrl2, r101 = r001 | incr_ctrl1, r110 = r010 | incr_ctrl1;
             gate_idx_t r111 = r011 | incr_ctrl1;
 
-            /* Pairs that are always in the lower triangle:
-             * |c1=1,c2=1,t=0><c1=0,c2=0,t=0| <--> |c1=1,c2=1,t=1><c1=0,c2=0,t=0|
-             * |c1=1,c2=1,t=0><c1=0,c2=1,t=0| <--> |c1=1,c2=1,t=1><c1=0,c2=0,t=0|
-             * |c1=1,c2=1,t=0><c1=1,c2=0,t=0| <--> |c1=1,c2=1,t=1><c1=1,c2=0,t=0|
-             * |c1=1,c2=1,t=0><c1=1,c2=1,t=0| <--> |c1=1,c2=1,t=1><c1=1,c2=1,t=1|
-             */
+            /* Pair A: (r110,c000) <-> (r111,c000) — always lower tri; plain swap */
             cplx_t tmp = data[(r110 - c000) + offset_c000];
             data[(r110 - c000) + offset_c000] = data[(r111 - c000) + offset_c000];
             data[(r111 - c000) + offset_c000] = tmp;
 
+            /* Pair B: (r110,c010) <-> (r111,c010) — always lower tri; plain swap */
             tmp = data[(r110 - c010) + offset_c010];
             data[(r110 - c010) + offset_c010] = data[(r111 - c010) + offset_c010];
             data[(r111 - c010) + offset_c010] = tmp;
 
+            /* Pair C: (r110,c100) <-> (r111,c100) — always lower tri; plain swap */
             tmp = data[(r110 - c100) + offset_c100];
             data[(r110 - c100) + offset_c100] = data[(r111 - c100) + offset_c100];
             data[(r111 - c100) + offset_c100] = tmp;
 
+            /* Pair D: (r110,c110) <-> (r111,c111) — always lower tri; plain swap */
             tmp = data[(r110 - c110) + offset_c110];
             data[(r110 - c110) + offset_c110] = data[(r111 - c111) + offset_c111];
             data[(r111 - c111) + offset_c111] = tmp;
 
-            /* Fast path: If r000 > c111, all elements are in the lower traingle */
+            /* Fast path: all remaining pairs in lower triangle */
             if (r000 > c111) {
-                /* |c1=1,c2=1,t=1><c1=0,c2=0,t=1| <--> |c1=1,c2=1,t=0><c1=0,c2=0,t=1| */
+                /* Pair E: (r111,c001) <-> (r110,c001); plain swap */
                 tmp = data[(r111 - c001) + offset_c001];
                 data[(r111 - c001) + offset_c001] = data[(r110 - c001) + offset_c001];
                 data[(r110 - c001) + offset_c001] = tmp;
 
-                /* |c1=1,c2=1,t=1><c1=0,c2=1,t=1| <--> |c1=1,c2=1,t=0><c1=0,c2=1,t=1| */
+                /* Pair F: (r111,c011) <-> (r110,c011); plain swap */
                 tmp = data[(r111 - c011) + offset_c011];
                 data[(r111 - c011) + offset_c011] = data[(r110 - c011) + offset_c011];
                 data[(r110 - c011) + offset_c011] = tmp;
 
-                /* |c1=1,c2=1,t=1><c1=1,c2=0,t=1| <--> |c1=1,c2=1,t=0><c1=1,c2=0,t=1| */
+                /* Pair G: (r111,c101) <-> (r110,c101); plain swap */
                 tmp = data[(r111 - c101) + offset_c101];
                 data[(r111 - c101) + offset_c101] = data[(r110 - c101) + offset_c101];
                 data[(r110 - c101) + offset_c101] = tmp;
 
-                /* |c1=1,c2=1,t=1><c1=1,c2=1,t=0| <--> |c1=1,c2=1,t=0><c1=1,c2=1,t=1| */
+                /* Pair H: (r111,c110) <-> (r110,c111); plain swap */
                 tmp = data[(r111 - c110) + offset_c110];
                 data[(r111 - c110) + offset_c110] = data[(r110 - c111) + offset_c111];
                 data[(r110 - c111) + offset_c111] = tmp;
 
-                /* |c1=0,c2=0,t=0><c1=1,c2=1,t=0| <--> |c1=0,c2=0,t=0><c1=1,c2=1,t=1| */
+                /* Pair I: (r000,c110) <-> (r000,c111); plain swap */
                 tmp = data[(r000 - c110) + offset_c110];
                 data[(r000 - c110) + offset_c110] = data[(r000 - c111) + offset_c111];
                 data[(r000 - c111) + offset_c111] = tmp;
 
-                /* |c1=0,c2=0,t=1><c1=1,c2=1,t=0| <--> |c1=0,c2=0,t=1><c1=1,c2=1,t=1| */
+                /* Pair J: (r001,c110) <-> (r001,c111); plain swap */
                 tmp = data[(r001 - c110) + offset_c110];
                 data[(r001 - c110) + offset_c110] = data[(r001 - c111) + offset_c111];
                 data[(r001 - c111) + offset_c111] = tmp;
 
-                /* |c1=0,c2=1,t=0><c1=1,c2=1,t=0| <--> |c1=0,c2=1,t=0><c1=1,c2=1,t=1| */
+                /* Pair K: (r010,c110) <-> (r010,c111); plain swap */
                 tmp = data[(r010 - c110) + offset_c110];
                 data[(r010 - c110) + offset_c110] = data[(r010 - c111) + offset_c111];
                 data[(r010 - c111) + offset_c111] = tmp;
 
-                /* |c1=0,c2=1,t=1><c1=1,c2=1,t=0| <--> |c1=0,c2=1,t=1><c1=1,c2=1,t=1| */
+                /* Pair L: (r011,c110) <-> (r011,c111); plain swap */
                 tmp = data[(r011 - c110) + offset_c110];
                 data[(r011 - c110) + offset_c110] = data[(r011 - c111) + offset_c111];
                 data[(r011 - c111) + offset_c111] = tmp;
 
-                /* |c1=1,c2=0,t=0><c1=1,c2=1,t=0| <--> |c1=1,c2=0,t=0><c1=1,c2=1,t=1| */
+                /* Pair M: (r100,c110) <-> (r100,c111); plain swap */
                 tmp = data[(r100 - c110) + offset_c110];
                 data[(r100 - c110) + offset_c110] = data[(r100 - c111) + offset_c111];
                 data[(r100 - c111) + offset_c111] = tmp;
 
-                /* |c1=1,c2=0,t=1><c1=1,c2=1,t=0| <--> |c1=1,c2=0,t=1><c1=1,c2=1,t=1| */
+                /* Pair N: (r101,c110) <-> (r101,c111); plain swap */
                 tmp = data[(r101 - c110) + offset_c110];
                 data[(r101 - c110) + offset_c110] = data[(r101 - c111) + offset_c111];
                 data[(r101 - c111) + offset_c111] = tmp;
             }
             else {
-                /* |c1=1,c2=1,t=1><c1=0,c2=0,t=1| <--> |c1=1,c2=1,t=0><c1=0,c2=0,t=1| */
+                /* Pair E: (r111,c001) lower; (r110,c001) may cross diagonal */
                 tmp = data[(r111 - c001) + offset_c001];
                 if (r110 > c001) {
                     data[(r111 - c001) + offset_c001] = data[(r110 - c001) + offset_c001];
@@ -170,28 +171,29 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
                     data[pack_idx(dim, c001, r110)] = conj(tmp);
                 }
 
-                /* |c1=1,c2=1,t=1><c1=0,c2=1,t=1| <--> |c1=1,c2=1,t=0><c1=0,c2=1,t=1| */
+                /* Pair F: (r111,c011) lower; (r110,c011) may cross diagonal */
                 tmp = data[(r111 - c011) + offset_c011];
                 if (r110 > c011) {
                     data[(r111 - c011) + offset_c011] = data[(r110 - c011) + offset_c011];
                     data[(r110 - c011) + offset_c011] = tmp;
                 }
-                else{
+                else {
                     data[(r111 - c011) + offset_c011] = conj(data[pack_idx(dim, c011, r110)]);
                     data[pack_idx(dim, c011, r110)] = conj(tmp);
                 }
 
-                /* |c1=1,c2=1,t=1><c1=1,c2=0,t=1| <--> |c1=1,c2=1,t=0><c1=1,c2=0,t=1| */
+                /* Pair G: (r111,c101) lower; (r110,c101) may cross diagonal */
                 tmp = data[(r111 - c101) + offset_c101];
                 if (r110 > c101) {
                     data[(r111 - c101) + offset_c101] = data[(r110 - c101) + offset_c101];
                     data[(r110 - c101) + offset_c101] = tmp;
                 }
-                else{
-                    data[(r111 - c101) + offset_c101] = conj(data[pack_idx(dim, c101, r110)]);data[pack_idx(dim, c101, r110)] = conj(tmp);
+                else {
+                    data[(r111 - c101) + offset_c101] = conj(data[pack_idx(dim, c101, r110)]);
+                    data[pack_idx(dim, c101, r110)] = conj(tmp);
                 }
 
-                /* |c1=1,c2=1,t=1><c1=1,c2=1,t=0| <--> |c1=1,c2=1,t=0><c1=1,c2=1,t=1| */
+                /* Pair H: (r111,c110) lower; (r110,c111) may cross diagonal */
                 tmp = data[(r111 - c110) + offset_c110];
                 if (r110 > c111) {
                     data[(r111 - c110) + offset_c110] = data[(r110 - c111) + offset_c111];
@@ -203,7 +205,7 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
                 }
 
                 if (bc != br) {
-                    /* |c1=0,c2=0,t=0><c1=1,c2=1,t=0| <--> |c1=0,c2=0,t=0><c1=1,c2=1,t=1| */
+                    /* Pair I: (r000,c110) <-> (r000,c111); may cross diagonal */
                     if (r000 > c110) {
                         tmp = data[(r000 - c110) + offset_c110];
                         data[(r000 - c110) + offset_c110] = conj(data[pack_idx(dim, c111, r000)]);
@@ -215,7 +217,7 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
                         data[pack_idx(dim, c111, r000)] = tmp;
                     }
 
-                    /* |c1=0,c2=0,t=1><c1=1,c2=1,t=0| <--> |c1=0,c2=0,t=1><c1=1,c2=1,t=1| */
+                    /* Pair J: (r001,c110) <-> (r001,c111); may cross diagonal */
                     if (r001 > c111) {
                         tmp = data[(r001 - c110) + offset_c110];
                         data[(r001 - c110) + offset_c110] = data[(r001 - c111) + offset_c111];
@@ -232,7 +234,7 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
                         data[pack_idx(dim, c111, r001)] = tmp;
                     }
 
-                    /* |c1=0,c2=1,t=0><c1=1,c2=1,t=0| <--> |c1=0,c2=1,t=0><c1=1,c2=1,t=1| */
+                    /* Pair K: (r010,c110) <-> (r010,c111); may cross diagonal */
                     if (r010 > c111) {
                         tmp = data[(r010 - c110) + offset_c110];
                         data[(r010 - c110) + offset_c110] = data[(r010 - c111) + offset_c111];
@@ -249,7 +251,7 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
                         data[pack_idx(dim, c111, r010)] = tmp;
                     }
 
-                    /* |c1=0,c2=1,t=1><c1=1,c2=1,t=0| <--> |c1=0,c2=1,t=1><c1=1,c2=1,t=1| */
+                    /* Pair L: (r011,c110) <-> (r011,c111); may cross diagonal */
                     if (r011 > c111) {
                         tmp = data[(r011 - c110) + offset_c110];
                         data[(r011 - c110) + offset_c110] = data[(r011 - c111) + offset_c111];
@@ -266,7 +268,7 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
                         data[pack_idx(dim, c111, r011)] = tmp;
                     }
 
-                    /* |c1=1,c2=0,t=0><c1=1,c2=1,t=0| <--> |c1=1,c2=0,t=0><c1=1,c2=1,t=1| */
+                    /* Pair M: (r100,c110) <-> (r100,c111); may cross diagonal */
                     if (r100 > c111) {
                         tmp = data[(r100 - c110) + offset_c110];
                         data[(r100 - c110) + offset_c110] = data[(r100 - c111) + offset_c111];
@@ -283,7 +285,7 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
                         data[pack_idx(dim, c111, r100)] = tmp;
                     }
 
-                    /* |c1=1,c2=0,t=1><c1=1,c2=1,t=0| <--> |c1=1,c2=0,t=1><c1=1,c2=1,t=1| */
+                    /* Pair N: (r101,c110) <-> (r101,c111); may cross diagonal */
                     if (r101 > c111) {
                         tmp = data[(r101 - c110) + offset_c110];
                         data[(r101 - c110) + offset_c110] = data[(r101 - c111) + offset_c111];
