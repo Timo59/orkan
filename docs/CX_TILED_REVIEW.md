@@ -1,6 +1,6 @@
-# Code Review: `cx_tiled()` in gate_tiled.c
+# Code Review: `cx_tiled()` in gate_tiled_cx.c
 
-**File**: `src/gate_tiled.c`, lines 846-1561  
+**File**: `src/gate_tiled_cx.c`
 **Reviewer**: Claude Opus 4.6  
 **Date**: 2026-02-11  
 **Reference**: `cx_packed()` in `src/gate_packed_cx.c`  

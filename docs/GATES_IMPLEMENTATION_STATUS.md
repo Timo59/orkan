@@ -34,10 +34,10 @@ All infrastructure refactoring is complete:
    All gate signatures changed from `qs_error_t` to `void`.
 4. **Three-way dispatch** in `src/gate.c`: `switch(state->type)` dispatches to `*_pure()`,
    `*_packed()`, `*_tiled()` for all 26 gates. Macros: `DISPATCH_1Q`, `DISPATCH_ROT`,
-   `DISPATCH_2Q`, `DISPATCH_2Q_ROT`.
+   `DISPATCH_2Q`, `DISPATCH_2Q_ROT`, `DISPATCH_2Q_NO_TILED`, `DISPATCH_2Q_ROT_NO_TILED`.
 5. **Tolerance tightened** to `1e-12` in `test/include/test.h`.
 6. **Tiled test harnesses** created in `test/src/test_gate_tiled.c` with all needed helpers.
-7. **`src/gate_tiled.c` created** with stubs for unimplemented gates.
+7. **Tiled gate files created**: `src/gate_tiled.c` (1Q + rotation), `src/gate_tiled_cx.c`, `src/gate_tiled_swap.c`. Shared inline helpers in `src/gate_tiled.h`.
 8. **CMakeLists.txt updated** for all renames and new files.
 
 ### Phase 1: Single-Qubit Gates (DONE)
@@ -74,25 +74,26 @@ produce identical density matrix conjugations (the global phase cancels in ρ'=U
 
 12 two-qubit gates need implementation across 3 layouts = 36 functions.
 
-**Pre-existing implementations (pure + packed only):**
-- CX (CNOT): `cx_pure` in `src/gate_pure.c`, `cx_packed` in `src/gate_packed_cx.c`
+**Implemented two-qubit gates:**
+- CX (CNOT): `cx_pure` in `src/gate_pure.c`, `cx_packed` in `src/gate_packed_cx.c`, `cx_tiled` in `src/gate_tiled_cx.c`
+- SWAP: `swap_packed` in `src/gate_packed_swap.c`, `swap_tiled` in `src/gate_tiled_swap.c`
 
-**Remaining stubs** (all call `GATE_VALIDATE(0, ...)`):
+**Remaining stubs** (pure/packed call `GATE_VALIDATE(0, ...)`; tiled dispatchers reject with "not implemented for tiled"):
 
-| Gate | Pure stub | Packed stub | Tiled stub | Test matrix constant |
-|------|-----------|-------------|------------|---------------------|
-| CX | done | done | **STUB** | `CXMAT` (exists) |
-| CY | STUB | STUB | STUB | `CYMAT` (exists) |
-| CZ | STUB | STUB | STUB | `CZMAT` (exists) |
-| CS | STUB | STUB | STUB | `CSMAT` (exists) |
-| CSdg | STUB | STUB | STUB | `CSDGMAT` (exists) |
-| CH | STUB | STUB | STUB | declared `mat_ch_build()` **NOT IMPLEMENTED** |
-| CHy | STUB | STUB | STUB | declared `mat_chy_build()` **NOT IMPLEMENTED** |
-| CT | STUB | STUB | STUB | `CTMAT` (exists) |
-| CTdg | STUB | STUB | STUB | `CTDGMAT` (exists) |
-| CP(θ) | STUB | STUB | STUB | declared `mat_cp()` **NOT IMPLEMENTED** |
-| CPdg(θ) | STUB | STUB | STUB | declared `mat_cpdg()` **NOT IMPLEMENTED** |
-| SWAP | STUB | STUB | STUB | `SWAPMAT` (exists) |
+| Gate | Pure | Packed | Tiled | Test matrix constant |
+|------|------|--------|-------|---------------------|
+| CX | done | done | done | `CXMAT` (exists) |
+| CY | STUB | STUB | — | `CYMAT` (exists) |
+| CZ | STUB | STUB | — | `CZMAT` (exists) |
+| CS | STUB | STUB | — | `CSMAT` (exists) |
+| CSdg | STUB | STUB | — | `CSDGMAT` (exists) |
+| CH | STUB | STUB | — | declared `mat_ch_build()` **NOT IMPLEMENTED** |
+| CHy | STUB | STUB | — | declared `mat_chy_build()` **NOT IMPLEMENTED** |
+| CT | STUB | STUB | — | `CTMAT` (exists) |
+| CTdg | STUB | STUB | — | `CTDGMAT` (exists) |
+| CP(θ) | STUB | STUB | — | declared `mat_cp()` **NOT IMPLEMENTED** |
+| CPdg(θ) | STUB | STUB | — | declared `mat_cpdg()` **NOT IMPLEMENTED** |
+| SWAP | STUB | STUB | done | `SWAPMAT` (exists) |
 
 ### Test Harness Status
 
@@ -255,12 +256,15 @@ same structural pattern.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `include/gate.h` | 119 | GATE_VALIDATE, all 26 gate declarations |
-| `src/gate.c` | 243 | Dispatchers with validation, extern declarations |
+| `src/gate.c` | 268 | Dispatchers with validation, extern declarations |
 | `src/gate_pure.c` | 395 | 14 pure implementations + 12 stubs |
 | `src/gate_packed_1q.c` | ~710 | 13 single-qubit packed implementations |
 | `src/gate_packed_<name>.c` | varies | One file per two-qubit packed gate (CX, CY, CZ, SWAP + stubs) |
 | `src/gate_packed_3q.c` | ~20 | Three-qubit packed gate stubs (CCX) |
-| `src/gate_tiled.c` | 1012 | 14 tiled implementations + 13 stubs (incl cx) |
+| `src/gate_tiled.c` | 791 | 13 tiled 1Q + rotation implementations |
+| `src/gate_tiled_cx.c` | 721 | cx_tiled implementation |
+| `src/gate_tiled_swap.c` | 503 | swap_tiled implementation |
+| `src/gate_tiled.h` | 70 | Shared inline helpers (tile_off, elem_off, dtile_read/write) |
 | `test/src/test_gate.c` | ~150 | Test function defs + main() with 41 RUN_TESTs |
 | `test/src/test_gate_pure.c` | ~370 | Pure harnesses + rotation matrix builders |
 | `test/src/test_gate_packed.c` | ~180 | Packed harnesses |

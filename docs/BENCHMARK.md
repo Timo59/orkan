@@ -4,7 +4,7 @@ This document summarizes performance analysis of mixed-state gate operations, in
 
 The two mixed-state implementations are:
 - **Packed** (`gate_packed.c`): LAPACK packed lower-triangular column-major storage
-- **Tiled** (`gate_tiled.c`): Cache-friendly tiled lower-triangular storage
+- **Tiled** (`gate_tiled.c`, `gate_tiled_cx.c`, `gate_tiled_swap.c`): Cache-friendly tiled lower-triangular storage
 
 ## Executive Summary
 

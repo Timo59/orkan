@@ -645,7 +645,7 @@ qlib/
 ├── src/
 │   ├── CMakeLists.txt          # libq shared library target
 │   ├── state.c, state_pure.c, state_packed.c, state_tiled.c
-│   └── gate.c, gate_pure.c, gate_packed.c, gate_tiled.c
+│   └── gate.c, gate_pure.c, gate_packed_*.c, gate_tiled.c, gate_tiled_*.c
 ├── test/
 │   ├── CMakeLists.txt          # Test targets (link libq)
 │   └── src/

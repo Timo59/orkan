@@ -47,7 +47,8 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 | `src/gate_packed_1q.c` | Mixed state packed 1-qubit gate implementations |
 | `src/gate_packed_<name>.c` | Mixed state packed 2-qubit gates (one file per gate) |
 | `src/gate_packed_3q.c` | Mixed state packed 3-qubit gate stubs |
-| `src/gate_tiled.c` | Mixed state tiled gate implementations |
+| `src/gate_tiled.c` | Mixed state tiled 1Q + rotation gate implementations |
+| `src/gate_tiled_<name>.c` | Mixed state tiled 2Q gates (one file per gate) |
 | `test/src/test_gate_pure.c` | Pure state test harness |
 | `test/src/test_gate_packed.c` | Mixed state test harness |
 | `test/src/gatemat.c` | Reference implementations (Kronecker products) |
@@ -57,7 +58,7 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 - State module: complete
 - Gates: X, Y, Z, H, S, Sdg, T, Tdg implemented (pure + mixed)
 - Rotation gates: Rx, Ry, Rz implemented (pure + mixed)
-- Two-qubit gates: CNOT (cx) implemented (pure + mixed)
+- Two-qubit gates: CNOT (cx), SWAP implemented (pure + mixed)
 
 ## Documentation
 
