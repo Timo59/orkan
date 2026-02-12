@@ -95,10 +95,6 @@ extern cplx_t* mat_three_qubit_gate(unsigned nqubits, const cplx_t *gate, unsign
  */
 extern cplx_t* mat_two_qubit_gate(unsigned nqubits, const cplx_t *gate, unsigned q1, unsigned q2);
 
-// Test angles: representative values covering identity, small, π/2, π, and negative
-static const double TEST_THETAS[] = {0.0, M_PI/4, M_PI/2, M_PI, 3*M_PI/2, -M_PI/3};
-static const unsigned NUM_THETAS = sizeof(TEST_THETAS) / sizeof(TEST_THETAS[0]);
-
 /*
  * =====================================================================================================================
  * Test: Single qubit gates
