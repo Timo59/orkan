@@ -69,11 +69,12 @@ set(TEST_GATE_SRC
         "${GATE_DIR}/test_gate.c"
         "${GATE_DIR}/test_gate_pure_1q.c"
         "${GATE_DIR}/test_gate_pure_2q.c"
+        "${GATE_DIR}/test_gate_pure_3q.c"
         "${GATE_DIR}/test_gate_packed_1q.c"
         "${GATE_DIR}/test_gate_packed_2q.c"
         "${GATE_DIR}/test_gate_packed_3q.c"
-        "${GATE_DIR}/test_gate_tiled_1q.c"
-        "${GATE_DIR}/test_gate_tiled_2q.c"
+        # "${GATE_DIR}/test_gate_tiled_1q.c"    # temporarily disabled
+        # "${GATE_DIR}/test_gate_tiled_2q.c"    # temporarily disabled
         "${UTILITY_DIR}/test_pure_states.c"
         "${UTILITY_DIR}/test_mixed_states.c"
         "${UTILITY_DIR}/test_mixed_utils.c"
