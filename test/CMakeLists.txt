@@ -67,7 +67,8 @@ add_test(NAME test_state COMMAND test_state)
 
 set(TEST_GATE_SRC
         "${GATE_DIR}/test_gate.c"
-        "${GATE_DIR}/test_gate_pure.c"
+        "${GATE_DIR}/test_gate_pure_1q.c"
+        "${GATE_DIR}/test_gate_pure_2q.c"
         "${GATE_DIR}/test_gate_packed.c"
         "${GATE_DIR}/test_gate_tiled.c"
         "${UTILITY_DIR}/test_pure_states.c"

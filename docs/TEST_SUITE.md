@@ -23,7 +23,8 @@ test/
 │   └── test_state_tiled.c  Tiled density matrix tests
 ├── gate/                   Gate module tests (→ test_gate executable)
 │   ├── test_gate.c         Runner (main)
-│   ├── test_gate_pure.c    Pure state gate tests
+│   ├── test_gate_pure_1q.c Pure state single-qubit gate tests
+│   ├── test_gate_pure_2q.c Pure state two-qubit gate tests
 │   ├── test_gate_packed.c  Packed mixed state gate tests
 │   └── test_gate_tiled.c   Tiled mixed state gate tests
 └── utility/                Test helpers and fixtures

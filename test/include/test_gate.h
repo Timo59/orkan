@@ -17,6 +17,8 @@
 #include "test.h"
 #endif
 
+#include <math.h>
+
 /*
  * =====================================================================================================================
  * C++ check
@@ -195,10 +197,10 @@ static const cplx_t CCXMAT[64] = {
  * =====================================================================================================================
  */
 
-void testSingleQubitGate(single_qubit_gate gate, const cplx_t *mat);
-void testRotationGate(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
-void testTwoQubitGate(two_qubit_gate gate, const cplx_t *mat);
-void testThreeQubitGate(three_qubit_gate gate, const cplx_t *mat);
+void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat);
+void testRotationGate(const rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+void testTwoQubitGate(const two_qubit_gate gate, const cplx_t *mat);
+void testThreeQubitGate(const three_qubit_gate gate, const cplx_t *mat);
 
 /*
  * =====================================================================================================================
@@ -206,10 +208,10 @@ void testThreeQubitGate(three_qubit_gate gate, const cplx_t *mat);
  * =====================================================================================================================
  */
 
-void testSingleQubitGateMixed(single_qubit_gate gate, const cplx_t *mat);
-void testRotationGateMixed(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
-void testTwoQubitGateMixed(two_qubit_gate gate, const cplx_t *mat);
-void testThreeQubitGateMixed(three_qubit_gate gate, const cplx_t *mat);
+void testSingleQubitGateMixed(const single_qubit_gate gate, const cplx_t *mat);
+void testRotationGateMixed(const rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+void testTwoQubitGateMixed(const two_qubit_gate gate, const cplx_t *mat);
+void testThreeQubitGateMixed(const three_qubit_gate gate, const cplx_t *mat);
 
 /*
  * =====================================================================================================================
@@ -217,10 +219,10 @@ void testThreeQubitGateMixed(three_qubit_gate gate, const cplx_t *mat);
  * =====================================================================================================================
  */
 
-void testSingleQubitGateTiled(single_qubit_gate gate, const cplx_t *mat);
-void testRotationGateTiled(rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
-void testTwoQubitGateTiled(two_qubit_gate gate, const cplx_t *mat);
-void testThreeQubitGateTiled(three_qubit_gate gate, const cplx_t *mat);
+void testSingleQubitGateTiled(const single_qubit_gate gate, const cplx_t *mat);
+void testRotationGateTiled(const rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
+void testTwoQubitGateTiled(const two_qubit_gate gate, const cplx_t *mat);
+void testThreeQubitGateTiled(const three_qubit_gate gate, const cplx_t *mat);
 
 /*
  * =====================================================================================================================
@@ -232,6 +234,10 @@ void mat_rx(double theta, cplx_t *mat);
 void mat_ry(double theta, cplx_t *mat);
 void mat_rz(double theta, cplx_t *mat);
 void mat_p(double theta, cplx_t *mat);
+
+// Test angles: representative values covering identity, small, π/2, π, and negative
+static const double TEST_THETAS[] = {0.0, M_PI/4, M_PI/2, M_PI, 3*M_PI/2, -M_PI/3};
+static const unsigned NUM_THETAS = sizeof(TEST_THETAS) / sizeof(TEST_THETAS[0]);
 
 /*
  * =====================================================================================================================
