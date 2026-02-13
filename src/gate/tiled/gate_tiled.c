@@ -491,19 +491,20 @@ void x_tiled(state_t *state, const qubit_t target) {
                     const gate_idx_t offset_t01 = (tr0 * (tr0 + 1) / 2 + tc1) * TILE_SIZE;
 
                     for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                        const gate_idx_t idx00 = lr * TILE_DIM + offset_t00; 
-                        const gate_idx_t idx01 = lr * TILE_DIM + offset_t01;
-                        const gate_idx_t idx10 = lr * TILE_DIM + offset_t10;
-                        const gate_idx_t idx11 = lr * TILE_DIM + offset_t11;
+                        cplx_t * restrict row00 = data + lr * TILE_DIM + offset_t00;
+                        cplx_t * restrict row01 = data + lr * TILE_DIM + offset_t01;
+                        cplx_t * restrict row10 = data + lr * TILE_DIM + offset_t10;
+                        cplx_t * restrict row11 = data + lr * TILE_DIM + offset_t11;
 
+                        #pragma clang loop vectorize(enable)
                         for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
-                            cplx_t tmp = data[idx00 + lc];
-                            data[idx00 + lc] = data[idx11 + lc];
-                            data[idx11 + lc] = tmp;
+                            cplx_t tmp = row00[lc];
+                            row00[lc] = row11[lc];
+                            row11[lc] = tmp;
 
-                            tmp = data[idx01 + lc];
-                            data[idx01 + lc] = data[idx10 + lc];
-                            data[idx10 + lc] = tmp;
+                            tmp = row01[lc];
+                            row01[lc] = row10[lc];
+                            row10[lc] = tmp;
                         }
                     }
                 }
@@ -511,7 +512,7 @@ void x_tiled(state_t *state, const qubit_t target) {
                     const gate_idx_t offset_t01 = (tc1 * (tc1 + 1) / 2 + tr0) * TILE_SIZE;
 
                     for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                        const gate_idx_t idx00 = lr * TILE_DIM + offset_t00; 
+                        const gate_idx_t idx00 = lr * TILE_DIM + offset_t00;
                         const gate_idx_t idx10 = lr * TILE_DIM + offset_t10;
                         const gate_idx_t idx11 = lr * TILE_DIM + offset_t11;
 
@@ -529,14 +530,15 @@ void x_tiled(state_t *state, const qubit_t target) {
                 else {
 
                     for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                        const gate_idx_t idx00 = lr * TILE_DIM + offset_t00; 
+                        cplx_t * restrict row00 = data + lr * TILE_DIM + offset_t00;
+                        cplx_t * restrict row11 = data + lr * TILE_DIM + offset_t11;
                         const gate_idx_t idx10 = lr * TILE_DIM + offset_t10;
-                        const gate_idx_t idx11 = lr * TILE_DIM + offset_t11;
 
+                        #pragma clang loop vectorize(enable)
                         for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
-                            cplx_t tmp = data[idx00 + lc];
-                            data[idx00 + lc] = data[idx11 + lc];
-                            data[idx11 + lc] = tmp;
+                            cplx_t tmp = row00[lc];
+                            row00[lc] = row11[lc];
+                            row11[lc] = tmp;
                         }
 
                         for (gate_idx_t lc = 0; lc <= lr; ++lc) {
