@@ -64,23 +64,23 @@ extern void ccx_packed(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t tar
  * =====================================================================================================================
  */
 
-// extern void x_tiled(state_t *state, qubit_t target);
-// extern void y_tiled(state_t *state, qubit_t target);
-// extern void z_tiled(state_t *state, qubit_t target);
-// extern void h_tiled(state_t *state, qubit_t target);
-// extern void s_tiled(state_t *state, qubit_t target);
-// extern void sdg_tiled(state_t *state, qubit_t target);
-// extern void t_tiled(state_t *state, qubit_t target);
-// extern void tdg_tiled(state_t *state, qubit_t target);
-// extern void hy_tiled(state_t *state, qubit_t target);
-//
-// extern void rx_tiled(state_t *state, qubit_t target, double theta);
-// extern void ry_tiled(state_t *state, qubit_t target, double theta);
-// extern void rz_tiled(state_t *state, qubit_t target, double theta);
-// extern void p_tiled(state_t *state, qubit_t target, double theta);
-//
-// extern void cx_tiled(state_t *state, qubit_t control, qubit_t target);
-// extern void swap_tiled(state_t *state, qubit_t q1, qubit_t q2);
+extern void x_tiled(state_t *state, qubit_t target);
+extern void y_tiled(state_t *state, qubit_t target);
+extern void z_tiled(state_t *state, qubit_t target);
+extern void h_tiled(state_t *state, qubit_t target);
+extern void s_tiled(state_t *state, qubit_t target);
+extern void sdg_tiled(state_t *state, qubit_t target);
+extern void t_tiled(state_t *state, qubit_t target);
+extern void tdg_tiled(state_t *state, qubit_t target);
+extern void hy_tiled(state_t *state, qubit_t target);
+
+extern void rx_tiled(state_t *state, qubit_t target, double theta);
+extern void ry_tiled(state_t *state, qubit_t target, double theta);
+extern void rz_tiled(state_t *state, qubit_t target, double theta);
+extern void p_tiled(state_t *state, qubit_t target, double theta);
+
+extern void cx_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void swap_tiled(state_t *state, qubit_t q1, qubit_t q2);
 
 /*
  * =====================================================================================================================
@@ -96,7 +96,7 @@ extern void ccx_packed(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t tar
     switch ((state)->type) {                                        \
         case PURE:         name##_pure(state, target);   break;     \
         case MIXED_PACKED: name##_packed(state, target);  break;    \
-        case MIXED_TILED:  GATE_VALIDATE(0, #name ": tiled temporarily disabled"); \
+        case MIXED_TILED:  name##_tiled(state, target);   break;      \
         default: GATE_VALIDATE(0, #name ": unknown state type");    \
     }
 
@@ -124,7 +124,7 @@ void hy(state_t *state, const qubit_t target) { DISPATCH_1Q(hy, state, target); 
     switch ((state)->type) {                                                \
         case PURE:         name##_pure(state, target, theta);   break;      \
         case MIXED_PACKED: name##_packed(state, target, theta);  break;     \
-        case MIXED_TILED:  GATE_VALIDATE(0, #name ": tiled temporarily disabled"); \
+        case MIXED_TILED:  name##_tiled(state, target, theta);   break; \
         default: GATE_VALIDATE(0, #name ": unknown state type");            \
     }
 
@@ -151,7 +151,7 @@ void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(
     switch ((state)->type) {                                                    \
         case PURE:         name##_pure(state, control, target);   break;        \
         case MIXED_PACKED: name##_packed(state, control, target);  break;       \
-        case MIXED_TILED:  GATE_VALIDATE(0, #name ": tiled temporarily disabled"); \
+        case MIXED_TILED:  name##_tiled(state, control, target);   break; \
         default: GATE_VALIDATE(0, #name ": unknown state type");                \
     }
 
@@ -183,7 +183,7 @@ void swap_gate(state_t *state, const qubit_t q1, const qubit_t q2) {
     switch (state->type) {
         case PURE:         swap_pure(state, q1, q2);   break;
         case MIXED_PACKED: swap_packed(state, q1, q2);  break;
-        case MIXED_TILED:  GATE_VALIDATE(0, "swap: tiled temporarily disabled");
+        case MIXED_TILED:  swap_tiled(state, q1, q2);   break;
         default: GATE_VALIDATE(0, "swap: unknown state type");
     }
 }
