@@ -52,9 +52,9 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 ## Current Status
 
 - State module: complete
-- Gates: X, Y, Z, H, S, Sdg, T, Tdg implemented (pure + mixed)
-- Rotation gates: Rx, Ry, Rz implemented (pure + mixed)
-- Two-qubit gates: CNOT (cx), SWAP implemented (pure + mixed)
+- Single-qubit gates: X, Y, Z, H, Hy, S, Sdg, T, Tdg, P, Rx, Ry, Rz (pure + packed; tiled under construction)
+- Two-qubit gates: CX, CY, CZ, SWAP (pure + packed; tiled under construction for CX, SWAP)
+- Three-qubit gate: CCX (pure + packed)
 
 ## Documentation
 
