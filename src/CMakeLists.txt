@@ -11,7 +11,7 @@ set(STATE_SOURCES
 # Collect packed gate sources (one file per gate)
 file(GLOB GATE_PACKED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_*.c")
 
-# Collect tiled gate sources (one file per 2Q gate)
+# Collect tiled gate sources
 file(GLOB GATE_TILED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_*.c")
 
 # Collect all source files

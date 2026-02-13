@@ -281,7 +281,7 @@ void rz_pure(state_t *state, const qubit_t target, const double theta) {
  */
 void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    cplx_t *data = state->data;
+    cplx_t *restrict data = state->data;
 
     // Determine which qubit index is lower/higher for bit insertion
     qubit_t lo = (control < target) ? control : target;
@@ -315,7 +315,7 @@ void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
  */
 void cy_pure(state_t *state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    cplx_t *data = state->data;
+    cplx_t *restrict data = state->data;
 
     qubit_t lo = (control < target) ? control : target;
     qubit_t hi = (control < target) ? target : control;
@@ -347,7 +347,7 @@ void cy_pure(state_t *state, const qubit_t control, const qubit_t target) {
  */
 void cz_pure(state_t *state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    cplx_t *data = state->data;
+    cplx_t *restrict data = state->data;
 
     qubit_t lo = (control < target) ? control : target;
     qubit_t hi = (control < target) ? target : control;
@@ -374,7 +374,7 @@ void cz_pure(state_t *state, const qubit_t control, const qubit_t target) {
  */
 void swap_pure(state_t *state, const qubit_t q1, const qubit_t q2) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    cplx_t *data = state->data;
+    cplx_t *restrict data = state->data;
 
     const qubit_t lo = (q1 < q2) ? q1 : q2;
     const qubit_t hi = (q1 < q2) ? q2 : q1;
@@ -404,7 +404,7 @@ void swap_pure(state_t *state, const qubit_t q1, const qubit_t q2) {
  */
 void ccx_pure(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    cplx_t *data = state->data;
+    cplx_t *restrict data = state->data;
 
     // Sort qubit positions into lo < med < hi for bit insertion
     qubit_t q[3] = {ctrl1, ctrl2, target};
