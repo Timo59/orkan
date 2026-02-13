@@ -56,33 +56,37 @@ if(APPLE)
 endif()
 find_package(OpenMP)
 
-# Qulacs - check extern/ first (requires Boost)
-# Qulacs provides dm_* functions for density matrix gate operations
-# CMP0167 (CMake 3.30+): Use Boost's own BoostConfig.cmake instead of removed FindBoost module
-if(POLICY CMP0167)
-    cmake_policy(SET CMP0167 NEW)
-endif()
-find_package(Boost 1.71.0 QUIET CONFIG)
-if(Boost_FOUND)
-    find_path(QULACS_INCLUDE_DIR csim/update_ops_dm.hpp
+# Qulacs - build csim_static from the submodule sources
+# Only the csim sub-library is needed; it depends on Eigen but not Boost.
+# We build it in-tree so `cmake --build` handles everything.
+set(QULACS_CSIM_DIR "${EXTERN_DIR}/qulacs/src/csim")
+if(EXISTS "${QULACS_CSIM_DIR}/update_ops_dm.hpp")
+    # Collect csim sources
+    file(GLOB QULACS_CSIM_SRC "${QULACS_CSIM_DIR}/*.cpp")
+    add_library(csim_static STATIC ${QULACS_CSIM_SRC})
+
+    # Eigen - check Homebrew, then system paths
+    find_path(EIGEN3_INCLUDE_DIR Eigen/Core
         HINTS
-            ${EXTERN_DIR}/qulacs/src
-            ${QULACS_DIR}/include
-            $ENV{QULACS_DIR}/include
-            /usr/local/include/qulacs
+            /opt/homebrew/include/eigen3
+            /usr/local/include/eigen3
+            /usr/include/eigen3
     )
-    find_library(QULACS_CSIM_LIBRARY
-        NAMES csim_static csim
-        HINTS
-            ${EXTERN_DIR}/qulacs/build/lib
-            ${EXTERN_DIR}/qulacs/lib
-            ${QULACS_DIR}/lib
-            $ENV{QULACS_DIR}/lib
-            /usr/local/lib
-    )
-    if(QULACS_INCLUDE_DIR AND QULACS_CSIM_LIBRARY)
-        set(QULACS_FOUND TRUE)
+    if(EIGEN3_INCLUDE_DIR)
+        target_include_directories(csim_static SYSTEM PRIVATE ${EIGEN3_INCLUDE_DIR})
     endif()
+
+    # Qulacs headers reference each other via <csim/...>
+    target_include_directories(csim_static PRIVATE "${EXTERN_DIR}/qulacs/src")
+    # Suppress warnings in third-party code
+    target_compile_options(csim_static PRIVATE -w)
+    set_property(TARGET csim_static PROPERTY CXX_STANDARD 17)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(csim_static PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+
+    set(QULACS_INCLUDE_DIR "${EXTERN_DIR}/qulacs/src")
+    set(QULACS_FOUND TRUE)
 endif()
 
 #=======================================================================================================================
@@ -138,7 +142,7 @@ if(QULACS_FOUND)
     target_include_directories(bench_mixed PRIVATE
         ${QULACS_INCLUDE_DIR}
     )
-    target_link_libraries(bench_mixed PRIVATE ${QULACS_CSIM_LIBRARY})
+    target_link_libraries(bench_mixed PRIVATE csim_static)
     # Qulacs requires C++14 minimum (we use C++17 for consistency)
     set_property(TARGET bench_mixed PROPERTY CXX_STANDARD 17)
     set_property(TARGET bench_mixed PROPERTY CXX_STANDARD_REQUIRED ON)
