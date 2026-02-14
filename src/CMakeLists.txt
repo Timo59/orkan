@@ -20,7 +20,6 @@ set(Q_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate_pure.c"
         ${GATE_PACKED_SOURCES}
-        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled.c"
         ${GATE_TILED_SOURCES}
 )
 
