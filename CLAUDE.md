@@ -44,10 +44,8 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 | `src/state/` | State allocation, initialization, copy |
 | `src/gate/gate.c` | Gate dispatchers with input validation |
 | `src/gate/gate_pure.c` | Pure state gate implementations |
-| `src/gate/packed/gate_packed_1q.c` | Mixed state packed 1-qubit gate implementations |
-| `src/gate/packed/gate_packed_<name>.c` | Mixed state packed 2-qubit gates (one file per gate) |
-| `src/gate/tiled/gate_tiled.c` | Mixed state tiled 1Q + rotation gate implementations |
-| `src/gate/tiled/gate_tiled_<name>.c` | Mixed state tiled 2Q gates (one file per gate) |
+| `src/gate/packed/` | Mixed state packed gate implementations |
+| `src/gate/tiled/` | Mixed state tiled gate implementations (see `docs/GATES_MODULE.md` §6) |
 
 ## Current Status
 

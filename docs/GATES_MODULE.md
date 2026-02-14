@@ -2,7 +2,7 @@
 
 **Module:** Quantum Gate Operations
 **Header:** `include/gate.h`
-**Implementation:** `src/gate/gate_pure.c` (pure), `src/gate/packed/gate_packed_1q.c` + `src/gate/packed/gate_packed_<name>.c` (mixed packed, one file per multi-qubit gate), `src/gate/tiled/gate_tiled.c` (mixed tiled 1Q + rotation), `src/gate/tiled/gate_tiled_<name>.c` (mixed tiled, one file per multi-qubit gate), `src/gate/gate.c` (dispatchers)
+**Implementation:** `src/gate/gate_pure.c` (pure), `src/gate/packed/gate_packed_1q.c` + `src/gate/packed/gate_packed_<name>.c` (mixed packed, one file per multi-qubit gate), `src/gate/tiled/gate_tiled_<name>.c` (mixed tiled, one file per gate), `src/gate/gate.c` (dispatchers)
 **Dependencies:** `state.h`, `q_types.h`, `<complex.h>`, `<math.h>`, OpenMP (optional)
 
 ---
@@ -16,8 +16,8 @@ stride indexing rather than constructing full gate matrices via Kronecker produc
 **Design characteristics:**
 - **Direct packed operations**: mixed state gates operate directly on lower-triangular packed or tiled
   storage (no unpacking required)
-- **Macro-based traversal**: common loop structures factored into traversal macros with gate-specific
-  operations passed as macro parameters
+- **Inline traversal**: each gate file contains self-contained traversal loops with gate-specific
+  operations inlined (no shared traversal macros)
 - **In-place**: all gates modify state data in-place with O(1) extra memory
 
 ---
@@ -42,7 +42,7 @@ stride indexing rather than constructing full gate matrices via Kronecker produc
 | Ry(θ) | `ry(state, target, θ)` | `[[c,-s],[s,c]]` | Rotation | ✓ | ✓ | ✓ |
 | Rz(θ) | `rz(state, target, θ)` | `[[e^(-iθ/2),0],[0,e^(iθ/2)]]` | Rotation | ✓ | ✓ | ✓ |
 
-*Tiled implementations exist but dispatch is temporarily disabled (under construction).
+*Tiled single-qubit gates are fully implemented in standalone files under `src/gate/tiled/`.
 
 ### 2.2 Two-Qubit Gates
 
@@ -85,7 +85,7 @@ void x(state_t *state, const qubit_t target) {
     switch (state->type) {
         case PURE:         x_pure(state, target);   break;
         case MIXED_PACKED: x_packed(state, target);  break;
-        case MIXED_TILED:  /* temporarily disabled (under construction) */
+        case MIXED_TILED:  x_tiled(state, target);   break;
     }
 }
 ```
@@ -288,7 +288,55 @@ Tiles are TILE_DIM × TILE_DIM (default 32×32 = 16 KB). Full storage within eac
 per-element conjugation branches (unlike packed format). See `docs/STATE_MODULE.md` Section 4.3 for
 tile layout details.
 
-### 6.2 Within-Tile Operations (target < LOG_TILE_DIM)
+### 6.2 File Organization
+
+All tiled gate implementations live in standalone files under `src/gate/tiled/`. The shared header
+`gate_tiled.h` provides index helpers (`tile_off`, `elem_off`, `dtile_read`, `dtile_write`) and
+the `OMP_THRESHOLD` constant. Each standalone file contains a single gate function with inline
+within-tile and cross-tile traversal loops.
+
+**Single-qubit gate files:**
+
+| File | Function | Category | Inner Operation |
+|------|----------|----------|-----------------|
+| `gate_tiled_x.c` | `x_tiled` | Zero-flop Pauli | swap pairs |
+| `gate_tiled_y.c` | `y_tiled` | Zero-flop Pauli | negate-swap pairs |
+| `gate_tiled_z.c` | `z_tiled` | Zero-flop Pauli | negate off-diagonal |
+| `gate_tiled_h.c` | `h_tiled` | Mixing Clifford | 4-way linear combination (×0.5) |
+| `gate_tiled_hy.c` | `hy_tiled` | Mixing Clifford | 4-way linear combination (×0.5) |
+| `gate_tiled_s.c` | `s_tiled` | Diagonal Clifford | phase ρ₁₀ by i |
+| `gate_tiled_sdg.c` | `sdg_tiled` | Diagonal Clifford | phase ρ₁₀ by −i |
+| `gate_tiled_t.c` | `t_tiled` | Diagonal non-Clifford | phase ρ₁₀ by e^(iπ/4) |
+| `gate_tiled_tdg.c` | `tdg_tiled` | Diagonal non-Clifford | phase ρ₁₀ by e^(−iπ/4) |
+| `gate_tiled_rx.c` | `rx_tiled` | Mixing rotation | cos/sin parametric 4-way mixing |
+| `gate_tiled_ry.c` | `ry_tiled` | Mixing rotation | cos/sin parametric 4-way mixing |
+| `gate_tiled_rz.c` | `rz_tiled` | Diagonal rotation | phase ρ₁₀ by e^(iθ) |
+| `gate_tiled_p.c` | `p_tiled` | Diagonal rotation | delegates to `rz_tiled` |
+
+**Two-qubit gate files:**
+
+| File | Function | Category |
+|------|----------|----------|
+| `gate_tiled_cx.c` | `cx_tiled` | Controlled permutation |
+| `gate_tiled_swap.c` | `swap_tiled` | Qubit exchange |
+
+**Gate categories:**
+
+- **Zero-flop**: Only memory permutations and sign flips, no arithmetic. Tight vectorizable inner loops.
+- **Diagonal**: Only off-diagonal density matrix elements (ρ₁₀, ρ₀₁) are modified; diagonal elements
+  (ρ₀₀, ρ₁₁) unchanged. Structurally similar to Z.
+- **Mixing**: All 4 elements of each 2×2 block participate. Require read-compute-write of all quadrants.
+- **Rotation**: Parametric gates with precomputed trigonometric constants captured from enclosing scope.
+
+All single-qubit standalone files share a common cross-tile structural pattern with three sub-cases
+for lower-triangle tile storage:
+
+1. **tr0 > tc1**: all 4 tiles stored directly — no conjugation needed
+2. **btr ≠ btc** (off-diagonal): T(tr0,tc1) accessed via T(tc1,tr0) with conjugation
+3. **btr = btc** (diagonal): T00/T11 are diagonal tiles (iterate lr ≥ lc, mirror upper triangle);
+   T01 shares storage with T10
+
+### 6.3 Within-Tile Operations (target < LOG_TILE_DIM)
 
 When the target qubit index is less than LOG_TILE_DIM (default 5), all 4 butterfly elements lie within
 the same tile.
@@ -298,7 +346,7 @@ the same tile.
 // Apply gate, write back directly — no lower_01/diag_block flags needed
 ```
 
-### 6.3 Cross-Tile Operations (target ≥ LOG_TILE_DIM)
+### 6.4 Cross-Tile Operations (target ≥ LOG_TILE_DIM)
 
 Butterfly elements span 4 different tiles. Process in tile groups:
 
@@ -314,22 +362,24 @@ for each tile group (base_tr, base_tc) where both have tile_bit = 0:
     // Some tiles may be in upper triangle → need conjugation logic at tile level
 ```
 
-### 6.4 Controlled Gates on Tiled Storage
+### 6.5 Controlled Gates on Tiled Storage
 
 Same four-block decomposition as packed (Section 5.2). Within-tile: branch-free passes (no triangle
 constraints). Cross-tile: triangle status determined once per tile group.
 
-### 6.5 Parallelization (Tiled)
+### 6.6 Parallelization (Tiled)
 
 ```c
-// Within-tile: parallelize over tiles
-#pragma omp parallel for schedule(dynamic)
-for (dim_t t = 0; t < n_lower_tiles; ++t)
+// Within-tile: parallelize over tiles (outer loop on tile-row)
+#pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+for (gate_idx_t tr = 0; tr < n_tiles; ++tr)
 
-// Cross-tile: parallelize over tile groups
-#pragma omp parallel for schedule(dynamic)
-for (dim_t g = 0; g < n_tile_groups; ++g)
+// Cross-tile: parallelize over tile-row pairs
+#pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+for (gate_idx_t btr = 0; btr < n_base; ++btr)
 ```
+
+`OMP_THRESHOLD` is 512 (n < 9 qubits), below which thread-launch overhead dominates.
 
 ---
 
