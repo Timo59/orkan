@@ -69,4 +69,31 @@ static inline void dtile_write(cplx_t *tile, gate_idx_t lr, gate_idx_t lc, cplx_
     }
 }
 
+/*
+ * =====================================================================================================================
+ * Tiled gate function declarations
+ * =====================================================================================================================
+ */
+
+/* Single-qubit gates (no parameter) */
+void h_tiled(state_t *state, const qubit_t target);
+void hy_tiled(state_t *state, const qubit_t target);
+void s_tiled(state_t *state, const qubit_t target);
+void sdg_tiled(state_t *state, const qubit_t target);
+void t_tiled(state_t *state, const qubit_t target);
+void tdg_tiled(state_t *state, const qubit_t target);
+void x_tiled(state_t *state, const qubit_t target);
+void y_tiled(state_t *state, const qubit_t target);
+void z_tiled(state_t *state, const qubit_t target);
+
+/* Single-qubit rotation gates (with angle parameter) */
+void p_tiled(state_t *state, const qubit_t target, const double theta);
+void rx_tiled(state_t *state, const qubit_t target, const double theta);
+void ry_tiled(state_t *state, const qubit_t target, const double theta);
+void rz_tiled(state_t *state, const qubit_t target, const double theta);
+
+/* Two-qubit gates */
+void cx_tiled(state_t *state, const qubit_t control, const qubit_t target);
+void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2);
+
 #endif /* GATE_TILED_H */
