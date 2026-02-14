@@ -85,3 +85,7 @@ endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/benchmark")
     add_subdirectory(benchmark)
 endif()
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/profile")
+    add_subdirectory(profile)
+endif()
