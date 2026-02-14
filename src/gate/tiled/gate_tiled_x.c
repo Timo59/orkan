@@ -21,17 +21,17 @@
 void x_tiled(state_t *state, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
     const gate_idx_t n_tiles = (dim + TILE_DIM - (gate_idx_t)1) >> LOG_TILE_DIM;
-    const gate_idx_t dim_tile = dim < TILE_DIM ? dim : TILE_DIM;
     const gate_idx_t incr = (gate_idx_t)1 << target;
     cplx_t * restrict data = state->data;
 
     if (target < LOG_TILE_DIM) {
+        const gate_idx_t dim_tile = dim < TILE_DIM ? dim : TILE_DIM;
         const gate_idx_t n_base = dim_tile >> 1;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
         for (gate_idx_t tr = 0; tr < n_tiles; ++tr) {
             for (gate_idx_t tc = 0; tc <= tr; ++tc) {
-                gate_idx_t offset_tile = (tr * (tr + 1) / 2 + tc) * TILE_SIZE;
+                gate_idx_t offset_tile = tile_off(tr, tc);
 
                 for (gate_idx_t br = 0; br < n_base; ++br) {
                     const gate_idx_t r0 = insertBit0(br, target);
@@ -71,12 +71,12 @@ void x_tiled(state_t *state, const qubit_t target) {
                 const gate_idx_t tc0 = insertBit0(btc, target_tile);
                 const gate_idx_t tc1 = tc0 | incr_tile;
 
-                const gate_idx_t offset_t00 = (tr0 * (tr0 + 1) / 2 + tc0) * TILE_SIZE;
-                const gate_idx_t offset_t10 = (tr1 * (tr1 + 1) / 2 + tc0) * TILE_SIZE;
-                const gate_idx_t offset_t11 = (tr1 * (tr1 + 1) / 2 + tc1) * TILE_SIZE;
+                const gate_idx_t offset_t00 = tile_off(tr0, tc0);
+                const gate_idx_t offset_t10 = tile_off(tr1, tc0);
+                const gate_idx_t offset_t11 = tile_off(tr1, tc1);
 
                 if (tr0 > tc1) {
-                    const gate_idx_t offset_t01 = (tr0 * (tr0 + 1) / 2 + tc1) * TILE_SIZE;
+                    const gate_idx_t offset_t01 = tile_off(tr0, tc1);
 
                     for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
                         cplx_t * restrict row00 = data + lr * TILE_DIM + offset_t00;
@@ -97,7 +97,7 @@ void x_tiled(state_t *state, const qubit_t target) {
                     }
                 }
                 else if (btr != btc) {
-                    const gate_idx_t offset_t01 = (tc1 * (tc1 + 1) / 2 + tr0) * TILE_SIZE;
+                    const gate_idx_t offset_t01 = tile_off(tc1, tr0);
 
                     for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
                         const gate_idx_t idx00 = lr * TILE_DIM + offset_t00;

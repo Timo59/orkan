@@ -28,14 +28,12 @@
  */
 
 #include "gate_tiled.h"
-#include <math.h>
 
 void rz_tiled(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta), sn = sin(theta);
 
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
     const gate_idx_t n_tiles = (dim + TILE_DIM - (gate_idx_t)1) >> LOG_TILE_DIM;
-    const gate_idx_t dim_tile = dim < TILE_DIM ? dim : TILE_DIM;
     const gate_idx_t incr = (gate_idx_t)1 << target;
     cplx_t * restrict data = state->data;
 
@@ -44,12 +42,13 @@ void rz_tiled(state_t *state, const qubit_t target, const double theta) {
          * Within-tile path: all 4 butterfly elements are in the same tile.
          * Diagonal gate: only a01 and a10 are modified; a00/a11 unchanged.
          */
+        const gate_idx_t dim_tile = dim < TILE_DIM ? dim : TILE_DIM;
         const gate_idx_t n_base = dim_tile >> 1;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
         for (gate_idx_t tr = 0; tr < n_tiles; ++tr) {
             for (gate_idx_t tc = 0; tc <= tr; ++tc) {
-                gate_idx_t offset_tile = (tr * (tr + 1) / 2 + tc) * TILE_SIZE;
+                gate_idx_t offset_tile = tile_off(tr, tc);
 
                 for (gate_idx_t br = 0; br < n_base; ++br) {
                     const gate_idx_t r0 = insertBit0(br, target);
@@ -99,7 +98,7 @@ void rz_tiled(state_t *state, const qubit_t target, const double theta) {
 
                 /* T(tr1,tc0): always in lower triangle.
                  * Apply rho10 *= e^(i*theta) to all elements. */
-                const gate_idx_t offset_t10 = (tr1 * (tr1 + 1) / 2 + tc0) * TILE_SIZE;
+                const gate_idx_t offset_t10 = tile_off(tr1, tc0);
 
                 for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
                     cplx_t * restrict row10 = data + lr * TILE_DIM + offset_t10;
@@ -118,7 +117,7 @@ void rz_tiled(state_t *state, const qubit_t target, const double theta) {
                     if (tr0 > tc1) {
                         /* Sub-case a: t01 stored directly as T(tr0,tc1).
                          * Apply e^(-i*theta) directly. */
-                        const gate_idx_t offset_t01 = (tr0 * (tr0 + 1) / 2 + tc1) * TILE_SIZE;
+                        const gate_idx_t offset_t01 = tile_off(tr0, tc1);
 
                         for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
                             cplx_t * restrict row01 = data + lr * TILE_DIM + offset_t01;
@@ -138,7 +137,7 @@ void rz_tiled(state_t *state, const qubit_t target, const double theta) {
                          *            = conj(rho01) * e^(i*theta)
                          *            = stored * e^(i*theta)
                          * So: CMPLX(r*c - im*sn, im*c + r*sn) */
-                        const gate_idx_t offset_t01 = (tc1 * (tc1 + 1) / 2 + tr0) * TILE_SIZE;
+                        const gate_idx_t offset_t01 = tile_off(tc1, tr0);
 
                         for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
                             cplx_t * restrict row01 = data + lr * TILE_DIM + offset_t01;

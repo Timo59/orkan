@@ -18,9 +18,6 @@
 
 #include "gate_tiled.h"
 
-/* rz_tiled is defined in gate_tiled_rz.c */
-extern void rz_tiled(state_t *state, const qubit_t target, const double theta);
-
 void p_tiled(state_t *state, const qubit_t target, const double theta) {
     rz_tiled(state, target, theta);
 }
