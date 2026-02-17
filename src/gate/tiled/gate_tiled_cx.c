@@ -297,37 +297,38 @@ void cx_tiled(state_t *state, const qubit_t control, const qubit_t target) {
 
                     cplx_t * restrict t10 = data + tile_off(tr1, tc0);
                     cplx_t * restrict t11 = data + tile_off(tr1, tc1);
-                    cplx_t * restrict t01 = (tr0 > tc1) ? data + tile_off(tr0, tc1) : NULL;
 
-                    for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                        const gate_idx_t lr0 = insertBit0(blr, target);
-                        const gate_idx_t lr1 = lr0 | incr_local;
+                    if (tr0 > tc1) {
+                      cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                        for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                            const gate_idx_t lc0 = insertBit0(blc, target);
-                            const gate_idx_t lc1 = lc0 | incr_local;
+                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
+                            const gate_idx_t lr0 = insertBit0(blr, target);
+                            const gate_idx_t lr1 = lr0 | incr_local;
 
-                            /* Pair A: |ctrl=1,tgt=0><ctrl=0,tgt=0| <--> |ctrl=1,tgt=1><ctrl=0,tgt=0| */
-                            cplx_t tmp = t10[elem_off(lr0, lc0)];
-                            t10[elem_off(lr0, lc0)] = t10[elem_off(lr1, lc0)];
-                            t10[elem_off(lr1, lc0)] = tmp;
+                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
+                                const gate_idx_t lc0 = insertBit0(blc, target);
+                                const gate_idx_t lc1 = lc0 | incr_local;
 
-                            /* Pair C: |ctrl=1,tgt=0><ctrl=0,tgt=1| <--> |ctrl=1,tgt=1><ctrl=0,tgt=1| */
-                            tmp = t10[elem_off(lr0, lc1)];
-                            t10[elem_off(lr0, lc1)] = t10[elem_off(lr1, lc1)];
-                            t10[elem_off(lr1, lc1)] = tmp;
+                                /* Pair A: |ctrl=1,tgt=0><ctrl=0,tgt=0| <--> |ctrl=1,tgt=1><ctrl=0,tgt=0| */
+                                cplx_t tmp = t10[elem_off(lr0, lc0)];
+                                t10[elem_off(lr0, lc0)] = t10[elem_off(lr1, lc0)];
+                                t10[elem_off(lr1, lc0)] = tmp;
 
-                            /* Pair B: |ctrl=1,tgt=0><ctrl=1,tgt=0| <--> |ctrl=1,tgt=1><ctrl=1,tgt=1| */
-                            tmp = t11[elem_off(lr0, lc0)];
-                            t11[elem_off(lr0, lc0)] = t11[elem_off(lr1, lc1)];
-                            t11[elem_off(lr1, lc1)] = tmp;
+                                /* Pair C: |ctrl=1,tgt=0><ctrl=0,tgt=1| <--> |ctrl=1,tgt=1><ctrl=0,tgt=1| */
+                                tmp = t10[elem_off(lr0, lc1)];
+                                t10[elem_off(lr0, lc1)] = t10[elem_off(lr1, lc1)];
+                                t10[elem_off(lr1, lc1)] = tmp;
 
-                            /* Pair D: |ctrl=1,tgt=0><ctrl=1,tgt=1| <--> |ctrl=1,tgt=1><ctrl=1,tgt=0| */
-                            tmp = t11[elem_off(lr0, lc1)];
-                            t11[elem_off(lr0, lc1)] = t11[elem_off(lr1, lc0)];
-                            t11[elem_off(lr1, lc0)] = tmp;
+                                /* Pair B: |ctrl=1,tgt=0><ctrl=1,tgt=0| <--> |ctrl=1,tgt=1><ctrl=1,tgt=1| */
+                                tmp = t11[elem_off(lr0, lc0)];
+                                t11[elem_off(lr0, lc0)] = t11[elem_off(lr1, lc1)];
+                                t11[elem_off(lr1, lc1)] = tmp;
 
-                            if (tr0 > tc1) {
+                                /* Pair D: |ctrl=1,tgt=0><ctrl=1,tgt=1| <--> |ctrl=1,tgt=1><ctrl=1,tgt=0| */
+                                tmp = t11[elem_off(lr0, lc1)];
+                                t11[elem_off(lr0, lc1)] = t11[elem_off(lr1, lc0)];
+                                t11[elem_off(lr1, lc0)] = tmp;
+
                                 /* Pair E: |ctrl=0,tgt=1><ctrl=1,tgt=0| <--> |ctrl=0,tgt=1><ctrl=1,tgt=1| */
                                 tmp = t01[elem_off(lr1, lc0)];
                                 t01[elem_off(lr1, lc0)] = t01[elem_off(lr1, lc1)];
@@ -337,6 +338,82 @@ void cx_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 tmp = t01[elem_off(lr0, lc0)];
                                 t01[elem_off(lr0, lc0)] = t01[elem_off(lr0, lc1)];
                                 t01[elem_off(lr0, lc1)] = tmp;
+                            }
+                        }
+                    }
+
+                    else if (btr != btc) {
+                        cplx_t * restrict t01 = data + tile_off(tc1, tr0);   
+
+                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
+                            const gate_idx_t lr0 = insertBit0(blr, target);
+                            const gate_idx_t lr1 = lr0 | incr_local;
+
+                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
+                                const gate_idx_t lc0 = insertBit0(blc, target);
+                                const gate_idx_t lc1 = lc0 | incr_local;
+
+                                /* Pair A: |ctrl=1,tgt=0><ctrl=0,tgt=0| <--> |ctrl=1,tgt=1><ctrl=0,tgt=0| */
+                                cplx_t tmp = t10[elem_off(lr0, lc0)];
+                                t10[elem_off(lr0, lc0)] = t10[elem_off(lr1, lc0)];
+                                t10[elem_off(lr1, lc0)] = tmp;
+
+                                /* Pair C: |ctrl=1,tgt=0><ctrl=0,tgt=1| <--> |ctrl=1,tgt=1><ctrl=0,tgt=1| */
+                                tmp = t10[elem_off(lr0, lc1)];
+                                t10[elem_off(lr0, lc1)] = t10[elem_off(lr1, lc1)];
+                                t10[elem_off(lr1, lc1)] = tmp;
+
+                                /* Pair B: |ctrl=1,tgt=0><ctrl=1,tgt=0| <--> |ctrl=1,tgt=1><ctrl=1,tgt=1| */
+                                tmp = t11[elem_off(lr0, lc0)];
+                                t11[elem_off(lr0, lc0)] = t11[elem_off(lr1, lc1)];
+                                t11[elem_off(lr1, lc1)] = tmp;
+
+                                /* Pair D: |ctrl=1,tgt=0><ctrl=1,tgt=1| <--> |ctrl=1,tgt=1><ctrl=1,tgt=0| */
+                                tmp = t11[elem_off(lr0, lc1)];
+                                t11[elem_off(lr0, lc1)] = t11[elem_off(lr1, lc0)];
+                                t11[elem_off(lr1, lc0)] = tmp;
+
+                                /* Pair E: |ctrl=0,tgt=1><ctrl=1,tgt=0| <--> |ctrl=0,tgt=1><ctrl=1,tgt=1| */
+                                tmp = t01[elem_off(lr1, lc0)];
+                                t01[elem_off(lr1, lc0)] = t01[elem_off(lr1, lc1)];
+                                t01[elem_off(lr1, lc1)] = tmp;
+
+                                /* Pair F: |ctrl=0,tgt=0><ctrl=1,tgt=0| <--> |ctrl=0,tgt=0><ctrl=1,tgt=1| */
+                                tmp = t01[elem_off(lr0, lc0)];
+                                t01[elem_off(lr0, lc0)] = t01[elem_off(lr0, lc1)];
+                                t01[elem_off(lr0, lc1)] = tmp;
+                            }
+                        }
+                    }
+
+                    else {
+                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
+                            const gate_idx_t lr0 = insertBit0(blr, target);
+                            const gate_idx_t lr1 = lr0 | incr_local;
+
+                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
+                                const gate_idx_t lc0 = insertBit0(blc, target);
+                                const gate_idx_t lc1 = lc0 | incr_local;
+
+                                /* Pair A: |ctrl=1,tgt=0><ctrl=0,tgt=0| <--> |ctrl=1,tgt=1><ctrl=0,tgt=0| */
+                                cplx_t tmp = t10[elem_off(lr0, lc0)];
+                                t10[elem_off(lr0, lc0)] = t10[elem_off(lr1, lc0)];
+                                t10[elem_off(lr1, lc0)] = tmp;
+
+                                /* Pair C: |ctrl=1,tgt=0><ctrl=0,tgt=1| <--> |ctrl=1,tgt=1><ctrl=0,tgt=1| */
+                                tmp = t10[elem_off(lr0, lc1)];
+                                t10[elem_off(lr0, lc1)] = t10[elem_off(lr1, lc1)];
+                                t10[elem_off(lr1, lc1)] = tmp;
+
+                                /* Pair B: |ctrl=1,tgt=0><ctrl=1,tgt=0| <--> |ctrl=1,tgt=1><ctrl=1,tgt=1| */
+                                tmp = t11[elem_off(lr0, lc0)];
+                                t11[elem_off(lr0, lc0)] = t11[elem_off(lr1, lc1)];
+                                t11[elem_off(lr1, lc1)] = tmp;
+
+                                /* Pair D: |ctrl=1,tgt=0><ctrl=1,tgt=1| <--> |ctrl=1,tgt=1><ctrl=1,tgt=0| */
+                                tmp = t11[elem_off(lr0, lc1)];
+                                t11[elem_off(lr0, lc1)] = t11[elem_off(lr1, lc0)];
+                                t11[elem_off(lr1, lc0)] = tmp;
                             }
                         }
                     }
