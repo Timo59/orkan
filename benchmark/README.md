@@ -16,6 +16,7 @@ cmake --build . --target bench_mixed
 ```
 --min-qubits N   Minimum qubit count (default: 2)
 --max-qubits N   Maximum qubit count (default: 12)
+--step N         Qubit count increment (default: 1)
 --iterations N   Number of iterations (default: 1000)
 --warmup N       Warm-up iterations (default: 100)
 --csv            Output CSV format
@@ -27,7 +28,8 @@ cmake --build . --target bench_mixed
 ### Examples
 
 ```bash
-./benchmark/bench_mixed --max-qubits 8           # Quick test
+./benchmark/bench_mixed --max-qubits 8           # Quick test (every qubit: 2,3,4,...,8)
+./benchmark/bench_mixed --step 2                 # Even qubits only (2,4,6,...,12)
 ./benchmark/bench_mixed --csv > results.csv      # Export CSV data
 ./benchmark/bench_mixed --pgfplots > results.dat # Export for pgfplots/LaTeX
 ./benchmark/bench_mixed --iterations 5000        # Higher precision

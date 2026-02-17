@@ -27,7 +27,7 @@
 #endif
 
 /* Minimum dimension to enable OpenMP parallelization (avoid thread overhead for small systems) */
-#define OMP_THRESHOLD 64
+#define OMP_THRESHOLD 512
 
 
 void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {

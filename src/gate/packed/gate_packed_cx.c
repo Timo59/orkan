@@ -24,7 +24,7 @@
 #include <omp.h>
 #endif
 
-#define OMP_THRESHOLD 64
+#define OMP_THRESHOLD 512
 
 void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;

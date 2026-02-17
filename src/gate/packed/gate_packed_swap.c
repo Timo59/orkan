@@ -23,7 +23,7 @@
 #include <omp.h>
 #endif
 
-#define OMP_THRESHOLD 64
+#define OMP_THRESHOLD 512
 
 void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
