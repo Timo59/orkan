@@ -17,9 +17,9 @@ ctest
 
 | Module      | Status      | Technical Spec          | Thesis Notes |
 |-------------|-------------|-------------------------|--------------|
-| State       | Complete    | `docs/STATE_MODULE.md`  | `~/Projects/thesis/2.Simulation/STATE_THESIS_NOTES.md` |
-| Gate        | In Progress | `docs/GATES_MODULE.md`  | `~/Projects/thesis/2.Simulation/GATES_THESIS_NOTES.md` |
+| State       | Complete    | `docs/STATE_MODULE.md`  | `~/Projects/thesis/2.Simulation/notes/STATE_THESIS_NOTES.md` |
+| Gate        | In Progress | `docs/GATE_MODULE.md`   | `~/Projects/thesis/2.Simulation/notes/GATES_THESIS_NOTES.md` |
 | Measurement | Pending     | `docs/MEAS_MODULES.md`  | —            |
 | Tests       | In Progress | `docs/TEST_SUITE.md`    | —            |
-| Benchmark   | In Progress | `docs/BENCHMARK.md`     | —            |
+| Benchmark   | In Progress | `docs/BENCHMARK.md`     | `~/Projects/thesis/2.Simulation/notes/BENCHMARK_THESIS_NOTES.md` |
 | Profile     | In Progress | `docs/PROFILE.md`       | —            |
