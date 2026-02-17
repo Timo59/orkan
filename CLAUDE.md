@@ -60,4 +60,5 @@ First Linux build takes 10-30 min (compiles OpenBLAS with ILP64).
 - `docs/GATES_MODULE.md` - Gate implementation details and test strategy
 - `docs/STATE_MODULE.md` - State module specification
 - `docs/TEST_SUITE.md` - Test directory structure and how to run tests (read only when working on tests)
+- `docs/BENCHMARK.md` - Benchmark suite file layout, build, CLI, methods, and gates (read only when working on benchmarks)
 - `~/Projects/thesis/2.Simulation/NOTES.md` - Full theoretical background
