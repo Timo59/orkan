@@ -690,7 +690,7 @@ typedef struct gate_def_2q {
 } gate_def_2q_t;
 
 static const gate_def_2q_t gates_2q[] = {
-    {"CX",   cx,        CXMAT,    0},  /* tiled not yet implemented */
+    {"CX",   cx,        CXMAT,    1},
     {"SWAP", swap_gate,  SWAPMAT,  1},
     {NULL, NULL, NULL, 0}
 };
