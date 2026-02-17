@@ -2,8 +2,8 @@
 
 **Module:** Quantum Gate Operations
 **Status:** ⚠️ Nearly complete — one implementation remaining (see TODO)
-**Last verified build:** 36 gate test functions, 0 failures (tolerance 1e-12)
-**Last updated:** 2026-02-17
+**Last verified build:** 51 gate test functions, 0 failures (tolerance 1e-12)
+**Last updated:** 2026-02-17 (verified against source)
 
 ---
 
@@ -16,7 +16,7 @@
 - [ ] Add `RUN_TEST(test_CCX_tiled)` in `test/gate/test_gate.c`
 - [ ] Wire up dispatch in `src/gate/gate.c` (`DISPATCH_3Q` or inline)
 
-All other gates are implemented and tested for all three memory layouts (pure, packed, tiled).
+All other gates are implemented for pure and packed. CY and CZ have no tiled implementation (dispatched via `DISPATCH_2Q_NO_TILED`; the tiled case fires a validation error).
 
 ---
 
@@ -27,7 +27,7 @@ include/
   gate.h                         # Public API (18 gate declarations), GATE_VALIDATE macro
 
 src/gate/
-  gate.c                         # Three-way dispatch for all gates, extern declarations
+  gate.c                         # Dispatch for all gates (three-way for most; DISPATCH_2Q_NO_TILED for CY/CZ; inline for ccx and swap_gate)
   gate_pure.c                    # All pure implementations (13×1Q + 4×2Q + 1×3Q)
   packed/
     gate_packed_1q.c             # All 13 single-qubit packed implementations
@@ -37,7 +37,7 @@ src/gate/
     gate_packed_swap.c
     gate_packed_ccx.c
   tiled/
-    gate_tiled.h                 # Shared inline helpers: tile_off, elem_off, dtile_read/write
+    gate_tiled.h                 # Shared inline helpers: tile_off, elem_off, dtile_read/write, OMP_THRESHOLD
     gate_tiled_x.c               # ]
     gate_tiled_y.c               # ]
     gate_tiled_z.c               # ] 13 single-qubit tiled implementations
@@ -51,12 +51,15 @@ src/gate/
     gate_tiled_ry.c              # ]
     gate_tiled_rz.c              # ]
     gate_tiled_p.c               # ] (delegates to rz_tiled)
-    gate_tiled_cx.c              # CX tiled
+    gate_tiled_cx.c              # CX tiled (reference implementation for 2Q tiled pattern)
     gate_tiled_swap.c            # SWAP tiled
     gate_tiled_ccx.c.new         # ← WORK IN PROGRESS (rename to .c when done)
+    gate_tiled_cx.c.old          # stale — superseded by gate_tiled_cx.c
+    gate_tiled_swap.c.old        # stale — superseded by gate_tiled_swap.c
+    # Note: no gate_tiled_cy.c or gate_tiled_cz.c — CY and CZ have no tiled implementation
 
 test/gate/
-  test_gate.c                    # Test registry: function defs + main() with 36 RUN_TESTs
+  test_gate.c                    # Test registry: function defs + main() with 51 RUN_TESTs (18 pure + 18 packed + 15 tiled)
   test_gate_pure_1q.c            # Pure 1Q harnesses + rotation matrix builders
   test_gate_pure_2q.c            # Pure 2Q harness
   test_gate_pure_3q.c            # Pure 3Q harness
@@ -73,7 +76,7 @@ test/utility/
   gatemat.c                      # mat_single_qubit_gate(), mat_two_qubit_gate(), mat_three_qubit_gate()
 ```
 
-**Build (gate tests only — full build is broken due to stale benchmark headers):**
+**Build (gate tests only):**
 ```bash
 cd cmake-build-debug
 cmake --build . --target test_gate
@@ -102,13 +105,13 @@ cmake --build . --target test_gate
 | Ry(θ) | `ry(state, tgt, θ)` | ✓ | ✓ | ✓ |
 | Rz(θ) | `rz(state, tgt, θ)` | ✓ | ✓ | ✓ |
 
-### Two-Qubit Gates (all complete)
+### Two-Qubit Gates
 
 | Gate | API | Pure | Packed | Tiled |
 |------|-----|------|--------|-------|
 | CNOT | `cx(state, ctrl, tgt)` | ✓ | ✓ | ✓ |
-| CY | `cy(state, ctrl, tgt)` | ✓ | ✓ | ✓ |
-| CZ | `cz(state, ctrl, tgt)` | ✓ | ✓ | ✓ |
+| CY | `cy(state, ctrl, tgt)` | ✓ | ✓ | **missing** |
+| CZ | `cz(state, ctrl, tgt)` | ✓ | ✓ | **missing** |
 | SWAP | `swap_gate(state, q1, q2)` | ✓ | ✓ | ✓ |
 
 Note: `swap` is named `swap_gate` in the public API to avoid the C standard library clash.
@@ -136,7 +139,7 @@ switch (state->type) {
 
 `GATE_VALIDATE(cond, msg)` prints to stderr and calls `exit(EXIT_FAILURE)` — intentional fail-fast for a library that never recovers from invalid input.
 
-**Dispatch macros in `gate.c`:** `DISPATCH_1Q`, `DISPATCH_ROT`, `DISPATCH_2Q`, `DISPATCH_2Q_NO_TILED`. For CCX, use `DISPATCH_3Q` (to be added) or inline the switch.
+**Dispatch macros in `gate.c`:** `DISPATCH_1Q`, `DISPATCH_ROT`, `DISPATCH_2Q`, `DISPATCH_2Q_NO_TILED`. There is no `DISPATCH_3Q`; CCX and `swap_gate` are dispatched inline in `gate.c` (the latter because its parameter names `(q1, q2)` differ from the `(control, target)` convention).
 
 ---
 
@@ -158,7 +161,7 @@ Enumerates `dim/8` base indices with all three qubit bits = 0. CCX swaps amplitu
 Implements ρ → UρU† directly on the lower-triangular packed storage. No unpacking required.
 
 **Single-qubit** — `TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)`:
-Iterates lower-triangle pairs `(bc ≤ br)` of column/row base indices, each producing 4 packed indices `(idx00, idx01, idx10, idx11)`. `lower_01` and `diag_block` flags control conjugation and skipping. OpenMP `schedule(static)`, `if(dim >= 64)`.
+Iterates lower-triangle pairs `(bc ≤ br)` of column/row base indices, each producing 4 packed indices `(idx00, idx01, idx10, idx11)`. `lower_01` and `diag_block` flags control conjugation and skipping. OpenMP `schedule(static)`, `if(dim >= OMP_THRESHOLD)` where `OMP_THRESHOLD = 512`.
 
 **Two-qubit** — `insertBits2_0()` with 4×4 block pairs:
 Two nested loops `(bc ≤ br)`, each producing 4 row and 4 column indices — a 4×4 sub-block of the density matrix. Fast path when `r00 > c11` (all in lower triangle); slow path for upper-triangle crossings. OpenMP `schedule(static, 1)`.
@@ -166,10 +169,10 @@ Two nested loops `(bc ≤ br)`, each producing 4 row and 4 column indices — a 
 **Three-qubit** — same pattern with `insertBit0()` chained three times, producing 8×8 blocks. OpenMP `schedule(static, 1)`.
 
 **Per-gate operation types in packed:**
-- **Zero-flop** (X, CX, SWAP): only swap pairs — no arithmetic.
-- **Phased permutation** (Y, CY): swaps with ±i phase factors.
-- **Diagonal** (Z, S, Sdg, T, Tdg, P, Rz, CZ): only off-diagonal elements change; diagonal elements unchanged. Guard with `if (!diag_block)`.
-- **Mixing** (H, Hy, Rx, Ry): all 4 elements of each 2×2 block participate.
+- **Zero-flop** (X, CX, SWAP): only swap pairs and conjugations — no multiply/add arithmetic.
+- **Negation permutation** (Y, CY): swaps with sign negation. The ±i entries of Y/CY and their adjoints combine to −1 in UρU†, so the implementation requires no complex multiplication — only negation and conjugation.
+- **Diagonal** (Z, S, Sdg, T, Tdg, P, Rz, CZ): only off-diagonal elements change; diagonal elements unchanged. Guard `idx01` write with `if (!diag_block)` to avoid double-processing the aliased element.
+- **Mixing** (H, Hy, Rx, Ry): all 4 elements of each 2×2 block participate; Hermitian symmetry enforced by setting `a01 = conj(a10)` on diagonal blocks.
 
 ### Mixed Tiled (state_t type MIXED_TILED)
 
@@ -181,26 +184,16 @@ TILE_DIM = 32, LOG_TILE_DIM = 5. Only lower-triangular tiles (tr ≥ tc) stored.
 
 2. **Cross-tile** (`target ≥ LOG_TILE_DIM`): butterfly spans 4 tiles T00/T01/T10/T11, grouped by tile-level bit `tile_bit = target - LOG_TILE_DIM`. T(tr0,tc1) may be an upper-triangular tile — access as conjugate of T(tc1,tr0).
 
-**Shared macros in `gate_tiled.c`** (used by single-qubit non-rotation gates):
-```c
-TRAVERSE_TILED_WITHIN(state, target, OFFDIAG_OP, CONJ_OP)
-  // OFFDIAG_OP(a00, a01, a10, a11)          — 4 args, off-diagonal blocks
-  // CONJ_OP(a00, a01, a10, a11, lower_01, diag_block) — 6 args, diagonal blocks
+**No shared traversal macros exist.** There is no `gate_tiled.c`. Each per-gate `.c` file inlines the full traversal logic independently — both the within-tile path (`target < LOG_TILE_DIM`) and the cross-tile path (`target >= LOG_TILE_DIM`), including all triangle sub-cases. `gate_tiled.h` provides only the four element-access helpers (`tile_off`, `elem_off`, `dtile_read`, `dtile_write`) and `OMP_THRESHOLD`. See `gate_tiled_x.c` as the simplest reference implementation and `gate_tiled_cx.c` for the two-qubit cross-tile pattern.
 
-TRAVERSE_TILED_CROSS(state, target, BLOCK_OP)
-  // BLOCK_OP(a00, a01, a10, a11, lower_01, diag_block) — 6 args
-
-DISPATCH_TILED_1Q(state, target, OFFDIAG_OP, CROSS_OP)
-  // Dispatches within vs cross based on target < LOG_TILE_DIM
-```
-
-Rotation gates (Rx, Ry, Rz) cannot use these macros (need angle parameter in closure); they inline the traversal logic directly using `TRAVERSE_TILED_WITHIN_ROT` / `TRAVERSE_TILED_CROSS_ROT`.
-
-**P/Rz delegation:** `p_packed()` and `p_tiled()` contain the actual implementation. `rz_packed()` and `rz_tiled()` are one-line wrappers — the global phase from Rz cancels in UρU†, making Rz and P identical for density matrices. `p_pure()` is distinct.
+**P/Rz delegation:** The global phase from Rz cancels in UρU†, making Rz and P identical for density matrices — so one delegates to the other. However, the delegation direction differs by backend:
+- **Packed:** `p_packed()` contains the full implementation; `rz_packed()` is a one-line wrapper calling `p_packed()`.
+- **Tiled:** `rz_tiled()` contains the full implementation; `p_tiled()` is a one-line wrapper calling `rz_tiled()`.
+- **Pure:** `p_pure()` is distinct (pure states retain the global phase difference).
 
 **Key pitfall — diag_block aliasing:** When `lr0 == lc0` (within-tile) or the two element pointers land on the same memory location (diagonal of diagonal tile), `a01` and `a10` alias the same location. Diagonal gates must guard with `if (!diag_block)`. Mixing gates must enforce Hermitian symmetry: after computing `a10`, set `a01 = conj(a10)`.
 
-**Two-qubit tiled:** Same four-block decomposition as packed (Section 5.2 of GATES_MODULE.md). Triangle status determined once per tile group. See `gate_tiled_cx.c` as the reference implementation.
+**Two-qubit tiled:** Same four-block decomposition as packed. Triangle status (lower/upper/diagonal) is determined once per tile group before processing elements. See `gate_tiled_cx.c` as the reference implementation.
 
 **OMP_THRESHOLD:** 512 (n < 9 qubits), defined in `gate_tiled.h`.
 
@@ -229,7 +222,7 @@ cd cmake-build-debug
 cmake --build . --target test_gate && ./test/test_gate
 ```
 
-**Note:** Do not use `cmake --build .` (full build) — `benchmark/src/bench_mixed.c` includes stale headers that no longer exist.
+**Note:** The full build (`cmake --build .`) should work — previously broken stale headers have been cleaned up. Use the target build to avoid building all benchmarks unnecessarily.
 
 ### Test Harnesses
 
@@ -246,9 +239,11 @@ cmake --build . --target test_gate && ./test/test_gate
 | `testSingleQubitGateTiled(fn, mat)` | `test_gate_tiled_1q.c` | MIXED_TILED |
 | `testRotationGateTiled(fn, mat_fn)` | `test_gate_tiled_1q.c` | MIXED_TILED |
 | `testTwoQubitGateTiled(fn, mat)` | `test_gate_tiled_2q.c` | MIXED_TILED |
-| `testThreeQubitGateTiled(fn, mat)` | `test_gate_tiled_2q.c` | **DECLARED, NOT IMPLEMENTED** |
+| `testThreeQubitGateTiled(fn, mat)` | `test_gate_tiled_2q.c` | **DECLARED in `test_gate.h`, NOT IMPLEMENTED** |
 
 ### Adding a New Test (e.g., `ccx_tiled`)
+
+The tiled section of `test_gate.c` currently has 15 `RUN_TEST` entries (all 13 single-qubit gates + CX + SWAP). Missing: `test_CY_tiled`, `test_CZ_tiled`, `test_CCX_tiled` (these three have no tiled implementation yet). Once `ccx_tiled` is implemented:
 
 In `test/gate/test_gate.c`:
 ```c
@@ -264,7 +259,8 @@ Gate matrix constants (`CCXMAT`, `CXMAT`, `CYMAT`, `CZMAT`, `SWAPMAT`, etc.) are
 
 - **System sizes:** 1Q gates: n=1,2,3,4; 2Q gates: n=2,3,4; 3Q gates: n=3,4
 - **All qubit positions** tested (all targets, all ctrl/tgt pairs, all triples)
-- **Test states:** |0⟩, |1⟩, |+⟩, |−⟩, |+i⟩, |−i⟩ plus Bell, GHZ, W states for pure; same as density matrices plus maximally mixed and 10 random mixtures (fixed seed) for mixed
+- **Test states (pure):** All 2^n Z-eigenbasis (computational basis), X-eigenbasis (Hadamard basis), and Y-eigenbasis (circular basis) states — 3×2^n vectors total. Supplemented with Bell states (n=2 only) or GHZ+W states (n≥3). For n=1 these reduce to |0⟩,|1⟩,|+⟩,|−⟩,|+i⟩,|−i⟩.
+- **Test states (mixed):** Same set as pure, converted to density matrices, plus the maximally mixed state (I/2^n) and 10 random mixed states (fixed seed via static call counter, seed = 1000 + call_count)
 - **Rotation angles:** θ ∈ {0, π/4, π/2, π, 3π/2, −π/3}
 - **Tiled edge case:** `MAXQUBITS_TILED=6` to exercise cross-tile paths (n=5 is single-tile boundary, n=6 requires multiple tiles)
 - **Tolerance:** ε = 1e-12
@@ -274,6 +270,6 @@ Gate matrix constants (`CCXMAT`, `CXMAT`, `CYMAT`, `CZMAT`, `SWAPMAT`, etc.) are
 
 ## Known Issues / Deferred
 
-- **Benchmark build broken:** `benchmark/src/bench_mixed.c` imports `state_blocked.h` and `mhipster_block.h` which no longer exist. Fix by updating the benchmark source.
 - **RZZ gate:** Diagonal two-qubit gate useful for QAOA. Deferred to a future revision.
 - **Higher-order controlled gates** (CS, CT, CH, etc.): Out of scope for this module.
+- **CY/CZ tiled:** Not implemented; dispatched via `DISPATCH_2Q_NO_TILED` (fires a validation error for tiled input). Deferred.
