@@ -29,10 +29,11 @@
 
 /* Minimum dimension to enable OpenMP parallelization (avoid thread overhead for small systems)
  * Mixed states: O(dim²) work per gate due to density matrix size, so parallelization is
- * beneficial at much smaller dim than for pure states. At dim=64 (n=6), the packed array
- * has ~2000 elements — sufficient work to offset thread overhead.
+ * beneficial at much smaller dim than for pure states. At dim=512 (n=9), the packed array
+ * has ~131k elements — sufficient work to offset thread overhead. Below this, thread-launch
+ * overhead (~30 µs) dominates the actual computation.
  */
-#define OMP_THRESHOLD 64
+#define OMP_THRESHOLD 512
 
 
 /*
