@@ -604,7 +604,7 @@ void bench_print_csv_header(void) {
 }
 
 void bench_print_csv(const bench_result_t *result) {
-    printf("%u,%d,%s,%s,%.6f,%.0f,%zu,%d\n",
+    printf("%u,%ld,%s,%s,%.6f,%.0f,%zu,%d\n",
            result->qubits, result->dim, result->gate_name, result->method,
            result->time_ms, result->ops_per_sec, result->memory_bytes, result->iterations);
 }
@@ -620,6 +620,7 @@ static void print_usage(const char *prog) {
     printf("Options:\n");
     printf("  --min-qubits N   Minimum qubit count (default: %d)\n", BENCH_DEFAULT_MIN_QUBITS);
     printf("  --max-qubits N   Maximum qubit count (default: %d)\n", BENCH_DEFAULT_MAX_QUBITS);
+    printf("  --step N         Qubit count increment (default: %d)\n", BENCH_DEFAULT_STEP);
     printf("  --iterations N   Number of iterations (default: %d)\n", BENCH_DEFAULT_ITERATIONS);
     printf("  --warmup N       Warm-up iterations (default: %d)\n", BENCH_DEFAULT_WARMUP);
     printf("  --csv            Output in CSV format\n");
@@ -632,6 +633,7 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
     bench_options_t opts = {
         .min_qubits = BENCH_DEFAULT_MIN_QUBITS,
         .max_qubits = BENCH_DEFAULT_MAX_QUBITS,
+        .step = BENCH_DEFAULT_STEP,
         .iterations = BENCH_DEFAULT_ITERATIONS,
         .warmup = BENCH_DEFAULT_WARMUP,
         .csv_output = 0,
@@ -644,6 +646,8 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
             opts.min_qubits = (qubit_t)atoi(argv[++i]);
         } else if (strcmp(argv[i], "--max-qubits") == 0 && i + 1 < argc) {
             opts.max_qubits = (qubit_t)atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--step") == 0 && i + 1 < argc) {
+            opts.step = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--iterations") == 0 && i + 1 < argc) {
             opts.iterations = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--warmup") == 0 && i + 1 < argc) {
@@ -690,7 +694,7 @@ typedef struct gate_def_2q {
 } gate_def_2q_t;
 
 static const gate_def_2q_t gates_2q[] = {
-    {"CX",   cx,        CXMAT,    0},  /* tiled not yet implemented */
+    {"CX",   cx,        CXMAT,    1},
     {"SWAP", swap_gate,  SWAPMAT,  1},
     {NULL, NULL, NULL, 0}
 };
@@ -698,7 +702,7 @@ static const gate_def_2q_t gates_2q[] = {
 #define NUM_1Q_GATES 3
 #define NUM_2Q_GATES 2
 #define NUM_GATES (NUM_1Q_GATES + NUM_2Q_GATES)
-#define MAX_QUBIT_CONFIGS 16
+#define MAX_QUBIT_CONFIGS 32
 #define NUM_METHODS 6  /* qlib_packed, qlib_tiled, blas, naive, quest, qulacs */
 
 static const char *all_gate_names[NUM_GATES] = {"X", "H", "Z", "CX", "SWAP"};
@@ -805,7 +809,7 @@ int main(int argc, char *argv[]) {
 
     int qi = 0;  /* Qubit configuration index for pgfplots */
 
-    for (qubit_t qubits = opts.min_qubits; qubits <= opts.max_qubits; qubits += 2) {
+    for (qubit_t qubits = opts.min_qubits; qubits <= opts.max_qubits; qubits += opts.step) {
         dim_t dim = (dim_t)1 << qubits;
 
         /* Skip if memory would be too large (> 4GB for dense) */

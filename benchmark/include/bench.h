@@ -25,6 +25,7 @@ extern "C" {
 
 #define BENCH_DEFAULT_MIN_QUBITS    2
 #define BENCH_DEFAULT_MAX_QUBITS    12
+#define BENCH_DEFAULT_STEP          1
 #define BENCH_DEFAULT_ITERATIONS    1000
 #define BENCH_DEFAULT_WARMUP        100
 
@@ -50,6 +51,7 @@ typedef struct bench_result {
 typedef struct bench_options {
     qubit_t min_qubits;
     qubit_t max_qubits;
+    int step;
     int iterations;
     int warmup;
     int csv_output;
