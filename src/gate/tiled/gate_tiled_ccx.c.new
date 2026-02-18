@@ -1,0 +1,550 @@
+void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, const qubit_t target) {
+    const qubit_t ctrl1 = (control1 > control2) ? control1 : control2;
+    const qubit_t ctrl2 = (control1 < control2) ? control1 : control2;
+    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const gate_idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
+    cplx_t * restrict data = state->data;
+
+    /* Sort all three qubit positions: lo < mid < hi */
+    qubit_t lo, mid, hi;
+    if (ctrl2 > target) {
+        lo = target; mid = ctrl2; hi = ctrl1;
+    }
+    else if (ctrl1 > target) {
+        lo = ctrl2; mid = target; hi = ctrl1;
+    }
+    else {
+        lo = ctrl2; mid = ctrl1; hi = target;
+    }
+
+    if (ctrl1 < LOG_TILE_DIM) {
+        /*
+         * Case 1:
+         * All three qubit indices are smaller than LOG_TILE_DIM.
+         *
+         * All swap pairs are contained in the same tile.
+         */
+        if(target < LOG_TILE_DIM) {
+            const gate_idx_t n_tiles = dim_tile * (dim_tile + 1) / 2;
+            const gate_idx_t n_base = (dim < TILE_DIM) ? dim >> 3 : TILE_DIM >> 3;
+            const gate_idx_t incr_ctrl1 = (gate_idx_t)1 << ctrl1;
+            const gate_idx_t incr_ctrl2 = (gate_idx_t)1 << ctrl2;
+            const gate_idx_t incr_tgt   = (gate_idx_t)1 << target;
+
+            #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+            for (gate_idx_t i = 0; i < n_tiles; ++i) {
+                cplx_t * restrict tile = data + i * TILE_SIZE;
+
+                for (gate_idx_t blr = 0; blr < n_base; ++blr) {
+                    /* insertBits3_0: insert 0-bits at positions lo, mid, hi */
+                    const gate_idx_t r000 = insertBit0(insertBits2_0(blr, lo, mid), hi);
+                    const gate_idx_t r_c1   = r000 | incr_ctrl1;                   /* ctrl1=1, ctrl2=0, tgt=0 */
+                    const gate_idx_t r_c2   = r000 | incr_ctrl2;                   /* ctrl1=0, ctrl2=1, tgt=0 */
+                    const gate_idx_t r_t    = r000 | incr_tgt;                     /* ctrl1=0, ctrl2=0, tgt=1 */
+                    const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;     /* ctrl1=1, ctrl2=1, tgt=0 */
+                    const gate_idx_t r_c1t  = r000 | incr_ctrl1 | incr_tgt;       /* ctrl1=1, ctrl2=0, tgt=1 */
+                    const gate_idx_t r_c2t  = r000 | incr_ctrl2 | incr_tgt;       /* ctrl1=0, ctrl2=1, tgt=1 */
+                    const gate_idx_t r_all  = r000 | incr_ctrl1 | incr_ctrl2 | incr_tgt; /* ctrl1=1, ctrl2=1, tgt=1 */
+
+                    for (gate_idx_t blc = 0; blc < n_base; ++blc) {
+                        const gate_idx_t c000 = insertBit0(insertBits2_0(blc, lo, mid), hi);
+                        const gate_idx_t c_c1   = c000 | incr_ctrl1;
+                        const gate_idx_t c_c2   = c000 | incr_ctrl2;
+                        const gate_idx_t c_t    = c000 | incr_tgt;
+                        const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+                        const gate_idx_t c_c1t  = c000 | incr_ctrl1 | incr_tgt;
+                        const gate_idx_t c_c2t  = c000 | incr_ctrl2 | incr_tgt;
+                        const gate_idx_t c_all  = c000 | incr_ctrl1 | incr_ctrl2 | incr_tgt;
+
+                        cplx_t tmp;
+
+                        /*
+                         * 14 swap pairs from ρ'[r,c] = ρ[perm(r), perm(c)]:
+                         *   perm flips target bit when both ctrl1=1 and ctrl2=1.
+                         *   Row swaps: r_c1c2 <-> r_all (ctrl1=1,ctrl2=1,tgt=0 <-> ctrl1=1,ctrl2=1,tgt=1)
+                         *   Column swaps: c_c1c2 <-> c_all
+                         */
+
+                        /* ===== Pairs A-C, E-G: Row changes (r_c1c2 <-> r_all), column fixed ===== */
+
+                        /* Pair A: |c1=1,c2=1,t=0><c1=0,c2=0,t=0| <--> |c1=1,c2=1,t=1><c1=0,c2=0,t=0| */
+                        tmp = tile[elem_off(r_c1c2, c000)];
+                        tile[elem_off(r_c1c2, c000)] = tile[elem_off(r_all, c000)];
+                        tile[elem_off(r_all, c000)] = tmp;
+
+                        /* Pair B: |c1=1,c2=1,t=0><c1=0,c2=1,t=0| <--> |c1=1,c2=1,t=1><c1=0,c2=1,t=0| */
+                        tmp = tile[elem_off(r_c1c2, c_c2)];
+                        tile[elem_off(r_c1c2, c_c2)] = tile[elem_off(r_all, c_c2)];
+                        tile[elem_off(r_all, c_c2)] = tmp;
+
+                        /* Pair C: |c1=1,c2=1,t=0><c1=1,c2=0,t=0| <--> |c1=1,c2=1,t=1><c1=1,c2=0,t=0| */
+                        tmp = tile[elem_off(r_c1c2, c_c1)];
+                        tile[elem_off(r_c1c2, c_c1)] = tile[elem_off(r_all, c_c1)];
+                        tile[elem_off(r_all, c_c1)] = tmp;
+
+                        /* Pair E: |c1=1,c2=1,t=1><c1=0,c2=0,t=1| <--> |c1=1,c2=1,t=0><c1=0,c2=0,t=1| */
+                        tmp = tile[elem_off(r_all, c_t)];
+                        tile[elem_off(r_all, c_t)] = tile[elem_off(r_c1c2, c_t)];
+                        tile[elem_off(r_c1c2, c_t)] = tmp;
+
+                        /* Pair F: |c1=1,c2=1,t=1><c1=0,c2=1,t=1| <--> |c1=1,c2=1,t=0><c1=0,c2=1,t=1| */
+                        tmp = tile[elem_off(r_all, c_c2t)];
+                        tile[elem_off(r_all, c_c2t)] = tile[elem_off(r_c1c2, c_c2t)];
+                        tile[elem_off(r_c1c2, c_c2t)] = tmp;
+
+                        /* Pair G: |c1=1,c2=1,t=1><c1=1,c2=0,t=1| <--> |c1=1,c2=1,t=0><c1=1,c2=0,t=1| */
+                        tmp = tile[elem_off(r_all, c_c1t)];
+                        tile[elem_off(r_all, c_c1t)] = tile[elem_off(r_c1c2, c_c1t)];
+                        tile[elem_off(r_c1c2, c_c1t)] = tmp;
+
+                        /* ===== Pairs D, H: Both row and column change ===== */
+
+                        /* Pair D: |c1=1,c2=1,t=0><c1=1,c2=1,t=0| <--> |c1=1,c2=1,t=1><c1=1,c2=1,t=1| */
+                        tmp = tile[elem_off(r_c1c2, c_c1c2)];
+                        tile[elem_off(r_c1c2, c_c1c2)] = tile[elem_off(r_all, c_all)];
+                        tile[elem_off(r_all, c_all)] = tmp;
+
+                        /* Pair H: |c1=1,c2=1,t=1><c1=1,c2=1,t=0| <--> |c1=1,c2=1,t=0><c1=1,c2=1,t=1| */
+                        tmp = tile[elem_off(r_all, c_c1c2)];
+                        tile[elem_off(r_all, c_c1c2)] = tile[elem_off(r_c1c2, c_all)];
+                        tile[elem_off(r_c1c2, c_all)] = tmp;
+
+                        /* ===== Pairs I-N: Column changes (c_c1c2 <-> c_all), row fixed ===== */
+
+                        /* Pair I: |c1=0,c2=0,t=0><c1=1,c2=1,t=0| <--> |c1=0,c2=0,t=0><c1=1,c2=1,t=1| */
+                        tmp = tile[elem_off(r000, c_c1c2)];
+                        tile[elem_off(r000, c_c1c2)] = tile[elem_off(r000, c_all)];
+                        tile[elem_off(r000, c_all)] = tmp;
+
+                        /* Pair J: |c1=0,c2=0,t=1><c1=1,c2=1,t=0| <--> |c1=0,c2=0,t=1><c1=1,c2=1,t=1| */
+                        tmp = tile[elem_off(r_t, c_c1c2)];
+                        tile[elem_off(r_t, c_c1c2)] = tile[elem_off(r_t, c_all)];
+                        tile[elem_off(r_t, c_all)] = tmp;
+
+                        /* Pair K: |c1=0,c2=1,t=0><c1=1,c2=1,t=0| <--> |c1=0,c2=1,t=0><c1=1,c2=1,t=1| */
+                        tmp = tile[elem_off(r_c2, c_c1c2)];
+                        tile[elem_off(r_c2, c_c1c2)] = tile[elem_off(r_c2, c_all)];
+                        tile[elem_off(r_c2, c_all)] = tmp;
+
+                        /* Pair L: |c1=0,c2=1,t=1><c1=1,c2=1,t=0| <--> |c1=0,c2=1,t=1><c1=1,c2=1,t=1| */
+                        tmp = tile[elem_off(r_c2t, c_c1c2)];
+                        tile[elem_off(r_c2t, c_c1c2)] = tile[elem_off(r_c2t, c_all)];
+                        tile[elem_off(r_c2t, c_all)] = tmp;
+
+                        /* Pair M: |c1=1,c2=0,t=0><c1=1,c2=1,t=0| <--> |c1=1,c2=0,t=0><c1=1,c2=1,t=1| */
+                        tmp = tile[elem_off(r_c1, c_c1c2)];
+                        tile[elem_off(r_c1, c_c1c2)] = tile[elem_off(r_c1, c_all)];
+                        tile[elem_off(r_c1, c_all)] = tmp;
+
+                        /* Pair N: |c1=1,c2=0,t=1><c1=1,c2=1,t=0| <--> |c1=1,c2=0,t=1><c1=1,c2=1,t=1| */
+                        tmp = tile[elem_off(r_c1t, c_c1c2)];
+                        tile[elem_off(r_c1t, c_c1c2)] = tile[elem_off(r_c1t, c_all)];
+                        tile[elem_off(r_c1t, c_all)] = tmp;
+                    }
+                }
+            }
+        }
+
+        /*
+         * Case 2:
+         * Control indices are smaller than LOG_TILE_DIM & target index is larger than LOG_TILE_DIM.
+         *
+         * The target qubit selects tile rows/columns (tr0=tgt0, tr1=tgt1).
+         * Both controls are local bits within each tile.
+         *
+         * CCX flips the target bit only when ctrl1=ctrl2=1.  Since the target
+         * is a tile-level bit, elements whose row/col have ctrl1=ctrl2=1 move
+         * between tiles tr0<->tr1 or tc0<->tc1.
+         *
+         * The 14 swap pairs (from Case 1) split into 5 groups by tile pair:
+         *
+         *   Group 1 (A,B,C):  t(tr0,tc0) <-> t(tr1,tc0)  -- row flips, col in tc0
+         *   Group 2 (E,F,G):  t(tr1,tc1) <-> t(tr0,tc1)  -- row flips, col in tc1
+         *   Group 3 (D,H):    t(tr0,tc0) <-> t(tr1,tc1)  and  t(tr1,tc0) <-> t(tr0,tc1)
+         *   Group 4 (I,K,M):  t(tr0,tc0) <-> t(tr0,tc1)  -- col flips, row in tr0
+         *   Group 5 (J,L,N):  t(tr1,tc0) <-> t(tr1,tc1)  -- col flips, row in tr1
+         *
+         * Groups 1, 5, and pair D are always in the lower triangle.
+         * Groups 2, 4, and pair H involve tile t(tr0,tc1) which may be upper triangle.
+         */
+        else {
+            const gate_idx_t n_bt = dim_tile >> 1;
+            const qubit_t tile_bit = target - LOG_TILE_DIM;
+            const gate_idx_t incr_tile = (gate_idx_t)1 << tile_bit;
+            const gate_idx_t n_bl = TILE_DIM >> 2;
+            const qubit_t lo_local = ctrl2;  /* ctrl2 < ctrl1, both < LOG_TILE_DIM */
+            const qubit_t hi_local = ctrl1;
+            const gate_idx_t incr_ctrl1 = (gate_idx_t)1 << ctrl1;
+            const gate_idx_t incr_ctrl2 = (gate_idx_t)1 << ctrl2;
+
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
+                const gate_idx_t tr0 = insertBit0(btr, tile_bit);
+                const gate_idx_t tr1 = tr0 | incr_tile;
+
+                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
+                    const gate_idx_t tc0 = insertBit0(btc, tile_bit);
+                    const gate_idx_t tc1 = tc0 | incr_tile;
+
+                    cplx_t * restrict t00 = data + tile_off(tr0, tc0);
+                    cplx_t * restrict t10 = data + tile_off(tr1, tc0);
+                    cplx_t * restrict t11 = data + tile_off(tr1, tc1);
+
+                    /* Fast path: tr0 > tc1 means all four tiles strictly in lower triangle */
+                    if (tr0 > tc1) {
+                        cplx_t * restrict t01 = data + tile_off(tr0, tc1);
+
+                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
+                            const gate_idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
+                            const gate_idx_t r_c1   = r000 | incr_ctrl1;
+                            const gate_idx_t r_c2   = r000 | incr_ctrl2;
+                            const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
+
+                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
+                                const gate_idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
+                                const gate_idx_t c_c1   = c000 | incr_ctrl1;
+                                const gate_idx_t c_c2   = c000 | incr_ctrl2;
+                                const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+
+                                cplx_t tmp;
+
+                                /* ===== Group 1: t00 <-> t10, row (c1=1,c2=1) flips tile, col fixed in tc0 ===== */
+
+                                /* Pair A: row c1c2 tgt=0 <-> tgt=1, col (0,0) */
+                                tmp = t00[elem_off(r_c1c2, c000)];
+                                t00[elem_off(r_c1c2, c000)] = t10[elem_off(r_c1c2, c000)];
+                                t10[elem_off(r_c1c2, c000)] = tmp;
+
+                                /* Pair B: row c1c2 tgt=0 <-> tgt=1, col (0,1) */
+                                tmp = t00[elem_off(r_c1c2, c_c2)];
+                                t00[elem_off(r_c1c2, c_c2)] = t10[elem_off(r_c1c2, c_c2)];
+                                t10[elem_off(r_c1c2, c_c2)] = tmp;
+
+                                /* Pair C: row c1c2 tgt=0 <-> tgt=1, col (1,0) */
+                                tmp = t00[elem_off(r_c1c2, c_c1)];
+                                t00[elem_off(r_c1c2, c_c1)] = t10[elem_off(r_c1c2, c_c1)];
+                                t10[elem_off(r_c1c2, c_c1)] = tmp;
+
+                                /* ===== Group 5: t10 <-> t11, col (c1=1,c2=1) flips tile, row fixed in tr1 ===== */
+
+                                /* Pair J: row (0,0) in tr1, col c1c2 tc0 <-> tc1 */
+                                tmp = t10[elem_off(r000, c_c1c2)];
+                                t10[elem_off(r000, c_c1c2)] = t11[elem_off(r000, c_c1c2)];
+                                t11[elem_off(r000, c_c1c2)] = tmp;
+
+                                /* Pair L: row (0,1) in tr1, col c1c2 tc0 <-> tc1 */
+                                tmp = t10[elem_off(r_c2, c_c1c2)];
+                                t10[elem_off(r_c2, c_c1c2)] = t11[elem_off(r_c2, c_c1c2)];
+                                t11[elem_off(r_c2, c_c1c2)] = tmp;
+
+                                /* Pair N: row (1,0) in tr1, col c1c2 tc0 <-> tc1 */
+                                tmp = t10[elem_off(r_c1, c_c1c2)];
+                                t10[elem_off(r_c1, c_c1c2)] = t11[elem_off(r_c1, c_c1c2)];
+                                t11[elem_off(r_c1, c_c1c2)] = tmp;
+
+                                /* ===== Group 3, Pair D: both flip, t00 <-> t11 ===== */
+
+                                tmp = t00[elem_off(r_c1c2, c_c1c2)];
+                                t00[elem_off(r_c1c2, c_c1c2)] = t11[elem_off(r_c1c2, c_c1c2)];
+                                t11[elem_off(r_c1c2, c_c1c2)] = tmp;
+
+                                /* ===== Group 2: t11 <-> t01, row (c1=1,c2=1) flips tile, col fixed in tc1 ===== */
+
+                                /* Pair E: row c1c2 tgt=1 <-> tgt=0, col (0,0) in tc1 */
+                                tmp = t11[elem_off(r_c1c2, c000)];
+                                t11[elem_off(r_c1c2, c000)] = t01[elem_off(r_c1c2, c000)];
+                                t01[elem_off(r_c1c2, c000)] = tmp;
+
+                                /* Pair F: row c1c2 tgt=1 <-> tgt=0, col (0,1) in tc1 */
+                                tmp = t11[elem_off(r_c1c2, c_c2)];
+                                t11[elem_off(r_c1c2, c_c2)] = t01[elem_off(r_c1c2, c_c2)];
+                                t01[elem_off(r_c1c2, c_c2)] = tmp;
+
+                                /* Pair G: row c1c2 tgt=1 <-> tgt=0, col (1,0) in tc1 */
+                                tmp = t11[elem_off(r_c1c2, c_c1)];
+                                t11[elem_off(r_c1c2, c_c1)] = t01[elem_off(r_c1c2, c_c1)];
+                                t01[elem_off(r_c1c2, c_c1)] = tmp;
+
+                                /* ===== Group 3, Pair H: both flip, t10 <-> t01 ===== */
+
+                                tmp = t10[elem_off(r_c1c2, c_c1c2)];
+                                t10[elem_off(r_c1c2, c_c1c2)] = t01[elem_off(r_c1c2, c_c1c2)];
+                                t01[elem_off(r_c1c2, c_c1c2)] = tmp;
+
+                                /* ===== Group 4: t00 <-> t01, col (c1=1,c2=1) flips tile, row fixed in tr0 ===== */
+
+                                /* Pair I: row (0,0) in tr0, col c1c2 tc0 <-> tc1 */
+                                tmp = t00[elem_off(r000, c_c1c2)];
+                                t00[elem_off(r000, c_c1c2)] = t01[elem_off(r000, c_c1c2)];
+                                t01[elem_off(r000, c_c1c2)] = tmp;
+
+                                /* Pair K: row (0,1) in tr0, col c1c2 tc0 <-> tc1 */
+                                tmp = t00[elem_off(r_c2, c_c1c2)];
+                                t00[elem_off(r_c2, c_c1c2)] = t01[elem_off(r_c2, c_c1c2)];
+                                t01[elem_off(r_c2, c_c1c2)] = tmp;
+
+                                /* Pair M: row (1,0) in tr0, col c1c2 tc0 <-> tc1 */
+                                tmp = t00[elem_off(r_c1, c_c1c2)];
+                                t00[elem_off(r_c1, c_c1c2)] = t01[elem_off(r_c1, c_c1c2)];
+                                t01[elem_off(r_c1, c_c1c2)] = tmp;
+                            }
+                        }
+                    }
+
+                    /* t01 = t(tr0,tc1) is upper triangle; use its adjoint t(tc1,tr0) */
+                    else if (btr != btc) {
+                        cplx_t * restrict t01 = data + tile_off(tc1, tr0);
+
+                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
+                            const gate_idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
+                            const gate_idx_t r_c1   = r000 | incr_ctrl1;
+                            const gate_idx_t r_c2   = r000 | incr_ctrl2;
+                            const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
+
+                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
+                                const gate_idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
+                                const gate_idx_t c_c1   = c000 | incr_ctrl1;
+                                const gate_idx_t c_c2   = c000 | incr_ctrl2;
+                                const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+
+                                cplx_t tmp;
+
+                                /* ===== Group 1: t00 <-> t10, always lower tri ===== */
+
+                                /* Pair A */
+                                tmp = t00[elem_off(r_c1c2, c000)];
+                                t00[elem_off(r_c1c2, c000)] = t10[elem_off(r_c1c2, c000)];
+                                t10[elem_off(r_c1c2, c000)] = tmp;
+
+                                /* Pair B */
+                                tmp = t00[elem_off(r_c1c2, c_c2)];
+                                t00[elem_off(r_c1c2, c_c2)] = t10[elem_off(r_c1c2, c_c2)];
+                                t10[elem_off(r_c1c2, c_c2)] = tmp;
+
+                                /* Pair C */
+                                tmp = t00[elem_off(r_c1c2, c_c1)];
+                                t00[elem_off(r_c1c2, c_c1)] = t10[elem_off(r_c1c2, c_c1)];
+                                t10[elem_off(r_c1c2, c_c1)] = tmp;
+
+                                /* ===== Group 5: t10 <-> t11, always lower tri ===== */
+
+                                /* Pair J */
+                                tmp = t10[elem_off(r000, c_c1c2)];
+                                t10[elem_off(r000, c_c1c2)] = t11[elem_off(r000, c_c1c2)];
+                                t11[elem_off(r000, c_c1c2)] = tmp;
+
+                                /* Pair L */
+                                tmp = t10[elem_off(r_c2, c_c1c2)];
+                                t10[elem_off(r_c2, c_c1c2)] = t11[elem_off(r_c2, c_c1c2)];
+                                t11[elem_off(r_c2, c_c1c2)] = tmp;
+
+                                /* Pair N */
+                                tmp = t10[elem_off(r_c1, c_c1c2)];
+                                t10[elem_off(r_c1, c_c1c2)] = t11[elem_off(r_c1, c_c1c2)];
+                                t11[elem_off(r_c1, c_c1c2)] = tmp;
+
+                                /* ===== Group 3, Pair D: t00 <-> t11, always lower tri ===== */
+
+                                tmp = t00[elem_off(r_c1c2, c_c1c2)];
+                                t00[elem_off(r_c1c2, c_c1c2)] = t11[elem_off(r_c1c2, c_c1c2)];
+                                t11[elem_off(r_c1c2, c_c1c2)] = tmp;
+
+                                /* ===== Group 2: t11[..] <-> conj(t01[col,row]), t01 is adjoint ===== */
+
+                                /* Pair E: row c1c2, col (0,0) */
+                                tmp = t11[elem_off(r_c1c2, c000)];
+                                t11[elem_off(r_c1c2, c000)] = conj(t01[elem_off(c000, r_c1c2)]);
+                                t01[elem_off(c000, r_c1c2)] = conj(tmp);
+
+                                /* Pair F: row c1c2, col (0,1) */
+                                tmp = t11[elem_off(r_c1c2, c_c2)];
+                                t11[elem_off(r_c1c2, c_c2)] = conj(t01[elem_off(c_c2, r_c1c2)]);
+                                t01[elem_off(c_c2, r_c1c2)] = conj(tmp);
+
+                                /* Pair G: row c1c2, col (1,0) */
+                                tmp = t11[elem_off(r_c1c2, c_c1)];
+                                t11[elem_off(r_c1c2, c_c1)] = conj(t01[elem_off(c_c1, r_c1c2)]);
+                                t01[elem_off(c_c1, r_c1c2)] = conj(tmp);
+
+                                /* ===== Group 3, Pair H: t10[..] <-> conj(t01[col,row]) ===== */
+
+                                tmp = t10[elem_off(r_c1c2, c_c1c2)];
+                                t10[elem_off(r_c1c2, c_c1c2)] = conj(t01[elem_off(c_c1c2, r_c1c2)]);
+                                t01[elem_off(c_c1c2, r_c1c2)] = conj(tmp);
+
+                                /* ===== Group 4: t00[..] <-> conj(t01[col,row]) ===== */
+
+                                /* Pair I: row (0,0), col c1c2 */
+                                tmp = t00[elem_off(r000, c_c1c2)];
+                                t00[elem_off(r000, c_c1c2)] = conj(t01[elem_off(c_c1c2, r000)]);
+                                t01[elem_off(c_c1c2, r000)] = conj(tmp);
+
+                                /* Pair K: row (0,1), col c1c2 */
+                                tmp = t00[elem_off(r_c2, c_c1c2)];
+                                t00[elem_off(r_c2, c_c1c2)] = conj(t01[elem_off(c_c1c2, r_c2)]);
+                                t01[elem_off(c_c1c2, r_c2)] = conj(tmp);
+
+                                /* Pair M: row (1,0), col c1c2 */
+                                tmp = t00[elem_off(r_c1, c_c1c2)];
+                                t00[elem_off(r_c1, c_c1c2)] = conj(t01[elem_off(c_c1c2, r_c1)]);
+                                t01[elem_off(c_c1c2, r_c1)] = conj(tmp);
+                            }
+                        }
+                    }
+
+                    /* Diagonal block: btr == btc, so t(tr0,tc1) = t(tr0,tr1) is the adjoint of t(tr1,tr0) = t10 */
+                    else {
+                        /*
+                         * Phase 1: one-way writes for pairs involving t01.
+                         * Since t01 is the adjoint of t10, reading t01[lr,lc] = conj(t10[lc,lr]).
+                         * But t10 is about to be modified by Groups 1/5/H, so we must read from
+                         * t10 first (as the adjoint source) before t10 is overwritten.
+                         *
+                         * Group 2 (E,F,G): t11[r_c1c2, c_xx] = conj(t10[c_xx, r_c1c2])
+                         * Group 4 (I,K,M): t00[r_xx, c_c1c2] = conj(t10[c_c1c2, r_xx])
+                         */
+                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
+                            const gate_idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
+                            const gate_idx_t r_c1   = r000 | incr_ctrl1;
+                            const gate_idx_t r_c2   = r000 | incr_ctrl2;
+                            const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
+
+                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
+                                const gate_idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
+                                const gate_idx_t c_c1   = c000 | incr_ctrl1;
+                                const gate_idx_t c_c2   = c000 | incr_ctrl2;
+                                const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+
+                                /* Group 2 (E,F,G): t11 receives from adjoint of t10 */
+                                /* Pair E */
+                                t11[elem_off(r_c1c2, c000)] = conj(t10[elem_off(c000, r_c1c2)]);
+                                /* Pair F */
+                                t11[elem_off(r_c1c2, c_c2)] = conj(t10[elem_off(c_c2, r_c1c2)]);
+                                /* Pair G */
+                                t11[elem_off(r_c1c2, c_c1)] = conj(t10[elem_off(c_c1, r_c1c2)]);
+
+                                /* Group 4 (I,K,M): t00 receives from adjoint of t10 */
+                                /* Pair I */
+                                t00[elem_off(r000, c_c1c2)] = conj(t10[elem_off(c_c1c2, r000)]);
+                                /* Pair K */
+                                t00[elem_off(r_c2, c_c1c2)] = conj(t10[elem_off(c_c1c2, r_c2)]);
+                                /* Pair M */
+                                t00[elem_off(r_c1, c_c1c2)] = conj(t10[elem_off(c_c1c2, r_c1)]);
+                            }
+                        }
+
+                        /*
+                         * Phase 2: two-way swaps on tiles that are not aliased with t01.
+                         * Groups 1 (A,B,C), 5 (J,L,N), pair D always in lower tri.
+                         * Pair H: t10 <-> t01 = conj(t10^T), self-adjoint swap within t10.
+                         */
+                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
+                            const gate_idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
+                            const gate_idx_t r_c1   = r000 | incr_ctrl1;
+                            const gate_idx_t r_c2   = r000 | incr_ctrl2;
+                            const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
+
+                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
+                                const gate_idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
+                                const gate_idx_t c_c1   = c000 | incr_ctrl1;
+                                const gate_idx_t c_c2   = c000 | incr_ctrl2;
+                                const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+
+                                cplx_t tmp;
+
+                                /* ===== Group 1: t00 <-> t10 ===== */
+
+                                /* Pair A */
+                                tmp = t00[elem_off(r_c1c2, c000)];
+                                t00[elem_off(r_c1c2, c000)] = t10[elem_off(r_c1c2, c000)];
+                                t10[elem_off(r_c1c2, c000)] = tmp;
+
+                                /* Pair B */
+                                tmp = t00[elem_off(r_c1c2, c_c2)];
+                                t00[elem_off(r_c1c2, c_c2)] = t10[elem_off(r_c1c2, c_c2)];
+                                t10[elem_off(r_c1c2, c_c2)] = tmp;
+
+                                /* Pair C */
+                                tmp = t00[elem_off(r_c1c2, c_c1)];
+                                t00[elem_off(r_c1c2, c_c1)] = t10[elem_off(r_c1c2, c_c1)];
+                                t10[elem_off(r_c1c2, c_c1)] = tmp;
+
+                                /* ===== Group 5: t10 <-> t11 ===== */
+
+                                /* Pair J */
+                                tmp = t10[elem_off(r000, c_c1c2)];
+                                t10[elem_off(r000, c_c1c2)] = t11[elem_off(r000, c_c1c2)];
+                                t11[elem_off(r000, c_c1c2)] = tmp;
+
+                                /* Pair L */
+                                tmp = t10[elem_off(r_c2, c_c1c2)];
+                                t10[elem_off(r_c2, c_c1c2)] = t11[elem_off(r_c2, c_c1c2)];
+                                t11[elem_off(r_c2, c_c1c2)] = tmp;
+
+                                /* Pair N */
+                                tmp = t10[elem_off(r_c1, c_c1c2)];
+                                t10[elem_off(r_c1, c_c1c2)] = t11[elem_off(r_c1, c_c1c2)];
+                                t11[elem_off(r_c1, c_c1c2)] = tmp;
+
+                                /* ===== Group 3, Pair D: t00 <-> t11 ===== */
+
+                                tmp = t00[elem_off(r_c1c2, c_c1c2)];
+                                t00[elem_off(r_c1c2, c_c1c2)] = t11[elem_off(r_c1c2, c_c1c2)];
+                                t11[elem_off(r_c1c2, c_c1c2)] = tmp;
+
+                                /* ===== Group 3, Pair H: t10[r_c1c2,c_c1c2] <-> conj(t10[c_c1c2,r_c1c2]) ===== */
+                                /* Only process lower triangle to avoid double-swap */
+                                if (blc <= blr) {
+                                    tmp = t10[elem_off(r_c1c2, c_c1c2)];
+                                    t10[elem_off(r_c1c2, c_c1c2)] = conj(t10[elem_off(c_c1c2, r_c1c2)]);
+                                    t10[elem_off(c_c1c2, r_c1c2)] = conj(tmp);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else if (ctrl2 < LOG_TILE_DIM) {
+        /*
+         * Case 3:
+         * One control index is larger than LOG_TILE_DIM & the other control and the target index are smaller than
+         * LOG_TILE_DIM.
+         *
+         * Swap pairs are spread accross three tiles t10=(ctrl1=1|ctrl1=0), t11=(ctrl1=1|ctrl1=1) and
+         * t01=(ctrl1=0|ctrl1=1), but each pair is contained in a single tile. Tile t01 may be in the upper traingle.
+         */
+        if (target < LOG_TILE_DIM) {}
+
+        /*
+         * Case 4:
+         * One control index and the target index are larger than LOG_TILE_DIM & the other control index is smaller
+         * than LOG_TILE_DIM.
+         *
+         * Swap pairs are spread across 12 tiles t1100=(ctrl1=1,tgt=1|ctrl1=0,tgt=0), t1000, t1111, t1010, t1101, t1001,
+         * t1110, t1011, t0110, t0111, t0010, t0011. Pairs are distributd across different tiles and may cross the 
+         * diagonal.
+         */
+        else {}
+    }
+    else {
+        /* Case 5:
+         * Both control indices are at least LOG_TILE_DIM & target index is smaller than LOG_TILE_DIM.
+         *
+         * Swap pairs are spread across 7 tiles t1100=(ctrl1=1,ctrl2=1|ctrl1=0,ctrl2=0), t1101, t1110, t1111, t1011,
+         * t0111, t0011, but each pair is contained in a single tile. Tiles my be in the upper triangle.
+         */
+        if (target < LOG_TILE_DIM) {}
+
+        /* Case 6:
+         * All qubit indices are at least LOG_TILE_DIM.
+         *
+         * Swap pairs are spread across ... tiles t111000=(ctrl1=1,ctrl2=1,tgt=1|ctrl1=0,ctrl2=0,tgt=0), t110000, 
+         * t111001, t110001, t111010, t110010, t111011, t110011, t111100, t110100, t111101, t110101, t111110, t110110,
+         * t111110, t110111, t110110, t101110, t101t111, t100110, t100111, t011110, t011111, t010110, t010111, t001110,
+         * t001111, t000110, t000111
+         */
+    }
+
+}
