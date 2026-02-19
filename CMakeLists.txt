@@ -38,7 +38,6 @@ set(CMAKE_CXX_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Options
-option(BUILD_EXAMPLES "Build examples" OFF)
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer for memory debugging" OFF)
@@ -95,11 +94,7 @@ if (BUILD_TESTS AND EXISTS "${CMAKE_SOURCE_DIR}/test")
     )
 endif ()
 
-if(BUILD_EXAMPLES AND EXISTS "${CMAKE_SOURCE_DIR}/examples")
-    add_subdirectory(examples)
-endif()
-
-if(EXISTS "${CMAKE_SOURCE_DIR}/benchmark")
+if(BUILD_BENCHMARKS AND EXISTS "${CMAKE_SOURCE_DIR}/benchmark")
     add_subdirectory(benchmark)
 endif()
 
