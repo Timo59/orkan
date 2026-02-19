@@ -96,4 +96,7 @@ void rz_tiled(state_t *state, const qubit_t target, const double theta);
 void cx_tiled(state_t *state, const qubit_t control, const qubit_t target);
 void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2);
 
+/* Three-qubit gates */
+void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, const qubit_t target);
+
 #endif /* GATE_TILED_H */

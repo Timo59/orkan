@@ -92,6 +92,7 @@ void test_Rz_tiled(void) {testRotationGateTiled(rz, mat_rz);}
 void test_P_tiled(void) {testRotationGateTiled(p, mat_p);}
 void test_CX_tiled(void) {testTwoQubitGateTiled(cx, CXMAT);}
 void test_SWAP_tiled(void) {testTwoQubitGateTiled(swap_gate, SWAPMAT);}
+void test_CCX_tiled(void) {testThreeQubitGateTiled(ccx, CCXMAT);}
 
 /*
  * =====================================================================================================================
@@ -158,6 +159,7 @@ int main(void) {
     RUN_TEST(test_P_tiled);
     RUN_TEST(test_CX_tiled);
     RUN_TEST(test_SWAP_tiled);
+    RUN_TEST(test_CCX_tiled);
 
     return UNITY_END();
 }

@@ -75,6 +75,7 @@ set(TEST_GATE_SRC
         "${GATE_DIR}/test_gate_packed_3q.c"
         "${GATE_DIR}/test_gate_tiled_1q.c"
         "${GATE_DIR}/test_gate_tiled_2q.c"
+        "${GATE_DIR}/test_gate_tiled_3q.c"
         "${UTILITY_DIR}/test_pure_states.c"
         "${UTILITY_DIR}/test_mixed_states.c"
         "${UTILITY_DIR}/test_mixed_utils.c"
