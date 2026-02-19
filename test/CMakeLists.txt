@@ -1,30 +1,11 @@
-# Initialize submodule if not present
-if (NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/Unity/src/unity.h")
-    find_package(Git QUIET)
-    if(GIT_FOUND)
-        message(STATUS "Initializing Unity submodule...")
-        execute_process(
-                COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive extern/Unity
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                RESULT_VARIABLE GIT_SUBMOD_RESULT
-        )
-        if(NOT GIT_SUBMOD_RESULT EQUAL "0")
-            message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMOD_RESULT}")
-        endif()
-    else()
-        message(FATAL_ERROR "Git not found. Cannot initialize Unity submodule")
-    endif()
-endif()
-
-# Find unity source directory
-find_path(UNITY_SRC
-        NAMES unity.h
-        PATHS "${CMAKE_SOURCE_DIR}/extern/Unity/src"
-        NO_DEFAULT_PATH
+include(FetchContent)
+FetchContent_Declare(
+    unity
+    GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity.git
+    GIT_TAG        v2.6.1
 )
-if (NOT UNITY_SRC)
-    message(FATAL_ERROR "Unity source directory not found.")
-endif ()
+FetchContent_MakeAvailable(unity)
+set(UNITY_SRC "${unity_SOURCE_DIR}/src")
 
 # Set source directories
 set(STATE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/state")

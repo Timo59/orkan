@@ -1,12 +1,6 @@
-[submodule "extern/Unity"]
-	path = extern/Unity
-	url = git@github.com:ThrowTheSwitch/Unity.git
 [submodule "extern/QuEST"]
 	path = extern/QuEST
 	url = https://github.com/QuEST-Kit/QuEST.git
-[submodule "extern/qpp"]
-	path = extern/qpp
-	url = https://github.com/softwareQinc/qpp.git
 [submodule "extern/qulacs"]
 	path = extern/qulacs
 	url = https://github.com/qulacs/qulacs.git
