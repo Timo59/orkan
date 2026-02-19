@@ -14,6 +14,23 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+# Guard: catch mismatches between build directory name and build type.
+# Prevents accidental Release builds inside cmake-build-debug (and vice versa).
+get_filename_component(_BUILD_DIR_NAME "${CMAKE_BINARY_DIR}" NAME)
+if(_BUILD_DIR_NAME MATCHES "[Dd]ebug" AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(FATAL_ERROR
+        "Build directory '${_BUILD_DIR_NAME}' implies Debug "
+        "but CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'.\n"
+        "Run: cmake --preset debug")
+endif()
+if(_BUILD_DIR_NAME MATCHES "[Rr]elease" AND NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(FATAL_ERROR
+        "Build directory '${_BUILD_DIR_NAME}' implies Release "
+        "but CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'.\n"
+        "Run: cmake --preset release")
+endif()
+unset(_BUILD_DIR_NAME)
+
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
 
