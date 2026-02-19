@@ -26,6 +26,7 @@ test/
 │   ├── test_gate.c         Runner (main)
 │   ├── test_gate_pure_1q.c Pure state single-qubit gate tests
 │   ├── test_gate_pure_2q.c Pure state two-qubit gate tests
+│   ├── test_gate_pure_3q.c Pure state three-qubit gate tests
 │   ├── test_gate_packed_1q.c Packed mixed state single-qubit gate tests
 │   ├── test_gate_packed_2q.c Packed mixed state two-qubit gate tests
 │   ├── test_gate_packed_3q.c Packed mixed state three-qubit gate tests
@@ -46,11 +47,27 @@ test/
 | `test_state` | `state/*` + Unity              | State allocation, initialization, copy, get/set |
 | `test_gate`  | `gate/*` + `utility/*` + Unity | Gate application across all representations |
 
+## Build Type Requirement
+
+Tests **must** be built and run with `CMAKE_BUILD_TYPE=Debug`. The project sets `LOG_TILE_DIM`
+based on build type:
+
+| Build type | `LOG_TILE_DIM` | Tile size | Effect on tests |
+|---|---|---|---|
+| **Debug** | 3 | 8×8 | Multi-tile code paths exercised at small qubit counts ✅ |
+| **Release** | 5 | 32×32 | Multi-tile paths silently skipped → false passes ❌ |
+
+A Release build inside `cmake-build-debug` is possible if the CMake cache was previously
+configured with `Release`. Use the preset commands below to guarantee the correct build type.
+
 ## Running
 
 ```bash
-cd cmake-build-debug
-ctest                    # Run all tests
-./test/test_state        # State module only
-./test/test_gate         # Gate module only
+cmake --preset debug          # Configure (enforces Debug build type)
+cmake --build --preset debug  # Build
+ctest --preset debug          # Run all tests
+
+# Or run executables directly after building:
+./cmake-build-debug/test/test_state
+./cmake-build-debug/test/test_gate
 ```

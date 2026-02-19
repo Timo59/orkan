@@ -5,11 +5,17 @@ This file provides guidance to Claude Code when working with this repository.
 ## Build & Test
 
 ```bash
-mkdir cmake-build-debug && cd cmake-build-debug
-cmake ..
-cmake --build .
-ctest
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug
 ```
+
+> **Warning:** Always use `--preset debug` (or explicitly pass `-DCMAKE_BUILD_TYPE=Debug`).
+> The Debug build sets `LOG_TILE_DIM=3` (8×8 tiles), which is required for tests to exercise
+> multi-tile code paths at small qubit counts. A Release build (`LOG_TILE_DIM=5`, 32×32 tiles)
+> will silently skip those paths, causing tests to pass despite untested code.
+> `CMakeLists.txt` enforces this: configuring a `*debug*` directory with a non-Debug build type
+> (or vice versa) is a `FATAL_ERROR`.
 
 ## Modules
 
