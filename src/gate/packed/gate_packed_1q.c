@@ -33,7 +33,9 @@
  * has ~131k elements — sufficient work to offset thread overhead. Below this, thread-launch
  * overhead (~30 µs) dominates the actual computation.
  */
+#ifndef OMP_THRESHOLD
 #define OMP_THRESHOLD 512
+#endif
 
 
 /*

@@ -666,13 +666,7 @@ cleanup:
 }
 
 
-void test_rm_states_mixed(const unsigned nqubits, cplx_t** states) {
-    const unsigned dim = 1 << nqubits;
-    const unsigned num_random = 10;
-    unsigned nmixed = 3 * dim + 1 + num_random;
-    if (nqubits == 2) nmixed += 4;  // Bell states
-    else if (nqubits > 2) nmixed += 2;  // GHZ + W states
-
+void test_rm_states_mixed(cplx_t** states, unsigned nmixed) {
     if (states) {
         for (unsigned i = 0; i < nmixed; ++i) {
             free(states[i]);

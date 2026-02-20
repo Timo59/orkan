@@ -133,10 +133,10 @@ cplx_t** test_mk_states_mixed(unsigned nqubits, unsigned* nmixed);
 /*
  * @brief   Frees all memory allocated for mixed state test cases
  *
- * @param[in]   nqubits     Number of qubits
  * @param[in]   states      Array of mixed states to free
+ * @param[in]   nmixed      Count returned by test_mk_states_mixed
  */
-void test_rm_states_mixed(unsigned nqubits, cplx_t** states);
+void test_rm_states_mixed(cplx_t** states, unsigned nmixed);
 
 #ifdef __cplusplus
 }

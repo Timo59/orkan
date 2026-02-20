@@ -11,7 +11,9 @@
 /* Minimum dimension to enable OpenMP parallelization (avoid thread overhead for small systems)
  * Pure states: O(dim) work per gate, need dim >= 4096 (~12 qubits) to offset thread overhead
  */
+#ifndef OMP_THRESHOLD
 #define OMP_THRESHOLD 4096
+#endif
 
 /*
  * =====================================================================================================================

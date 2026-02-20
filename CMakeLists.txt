@@ -48,6 +48,8 @@ option(ENABLE_OPENMP "Enable OpenMP parallelization" ON)
 # Release uses production tiles (32x32) for cache-optimal performance.
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(LOG_TILE_DIM 3 CACHE STRING "Log2 of tile dimension (default: 3 for Debug, 5 for Release)")
+    set(OMP_THRESHOLD 4 CACHE STRING "Min dim for OpenMP (debug override; Release uses per-file defaults)")
+    message(STATUS "OMP_THRESHOLD: ${OMP_THRESHOLD} (debug override)")
 else()
     set(LOG_TILE_DIM 5 CACHE STRING "Log2 of tile dimension (default: 3 for Debug, 5 for Release)")
 endif()
