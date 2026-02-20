@@ -57,7 +57,7 @@ QSim/                         # C17/C++17 quantum simulator
 | Build System | Complete   | `docs/BUILD_SYSTEM.md`  | —            |
 | State       | Complete    | `docs/STATE_MODULE.md`  | `~/Projects/thesis/2.Simulation/notes/STATE_THESIS_NOTES.md` |
 | Gate        | In Progress | `docs/GATE_MODULE.md`   | `~/Projects/thesis/2.Simulation/notes/GATES_THESIS_NOTES.md` |
-| Measurement | Pending     | `docs/MEAS_MODULES.md`  | —            |
+| Measurement | Pending     | `docs/MEAS_MODULE.md`   | —            |
 | Tests       | In Progress | `docs/TEST_SUITE.md`    | —            |
 | Benchmark   | In Progress | `docs/BENCHMARK.md`     | `~/Projects/thesis/2.Simulation/notes/BENCHMARK_THESIS_NOTES.md` |
 | Profile     | In Progress | `docs/PROFILE.md`       | —            |
