@@ -83,6 +83,7 @@ extern void cx_tiled(state_t *state, qubit_t control, qubit_t target);
 extern void cy_tiled(state_t *state, qubit_t control, qubit_t target);
 extern void cz_tiled(state_t *state, qubit_t control, qubit_t target);
 extern void swap_tiled(state_t *state, qubit_t q1, qubit_t q2);
+extern void ccx_tiled(state_t *state, qubit_t ctrl1, qubit_t ctrl2, qubit_t target);
 
 /*
  * =====================================================================================================================
@@ -207,7 +208,7 @@ void ccx(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t
     switch (state->type) {
         case PURE:         ccx_pure(state, ctrl1, ctrl2, target);   break;
         case MIXED_PACKED: ccx_packed(state, ctrl1, ctrl2, target);  break;
-        case MIXED_TILED:  GATE_VALIDATE(0, "ccx: not implemented for tiled");
+        case MIXED_TILED:  ccx_tiled(state, ctrl1, ctrl2, target);  break;
         default: GATE_VALIDATE(0, "ccx: unknown state type");
     }
 }
