@@ -80,6 +80,8 @@ extern void rz_tiled(state_t *state, qubit_t target, double theta);
 extern void p_tiled(state_t *state, qubit_t target, double theta);
 
 extern void cx_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void cy_tiled(state_t *state, qubit_t control, qubit_t target);
+extern void cz_tiled(state_t *state, qubit_t control, qubit_t target);
 extern void swap_tiled(state_t *state, qubit_t q1, qubit_t q2);
 
 /*
@@ -173,8 +175,8 @@ void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(
     }
 
 void cx(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cx, state, control, target); }
-void cy(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(cy, state, control, target); }
-void cz(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q_NO_TILED(cz, state, control, target); }
+void cy(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cy, state, control, target); }
+void cz(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cz, state, control, target); }
 void swap_gate(state_t *state, const qubit_t q1, const qubit_t q2) {
     GATE_VALIDATE(state && state->data, "swap: null state or data pointer");
     GATE_VALIDATE(q1 < state->qubits, "swap: q1 qubit out of range");
