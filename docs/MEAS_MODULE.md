@@ -8,15 +8,21 @@
 
 ## Scope
 
-This module evaluates expectation values ⟨H_C⟩ = Tr(H_C ρ(θ)) and their gradients ∂⟨H_C⟩/∂θ
-for parametrised quantum circuits (PQCs). The framework is designed for arbitrary PQCs but the
-**first implementation target is QAOA** (Quantum Approximate Optimization Algorithm).
+This module supports two distinct algorithms that share the same cost Hamiltonian restriction and
+state module infrastructure but differ in their circuit model, output, and optimisation strategy.
 
-Parameter optimisation is performed by an external library. This module exposes:
-- `expectation_value(circuit, state, H_C, params)` → scalar
-- `gradient(circuit, state, H_C, params)` → parameter vector
+**Algorithm 1 — PQC Parameter Optimisation:**
+Evaluates ⟨H_C⟩ = Tr(H_C ρ(θ)) and the gradient ∂⟨H_C⟩/∂θ for a sequence of parametrised
+quantum channels. Parameter optimisation is performed by an external library. The first
+implementation target is QAOA.
 
-The module handles both **ideal** (unitary-only) and **noisy** (Kraus channel) circuits.
+**Algorithm 2 — LCU Moment Matrix:**
+Computes the full moment matrix M_{IJ} = Tr(H_C · U_I ρ_0 U_J†) over all multi-index pairs
+(I, J) where each index selects one unitary per layer. The σ optimisation (separable, SDP, or
+tensor network) is performed by an external library. M is computed once and stored to file for
+reuse across all σ strategies.
+
+Both algorithms are restricted to **diagonal H_C**. Only mixed-state circuits support noise.
 
 ---
 
@@ -36,11 +42,13 @@ General non-diagonal observables are out of scope.
 
 ---
 
-## Gradient Method: Adjoint Differentiation
+## Algorithm 1: PQC Parameter Optimisation
+
+### Gradient Method: Adjoint Differentiation
 
 **Chosen method: adjoint differentiation** (not parameter-shift rule).
 
-### Rationale
+#### Rationale
 
 The parameter-shift rule requires 2 full circuit evaluations per parameter. For a circuit with
 2p parameters (QAOA with p layers) this gives O(p) evaluations. Adjoint differentiation requires
@@ -49,7 +57,7 @@ O(1) evaluations regardless of circuit depth — at the cost of memory or extra 
 Additionally, adjoint differentiation places no restriction on the generator's eigenvalue spectrum,
 accommodating Hamiltonian evolution gates with arbitrary generators.
 
-### Mathematical Foundation
+#### Mathematical Foundation
 
 For a parametrised gate at position k, U_k(θ_k) = exp(−iθ_k G_k), embedded in circuit
 U_f · U_k(θ_k) · V:
@@ -64,11 +72,9 @@ Both ρ_k and H_f^(k) are density-matrix-shaped objects (2^n × 2^n Hermitian op
 H_C starts diagonal but becomes a full Hermitian matrix after mixer layers.
 H_f is stored in the same MIXED_PACKED or MIXED_TILED layout as ρ.
 
----
+### Circuit Abstraction: Parametrised Channel
 
-## Circuit Abstraction: Parametrised Channel
-
-### Definition
+#### Definition
 
 The fundamental unit is a **parametrised channel**: a struct grouping all gates that share
 one circuit parameter, together with optional Kraus noise operators.
@@ -83,7 +89,7 @@ For the noisy case the forward application is:  σ = U(θ) ρ U(θ)†  then  ρ
 The backward propagation is the adjoint channel:  H_f ← Σ_m K_m† H_f K_m  then  H_f ← U†H_fU
 The gradient inner product uses σ = U(θ) ρ_k U(θ)†  (state after unitary, before noise).
 
-### Parameter Sharing Within a Channel
+#### Parameter Sharing Within a Channel
 
 All gates within one channel share one scalar parameter θ. The total gradient contribution
 of the channel is the sum over all constituent gates:
@@ -95,7 +101,7 @@ generator G = H_C (see QAOA section below).
 
 Parameters are NOT shared across channels. Each channel owns exactly one parameter.
 
-### Circuit
+#### Circuit
 
 A circuit is a flat array of N_ch parametrised channel pointers and a flat parameter vector θ.
 For QAOA with p layers: N_ch = 2p channels (p cost + p mixer).
@@ -103,19 +109,20 @@ For QAOA with p layers: N_ch = 2p channels (p cost + p mixer).
 Fixed (non-parametrised) operations are represented as channels with no gradient contribution
 (θ is ignored, `grad_inner` returns 0).
 
-### LCU Channel (Fixed, No Gradient)
+#### LCU Channel (Fixed, Non-Parametrised, Algorithm 1 Only)
 
-A **linear combination of unitaries** channel: M = Σ_i c_i U_i, applied to pure states only.
-It is non-parametrised — its coefficients are determined externally and not subject to gradient
-search. It still participates in the backward co-state propagation.
+A **linear combination of unitaries** channel M = Σ_i c_i U_i may appear as a fixed circuit
+element in Algorithm 1. It is non-parametrised — its coefficients are determined externally
+and not subject to gradient search. It still participates in the backward co-state propagation.
 
-**GAP — see Open Gaps section.**
+Note: this is a *circuit element* in Algorithm 1. The full LCU moment-matrix computation is
+Algorithm 2 (see below) and is a separate concept.
 
----
+**GAP 1 — see Open Gaps section.**
 
-## Gradient Algorithm
+### Gradient Algorithm
 
-### State Type × Circuit Type
+#### State Type × Circuit Type
 
 | Circuit     | State type   | Gradient algorithm                     | Memory              |
 |-------------|--------------|----------------------------------------|---------------------|
@@ -125,7 +132,7 @@ search. It still participates in the backward co-state propagation.
 
 Never: PURE state with Kraus channels. Kraus noise destroys purity; the state must be MIXED.
 
-### 3-Pass Algorithm (Ideal Circuits, Pure and Mixed)
+#### 3-Pass Algorithm (Ideal Circuits, Pure and Mixed)
 
 Exploits unitarity U_k U_k† = I to propagate both the state and co-state forward in the same
 pass. No intermediate states are stored. Total cost: 3 × L gate applications, where L is the
@@ -165,7 +172,7 @@ for k = 1 to L:
 For MIXED ideal circuits, replace state vectors with density matrices and apply gates as
 U(·)U†. The 3-pass logic is identical; |μ⟩ becomes a density-matrix-shaped H_f.
 
-### Noisy Circuit Algorithm (Mixed States, Kraus Channels)
+#### Noisy Circuit Algorithm (Mixed States, Kraus Channels)
 
 The 3-pass trick requires invertibility (U_k U_k† = I). Kraus channels are generally not
 invertible, so the trick breaks. Instead:
@@ -256,6 +263,85 @@ decomposed RZZ gates. RZZ is needed only if individual two-qubit gradients are r
 
 ---
 
+## Algorithm 2: LCU Moment Matrix
+
+### Model
+
+At each of L layers, a set of K_k unitaries {U_{k;1}, …, U_{k;K_k}} is available. A multi-index
+I = (i_1, …, i_L) selects one unitary per layer. The LCU output state is:
+
+    ρ_f = Σ_{I,J} σ^J_I  U_I ρ_0 U_J†
+
+where U_I = U_{L;i_L} · … · U_{1;i_1} and σ is the (ΠK_k) × (ΠK_k) parameter matrix optimised
+externally.
+
+### Moment Matrix
+
+This library's sole output for Algorithm 2 is the **moment matrix**:
+
+    M_{IJ} = Tr(H_C · U_I ρ_0 U_J†)
+
+M is a (ΠK_k) × (ΠK_k) complex matrix. It is Hermitian: M_{IJ} = M_{JI}*.
+
+The σ optimisation — separable, SDP, or tensor network — is performed by a separate library.
+M is computed once offline and stored to file for reuse across all σ strategies.
+
+### Pure Initial State: Efficient Computation
+
+For a pure initial state |ψ_0⟩ define |φ_I⟩ = U_I|ψ_0⟩. Then:
+
+    M_{IJ} = Tr(H_C U_I |ψ_0⟩⟨ψ_0| U_J†) = ⟨φ_J|H_C|φ_I⟩
+
+For diagonal H_C this reduces to a weighted inner product:
+
+    M_{IJ} = Σ_x h_x φ_I(x) φ_J*(x)
+
+**Algorithm (pure initial state):**
+```
+1. Enumerate all N = ΠK_k multi-indices I.
+2. For each I: apply U_{1;i_1}, …, U_{L;i_L} to |ψ_0⟩ to obtain |φ_I⟩.
+3. For each pair (I, J) with I ≥ J (Hermitian symmetry):
+       M_{IJ} = Σ_x h_x φ_I(x) φ_J*(x)
+       M_{JI} = M_{IJ}*
+4. Store M to file.
+```
+
+Step 3 is **embarrassingly parallel** over (I, J) pairs. Large n or large unitary sets can
+distribute pairs across processors.
+
+Memory: N state vectors of length 2^n each. For n = 10, K = 4 per layer, L = 5:
+N = 4^5 = 1024 vectors × 16 KB = ~16 MB. Storage is per-run acceptable.
+
+### Mixed Initial State: Open Gap
+
+For mixed ρ_0, the diagonal term M_{II} = Tr(H_C U_I ρ_0 U_I†) is a standard expectation
+value and trivially computable. The off-diagonal term M_{IJ} (I ≠ J) requires:
+
+    M_{IJ} = Tr(H_C U_I ρ_0 U_J†)
+
+This is a Hilbert-Schmidt inner product of H_C U_I ρ_0 with U_J ρ_0 — it is NOT a standard
+density matrix evolution. U_I and U_J act on different sides simultaneously. Standard state
+evolution cannot represent this; it requires working in the doubled Hilbert-Schmidt space
+(vectorisation of the density matrix).
+
+**GAP 8 — see Open Gaps section.**
+
+### Noise in Algorithm 2
+
+Noise (Kraus channels) is relevant only for mixed states. For the pure initial state case
+noise does not arise. Where Kraus channels appear in the mixed-state cross terms M_{IJ} is
+unresolved.
+
+**GAP 9 — see Open Gaps section.**
+
+### File Storage
+
+M is stored to file after computation. File format is unspecified.
+
+**GAP 10 — see Open Gaps section.**
+
+---
+
 ## Data Structures (Planned)
 
 ```c
@@ -265,7 +351,7 @@ typedef struct {
     qubit_t   qubits;
 } diag_hamiltonian_t;
 
-// Abstract parametrised channel — function pointer interface
+// Abstract parametrised channel — function pointer interface (Algorithm 1)
 typedef struct param_channel {
     void   (*apply)        (state_t *state, double theta, const void *ctx);
     void   (*apply_adjoint)(state_t *state, double theta, const void *ctx);
@@ -275,12 +361,26 @@ typedef struct param_channel {
     int    has_gradient;   // 0 for fixed channels (LCU, state prep)
 } param_channel_t;
 
-// Circuit: flat array of channels + parameter vector
+// Circuit: flat array of channels + parameter vector (Algorithm 1)
 typedef struct {
     param_channel_t **channels;
     int               n_channels;
     double           *params;      // length n_channels (one param per channel)
 } pqc_t;
+
+// LCU layer: set of unitaries selectable at one layer position (Algorithm 2)
+// Exact representation TBD — depends on gate module API for unitary sets
+typedef struct {
+    // unitary set U_{k;1}, …, U_{k;K_k}
+    // K_k unitaries, representation TBD
+    int K;
+} lcu_layer_t;
+
+// LCU circuit: sequence of layers (Algorithm 2)
+typedef struct {
+    lcu_layer_t *layers;   // length L
+    int          L;
+} lcu_circuit_t;
 ```
 
 ---
@@ -288,14 +388,14 @@ typedef struct {
 ## Planned API
 
 ```c
-// Evaluate expectation value ⟨H_C⟩ = Σ_x h_x p_x
+// Algorithm 1: evaluate expectation value ⟨H_C⟩ = Σ_x h_x p_x
 double expectation_value(
     const pqc_t            *circuit,
     const state_t          *initial,
     const diag_hamiltonian_t *H_C
 );
 
-// Compute full gradient vector via adjoint differentiation
+// Algorithm 1: compute full gradient vector via adjoint differentiation
 // grad_out[c] = ∂⟨H_C⟩/∂params[c] for each channel c
 void gradient_adjoint(
     const pqc_t            *circuit,
@@ -304,13 +404,23 @@ void gradient_adjoint(
     double                 *grad_out   // length circuit->n_channels
 );
 
-// QAOA-specific constructors
+// Algorithm 1: QAOA-specific constructors
 pqc_t *qaoa_circuit_new(
     int p,                             // number of layers
     const diag_hamiltonian_t *H_C,     // cost Hamiltonian
     int n_qubits
 );
 void pqc_free(pqc_t *circuit);
+
+// Algorithm 2: compute full moment matrix (pure initial state)
+// M_out: (N x N) complex matrix, N = prod(K_k), stored in row-major order
+// M_out[I*N + J] = Tr(H_C U_I |psi_0><psi_0| U_J†)
+void moment_matrix(
+    const lcu_circuit_t    *circuit,
+    const state_t          *initial,   // must be PURE
+    const diag_hamiltonian_t *H_C,
+    cplx_t                 *M_out      // caller-allocated, length N*N
+);
 ```
 
 ---
@@ -320,10 +430,11 @@ void pqc_free(pqc_t *circuit);
 The following questions are **unresolved** and must be answered before implementation proceeds.
 The next agent should address each gap explicitly.
 
-### GAP 1 — LCU Channel Backward Pass (Blocking)
+### GAP 1 — LCU Channel Backward Pass (Algorithm 1, Blocking if LCU channels are used)
 
-A linear combination of unitaries channel M = Σ_i c_i U_i is non-parametrised and applies to
-pure states. "Norm preservation" is stated, but its exact meaning is unresolved:
+A linear combination of unitaries channel M = Σ_i c_i U_i appearing as a **circuit element**
+in Algorithm 1 is non-parametrised. "Norm preservation" is stated, but its exact meaning is
+unresolved:
 
 **Case A:** M is constrained to be exactly unitary (e.g., by optimising the coefficients c_i
 under a unitarity constraint). Then `apply_adjoint` is simply M† = Σ_i c_i* U_i†. The channel
@@ -378,12 +489,61 @@ RSWAP is listed as a parametrised gate type in the general framework. Definition
 exp(−iθ SWAP/2)?) and role in the first implementation are unspecified. Not required for
 standard QAOA. Defer or clarify.
 
-### GAP 7 — Memory Limit for Noisy Simulation
+### GAP 7 — Memory Limit for Noisy Simulation (Algorithm 1)
 
 The noisy gradient algorithm stores N_ch = 2p density matrices. At n = 12 qubits, p = 5
 layers: ~5 GB. A hard limit around n = 11–12 is implied. The acceptable qubit / layer
 range for the target hardware has not been stated, and no checkpoint strategy has been
 specified for larger systems.
+
+### GAP 8 — Is ρ_0 Pure or Mixed for Algorithm 2? (Blocking for Mixed-State Moment Matrix)
+
+For pure ρ_0, the moment matrix reduces to inner products of state vectors (see above).
+For mixed ρ_0, off-diagonal terms M_{IJ} (I ≠ J) require computing Tr(H_C U_I ρ_0 U_J†),
+which cannot be expressed as a standard density matrix evolution — it requires the vectorised
+(Liouville) representation of ρ_0 in a doubled 4^n-dimensional space.
+
+**Resolution needed:** Is ρ_0 always pure for Algorithm 2, or must mixed initial states be
+supported? Pure is architecturally far simpler (O(N · 2^n) memory, no Hilbert-Schmidt space).
+Mixed requires a fundamentally different computational approach and substantially more memory.
+This is the most critical open question for Algorithm 2.
+
+### GAP 9 — Noise in Algorithm 2 (Blocking for Noisy Moment Matrix)
+
+For pure initial states, noise is not applicable (Algorithm 2 does not apply Kraus channels
+to pure states — noise would destroy purity and cross-term structure).
+
+For mixed initial states: where do Kraus channels appear in the cross terms?
+- **Option A (per-branch noise):** Each U_I and U_J branch independently has noise applied.
+  Then M_{IJ} = Tr(H_C E_I(ρ_0) U_J†) for noise channel E_I applied along branch I.
+  The cross terms mix coherent evolution on one side with noisy on the other — physically
+  ill-defined without further specification.
+- **Option B (output-state noise only):** Noise is applied to the output state ρ_f, not per
+  branch. This means the σ weighting happens after noise, changing the optimisation problem.
+
+**Resolution needed:** Does noise appear in Algorithm 2 at all, and if so, in what form?
+This gap is moot if GAP 8 resolves to pure-only.
+
+### GAP 10 — File Format for M (Algorithm 2)
+
+M must be stored to file for reuse across σ optimisation strategies. Format unspecified.
+Candidates: HDF5 (self-describing, widely supported), raw binary (fast, no metadata),
+NumPy .npy (convenient for Python external library). Metadata to store: n_qubits, L,
+{K_k}, Hamiltonian h_x, computation timestamp, source circuit description.
+
+**Resolution needed:** File format and required metadata.
+
+### GAP 11 — Expected Problem Sizes for Algorithm 2
+
+The feasibility of the moment matrix computation and its parallelisation strategy depend
+critically on (L, K_k, n):
+- N = ΠK_k grows exponentially in L. For K = 4, L = 5: N = 1024; for L = 10: N = 10^6.
+- Pure-state approach: N state vectors of length 2^n. N² / 2 inner products each O(2^n).
+- Total cost: O(N · L · 2^n) for state prep + O(N² · 2^n) for inner products.
+
+**Resolution needed:** What are the intended ranges of L, K_k, and n? This determines
+whether full enumeration is feasible, whether sparse σ structure can prune (I,J) pairs,
+and whether single-node or distributed parallelism is required.
 
 ---
 
@@ -395,3 +555,5 @@ specified for larger systems.
 - Multi-parameter channels (gates with more than one independent parameter)
 - RSWAP and other non-standard parametrised gates
 - Trotter-based Hamiltonian simulation
+- Mixed initial state moment matrix (pending GAP 8 resolution)
+- Distributed / multi-node parallelism for Algorithm 2 (pending GAP 11 resolution)
