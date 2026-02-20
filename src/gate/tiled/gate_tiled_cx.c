@@ -374,14 +374,14 @@ void cx_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 t11[elem_off(lr1, lc0)] = tmp;
 
                                 /* Pair E: |ctrl=0,tgt=1><ctrl=1,tgt=0| <--> |ctrl=0,tgt=1><ctrl=1,tgt=1| */
-                                tmp = t01[elem_off(lr1, lc0)];
-                                t01[elem_off(lr1, lc0)] = t01[elem_off(lr1, lc1)];
-                                t01[elem_off(lr1, lc1)] = tmp;
+                                tmp = t01[elem_off(lc0, lr1)];
+                                t01[elem_off(lc0, lr1)] = t01[elem_off(lc1, lr1)];
+                                t01[elem_off(lc1, lr1)] = tmp;
 
                                 /* Pair F: |ctrl=0,tgt=0><ctrl=1,tgt=0| <--> |ctrl=0,tgt=0><ctrl=1,tgt=1| */
-                                tmp = t01[elem_off(lr0, lc0)];
-                                t01[elem_off(lr0, lc0)] = t01[elem_off(lr0, lc1)];
-                                t01[elem_off(lr0, lc1)] = tmp;
+                                tmp = t01[elem_off(lc0, lr0)];
+                                t01[elem_off(lc0, lr0)] = t01[elem_off(lc1, lr0)];
+                                t01[elem_off(lc1, lr0)] = tmp;
                             }
                         }
                     }
@@ -530,12 +530,25 @@ void cx_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                             {
                                 /* Pair C: |ctrl=1,tgt=0><ctrl=0,tgt=1| <--> |ctrl=1,tgt=1><ctrl=0,tgt=1| */
                                 cplx_t * restrict tA = data + tile_off(tr11, tc01);
-                                cplx_t * restrict tB = data + tile_off(tc01, tr10);
-                                for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                    for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
-                                        cplx_t tmp = tA[lr * TILE_DIM + lc];
-                                        tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
-                                        tB[lc * TILE_DIM + lr] = conj(tmp);
+
+                                if(tr10 > tc01) {
+                                    cplx_t * restrict tB = data + tile_off(tr10, tc01);
+                                    for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                        for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                                            cplx_t tmp = tA[lr * TILE_DIM + lc];
+                                            tA[lr * TILE_DIM + lc] = tB[lr * TILE_DIM + lc];
+                                            tB[lr * TILE_DIM + lc] = tmp;
+                                        }
+                                    }
+                                }
+                                else {
+                                    cplx_t * restrict tB = data + tile_off(tc01, tr10);
+                                    for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                        for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                                            cplx_t tmp = tA[lr * TILE_DIM + lc];
+                                            tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
+                                            tB[lc * TILE_DIM + lr] = conj(tmp);
+                                        }
                                     }
                                 }
                             }
