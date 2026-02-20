@@ -18,7 +18,9 @@
 #include <omp.h>
 #endif
 
+#ifndef OMP_THRESHOLD
 #define OMP_THRESHOLD 512
+#endif
 
 void cz_packed(state_t *state, const qubit_t control, const qubit_t target) {
     const gate_idx_t dim = (gate_idx_t)1 << state->qubits;

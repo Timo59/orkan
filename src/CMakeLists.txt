@@ -44,6 +44,9 @@ target_compile_definitions(q
         PRIVATE
             LOG_TILE_DIM=${LOG_TILE_DIM}
 )
+if(DEFINED OMP_THRESHOLD)
+    target_compile_definitions(q PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
+endif()
 target_link_libraries(q
         PUBLIC
             ${PROJECT_COMPILER_FLAGS}
