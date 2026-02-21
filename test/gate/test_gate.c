@@ -98,6 +98,36 @@ void test_CCX_tiled(void) {testThreeQubitGateTiled(ccx, CCXMAT);}
 
 /*
  * =====================================================================================================================
+ * Test functions: single_from_mat (tiled mixed states)
+ * =====================================================================================================================
+ */
+
+static void mat_rx_pi3(cplx_t *mat) {
+    const double c = cos(M_PI / 6.0);  /* cos(pi/6) = sqrt(3)/2 */
+    const double s = sin(M_PI / 6.0);  /* sin(pi/6) = 1/2       */
+    mat[0] =  c + 0.0 * I;
+    mat[1] = 0.0 -   s * I;
+    mat[2] = 0.0 -   s * I;
+    mat[3] =  c + 0.0 * I;
+}
+
+void test_single_from_mat_id_tiled(void) { testSingleQubitMatGateTiled(IDMAT); }
+void test_single_from_mat_x_tiled(void)  { testSingleQubitMatGateTiled(XMAT);  }
+void test_single_from_mat_y_tiled(void)  { testSingleQubitMatGateTiled(YMAT);  }
+void test_single_from_mat_h_tiled(void)  { testSingleQubitMatGateTiled(HMAT);  }
+void test_single_from_mat_t_tiled(void)  { testSingleQubitMatGateTiled(TMAT);  }
+
+void test_single_from_mat_rx_tiled(void) {
+    cplx_t rx_mat[4];
+    mat_rx_pi3(rx_mat);
+    testSingleQubitMatGateTiled(rx_mat);
+}
+
+void test_single_from_mat_xh_tiled(void) { testSingleQubitMatGateTiledDouble(XMAT, HMAT); }
+void test_single_from_mat_ht_tiled(void) { testSingleQubitMatGateTiledDouble(HMAT, TMAT); }
+
+/*
+ * =====================================================================================================================
  * Unity body
  * =====================================================================================================================
  */
@@ -164,6 +194,16 @@ int main(void) {
     RUN_TEST(test_CZ_tiled);
     RUN_TEST(test_SWAP_tiled);
     RUN_TEST(test_CCX_tiled);
+
+    printf("\n========== single_from_mat Tiled Tests ==========\n");
+    RUN_TEST(test_single_from_mat_id_tiled);
+    RUN_TEST(test_single_from_mat_x_tiled);
+    RUN_TEST(test_single_from_mat_y_tiled);
+    RUN_TEST(test_single_from_mat_h_tiled);
+    RUN_TEST(test_single_from_mat_t_tiled);
+    RUN_TEST(test_single_from_mat_rx_tiled);
+    RUN_TEST(test_single_from_mat_xh_tiled);
+    RUN_TEST(test_single_from_mat_ht_tiled);
 
     return UNITY_END();
 }

@@ -199,6 +199,8 @@ void testSingleQubitGateTiled(const single_qubit_gate gate, const cplx_t *mat);
 void testRotationGateTiled(const rotation_gate gate, void (*mat_fn)(double theta, cplx_t *mat));
 void testTwoQubitGateTiled(const two_qubit_gate gate, const cplx_t *mat);
 void testThreeQubitGateTiled(const three_qubit_gate gate, const cplx_t *mat);
+void testSingleQubitMatGateTiled(const cplx_t *mat);
+void testSingleQubitMatGateTiledDouble(const cplx_t *mat1, const cplx_t *mat2);
 
 /*
  * =====================================================================================================================
