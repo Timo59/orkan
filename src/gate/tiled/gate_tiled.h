@@ -77,6 +77,9 @@ static inline void dtile_write(cplx_t *tile, gate_idx_t lr, gate_idx_t lc, cplx_
  * =====================================================================================================================
  */
 
+/* Arbitrary 2x2 unitary gate applied as ρ' = U ρ U† (col-major mat) */
+void single_from_mat(state_t *state, qubit_t target, const cplx_t *mat);
+
 /* Single-qubit gates (no parameter) */
 void h_tiled(state_t *state, const qubit_t target);
 void hy_tiled(state_t *state, const qubit_t target);
