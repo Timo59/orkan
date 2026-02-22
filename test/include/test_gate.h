@@ -202,20 +202,13 @@ void testThreeQubitGateTiled(const three_qubit_gate gate, const cplx_t *mat);
 void testSingleQubitMatGateTiled(const cplx_t *mat);
 void testSingleQubitMatGateTiledDouble(const cplx_t *mat1, const cplx_t *mat2);
 
-/*
- * =====================================================================================================================
- * Rotation gate matrix builders
- * =====================================================================================================================
- */
-
-void mat_rx(double theta, cplx_t *mat);
-void mat_ry(double theta, cplx_t *mat);
-void mat_rz(double theta, cplx_t *mat);
-void mat_p(double theta, cplx_t *mat);
-
 // Test angles: representative values covering identity, small, π/2, π, and negative
 static const double TEST_THETAS[] = {0.0, M_PI/4, M_PI/2, M_PI, 3*M_PI/2, -M_PI/3};
 static const unsigned NUM_THETAS = sizeof(TEST_THETAS) / sizeof(TEST_THETAS[0]);
+
+// Maximum qubit count for tiled-state gate tests (larger than MAXQUBITS because
+// tiled storage supports more qubits than pure/packed in the test suite).
+#define MAXQUBITS_TILED 6
 
 #ifdef __cplusplus
 }

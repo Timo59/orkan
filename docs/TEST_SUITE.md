@@ -15,16 +15,18 @@ test/
 ├── include/                    Shared test headers
 │   ├── test.h                  Constants (MAXQUBITS=4, PRECISION=1e-12, SQRT2/INVSQRTn),
 │   │                           custom assertion macros (COMPLEX_WITHIN, EQUAL_COMPLEX_ARRAY_TOL,
-│   │                           EQUAL_DOUBLE_ARRAY_TOL, NOT_EQUAL_PTR) (154 lines)
-│   ├── test_gate.h             Declarations for all gate harness functions and rotation matrix
-│   │                           builders (mat_rx/ry/rz/p) (224 lines)
+│   │                           EQUAL_DOUBLE_ARRAY_TOL(_tol), NOT_EQUAL_PTR) (153 lines)
+│   ├── test_gate.h             Declarations for all gate harness functions; MAXQUBITS_TILED=6;
+│   │                           gate-constant arrays (XMAT, HMAT, CXMAT, CCXMAT, …);
+│   │                           TEST_THETAS/NUM_THETAS (217 lines)
 │   ├── test_pure_states.h      Pure state fixture declarations (114 lines)
 │   ├── test_mixed_states.h     Mixed state fixture declarations (145 lines)
-│   ├── test_mixed_utils.h      Pack/unpack helpers, tiled-state assertion utilities,
-│   │                           MAXQUBITS_TILED=6 (85 lines)
+│   ├── test_mixed_utils.h      Pack/unpack helpers, tiled-state assertion utilities;
+│   │                           packed_index() static inline (106 lines)
 │   ├── gatemat.h               Full N-qubit matrix builder declarations: mat_id,
 │   │                           mat_single_qubit_gate, mat_two_qubit_gate,
-│   │                           mat_three_qubit_gate (86 lines)
+│   │                           mat_three_qubit_gate; rotation matrix builders:
+│   │                           mat_rx/ry/rz/p, mat_rx_pi3 (95 lines)
 │   └── linalg.h                Linear algebra helper declarations: zmv, zumu, zkron (73 lines)
 ├── state/                      State module tests (→ test_state executable)
 │   ├── test_state.c            Runner (main), dispatch tests; 41 RUN_TEST registrations (230 lines)
@@ -33,9 +35,8 @@ test/
 │   └── test_state_tiled.c      16 tiled density matrix tests (532 lines)
 ├── gate/                       Gate module tests (→ test_gate executable)
 │   ├── test_gate.c             Runner (main) + all named test_<Gate>_<repr>() functions
-│   │                           + RUN_TEST registrations for 62 tests total (210 lines)
-│   ├── test_gate_pure_1q.c     Pure 1Q harness: testSingleQubitGate, testRotationGate,
-│   │                           mat_rx/ry/rz/p builders (270 lines)
+│   │                           + RUN_TEST registrations for 62 tests total (205 lines)
+│   ├── test_gate_pure_1q.c     Pure 1Q harness: testSingleQubitGate, testRotationGate (221 lines)
 │   ├── test_gate_pure_2q.c     Pure 2Q harness: testTwoQubitGate (123 lines)
 │   ├── test_gate_pure_3q.c     Pure 3Q harness: testThreeQubitGate (127 lines)
 │   ├── test_gate_packed_1q.c   Packed 1Q harness: testSingleQubitGateMixed,
@@ -46,17 +47,18 @@ test/
 │   │                           testRotationGateTiled, testSingleQubitMatGateTiled,
 │   │                           testSingleQubitMatGateTiledDouble (424 lines)
 │   ├── test_gate_tiled_2q.c    Tiled 2Q harness: testTwoQubitGateTiled (128 lines)
-│   └── test_gate_tiled_3q.c    Tiled 3Q harness: testThreeQubitGateTiled (147 lines)
+│   └── test_gate_tiled_3q.c    Tiled 3Q harness: testThreeQubitGateTiled (130 lines)
 └── utility/                    Test helpers and fixtures
     ├── gatemat.c               Full N-qubit matrix builders via Kronecker products and
-    │                           basis-state expansion (194 lines)
+    │                           basis-state expansion; rotation matrix builders
+    │                           mat_rx/ry/rz/p, mat_rx_pi3 (251 lines)
     ├── linalg.c                zmv (M*v via zgemv), zumu (U*M*U† via zgemm),
     │                           zkron (A⊗B, column-major) (111 lines)
     ├── test_pure_states.c      Pure state fixtures: cb, xb, yb, Bell, GHZ, W states (394 lines)
     ├── test_mixed_states.c     Mixed state fixtures: cb, xb, yb, Bell, GHZ, W,
-    │                           maximally-mixed, random mixture (678 lines)
-    └── test_mixed_utils.c      density_unpack/pack, tiled_state_from_full,
-                                assert_tiled_equals_full (109 lines)
+    │                           maximally-mixed, random mixture (653 lines)
+    └── test_mixed_utils.c      density_unpack/pack (use packed_index), tiled_state_from_full,
+                                assert_tiled_equals_full (104 lines)
 ```
 
 ## Gate Test Architecture
@@ -75,6 +77,11 @@ The gate test suite uses a two-layer harness pattern:
 
 This separation keeps per-gate boilerplate in one place while the harness is exercised uniformly
 across all fixture states.
+
+**Rotation matrix builders** (`mat_rx`, `mat_ry`, `mat_rz`, `mat_p`, `mat_rx_pi3`) are defined
+in `utility/gatemat.c` and declared in `include/gatemat.h`. They fill a 4-element column-major
+`cplx_t[4]` with the 2×2 gate matrix for a given angle, and are shared by the pure, packed, and
+tiled 1Q rotation harnesses.
 
 ## Test Inventory
 

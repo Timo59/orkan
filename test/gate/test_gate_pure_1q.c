@@ -125,54 +125,6 @@ void testSingleQubitGate(const single_qubit_gate gate, const cplx_t *mat) {
 
 /*
  * =====================================================================================================================
- * Rotation gate matrix builders
- * =====================================================================================================================
- */
-
-void mat_rx(double theta, cplx_t *mat) {
-    double c = cos(theta / 2.0);
-    double s = sin(theta / 2.0);
-    // [[cos(θ/2), -i·sin(θ/2)], [-i·sin(θ/2), cos(θ/2)]]
-    // Column-major: [0,0], [1,0], [0,1], [1,1]
-    mat[0] = c;
-    mat[1] = -s * I;
-    mat[2] = -s * I;
-    mat[3] = c;
-}
-
-void mat_ry(double theta, cplx_t *mat) {
-    double c = cos(theta / 2.0);
-    double s = sin(theta / 2.0);
-    // [[cos(θ/2), -sin(θ/2)], [sin(θ/2), cos(θ/2)]]
-    // Column-major: [0,0], [1,0], [0,1], [1,1]
-    mat[0] = c;
-    mat[1] = s;
-    mat[2] = -s;
-    mat[3] = c;
-}
-
-void mat_rz(double theta, cplx_t *mat) {
-    double c = cos(theta / 2.0);
-    double s = sin(theta / 2.0);
-    // [[e^(-iθ/2), 0], [0, e^(iθ/2)]]
-    // Column-major: [0,0], [1,0], [0,1], [1,1]
-    mat[0] = c - s * I;
-    mat[1] = 0;
-    mat[2] = 0;
-    mat[3] = c + s * I;
-}
-
-void mat_p(double theta, cplx_t *mat) {
-    // [[1, 0], [0, e^(iθ)]]
-    // Column-major: [0,0], [1,0], [0,1], [1,1]
-    mat[0] = 1.0;
-    mat[1] = 0.0;
-    mat[2] = 0.0;
-    mat[3] = cos(theta) + sin(theta) * I;
-}
-
-/*
- * =====================================================================================================================
  * Test: Rotation gates
  * =====================================================================================================================
  */

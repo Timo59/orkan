@@ -71,12 +71,12 @@ extern "C" {
 /*
  * @brief   Check whether all elements' absolute values in two DOUBLE PRECISION arrays coincide up to tolerance
  */
-#define TEST_ASSERT_EQUAL_DOUBLE_ARRAY_ABS(expected, actual, num_elements) \
+#define TEST_ASSERT_EQUAL_DOUBLE_ARRAY_ABS(expected, actual, num_elements, _tol) \
     do { \
         for (size_t _i = 0; _i < (num_elements); ++_i) { \
             double _expected = fabs((expected)[_i]); \
             double _actual = fabs((actual)[_i]); \
-            int _fail = fabs(_expected - _actual) > (1e-7); \
+            int _fail = fabs(_expected - _actual) > (_tol); \
             if (_fail) { \
                 char _msg[256]; \
                 snprintf(_msg, sizeof(_msg), \

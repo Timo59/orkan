@@ -28,15 +28,13 @@ cplx_t* density_unpack(unsigned n, const cplx_t *packed) {
 
     // Unpack lower triangle from packed storage (column-major)
     // Packed format: column 0 (n elements), column 1 (n-1 elements), ..., column n-1 (1 element)
-    unsigned packed_idx = 0;
     for (unsigned col = 0; col < n; ++col) {
         for (unsigned row = col; row < n; ++row) {
-            full[row + col * n] = packed[packed_idx];  // Lower triangle
+            full[row + col * n] = packed[packed_index(n, row, col)];  // Lower triangle
             if (row != col) {
                 // Hermitian property: H[col,row] = conj(H[row,col])
-                full[col + row * n] = conj(packed[packed_idx]);  // Upper triangle
+                full[col + row * n] = conj(packed[packed_index(n, row, col)]);  // Upper triangle
             }
-            ++packed_idx;
         }
     }
 
@@ -55,11 +53,9 @@ cplx_t* density_pack(unsigned n, const cplx_t *full) {
     }
 
     // Pack lower triangle into packed storage (column-major)
-    unsigned packed_idx = 0;
     for (unsigned col = 0; col < n; ++col) {
         for (unsigned row = col; row < n; ++row) {
-            packed[packed_idx] = full[row + col * n];
-            ++packed_idx;
+            packed[packed_index(n, row, col)] = full[row + col * n];
         }
     }
 

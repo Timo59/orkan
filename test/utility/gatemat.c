@@ -14,6 +14,7 @@
 #include "linalg.h"
 #endif
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -190,4 +191,61 @@ cplx_t* mat_three_qubit_gate(const unsigned nqubits, const cplx_t *gate,
     }
 
     return out;
+}
+
+/*
+ * =====================================================================================================================
+ * Rotation gate matrix builders  (moved from test_gate_pure_1q.c / test_gate.c)
+ * =====================================================================================================================
+ */
+
+void mat_rx(double theta, cplx_t *mat) {
+    double c = cos(theta / 2.0);
+    double s = sin(theta / 2.0);
+    // [[cos(θ/2), -i·sin(θ/2)], [-i·sin(θ/2), cos(θ/2)]]
+    // Column-major: [0,0], [1,0], [0,1], [1,1]
+    mat[0] = c;
+    mat[1] = -s * I;
+    mat[2] = -s * I;
+    mat[3] = c;
+}
+
+void mat_ry(double theta, cplx_t *mat) {
+    double c = cos(theta / 2.0);
+    double s = sin(theta / 2.0);
+    // [[cos(θ/2), -sin(θ/2)], [sin(θ/2), cos(θ/2)]]
+    // Column-major: [0,0], [1,0], [0,1], [1,1]
+    mat[0] = c;
+    mat[1] = s;
+    mat[2] = -s;
+    mat[3] = c;
+}
+
+void mat_rz(double theta, cplx_t *mat) {
+    double c = cos(theta / 2.0);
+    double s = sin(theta / 2.0);
+    // [[e^(-iθ/2), 0], [0, e^(iθ/2)]]
+    // Column-major: [0,0], [1,0], [0,1], [1,1]
+    mat[0] = c - s * I;
+    mat[1] = 0;
+    mat[2] = 0;
+    mat[3] = c + s * I;
+}
+
+void mat_p(double theta, cplx_t *mat) {
+    // [[1, 0], [0, e^(iθ)]]
+    // Column-major: [0,0], [1,0], [0,1], [1,1]
+    mat[0] = 1.0;
+    mat[1] = 0.0;
+    mat[2] = 0.0;
+    mat[3] = cos(theta) + sin(theta) * I;
+}
+
+void mat_rx_pi3(cplx_t *mat) {
+    const double c = cos(M_PI / 6.0);  /* cos(pi/6) = sqrt(3)/2 */
+    const double s = sin(M_PI / 6.0);  /* sin(pi/6) = 1/2       */
+    mat[0] =  c + 0.0 * I;
+    mat[1] = 0.0 -   s * I;
+    mat[2] = 0.0 -   s * I;
+    mat[3] =  c + 0.0 * I;
 }
