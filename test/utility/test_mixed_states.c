@@ -23,33 +23,9 @@
 #include "test_pure_states.h"
 #endif
 
-/*
- * =====================================================================================================================
- * Helper functions
- * =====================================================================================================================
- */
-
-/*
- * @brief   Calculate the index in packed lower-triangular storage for element (row, col)
- *
- * @param[in]   n       Matrix dimension (order)
- * @param[in]   row     Row index (0-indexed, must be >= col)
- * @param[in]   col     Column index (0-indexed)
- *
- * @returns Index in the packed array (column-major order, LAPACK convention)
- *
- * @note    For Hermitian matrix stored in lower-triangular packed format (UPLO='L')
- *          Elements are stored column by column:
- *          Column 0: A(0,0), A(1,0), ..., A(n-1,0)
- *          Column 1: A(1,1), A(2,1), ..., A(n-1,1)
- *          etc.
- *          Element A(i,j) with i >= j is at position: i - j + j*(2n - j + 1)/2
- */
-static inline unsigned packed_index(unsigned n, unsigned row, unsigned col) {
-    assert(row >= col && "packed_index(): row must be >= col for lower-triangular storage");
-    assert(row < n && col < n && "packed_index(): indices out of bounds");
-    return row - col + (col * (2 * n - col + 1)) / 2;
-}
+#ifndef TEST_MIXED_UTILS_H
+#include "test_mixed_utils.h"
+#endif
 
 
 /*

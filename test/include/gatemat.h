@@ -79,6 +79,16 @@ cplx_t* mat_two_qubit_gate(unsigned nqubits, const cplx_t *gate, unsigned q1, un
  */
 cplx_t* mat_three_qubit_gate(unsigned nqubits, const cplx_t *gate, unsigned q1, unsigned q2, unsigned q3);
 
+/*
+ * Rotation gate matrix builders — fill a 4-element column-major cplx_t[4] with the
+ * 2×2 matrix for the given gate/angle.
+ */
+void mat_rx(double theta, cplx_t *mat);
+void mat_ry(double theta, cplx_t *mat);
+void mat_rz(double theta, cplx_t *mat);
+void mat_p(double theta, cplx_t *mat);
+void mat_rx_pi3(cplx_t *mat);
+
 #ifdef __cplusplus
 }
 #endif

@@ -10,6 +10,10 @@
 #include "test_gate.h"
 #endif
 
+#ifndef GATEMAT_H
+#include "gatemat.h"
+#endif
+
 /*
  * =====================================================================================================================
  * Unity: setUp and tearDown
@@ -102,14 +106,6 @@ void test_CCX_tiled(void) {testThreeQubitGateTiled(ccx, CCXMAT);}
  * =====================================================================================================================
  */
 
-static void mat_rx_pi3(cplx_t *mat) {
-    const double c = cos(M_PI / 6.0);  /* cos(pi/6) = sqrt(3)/2 */
-    const double s = sin(M_PI / 6.0);  /* sin(pi/6) = 1/2       */
-    mat[0] =  c + 0.0 * I;
-    mat[1] = 0.0 -   s * I;
-    mat[2] = 0.0 -   s * I;
-    mat[3] =  c + 0.0 * I;
-}
 
 void test_single_from_mat_id_tiled(void) { testSingleQubitMatGateTiled(IDMAT); }
 void test_single_from_mat_x_tiled(void)  { testSingleQubitMatGateTiled(XMAT);  }

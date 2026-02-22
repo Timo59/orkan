@@ -87,23 +87,6 @@ void testThreeQubitGateTiled(const three_qubit_gate gate, const cplx_t *mat) {
                             fprintf(stderr, "testThreeQubitGateTiled(): gate application failed\n");
                             goto cleanup;
                         }
-
-                        {
-                            for (unsigned cc = 0; cc < dim; ++cc) {
-                                for (unsigned rr = 0; rr < dim; ++rr) {
-                                    cplx_t got = state_get(&test_state, rr, cc);
-                                    cplx_t exp = ref_full[rr + cc * dim];
-                                    double rd = creal(got) - creal(exp);
-                                    double id = cimag(got) - cimag(exp);
-                                    if (rd > 1e-12 || rd < -1e-12 || id > 1e-12 || id < -1e-12) {
-                                        fprintf(stderr, "MISMATCH n=%u q1=%u q2=%u q3=%u state=%u at (%u,%u): got=%.6e+%.6ei exp=%.6e+%.6ei\n",
-                                            nqubits, q1, q2, q3, i, rr, cc, creal(got), cimag(got), creal(exp), cimag(exp));
-                                        goto done_check;
-                                    }
-                                }
-                            }
-                            done_check:;
-                        }
                         assert_tiled_equals_full(&test_state, ref_full, dim);
 
                         free(rho_full);
