@@ -124,6 +124,21 @@ void test_single_from_mat_ht_tiled(void) { testSingleQubitMatGateTiledDouble(HMA
 
 /*
  * =====================================================================================================================
+ * Test functions: two_from_mat (tiled mixed states)
+ * =====================================================================================================================
+ */
+
+void test_two_from_mat_cx(void)           { testTwoFromMat(CXMAT);           }
+void test_two_from_mat_swap(void)         { testTwoFromMat(SWAPMAT);         }
+void test_two_from_mat_cz(void)           { testTwoFromMat(CZMAT);           }
+void test_two_from_mat_iswap(void)        { testTwoFromMat(ISWAPMAT);        }
+void test_two_from_mat_hh(void)           { testTwoFromMat(HHMAT);           }
+void test_two_from_mat_cx_double(void)    { testTwoFromMatDouble(CXMAT);     }
+void test_two_from_mat_iswap_double(void) { testTwoFromMatDouble(ISWAPMAT);  }
+void test_two_from_mat_symmetry(void)     { testTwoFromMatSymmetry(ISWAPMAT); }
+
+/*
+ * =====================================================================================================================
  * Unity body
  * =====================================================================================================================
  */
@@ -200,6 +215,16 @@ int main(void) {
     RUN_TEST(test_single_from_mat_rx_tiled);
     RUN_TEST(test_single_from_mat_xh_tiled);
     RUN_TEST(test_single_from_mat_ht_tiled);
+
+    printf("\n========== two_from_mat Tiled Tests ==========\n");
+    RUN_TEST(test_two_from_mat_cx);
+    RUN_TEST(test_two_from_mat_swap);
+    RUN_TEST(test_two_from_mat_cz);
+    RUN_TEST(test_two_from_mat_iswap);
+    RUN_TEST(test_two_from_mat_hh);
+    RUN_TEST(test_two_from_mat_cx_double);
+    RUN_TEST(test_two_from_mat_iswap_double);
+    RUN_TEST(test_two_from_mat_symmetry);
 
     return UNITY_END();
 }

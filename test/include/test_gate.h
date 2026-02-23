@@ -126,6 +126,14 @@ static const cplx_t SWAPMAT[16] = {1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 
                                    0.0 + 0.0 * I, 1.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, \
                                    0.0 + 0.0 * I, 0.0 + 0.0 * I, 0.0 + 0.0 * I, 1.0 + 0.0 * I};
 
+// iSWAP gate matrix — column-major, hi⊗lo convention: mat[row + col*4], row = 2*hi_bit + lo_bit.
+// Defined in test_gate_tiled_2q_mat.c; used by test_gate.c for two_from_mat tests.
+extern const cplx_t ISWAPMAT[16];
+
+// H⊗H gate matrix — column-major, hi⊗lo convention: mat[row + col*4], row = 2*hi_bit + lo_bit.
+// Defined in test_gate_tiled_2q_mat.c; used by test_gate.c for two_from_mat tests.
+extern const cplx_t HHMAT[16];
+
 // CNOT (Controlled-X) matrix in column-major format
 // Basis order: |00>, |01>, |10>, |11> (target is rightmost/LSB)
 // |00> -> |00>, |01> -> |01>, |10> -> |11>, |11> -> |10>
@@ -201,6 +209,9 @@ void testTwoQubitGateTiled(const two_qubit_gate gate, const cplx_t *mat);
 void testThreeQubitGateTiled(const three_qubit_gate gate, const cplx_t *mat);
 void testSingleQubitMatGateTiled(const cplx_t *mat);
 void testSingleQubitMatGateTiledDouble(const cplx_t *mat1, const cplx_t *mat2);
+void testTwoFromMat(const cplx_t *mat4x4);
+void testTwoFromMatDouble(const cplx_t *mat4x4);
+void testTwoFromMatSymmetry(const cplx_t *mat4x4);
 
 // Test angles: representative values covering identity, small, π/2, π, and negative
 static const double TEST_THETAS[] = {0.0, M_PI/4, M_PI/2, M_PI, 3*M_PI/2, -M_PI/3};

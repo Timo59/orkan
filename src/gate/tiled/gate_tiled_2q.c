@@ -47,8 +47,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                     old[14] = tile[elem_off(lr10, lc11)];
                     old[15] = tile[elem_off(lr11, lc11)];
 
-                    for (unsigned char row = 0; row < 4; ++row) {
-                        for (unsigned char col = 0; col < 4; ++col) {
+                    for (unsigned char col = 0; col < 4; ++col) {
+                        for (unsigned char row = 0; row < 4; ++row) {
                             for (unsigned char k = 0; k < 4; ++k) {
                                 for (unsigned char l = 0; l < 4; ++l) {
                                     new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] * conj(mat[col + l * 4]);
@@ -127,8 +127,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                             old[14] = t11[elem_off(lr0, lc1)];
                             old[15] = t11[elem_off(lr1, lc1)];
 
-                            for (unsigned char row = 0; row < 4; ++row) {
-                                for (unsigned char col = 0; col < 4; ++col) {
+                            for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char row = 0; row < 4; ++row) {
                                     for (unsigned char k = 0; k < 4; ++k) {
                                         for (unsigned char l = 0; l < 4; ++l) {
                                             new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] * conj(mat[col + l * 4]);
@@ -186,8 +186,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                             old[14] = t11[elem_off(lr0, lc1)];
                             old[15] = t11[elem_off(lr1, lc1)];
 
-                            for (unsigned char row = 0; row < 4; ++row) {
-                                for (unsigned char col = 0; col < 4; ++col) {
+                            for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char row = 0; row < 4; ++row) {
                                     for (unsigned char k = 0; k < 4; ++k) {
                                         for (unsigned char l = 0; l < 4; ++l) {
                                             new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] * conj(mat[col + l * 4]);
@@ -221,7 +221,7 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                         const gate_idx_t lr0 = insertBit0(blr, lo);
                         const gate_idx_t lr1 = lr0 | incr_lo;
 
-                        for (gate_idx_t blc = 0; blc < nbl; ++blc) {
+                        for (gate_idx_t blc = 0; blc <= blr; ++blc) {
                             const gate_idx_t lc0 = insertBit0(blc, lo);
                             const gate_idx_t lc1 = lc0 | incr_lo;
                             cplx_t old[16], new[16] = {0};
@@ -243,8 +243,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                             old[14] = t11[elem_off(lr0, lc1)];
                             old[15] = t11[elem_off(lr1, lc1)];
 
-                            for (unsigned char row = 0; row < 4; ++row) {
-                                for (unsigned char col = 0; col < 4; ++col) {
+                            for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char row = 0; row < 4; ++row) {
                                     for (unsigned char k = 0; k < 4; ++k) {
                                         for (unsigned char l = 0; l < 4; ++l) {
                                             new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] * conj(mat[col + l * 4]);
@@ -254,17 +254,29 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                             }
 
                             t00[elem_off(lr0, lc0)] = new[0];
+                            t00[elem_off(lc0, lr0)] = conj(new[0]);
                             t00[elem_off(lr1, lc0)] = new[1];
+                            t00[elem_off(lc0, lr1)] = conj(new[1]);
                             t10[elem_off(lr0, lc0)] = new[2];
                             t10[elem_off(lr1, lc0)] = new[3];
                             t00[elem_off(lr0, lc1)] = new[4];
+                            t00[elem_off(lc1, lr0)] = conj(new[4]);
                             t00[elem_off(lr1, lc1)] = new[5];
+                            t00[elem_off(lc1, lr1)] = conj(new[5]);
                             t10[elem_off(lr0, lc1)] = new[6];
                             t10[elem_off(lr1, lc1)] = new[7];
+                            t10[elem_off(lc0, lr0)] = conj(new[8]);
+                            t10[elem_off(lc0, lr1)] = conj(new[9]);
                             t11[elem_off(lr0, lc0)] = new[10];
+                            t11[elem_off(lc0, lr0)] = conj(new[10]);
                             t11[elem_off(lr1, lc0)] = new[11];
+                            t11[elem_off(lc0, lr1)] = conj(new[11]);
+                            t10[elem_off(lc1, lr0)] = conj(new[12]);
+                            t10[elem_off(lc1, lr1)] = conj(new[13]);
                             t11[elem_off(lr0, lc1)] = new[14];
+                            t11[elem_off(lc1, lr0)] = conj(new[14]);
                             t11[elem_off(lr1, lc1)] = new[15];
+                            t11[elem_off(lc1, lr1)] = conj(new[15]);
                         }
                     }
                 }
@@ -294,24 +306,24 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                         cplx_t old[16], new[16] = {0};
 
                         old[0] = data[tile_off(tr00, tc00) + i];
-                        old[1] = data[tile_off(tr00, tc01) + i];
-                        old[2] = data[tile_off(tr00, tc10) + i];
-                        old[3] = data[tile_off(tr00, tc11) + i];
-                        old[4] = data[tile_off(tr01, tc00) + i];
+                        old[1] = data[tile_off(tr01, tc00) + i];
+                        old[2] = data[tile_off(tr10, tc00) + i];
+                        old[3] = data[tile_off(tr11, tc00) + i];
+                        old[4] = data[tile_off(tr00, tc01) + i];
                         old[5] = data[tile_off(tr01, tc01) + i];
-                        old[6] = data[tile_off(tr01, tc10) + i];
-                        old[7] = data[tile_off(tr01, tc11) + i];
-                        old[8] = data[tile_off(tr10, tc00) + i];
-                        old[9] = data[tile_off(tr10, tc01) + i];
+                        old[6] = data[tile_off(tr10, tc01) + i];
+                        old[7] = data[tile_off(tr11, tc01) + i];
+                        old[8] = data[tile_off(tr00, tc10) + i];
+                        old[9] = data[tile_off(tr01, tc10) + i];
                         old[10] = data[tile_off(tr10, tc10) + i];
-                        old[11] = data[tile_off(tr10, tc11) + i];
-                        old[12] = data[tile_off(tr11, tc00) + i];
-                        old[13] = data[tile_off(tr11, tc01) + i];
-                        old[14] = data[tile_off(tr11, tc10) + i];
+                        old[11] = data[tile_off(tr11, tc10) + i];
+                        old[12] = data[tile_off(tr00, tc11) + i];
+                        old[13] = data[tile_off(tr01, tc11) + i];
+                        old[14] = data[tile_off(tr10, tc11) + i];
                         old[15] = data[tile_off(tr11, tc11) + i];
 
-                        for (unsigned char row = 0; row < 4; ++row) {
-                            for (unsigned char col = 0; col < 4; ++col) {
+                        for (unsigned char col = 0; col < 4; ++col) {
+                            for (unsigned char row = 0; row < 4; ++row) {
                                 for (unsigned char k = 0; k < 4; ++k) {
                                     for (unsigned char l = 0; l < 4; ++l) {
                                         new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] \
@@ -322,20 +334,20 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                         }
 
                         data[tile_off(tr00, tc00) + i] = new[0];
-                        data[tile_off(tr00, tc01) + i] = new[1];
-                        data[tile_off(tr00, tc10) + i] = new[2];
-                        data[tile_off(tr00, tc11) + i] = new[3];
-                        data[tile_off(tr01, tc00) + i] = new[4];
+                        data[tile_off(tr01, tc00) + i] = new[1];
+                        data[tile_off(tr10, tc00) + i] = new[2];
+                        data[tile_off(tr11, tc00) + i] = new[3];
+                        data[tile_off(tr00, tc01) + i] = new[4];
                         data[tile_off(tr01, tc01) + i] = new[5];
-                        data[tile_off(tr01, tc10) + i] = new[6];
-                        data[tile_off(tr01, tc11) + i] = new[7];
-                        data[tile_off(tr10, tc00) + i] = new[8];
-                        data[tile_off(tr10, tc01) + i] = new[9];
+                        data[tile_off(tr10, tc01) + i] = new[6];
+                        data[tile_off(tr11, tc01) + i] = new[7];
+                        data[tile_off(tr00, tc10) + i] = new[8];
+                        data[tile_off(tr01, tc10) + i] = new[9];
                         data[tile_off(tr10, tc10) + i] = new[10];
-                        data[tile_off(tr10, tc11) + i] = new[11];
-                        data[tile_off(tr11, tc00) + i] = new[12];
-                        data[tile_off(tr11, tc01) + i] = new[13];
-                        data[tile_off(tr11, tc10) + i] = new[14];
+                        data[tile_off(tr11, tc10) + i] = new[11];
+                        data[tile_off(tr00, tc11) + i] = new[12];
+                        data[tile_off(tr01, tc11) + i] = new[13];
+                        data[tile_off(tr10, tc11) + i] = new[14];
                         data[tile_off(tr11, tc11) + i] = new[15];
                     }
                 }
@@ -347,24 +359,24 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                             cplx_t old[16], new[16] = {0};
 
                             old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
-                            old[1] = data[tile_off(tr00, tc01) + elem_off(i, j)];
-                            old[2] = data[tile_off(tr00, tc10) + elem_off(i, j)];
-                            old[3] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
-                            old[4] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                            old[1] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                            old[2] = data[tile_off(tr10, tc00) + elem_off(i, j)];
+                            old[3] = data[tile_off(tr11, tc00) + elem_off(i, j)];
+                            old[4] = data[tile_off(tr00, tc01) + elem_off(i, j)];
                             old[5] = data[tile_off(tr01, tc01) + elem_off(i, j)];
-                            old[6] = data[tile_off(tr01, tc10) + elem_off(i, j)];
-                            old[7] = data[tile_off(tr01, tc11) + elem_off(i, j)];
-                            old[8] = data[tile_off(tr10, tc00) + elem_off(i, j)];
-                            old[9] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                            old[6] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                            old[7] = data[tile_off(tr11, tc01) + elem_off(i, j)];
+                            old[8] = data[tile_off(tr00, tc10) + elem_off(i, j)];
+                            old[9] = data[tile_off(tr01, tc10) + elem_off(i, j)];
                             old[10] = data[tile_off(tr10, tc10) + elem_off(i, j)];
-                            old[11] = data[tile_off(tr10, tc11) + elem_off(i, j)];
-                            old[12] = data[tile_off(tr11, tc00) + elem_off(i, j)];
-                            old[13] = data[tile_off(tr11, tc01) + elem_off(i, j)];
-                            old[14] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                            old[11] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                            old[12] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
+                            old[13] = data[tile_off(tr01, tc11) + elem_off(i, j)];
+                            old[14] = data[tile_off(tr10, tc11) + elem_off(i, j)];
                             old[15] = data[tile_off(tr11, tc11) + elem_off(i, j)];
 
-                            for (unsigned char row = 0; row < 4; ++row) {
-                                for (unsigned char col = 0; col < 4; ++col) {
+                            for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char row = 0; row < 4; ++row) {
                                     for (unsigned char k = 0; k < 4; ++k) {
                                         for (unsigned char l = 0; l < 4; ++l) {
                                             new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] \
@@ -375,20 +387,20 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                             }
 
                             data[tile_off(tr00, tc00) + elem_off(i, j)] = new[0];
-                            data[tile_off(tr00, tc01) + elem_off(i, j)] = new[1];
-                            data[tile_off(tr00, tc10) + elem_off(i, j)] = new[2];
-                            data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[3]);
-                            data[tile_off(tr01, tc00) + elem_off(i, j)] = new[4];
+                            data[tile_off(tr01, tc00) + elem_off(i, j)] = new[1];
+                            data[tile_off(tr10, tc00) + elem_off(i, j)] = new[2];
+                            data[tile_off(tr11, tc00) + elem_off(i, j)] = new[3];
+                            data[tile_off(tr00, tc01) + elem_off(i, j)] = new[4];
                             data[tile_off(tr01, tc01) + elem_off(i, j)] = new[5];
-                            data[tile_off(tr01, tc10) + elem_off(i, j)] = new[6];
-                            data[tile_off(tr01, tc11) + elem_off(i, j)] = new[7];
-                            data[tile_off(tr10, tc00) + elem_off(i, j)] = new[8];
-                            data[tile_off(tr10, tc01) + elem_off(i, j)] = new[9];
+                            data[tile_off(tr10, tc01) + elem_off(i, j)] = new[6];
+                            data[tile_off(tr11, tc01) + elem_off(i, j)] = new[7];
+                            data[tile_off(tr00, tc10) + elem_off(i, j)] = new[8];
+                            data[tile_off(tr01, tc10) + elem_off(i, j)] = new[9];
                             data[tile_off(tr10, tc10) + elem_off(i, j)] = new[10];
-                            data[tile_off(tr10, tc11) + elem_off(i, j)] = new[11];
-                            data[tile_off(tr11, tc00) + elem_off(i, j)] = new[12];
-                            data[tile_off(tr11, tc01) + elem_off(i, j)] = new[13];
-                            data[tile_off(tr11, tc10) + elem_off(i, j)] = new[14];
+                            data[tile_off(tr11, tc10) + elem_off(i, j)] = new[11];
+                            data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[12]);
+                            data[tile_off(tr01, tc11) + elem_off(i, j)] = new[13];
+                            data[tile_off(tr10, tc11) + elem_off(i, j)] = new[14];
                             data[tile_off(tr11, tc11) + elem_off(i, j)] = new[15];
                         }
                     }
@@ -399,28 +411,28 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                     if(tr01 > tc10) {
 
                         for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
-                            for(gate_idx_t j = 0; j < TILE_DIM; ++j) {
+                            for (gate_idx_t j = 0; j < TILE_DIM; ++j) {
                                 cplx_t old[16], new[16] = {0};
 
                                 old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
-                                old[1] = data[tile_off(tr00, tc01) + elem_off(i, j)];
-                                old[2] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
-                                old[3] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
-                                old[4] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                                old[1] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                                old[2] = data[tile_off(tr10, tc00) + elem_off(i, j)];
+                                old[3] = data[tile_off(tr11, tc00) + elem_off(i, j)];
+                                old[4] = data[tile_off(tr00, tc01) + elem_off(i, j)];
                                 old[5] = data[tile_off(tr01, tc01) + elem_off(i, j)];
-                                old[6] = data[tile_off(tr01, tc10) + elem_off(i, j)];
-                                old[7] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
-                                old[8] = data[tile_off(tr10, tc00) + elem_off(i, j)];
-                                old[9] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                                old[6] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                                old[7] = data[tile_off(tr11, tc01) + elem_off(i, j)];
+                                old[8] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
+                                old[9] = data[tile_off(tr01, tc10) + elem_off(i, j)];
                                 old[10] = data[tile_off(tr10, tc10) + elem_off(i, j)];
-                                old[11] = data[tile_off(tr10, tc11) + elem_off(i, j)];
-                                old[12] = data[tile_off(tr11, tc00) + elem_off(i, j)];
-                                old[13] = data[tile_off(tr11, tc01) + elem_off(i, j)];
-                                old[14] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                                old[11] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                                old[12] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
+                                old[13] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
+                                old[14] = data[tile_off(tr10, tc11) + elem_off(i, j)];
                                 old[15] = data[tile_off(tr11, tc11) + elem_off(i, j)];
 
-                                for (unsigned char row = 0; row < 4; ++row) {
-                                    for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char col = 0; col < 4; ++col) {
+                                    for (unsigned char row = 0; row < 4; ++row) {
                                         for (unsigned char k = 0; k < 4; ++k) {
                                             for (unsigned char l = 0; l < 4; ++l) {
                                                 new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] \
@@ -431,20 +443,20 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                                 }
 
                                 data[tile_off(tr00, tc00) + elem_off(i, j)] = new[0];
-                                data[tile_off(tr00, tc01) + elem_off(i, j)] = new[1];
-                                data[tile_off(tc10, tr00) + elem_off(j, i)] = conj(new[2]);
-                                data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[3]);
-                                data[tile_off(tr01, tc00) + elem_off(i, j)] = new[4];
+                                data[tile_off(tr01, tc00) + elem_off(i, j)] = new[1];
+                                data[tile_off(tr10, tc00) + elem_off(i, j)] = new[2];
+                                data[tile_off(tr11, tc00) + elem_off(i, j)] = new[3];
+                                data[tile_off(tr00, tc01) + elem_off(i, j)] = new[4];
                                 data[tile_off(tr01, tc01) + elem_off(i, j)] = new[5];
-                                data[tile_off(tr01, tc10) + elem_off(i, j)] = new[6];
-                                data[tile_off(tc11, tr01) + elem_off(j, i)] = conj(new[7]);
-                                data[tile_off(tr10, tc00) + elem_off(i, j)] = new[8];
-                                data[tile_off(tr10, tc01) + elem_off(i, j)] = new[9];
+                                data[tile_off(tr10, tc01) + elem_off(i, j)] = new[6];
+                                data[tile_off(tr11, tc01) + elem_off(i, j)] = new[7];
+                                data[tile_off(tc10, tr00) + elem_off(j, i)] = conj(new[8]);
+                                data[tile_off(tr01, tc10) + elem_off(i, j)] = new[9];
                                 data[tile_off(tr10, tc10) + elem_off(i, j)] = new[10];
-                                data[tile_off(tr10, tc11) + elem_off(i, j)] = new[11];
-                                data[tile_off(tr11, tc00) + elem_off(i, j)] = new[12];
-                                data[tile_off(tr11, tc01) + elem_off(i, j)] = new[13];
-                                data[tile_off(tr11, tc10) + elem_off(i, j)] = new[14];
+                                data[tile_off(tr11, tc10) + elem_off(i, j)] = new[11];
+                                data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[12]);
+                                data[tile_off(tc11, tr01) + elem_off(j, i)] = conj(new[13]);
+                                data[tile_off(tr10, tc11) + elem_off(i, j)] = new[14];
                                 data[tile_off(tr11, tc11) + elem_off(i, j)] = new[15];
                             }
                         }
@@ -457,24 +469,24 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                                 cplx_t old[16], new[16] = {0};
 
                                 old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
-                                old[1] = data[tile_off(tr00, tc01) + elem_off(i, j)];
-                                old[2] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
-                                old[3] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
-                                old[4] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                                old[1] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                                old[2] = data[tile_off(tr10, tc00) + elem_off(i, j)];
+                                old[3] = data[tile_off(tr11, tc00) + elem_off(i, j)];
+                                old[4] = data[tile_off(tr00, tc01) + elem_off(i, j)];
                                 old[5] = data[tile_off(tr01, tc01) + elem_off(i, j)];
-                                old[6] = conj(data[tile_off(tc10, tr01) + elem_off(j, i)]);
-                                old[7] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
-                                old[8] = data[tile_off(tr10, tc00) + elem_off(i, j)];
-                                old[9] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                                old[6] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                                old[7] = data[tile_off(tr11, tc01) + elem_off(i, j)];
+                                old[8] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
+                                old[9] = conj(data[tile_off(tc10, tr01) + elem_off(j, i)]);
                                 old[10] = data[tile_off(tr10, tc10) + elem_off(i, j)];
-                                old[11] = data[tile_off(tr10, tc11) + elem_off(i, j)];
-                                old[12] = data[tile_off(tr11, tc00) + elem_off(i, j)];
-                                old[13] = data[tile_off(tr11, tc01) + elem_off(i, j)];
-                                old[14] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                                old[11] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                                old[12] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
+                                old[13] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
+                                old[14] = data[tile_off(tr10, tc11) + elem_off(i, j)];
                                 old[15] = data[tile_off(tr11, tc11) + elem_off(i, j)];
 
-                                for (unsigned char row = 0; row < 4; ++row) {
-                                    for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char col = 0; col < 4; ++col) {
+                                    for (unsigned char row = 0; row < 4; ++row) {
                                         for (unsigned char k = 0; k < 4; ++k) {
                                             for (unsigned char l = 0; l < 4; ++l) {
                                                 new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] \
@@ -485,20 +497,20 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                                 }
 
                                 data[tile_off(tr00, tc00) + elem_off(i, j)] = new[0];
-                                data[tile_off(tr00, tc01) + elem_off(i, j)] = new[1];
-                                data[tile_off(tc10, tr00) + elem_off(j, i)] = conj(new[2]);
-                                data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[3]);
-                                data[tile_off(tr01, tc00) + elem_off(i, j)] = new[4];
+                                data[tile_off(tr01, tc00) + elem_off(i, j)] = new[1];
+                                data[tile_off(tr10, tc00) + elem_off(i, j)] = new[2];
+                                data[tile_off(tr11, tc00) + elem_off(i, j)] = new[3];
+                                data[tile_off(tr00, tc01) + elem_off(i, j)] = new[4];
                                 data[tile_off(tr01, tc01) + elem_off(i, j)] = new[5];
-                                data[tile_off(tc10, tr01) + elem_off(j, i)] = conj(new[6]);
-                                data[tile_off(tc11, tr01) + elem_off(j, i)] = conj(new[7]);
-                                data[tile_off(tr10, tc00) + elem_off(i, j)] = new[8];
-                                data[tile_off(tr10, tc01) + elem_off(i, j)] = new[9];
+                                data[tile_off(tr10, tc01) + elem_off(i, j)] = new[6];
+                                data[tile_off(tr11, tc01) + elem_off(i, j)] = new[7];
+                                data[tile_off(tc10, tr00) + elem_off(j, i)] = conj(new[8]);
+                                data[tile_off(tc10, tr01) + elem_off(j, i)] = conj(new[9]);
                                 data[tile_off(tr10, tc10) + elem_off(i, j)] = new[10];
-                                data[tile_off(tr10, tc11) + elem_off(i, j)] = new[11];
-                                data[tile_off(tr11, tc00) + elem_off(i, j)] = new[12];
-                                data[tile_off(tr11, tc01) + elem_off(i, j)] = new[13];
-                                data[tile_off(tr11, tc10) + elem_off(i, j)] = new[14];
+                                data[tile_off(tr11, tc10) + elem_off(i, j)] = new[11];
+                                data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[12]);
+                                data[tile_off(tc11, tr01) + elem_off(j, i)] = conj(new[13]);
+                                data[tile_off(tr10, tc11) + elem_off(i, j)] = new[14];
                                 data[tile_off(tr11, tc11) + elem_off(i, j)] = new[15];
                             }
                         }
@@ -508,29 +520,30 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                 else if (btr != btc) {
 
                     if(tr01 > tc10) {
+
                         for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
                             for (gate_idx_t j = 0; j < TILE_DIM; ++j) {
                                 cplx_t old[16], new[16] = {0};
 
                                 old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
-                                old[1] = conj(data[tile_off(tc01, tr00) + elem_off(j, i)]);
-                                old[2] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
-                                old[3] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
-                                old[4] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                                old[1] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                                old[2] = data[tile_off(tr10, tc00) + elem_off(i, j)];
+                                old[3] = data[tile_off(tr11, tc00) + elem_off(i, j)];
+                                old[4] = conj(data[tile_off(tc01, tr00) + elem_off(j, i)]);
                                 old[5] = data[tile_off(tr01, tc01) + elem_off(i, j)];
-                                old[6] = data[tile_off(tr01, tc10) + elem_off(i, j)];
-                                old[7] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
-                                old[8] = data[tile_off(tr10, tc00) + elem_off(i, j)];
-                                old[9] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                                old[6] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                                old[7] = data[tile_off(tr11, tc01) + elem_off(i, j)];
+                                old[8] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
+                                old[9] = data[tile_off(tr01, tc10) + elem_off(i, j)];
                                 old[10] = data[tile_off(tr10, tc10) + elem_off(i, j)];
-                                old[11] = conj(data[tile_off(tc11, tr10) + elem_off(j, i)]);
-                                old[12] = data[tile_off(tr11, tc00) + elem_off(i, j)];
-                                old[13] = data[tile_off(tr11, tc01) + elem_off(i, j)];
-                                old[14] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                                old[11] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                                old[12] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
+                                old[13] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
+                                old[14] = conj(data[tile_off(tc11, tr10) + elem_off(j, i)]);
                                 old[15] = data[tile_off(tr11, tc11) + elem_off(i, j)];
 
-                                for (unsigned char row = 0; row < 4; ++row) {
-                                    for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char col = 0; col < 4; ++col) {
+                                    for (unsigned char row = 0; row < 4; ++row) {
                                         for (unsigned char k = 0; k < 4; ++k) {
                                             for (unsigned char l = 0; l < 4; ++l) {
                                                 new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] \
@@ -541,49 +554,50 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                                 }
 
                                 data[tile_off(tr00, tc00) + elem_off(i, j)] = new[0];
-                                data[tile_off(tc01, tr00) + elem_off(j, i)] = conj(new[1]);
-                                data[tile_off(tc10, tr00) + elem_off(j, i)] = conj(new[2]);
-                                data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[3]);
-                                data[tile_off(tr01, tc00) + elem_off(i, j)] = new[4];
+                                data[tile_off(tr01, tc00) + elem_off(i, j)] = new[1];
+                                data[tile_off(tr10, tc00) + elem_off(i, j)] = new[2];
+                                data[tile_off(tr11, tc00) + elem_off(i, j)] = new[3];
+                                data[tile_off(tc01, tr00) + elem_off(j, i)] = conj(new[4]);
                                 data[tile_off(tr01, tc01) + elem_off(i, j)] = new[5];
-                                data[tile_off(tr01, tc10) + elem_off(i, j)] = new[6];
-                                data[tile_off(tc11, tr01) + elem_off(j, i)] = conj(new[7]);
-                                data[tile_off(tr10, tc00) + elem_off(i, j)] = new[8];
-                                data[tile_off(tr10, tc01) + elem_off(i, j)] = new[9];
+                                data[tile_off(tr10, tc01) + elem_off(i, j)] = new[6];
+                                data[tile_off(tr11, tc01) + elem_off(i, j)] = new[7];
+                                data[tile_off(tc10, tr00) + elem_off(j, i)] = conj(new[8]);
+                                data[tile_off(tr01, tc10) + elem_off(i, j)] = new[9];
                                 data[tile_off(tr10, tc10) + elem_off(i, j)] = new[10];
-                                data[tile_off(tc11, tr10) + elem_off(j, i)] = conj(new[11]);
-                                data[tile_off(tr11, tc00) + elem_off(i, j)] = new[12];
-                                data[tile_off(tr11, tc01) + elem_off(i, j)] = new[13];
-                                data[tile_off(tr11, tc10) + elem_off(i, j)] = new[14];
+                                data[tile_off(tr11, tc10) + elem_off(i, j)] = new[11];
+                                data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[12]);
+                                data[tile_off(tc11, tr01) + elem_off(j, i)] = conj(new[13]);
+                                data[tile_off(tc11, tr10) + elem_off(j, i)] = conj(new[14]);
                                 data[tile_off(tr11, tc11) + elem_off(i, j)] = new[15];
                             }
                         }
                     }
 
                     else {
+
                         for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
-                            for(gate_idx_t j = 0; j < TILE_DIM; ++j) {
+                            for (gate_idx_t j = 0; j < TILE_DIM; ++j) {
                                 cplx_t old[16], new[16] = {0};
 
                                 old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
-                                old[1] = conj(data[tile_off(tc01, tr00) + elem_off(j, i)]);
-                                old[2] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
-                                old[3] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
-                                old[4] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                                old[1] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                                old[2] = data[tile_off(tr10, tc00) + elem_off(i, j)];
+                                old[3] = data[tile_off(tr11, tc00) + elem_off(i, j)];
+                                old[4] = conj(data[tile_off(tc01, tr00) + elem_off(j, i)]);
                                 old[5] = data[tile_off(tr01, tc01) + elem_off(i, j)];
-                                old[6] = conj(data[tile_off(tc10, tr01) + elem_off(j, i)]);
-                                old[7] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
-                                old[8] = data[tile_off(tr10, tc00) + elem_off(i, j)];
-                                old[9] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                                old[6] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                                old[7] = data[tile_off(tr11, tc01) + elem_off(i, j)];
+                                old[8] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
+                                old[9] = conj(data[tile_off(tc10, tr01) + elem_off(j, i)]);
                                 old[10] = data[tile_off(tr10, tc10) + elem_off(i, j)];
-                                old[11] = conj(data[tile_off(tc11, tr10) + elem_off(j, i)]);
-                                old[12] = data[tile_off(tr11, tc00) + elem_off(i, j)];
-                                old[13] = data[tile_off(tr11, tc01) + elem_off(i, j)];
-                                old[14] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                                old[11] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                                old[12] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
+                                old[13] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
+                                old[14] = conj(data[tile_off(tc11, tr10) + elem_off(j, i)]);
                                 old[15] = data[tile_off(tr11, tc11) + elem_off(i, j)];
 
-                                for (unsigned char row = 0; row < 4; ++row) {
-                                    for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char col = 0; col < 4; ++col) {
+                                    for (unsigned char row = 0; row < 4; ++row) {
                                         for (unsigned char k = 0; k < 4; ++k) {
                                             for (unsigned char l = 0; l < 4; ++l) {
                                                 new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] \
@@ -594,20 +608,20 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                                 }
 
                                 data[tile_off(tr00, tc00) + elem_off(i, j)] = new[0];
-                                data[tile_off(tc01, tr00) + elem_off(j, i)] = conj(new[1]);
-                                data[tile_off(tc10, tr00) + elem_off(j, i)] = conj(new[2]);
-                                data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[3]);
-                                data[tile_off(tr01, tc00) + elem_off(i, j)] = new[4];
+                                data[tile_off(tr01, tc00) + elem_off(i, j)] = new[1];
+                                data[tile_off(tr10, tc00) + elem_off(i, j)] = new[2];
+                                data[tile_off(tr11, tc00) + elem_off(i, j)] = new[3];
+                                data[tile_off(tc01, tr00) + elem_off(j, i)] = conj(new[4]);
                                 data[tile_off(tr01, tc01) + elem_off(i, j)] = new[5];
-                                data[tile_off(tc10, tr01) + elem_off(j, i)] = conj(new[6]);
-                                data[tile_off(tc11, tr01) + elem_off(j, i)] = conj(new[7]);
-                                data[tile_off(tr10, tc00) + elem_off(i, j)] = new[8];
-                                data[tile_off(tr10, tc01) + elem_off(i, j)] = new[9];
+                                data[tile_off(tr10, tc01) + elem_off(i, j)] = new[6];
+                                data[tile_off(tr11, tc01) + elem_off(i, j)] = new[7];
+                                data[tile_off(tc10, tr00) + elem_off(j, i)] = conj(new[8]);
+                                data[tile_off(tc10, tr01) + elem_off(j, i)] = conj(new[9]);
                                 data[tile_off(tr10, tc10) + elem_off(i, j)] = new[10];
-                                data[tile_off(tc11, tr10) + elem_off(j, i)] = conj(new[11]);
-                                data[tile_off(tr11, tc00) + elem_off(i, j)] = new[12];
-                                data[tile_off(tr11, tc01) + elem_off(i, j)] = new[13];
-                                data[tile_off(tr11, tc10) + elem_off(i, j)] = new[14];
+                                data[tile_off(tr11, tc10) + elem_off(i, j)] = new[11];
+                                data[tile_off(tc11, tr00) + elem_off(j, i)] = conj(new[12]);
+                                data[tile_off(tc11, tr01) + elem_off(j, i)] = conj(new[13]);
+                                data[tile_off(tc11, tr10) + elem_off(j, i)] = conj(new[14]);
                                 data[tile_off(tr11, tc11) + elem_off(i, j)] = new[15];
                             }
                         }
@@ -622,24 +636,24 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                             cplx_t old[16], new[16] = {0};
 
                             old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
-                            old[1] = conj(data[tile_off(tr01, tc00) + elem_off(j, i)]);
-                            old[2] = conj(data[tile_off(tr10, tc00) + elem_off(j, i)]);
-                            old[3] = conj(data[tile_off(tr11, tc00) + elem_off(j, i)]);
-                            old[4] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                            old[1] = data[tile_off(tr01, tc00) + elem_off(i, j)];
+                            old[2] = data[tile_off(tr10, tc00) + elem_off(i, j)];
+                            old[3] = data[tile_off(tr11, tc00) + elem_off(i, j)];
+                            old[4] = conj(data[tile_off(tc01, tr00) + elem_off(j, i)]);
                             old[5] = data[tile_off(tr01, tc01) + elem_off(i, j)];
-                            old[6] = conj(data[tile_off(tr10, tc01) + elem_off(j, i)]);
-                            old[7] = conj(data[tile_off(tr11, tc01) + elem_off(j, i)]);
-                            old[8] = data[tile_off(tr10, tc00) + elem_off(i, j)];
-                            old[9] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                            old[6] = data[tile_off(tr10, tc01) + elem_off(i, j)];
+                            old[7] = data[tile_off(tr11, tc01) + elem_off(i, j)];
+                            old[8] = conj(data[tile_off(tc10, tr00) + elem_off(j, i)]);
+                            old[9] = conj(data[tile_off(tc10, tr01) + elem_off(j, i)]);
                             old[10] = data[tile_off(tr10, tc10) + elem_off(i, j)];
-                            old[11] = conj(data[tile_off(tr11, tc10) + elem_off(j, i)]);
-                            old[12] = data[tile_off(tr11, tc00) + elem_off(i, j)];
-                            old[13] = data[tile_off(tr11, tc01) + elem_off(i, j)];
-                            old[14] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                            old[11] = data[tile_off(tr11, tc10) + elem_off(i, j)];
+                            old[12] = conj(data[tile_off(tc11, tr00) + elem_off(j, i)]);
+                            old[13] = conj(data[tile_off(tc11, tr01) + elem_off(j, i)]);
+                            old[14] = conj(data[tile_off(tc11, tr10) + elem_off(j, i)]);
                             old[15] = data[tile_off(tr11, tc11) + elem_off(i, j)];
 
-                            for (unsigned char row = 0; row < 4; ++row) {
-                                for (unsigned char col = 0; col < 4; ++col) {
+                            for (unsigned char col = 0; col < 4; ++col) {
+                                for (unsigned char row = 0; row < 4; ++row) {
                                     for (unsigned char k = 0; k < 4; ++k) {
                                         for (unsigned char l = 0; l < 4; ++l) {
                                             new[row + col * 4] += mat[row + k * 4] * old[k + l * 4] \
@@ -651,22 +665,22 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
 
                             data[tile_off(tr00, tc00) + elem_off(i, j)] = new[0];
                             data[tile_off(tr00, tc00) + elem_off(j, i)] = conj(new[0]);
-                            data[tile_off(tr01, tc00) + elem_off(i, j)] = new[4];
-                            data[tile_off(tr01, tc00) + elem_off(j, i)] = conj(new[1]);
+                            data[tile_off(tr01, tc00) + elem_off(i, j)] = new[1];
+                            data[tile_off(tr01, tc00) + elem_off(j, i)] = conj(new[4]);
+                            data[tile_off(tr10, tc00) + elem_off(i, j)] = new[2];
+                            data[tile_off(tr10, tc00) + elem_off(j, i)] = conj(new[8]);
+                            data[tile_off(tr11, tc00) + elem_off(i, j)] = new[3];
+                            data[tile_off(tr11, tc00) + elem_off(j, i)] = conj(new[12]);
                             data[tile_off(tr01, tc01) + elem_off(i, j)] = new[5];
                             data[tile_off(tr01, tc01) + elem_off(j, i)] = conj(new[5]);
-                            data[tile_off(tr10, tc00) + elem_off(i, j)] = new[8];
-                            data[tile_off(tr10, tc00) + elem_off(j, i)] = conj(new[2]);
-                            data[tile_off(tr10, tc01) + elem_off(i, j)] = new[9];
-                            data[tile_off(tr10, tc01) + elem_off(j, i)] = conj(new[6]);
+                            data[tile_off(tr10, tc01) + elem_off(i, j)] = new[6];
+                            data[tile_off(tr10, tc01) + elem_off(j, i)] = conj(new[9]);
+                            data[tile_off(tr11, tc01) + elem_off(i, j)] = new[7];
+                            data[tile_off(tr11, tc01) + elem_off(j, i)] = conj(new[13]);
                             data[tile_off(tr10, tc10) + elem_off(i, j)] = new[10];
                             data[tile_off(tr10, tc10) + elem_off(j, i)] = conj(new[10]);
-                            data[tile_off(tr11, tc00) + elem_off(i, j)] = new[12];
-                            data[tile_off(tr11, tc00) + elem_off(j, i)] = conj(new[3]);
-                            data[tile_off(tr11, tc01) + elem_off(i, j)] = new[13];
-                            data[tile_off(tr11, tc01) + elem_off(j, i)] = conj(new[7]);
-                            data[tile_off(tr11, tc10) + elem_off(i, j)] = new[14];
-                            data[tile_off(tr11, tc10) + elem_off(j, i)] = conj(new[11]);
+                            data[tile_off(tr11, tc10) + elem_off(i, j)] = new[11];
+                            data[tile_off(tr11, tc10) + elem_off(j, i)] = conj(new[14]);
                             data[tile_off(tr11, tc11) + elem_off(i, j)] = new[15];
                             data[tile_off(tr11, tc11) + elem_off(j, i)] = conj(new[15]);
                         }
