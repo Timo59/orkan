@@ -2,7 +2,7 @@
 
 **Module:** Measurement and Gradient Computation
 **Status:** Design complete — implementation pending
-**Last Updated:** 2026-02-21
+**Last Updated:** 2026-02-23
 
 ---
 
@@ -25,6 +25,78 @@ the parameter-shift rule or finite differences.
 State preparation — including LCU-based state preparation — is the caller's
 responsibility. This module receives a `state_t *` initial state and applies
 no knowledge of how it was produced.
+
+---
+
+## Preliminaries
+
+The following work in other modules must be completed before any part of this
+module can be implemented. Items are ordered by dependency and criticality.
+
+### 1. Gate Module — Diagonal Phase Multiply *(critical path)*
+
+A new operation must be added to the gate module across all four backends
+(pure/packed, pure/tiled, mixed/packed, mixed/tiled):
+
+```c
+void gate_diag_phase(state_t *state, const double *h, double gamma);
+```
+
+Semantics:
+
+- **Pure:** `ψ(x) ← ψ(x) · exp(−iγ h_x)` for all x in 0 … 2^n − 1
+- **Mixed:** `ρ_{xy} ← ρ_{xy} · exp(−iγ (h_x − h_y))` for all x, y
+
+This is the only unresolved gate dependency. Without it the cost channel
+(`qaoa.c`), the QAOA circuit constructor, and the adjoint gradient cannot be
+implemented. `expectation_value` and `gradient_adjoint` with a mixer-only
+circuit could be written first but would be of limited utility.
+
+### 2. Shared Type — `unitary_fn_t`
+
+The type used for unitaries in `lcu_layer_t` (see Data Structures) must be
+defined in a shared header (`q_types.h` or `gate.h`) before the meas data
+structures can be declared:
+
+```c
+// Applies a single unitary U in-place to *state.
+// All parameters are baked in at construction time by the caller.
+typedef void (*unitary_fn_t)(state_t *state);
+```
+
+### 3. Pauli Module — Pauli Exponential Unitary *(blocks moment matrix)*
+
+`lcu_layer_t` supports unitaries of the form exp(−iθ P) for a Pauli string P.
+This is delivered by a separate module not yet fully specified. The delivery
+contract required by this module is:
+
+- A constructor that returns a `unitary_fn_t` with angle θ and Pauli string P
+  baked in.
+- The returned function applies exp(−iθ P) to the input state in place.
+
+`moment_matrix` implementation must be deferred until this interface is
+published, even if the Pauli module itself is incomplete.
+
+### 4. Build System — `ENABLE_MPI` Option *(blocks moment matrix)*
+
+The `ENABLE_MPI` CMake option referenced in the Build Integration section does
+not yet exist in `CMakeLists.txt` or `CMakePresets.json`. It must be added
+before `moment_matrix.c` can be compiled with MPI support. The single-process
+(OpenMP-only) path can be compiled without this option.
+
+### 5. Architecture Decision — MPI Write Protocol *(blocks moment matrix)*
+
+The `moment_matrix` write path requires a decision on distribution and
+serialisation strategy before `moment_matrix.c` is written. The three options
+are:
+
+| Option | Notes |
+|--------|-------|
+| OpenMP-only, single process | Lowest risk; defers MPI entirely |
+| MPI gather to rank 0, then sequential write | Simple MPI; rank 0 must hold full lower triangle |
+| MPI-IO (`MPI_File_write_at`) | Each rank writes its own rows; no gather needed |
+
+**Decision must be recorded here before implementation begins.**
 
 ---
 
@@ -96,21 +168,22 @@ parameter θ, grouped together. Each channel exposes three operations:
 
 ```c
 typedef struct param_channel {
-    void   (*apply)        (state_t *state, double theta, const void *ctx);
-    void   (*apply_adjoint)(state_t *state, double theta, const void *ctx);
-    double (*grad_inner)   (const state_t *mu, const state_t *tmp,
-                            double theta, const void *ctx);
+    void   (*apply)     (state_t *state, double theta, const void *ctx);
+    double (*grad_inner)(const state_t *lambda, const state_t *tmp,
+                         double theta, const void *ctx);
     const void *ctx;        // channel-specific data (qubit indices, Hamiltonian, …)
     int    has_gradient;    // 0 for fixed non-parametrised channels
 } param_channel_t;
 ```
 
 - **`apply(state, θ)`** — Forward unitary evolution: state → U(θ) state U(θ)†.
-  For noisy channels includes the Kraus step after the unitary.
-- **`apply_adjoint(state, θ)`** — Unitary adjoint: state → U(θ)† state U(θ).
-  Equivalent to `apply(state, −θ)` for all channel types. Kept as an explicit
-  function pointer for interface uniformity. Never called for noisy circuits.
-- **`grad_inner(mu, tmp, θ)`** — Returns −2 Im ⟨μ|G_k|tmp⟩ (pure) or
+  For noisy channels includes the Kraus step after the unitary. The unitary
+  adjoint needed by Pass 2 is obtained by calling `apply(state, −θ)`, which is
+  equivalent for all channel types appearing in ideal circuits. A separate
+  adjoint callback is not needed: the Kraus adjoint ε†(A) = Σ_k K†_k A K_k is
+  structurally different and cannot be obtained by negating a parameter, but
+  Pass 2 is never invoked for noisy circuits.
+- **`grad_inner(λ, tmp, θ)`** — Returns −2 Im ⟨λ|G_k|tmp⟩ (pure) or
   −2 Im Tr(H_f · G_k · σ) (mixed), the gradient contribution of this channel.
   Never called for noisy circuits.
 
@@ -157,23 +230,23 @@ mu = expand h[x] into DM layout, then propagate as H_f    (mixed)
 **Pass 2 — backward, pull co-state to circuit entrance:**
 ```
 for k = N_ch, N_ch-1, ..., 1:
-    apply_adjoint(channel[k], mu, +params[k])    # = apply(mu, −params[k])
+    apply(channel[k], mu, -params[k])    # unitary adjoint = apply with negated theta
 mu_0 = mu
 ```
 
 **Pass 3 — forward, accumulate gradients:**
 ```
 tmp = copy(initial)
-mu  = mu_0
+λ   = mu_0
 for k = 1 to N_ch:
     apply(channel[k], tmp, +params[k])
-    apply(channel[k], mu,  +params[k])
+    apply(channel[k], λ,   +params[k])
     if channel[k].has_gradient:
-        grad[k] = grad_inner(channel[k], mu, tmp, params[k])
+        grad[k] = grad_inner(channel[k], λ, tmp, params[k])
 ```
 
 At the point of the `grad_inner` call, `tmp` holds the post-gate forward state
-ρ_k (Schrödinger picture) and `mu` holds the co-state H_f^(k)|ψ_k⟩ (pure) or
+ρ_k (Schrödinger picture) and `λ` holds the co-state H_f^(k)|ψ_k⟩ (pure) or
 H_f^(k) (mixed) at position k.
 
 ---
@@ -309,6 +382,11 @@ header. All multi-byte values are little-endian.
 **Data:** Lower triangle of M in row-major order (I ≥ J), stored as
 `double complex` pairs (real, imag). Length: N*(N+1)/2 elements.
 
+**Writing:** Header fields must be written individually (not via `fwrite` of a
+struct) to avoid compiler-inserted padding between fields of different sizes.
+Data elements are written as contiguous `double` pairs (real, imag) in a
+single `fwrite` call per row segment.
+
 The caller is responsible for converting to the format required by the SDP
 solver (e.g., sparse (i, j, value) triples for MOSEK's C API).
 
@@ -323,29 +401,35 @@ typedef struct {
     int      n_qubits;
 } diag_hamiltonian_t;
 
-// Abstract parametrised channel (ideal circuits only for adjoint / grad_inner)
+// Abstract parametrised channel (grad_inner never called for noisy circuits)
 typedef struct param_channel {
-    void   (*apply)        (state_t *state, double theta, const void *ctx);
-    void   (*apply_adjoint)(state_t *state, double theta, const void *ctx);
-    double (*grad_inner)   (const state_t *mu, const state_t *tmp,
-                            double theta, const void *ctx);
+    void   (*apply)     (state_t *state, double theta, const void *ctx);
+    double (*grad_inner)(const state_t *lambda, const state_t *tmp,
+                         double theta, const void *ctx);
     const void *ctx;
     int    has_gradient;    // 0 for fixed non-parametrised channels
 } param_channel_t;
 
-// Flat parametrised circuit
+// Flat parametrised circuit.
+// params is caller-owned; pqc_free does NOT free it.
 typedef struct {
     param_channel_t **channels;
     int               n_channels;
-    double           *params;      // length n_channels
+    double           *params;      // length n_channels, caller-owned
     int               is_noisy;    // 0: ideal, 1: noisy (expectation value only)
 } pqc_t;
 
-// One layer of a moment-matrix circuit: K_k unitaries
-// Each unitary is a gate sequence or Pauli exponential (gate/Pauli module API)
+// Function pointer type for a single unitary in a moment-matrix circuit.
+// Applies U in-place to *state. All parameters are baked in at construction
+// time by the caller. Defined in q_types.h (see Preliminary 2).
+typedef void (*unitary_fn_t)(state_t *state);
+
+// One layer of a moment-matrix circuit: K_k unitaries.
+// Each unitary is a gate sequence (gate module) or Pauli exponential
+// (Pauli module, see Preliminary 3), exposed as a unitary_fn_t.
 typedef struct {
-    const void **unitaries;   // opaque handles, one per unitary
-    int          K;
+    unitary_fn_t *unitaries;   // array of K function pointers
+    int           K;
 } lcu_layer_t;
 
 // Full moment-matrix circuit
@@ -359,6 +443,12 @@ typedef struct {
 ---
 
 ## API
+
+**Error handling convention** (consistent with the rest of the library):
+programming errors (NULL pointers, mismatched `n_qubits`, `gradient_adjoint`
+called with `is_noisy == 1`) trigger `assert` with a descriptive message.
+Resource failures (allocation, file I/O) return `NULL` or write nothing and
+set `errno`.
 
 ```c
 // Forward pass only. Works for ideal and noisy circuits.
