@@ -98,6 +98,26 @@ are:
 
 **Decision must be recorded here before implementation begins.**
 
+### Recommended Implementation Order
+
+The items above are ordered by external dependency. Within this module the
+recommended build sequence is:
+
+1. **`expectation_value`** — shortest dependency chain; useful immediately for
+   both ideal and noisy circuits; unblocks all further work.
+2. **`gate_diag_phase` + cost/mixer channel `apply` callbacks** — implement the
+   QAOA channel infrastructure.
+3. **`gradient_adjoint`** — once the channel infrastructure exists this is
+   roughly 100 lines (the 3-pass loop plus `grad_inner` for cost and mixer
+   channels).
+4. **`moment_matrix`** — deferred until the Pauli module and MPI write protocol
+   are resolved (Preliminaries 3–5).
+
+Between steps 1 and 3 the caller can use central finite differences around
+`expectation_value` as a temporary gradient path. This is not a library
+function — a 10-line loop in the caller's optimisation driver is sufficient and
+works for all circuit and state types.
+
 ---
 
 ## Cost Hamiltonian
@@ -144,6 +164,36 @@ identical. Memory: one state-sized buffer throughout.
 ---
 
 ## Gradient: Adjoint Differentiation (Ideal Circuits Only)
+
+### Design Rationale
+
+Adjoint differentiation is chosen over finite differences for three reasons:
+
+1. **No additional error.** Finite differences introduce truncation error O(ε²)
+   and cancellation error O(ε_mach/ε) on top of the inherent rounding already
+   present in the forward simulation. Adjoint differentiation introduces no
+   additional approximation: the gradient is computed from the same
+   floating-point states the forward pass produced.
+
+2. **No tuning parameter.** The optimal finite-difference step ε depends on the
+   Hamiltonian coefficients, the circuit depth, and the current parameter
+   values — none of which are known at library-design time. A fixed ε will be
+   wrong somewhere across the parameter landscape. Adjoint differentiation has
+   no such parameter.
+
+3. **Cost independent of parameter count.** For pure states the cost is 3 ×
+   N_ch channel applications regardless of how many parameters the circuit has.
+   Central finite differences cost 2 × N_ch × N_params channel applications.
+   At QAOA depth p = 20 (N_params = 40) the adjoint method is ~27× cheaper.
+
+For **noisy circuits**, finite differences via repeated `expectation_value`
+calls are the only mathematically valid gradient method (noise channels are
+non-invertible; there is no backward pass). The library exposes
+`expectation_value` precisely so external optimisers can do this themselves.
+A `gradient_finite_diff` convenience function is intentionally absent from the
+public API: there is no universally correct ε, users would rely on it for
+accurate results, and its error characteristics vary unpredictably across the
+parameter landscape.
 
 ### Mathematical Foundation
 
