@@ -71,13 +71,15 @@ typedef enum {
 ### Pauli String
 
 ```c
+#include <stdint.h>   // uint64_t
+
 typedef struct {
-    pauli_label_t *labels;     // dense array, length n_qubits, heap-allocated
-    int            n_qubits;
+    pauli_label_t *labels;   // dense array, length n_qubits, heap-allocated
+    qubit_t        n_qubits; // matches state_t.qubits (unsigned char, max 255)
     // Precomputed bitmasks (set by pauli_new / pauli_from_str):
-    unsigned long  x_mask;    // bit j set  iff  labels[j] ∈ {X, Y}  (flip bit j)
-    unsigned long  z_mask;    // bit j set  iff  labels[j] ∈ {Y, Z}  (Z-phase factor)
-    unsigned long  y_mask;    // bit j set  iff  labels[j] = Y        (extra i factor)
+    uint64_t  x_mask;  // bit j set  iff  labels[j] ∈ {X, Y}  (flip bit j)
+    uint64_t  z_mask;  // bit j set  iff  labels[j] ∈ {Y, Z}  (Z-phase factor)
+    uint64_t  y_mask;  // bit j set  iff  labels[j] = Y        (extra i factor)
 } pauli_t;
 ```
 
@@ -85,8 +87,10 @@ typedef struct {
 little-endian computational-basis index (matching STATE_MODULE.md: index 5 = binary
 101 = q₀=1, q₁=0, q₂=1).
 
-**Constraint:** n_qubits ≤ 64. Systems requiring more than 64 qubits are out of scope
-(unsigned long is 64 bits on all supported platforms).
+**Constraint:** n_qubits ≤ 64. Systems requiring more than 64 qubits are out of scope.
+`uint64_t` (from `<stdint.h>`) is used for masks rather than `unsigned long` because
+`unsigned long` is 32 bits on Windows (LLP64 data model); `uint64_t` is exactly 64 bits
+on all platforms per C17. `qubit_t` is used for `n_qubits` to match `state_t.qubits`.
 
 **Derived masks** (all precomputed in pauli_new):
 - `x_mask`: bits where the Pauli flips the state. Used to compute the paired index x' = x XOR x_mask.
@@ -97,13 +101,12 @@ little-endian computational-basis index (matching STATE_MODULE.md: index 5 = bin
 
 ```c
 typedef struct param_channel {
-    void   (*apply)        (state_t *state, double theta, const void *ctx);
-    void   (*apply_adjoint)(state_t *state, double theta, const void *ctx);
-    double (*grad_inner)   (const state_t *mu, const state_t *tmp,
-                            double theta, const void *ctx);
+    void   (*apply)     (state_t *state, double theta, const void *ctx);
+    double (*grad_inner)(const state_t *mu, const state_t *tmp,
+                         double theta, const void *ctx);
     const void *ctx;      // channel-specific data, owned externally
     int    has_gradient;  // 1 = ideal unitary, grad_inner defined;
-                          // 0 = noisy channel, apply_adjoint and grad_inner are NULL
+                          // 0 = noisy channel, grad_inner is NULL
 } param_channel_t;
 ```
 
@@ -111,10 +114,9 @@ typedef struct param_channel {
 - Unitary channel: state → U(θ) state (or U(θ)ρU(θ)† for density matrices).
 - Noisy channel: state → Σ_a K_a state K_a† (full Kraus map; θ may be used or ignored).
 
-**`apply_adjoint(state, θ, ctx)`**: Applies the adjoint channel U(θ)† in place. Only
-called for unitary channels during the backward pass of adjoint differentiation. Never
-called for noisy channels. For all unitary channel types, applying the adjoint is
-equivalent to calling `apply` with `−θ` (i.e., exp(+iθ/2 P) = exp(−i(−θ)/2 P)).
+**Adjoint:** For all unitary channel types, U(θ)† = U(−θ) (i.e., exp(+iθ/2 P) =
+exp(−i(−θ)/2 P)). The backward pass calls `apply(state, −theta, ctx)` directly; no
+separate `apply_adjoint` pointer is needed or stored.
 
 **`grad_inner(mu, tmp, θ, ctx)`**: Returns −2 Im ⟨μ|G|tmp⟩ (pure state) or
 −2 Im Tr(H_f G σ) (mixed state), where G is the generator of U(θ). Only meaningful
@@ -142,7 +144,7 @@ MEAS will refuse to compute gradients.
 
 ```c
 typedef struct {
-    void (**apply)(state_t *state);  // K unparametrised unitary function pointers
+    void (**unitaries)(state_t *state);  // K unparametrised unitary function pointers
     int    K;
 } lcu_layer_t;
 ```
@@ -171,11 +173,11 @@ typedef struct {
 ```c
 // Allocate from a dense label array. Precomputes all three masks.
 // Returns NULL on OOM or if n_qubits > 64.
-pauli_t *pauli_new(const pauli_label_t *labels, int n_qubits);
+pauli_t *pauli_new(const pauli_label_t *labels, qubit_t n_qubits);
 
 // Parse from a string of characters 'I','X','Y','Z' of length n_qubits.
 // Returns NULL on invalid characters, wrong length, or OOM.
-pauli_t *pauli_from_str(const char *s, int n_qubits);
+pauli_t *pauli_from_str(const char *s, qubit_t n_qubits);
 
 // Free labels array and struct.
 void pauli_free(pauli_t *p);
@@ -202,10 +204,25 @@ Since ε(x) ∈ {+1, −1, +i, −i}, it can be represented as an integer pair:
 typedef struct { int real; int imag; } pauli_phase_t;
 // Examples: +1 = {1,0}, -1 = {-1,0}, +i = {0,1}, -i = {0,-1}
 
-pauli_phase_t pauli_phase(const pauli_t *P, unsigned long x);
+pauli_phase_t pauli_phase(const pauli_t *P, uint64_t x);
 ```
 
-**Important identity:** ε(x) · ε*(x') = ε(x) · ε(x XOR x_mask)* = ±1 (always real).
+**Key identity:** ε(x') = ε(x) · (−1)^{popcount(y\_mask)}.
+
+Proof: popcount((x XOR x\_mask) AND z\_mask) = popcount((x AND z\_mask) XOR y\_mask)
+= popcount(x AND z\_mask) + popcount(y\_mask) (mod 2), using x\_mask AND z\_mask = y\_mask.
+Therefore ε(x') = i^{pop(y)} · (−1)^{pop(x AND z)+pop(y)} = ε(x) · (−1)^{pop(y\_mask)}.
+
+Corollaries:
+- ε(x) · ε(x') = (−1)^{popcount(y\_mask)} (depends only on the Pauli string, not x).
+- ε(x) · ε*(x') = ε(x) · ε(x)* · (−1)^{pop(y)} = (−1)^{pop(y\_mask)} ∈ {+1, −1}.
+- If popcount(y\_mask) is even: ε(x') = ε(x). If odd: ε(x') = −ε(x).
+
+This last corollary is useful for the pauli\_exp implementation: when pop(y\_mask) is odd,
+the phase factor for the paired element is always the negation of the local phase,
+so only one phase evaluation per pair is needed.
+
+**Important identity:** ε(x) · ε*(x') = (−1)^{popcount(y\_mask)} = ±1 (always real).
 This follows from P being Hermitian: (PρP)_{xx} is real.
 
 ### Identity Pauli Strings
@@ -250,13 +267,18 @@ pauli_exp_pure(state, P, theta):
         a = state->data[x]
         b = state->data[x']
 
-        state->data[x]  = c*a - i*s*eps_x  * b
-        state->data[x'] = c*b - i*s*eps_x' * a
+        state->data[x]  = c*a - i*s*eps_x' * b   // ε(x') is the phase for row x
+        state->data[x'] = c*b - i*s*eps_x  * a   // ε(x)  is the phase for row x'
 ```
 
-The inner update is a 2×2 rotation mixing `a` and `b`. Since ε(x) ∈ {±1, ±i}, each
-multiplication by `−i·ε(x)` reduces to a combination of negation, swapping real/imag,
-and sign changes — no general complex multiply is needed.
+**Derivation:** P_{row, col} = ε(col) · δ_{row, col XOR x\_mask}.
+So (P|ψ⟩)_x = ε(x') · ψ(x')  (the only nonzero column contributing to row x is x').
+Therefore ψ'(x) = c·ψ(x) − i·s·ε(x')·ψ(x'), and symmetrically for x'.
+
+The inner update is a 2×2 rotation mixing `a` and `b`. Since ε(x') ∈ {±1, ±i}, each
+multiplication by `−i·ε(x')` reduces to a combination of negation, swapping real/imag,
+and sign changes — no general complex multiply is needed. When pop(y\_mask) is odd,
+eps\_x' = −eps\_x (by the key identity), halving the number of phase evaluations.
 
 **OpenMP:** parallel over pairs, `if (dim >= OMP_THRESHOLD)`.
 
@@ -268,33 +290,50 @@ all x without pairing, applying state->data[x] *= exp(−iθ/2 · ε(x)).
 For density matrices ρ → U(θ) ρ U(θ)†:
 
     ρ'_{xy} = c² ρ_{xy} + s² ε(x) ε*(y) ρ_{x',y'}
-             − ics ε(x) ρ_{x',y} + ics ε*(y) ρ_{x,y'}
+             − ics ε(x') ρ_{x',y} + ics ε*(y') ρ_{x,y'}
 
 where c = cos(θ/2), s = sin(θ/2), x' = x XOR x_mask, y' = y XOR x_mask.
+
+**Note on the s² coefficient:** ε(x')ε*(y') = ε(x)ε*(y). This follows from the key
+identity ε(x') = ε(x)·(−1)^{pop(y\_mask)}: the (−1) factors cancel in the product,
+so `ε(x)ε*(y)` and `ε(x')ε*(y')` are interchangeable. The cross terms do NOT share
+this cancellation and must use ε(x') and ε*(y') explicitly.
 
 **Four-element coupling:** Each output element ρ'_{xy} is a linear combination of
 four input elements: ρ_{xy}, ρ_{x',y'}, ρ_{x',y}, ρ_{x,y'}. These four elements
 form one independent mixing group. Elements in a group are processed atomically —
 all four inputs must be read before any output is written.
 
-**Group enumeration:** Groups are indexed by pairs (x, y) with x < x' and y ≤ x
-(lower triangle). For each group, the triangle membership of all four elements
+**Group enumeration:** Groups are indexed by the representative pair (x, y) with:
+- x < x' = x XOR x\_mask  (pick the lower row of the row-pair), **and**
+- y < y' = y XOR x\_mask  (pick the lower column of the column-pair).
+
+The second condition (y < y') is equivalent to: the lowest set bit of x\_mask is 0
+in y. Without it, both (x, y) and (x, y') would qualify as representatives for the
+same 4-element group, causing each group to be processed twice.
+
+For each representative (x, y), the triangle membership of all four elements
 (upper/lower/diagonal) is determined once before processing. Upper-triangle elements
 are accessed via Hermitian conjugation of the transposed index.
 
+**Special case y = x (diagonal representative):** When y = x, the group contains
+both diagonal elements ρ_{xx} and ρ_{x'x'} along with the off-diagonal pair ρ_{xx'}
+and ρ_{x'x}. Since y' = x' > x = y, the condition y < y' is satisfied, so diagonal
+representatives are included in the main traversal with no special case needed.
+
 **MIXED_PACKED traversal:**
 
-Iterate over lower-triangle element pairs (x, y) with x ≥ y and x < x':
+Iterate over representative pairs (x, y) with x < x' and y < y':
 
 1. Determine: `x' = x XOR x_mask`, `y' = y XOR x_mask`.
 2. Load all four elements (accessing upper-triangle via conjugate if needed).
 3. Compute the four new values using the formula above.
 4. Write back, enforcing Hermitian symmetry for upper-triangle positions.
 
-Diagonal block guard: when x = y (i.e., the "diagonal" case where row index equals
-column index), the element ρ_{xy} is real and must remain real after the update.
-The imaginary part of ρ'_{xx} must be zeroed after computation (up to floating-point
-rounding).
+Diagonal block guard: when x = y (diagonal representative), ρ'_{xx} and ρ'_{x'x'}
+are guaranteed real by unitarity (UρU† is Hermitian; its diagonal is real). In
+floating-point, rounding may introduce a tiny imaginary part — zero it explicitly.
+This is a numerical hygiene step, not a mathematical correction.
 
 **MIXED_TILED traversal:** Same 4-element mixing kernel. The traversal structure
 mirrors `gate_tiled_h.c` (Hadamard on tiled storage): iterate over tile pairs
@@ -314,11 +353,17 @@ For U(θ) = exp(−iθ/2 P), the generator is G = P/2:
 #### Pure State — O(2^n)
 
 ```
-S = Σ_{x=0}^{2^n−1}  conj(mu->data[x]) · ε(x) · tmp->data[x XOR x_mask]
+S = Σ_{x=0}^{2^n−1}  conj(mu->data[x]) · ε(x') · tmp->data[x']
+    where x' = x XOR x_mask
 return −Im S
 ```
 
-One loop over all amplitudes. Each iteration: one phase lookup, one multiply-accumulate.
+**Derivation:** ⟨μ|P|tmp⟩ = Σ_x μ\*(x) (P|tmp⟩)_x = Σ_x μ\*(x) · ε(x') · tmp(x').
+The phase factor is ε(x'), not ε(x): (P|tmp⟩)_x = Σ_z P_{xz} tmp(z) = ε(x') · tmp(x')
+(only z = x' contributes, since P_{xz} = ε(z) · δ_{x, z XOR x\_mask} is nonzero
+only when z = x' = x XOR x\_mask).
+
+One loop over all amplitudes. Each iteration: one phase lookup (at x'), one multiply-accumulate.
 
 #### Mixed State — O(4^n), Direct Storage Traversal
 
@@ -394,13 +439,13 @@ param_channel_t *kraus_channel_new(
     const void  *ctx
 );
 
-// Generic unitary channel with user-supplied function pointers.
-// Caller sets has_gradient and provides NULL for unused pointers.
+// Generic channel with user-supplied function pointers.
+// Caller sets has_gradient and may pass NULL for grad_inner if inapplicable.
+// Adjoint is always obtained by calling apply with −theta; no separate pointer.
 // ctx is borrowed. Returns NULL on OOM.
 param_channel_t *channel_new(
-    void   (*apply)        (state_t *, double, const void *),
-    void   (*apply_adjoint)(state_t *, double, const void *),
-    double (*grad_inner)   (const state_t *, const state_t *, double, const void *),
+    void   (*apply)     (state_t *, double, const void *),
+    double (*grad_inner)(const state_t *, const state_t *, double, const void *),
     const void *ctx,
     int    has_gradient
 );
@@ -413,10 +458,9 @@ void channel_free(param_channel_t *ch);
 
 The ctx pointer holds a `const pauli_t *`. The three function pointers are set to
 internal static functions:
-- `apply`:         calls `pauli_exp_pure` / `pauli_exp_packed` / `pauli_exp_tiled`
-                   (dispatched on `state->type`)
-- `apply_adjoint`: calls `apply` with `−theta`
-- `grad_inner`:    computes −Im ⟨μ|P|tmp⟩ as described above
+- `apply`:      dispatches on `state->type` to `pauli_exp_pure` / `pauli_exp_packed` /
+               `pauli_exp_tiled`; the adjoint U(θ)† is obtained by the caller passing −theta
+- `grad_inner`: computes −Im ⟨μ|P|tmp⟩ as described above
 
 ---
 
@@ -446,9 +490,9 @@ void   pqc_set_param(pqc_t *circuit, int c, double val);
 
 ```c
 // LCU layer holding K unparametrised unitary function pointers.
-// Copies the apply_fns array.
+// Copies the fn_arr array into an internally allocated array (layer->unitaries).
 // Returns NULL on OOM.
-lcu_layer_t *lcu_layer_new(void (**apply_fns)(state_t *), int K);
+lcu_layer_t *lcu_layer_new(void (**fn_arr)(state_t *), int K);
 
 // Free the lcu_layer_t struct and its internal function pointer array.
 void lcu_layer_free(lcu_layer_t *layer);
@@ -474,7 +518,7 @@ void lcu_multi_index(const lcu_circuit_t *circuit, int I, int *idx_out);
     I = idx_out[0] + K_0 * (idx_out[1] + K_1 * (idx_out[2] + ...))
 
 Applying multi-index I to an initial state means sequentially applying:
-`layers[0].apply[idx_out[0]](state)`, then `layers[1].apply[idx_out[1]](state)`,
+`layers[0].unitaries[idx_out[0]](state)`, then `layers[1].unitaries[idx_out[1]](state)`,
 etc. (layer 0 first, layer L−1 last).
 
 ---
@@ -500,9 +544,27 @@ all computation algorithms (expectation value, gradient, moment matrix) live in 
 - `qaoa_circuit_new` — assembles a depth-p QAOA `pqc_t`
 - `expectation_value`, `gradient_adjoint`, `moment_matrix`, `moment_matrix_load`
 
-**Consequence for MEAS_MODULE.md:** The type definitions for `param_channel_t`,
+**Consequence for MEAS_MODULE.md:** All type definitions for `param_channel_t`,
 `pqc_t`, `lcu_layer_t`, and `lcu_circuit_t` must be removed from MEAS and replaced
-with `#include "circuit.h"`.
+with `#include "circuit.h"`. The following specific changes are required in MEAS:
+
+- **`param_channel_t`**: Remove the `apply_adjoint` field (it was never there in MEAS;
+  this module does not add it). Pass 2 of the backward algorithm calls
+  `apply(state, −theta, ctx)` directly.
+- **`pqc_t.params`**: Now struct-owned — `pqc_new` allocates, `pqc_free` frees. Remove
+  any caller-side `free(params)` in MEAS. The MEAS spec comment "caller-owned" was
+  incorrect.
+- **`pqc_free`**: Defined here; remove the `pqc_free` declaration from the MEAS API
+  section to avoid duplicate declarations.
+- **`lcu_layer_t.unitaries`**: Field is now named `unitaries` (renamed from `apply`
+  to avoid collision with `param_channel_t.apply`). MEAS already used `unitaries`.
+- **`lcu_circuit_t.layers`**: This module uses `lcu_layer_t **layers` (array of
+  pointers; layers are externally owned and borrowed). MEAS used `lcu_layer_t *layers`
+  (flat array). MEAS must be updated to `lcu_layer_t **layers`.
+- **`unitary_fn_t`**: MEAS Preliminary 2 referenced a shared `unitary_fn_t` typedef.
+  This module uses the raw function pointer type `void (**)(state_t *)` directly in the
+  struct; `unitary_fn_t` is not defined here. MEAS can define it locally if needed for
+  readability, or use the raw type.
 
 ---
 
@@ -524,7 +586,7 @@ Single-qubit identity checks (compare against gate module):
 |------|-------------|
 | `test_pauli_exp_X` | exp(−iθ/2 X) ≡ Rx(θ); all 3 backends, all standard θ values |
 | `test_pauli_exp_Y` | exp(−iθ/2 Y) ≡ Ry(θ); all 3 backends |
-| `test_pauli_exp_Z` | exp(−iθ/2 Z) ≡ Rz(θ); MIXED_PACKED and MIXED_TILED only (global phase differs on PURE by exp(−iθ/2)) |
+| `test_pauli_exp_Z` | exp(−iθ/2 Z) ≡ Rz(θ) up to global phase; all 3 backends. For MIXED backends the global phase cancels (ρ' = UρU†) so results are identical. For PURE, verify that `pauli_exp_pure(Z)` produces exp(−iθ/2)·Rz(θ)·ψ elementwise (the factor exp(−iθ/2) is state-independent) |
 | `test_pauli_exp_I` | all-identity string: verify no-op on density matrices; global phase on PURE |
 
 Multi-qubit:
@@ -557,8 +619,12 @@ add_library(circuit STATIC
 target_include_directories(circuit PUBLIC include)
 target_link_libraries(circuit
     PUBLIC  state          # state_t visible through circuit.h
-    PRIVATE gate           # gate_tiled.h helpers used by pauli_exp.c
+    PRIVATE gate           # gate.h (insertBit0, pack_idx) used by pauli_exp.c
 )
+target_include_directories(circuit PRIVATE src/gate/tiled)
+# gate_tiled.h lives in src/gate/tiled/ which is a PRIVATE gate header not exposed
+# through gate's PUBLIC include path (include/). The PRIVATE include above gives
+# pauli_exp.c direct access without leaking gate_tiled.h to circuit's consumers.
 
 if(ENABLE_OPENMP)
     target_link_libraries(circuit PRIVATE OpenMP::OpenMP_C)
