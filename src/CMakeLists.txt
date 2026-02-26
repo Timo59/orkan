@@ -66,5 +66,25 @@ install(FILES
     ${INCLUDE_DIR}/q_types.h
     ${INCLUDE_DIR}/state.h
     ${INCLUDE_DIR}/gate.h
+    ${INCLUDE_DIR}/circuit.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+# Circuit module (static library, linked against q for state_t and gate internals)
+add_library(circuit STATIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli.c"
+)
+target_include_directories(circuit
+    PUBLIC  "${CMAKE_SOURCE_DIR}/include"
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled"
+)
+target_compile_definitions(circuit PRIVATE LOG_TILE_DIM=${LOG_TILE_DIM})
+if(DEFINED OMP_THRESHOLD)
+    target_compile_definitions(circuit PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
+endif()
+target_link_libraries(circuit
+    PUBLIC q
+)
+if(ENABLE_OPENMP)
+    target_link_libraries(circuit PRIVATE omp_compiler_flags)
+endif()

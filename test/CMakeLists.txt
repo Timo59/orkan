@@ -83,3 +83,38 @@ target_link_libraries(test_gate
             q
 )
 add_test(NAME test_gate COMMAND test_gate)
+
+#=======================================================================================================================
+# test_circuit
+#=======================================================================================================================
+
+set(CIRCUIT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/circuit")
+
+set(TEST_CIRCUIT_SRC
+        "${CIRCUIT_DIR}/test_circuit.c"
+        "${CIRCUIT_DIR}/test_pauli.c"
+        "${UTILITY_DIR}/linalg.c"
+        "${UNITY_SRC}/unity.c"
+)
+
+add_executable(test_circuit ${TEST_CIRCUIT_SRC})
+target_compile_definitions(test_circuit
+        PRIVATE
+            UNITY_INCLUDE_DOUBLE
+            UNITY_SUPPORT_64
+            LOG_TILE_DIM=${LOG_TILE_DIM}
+)
+if(DEFINED OMP_THRESHOLD)
+    target_compile_definitions(test_circuit PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
+endif()
+target_include_directories(test_circuit
+        PRIVATE
+            ${UNITY_SRC}
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+target_link_libraries(test_circuit
+        PRIVATE
+            circuit
+            q
+)
+add_test(NAME test_circuit COMMAND test_circuit)
