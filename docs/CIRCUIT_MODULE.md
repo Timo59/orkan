@@ -1,10 +1,10 @@
 # Circuit Module: Technical Specification
 
 **Module:** Parametrised Quantum Circuits and Pauli Operations
-**Status:** Design complete — implementation pending
+**Status:** Partially implemented — Pauli string construction, phase, and pure-state application complete. Exponential (`pauli_exp.c`) and circuit types (`circuit.c`) pending.
 **Depends on:** State module, Gate module
 **Consumed by:** MEAS module
-**Last updated:** 2026-02-23
+**Last updated:** 2026-02-26
 
 ---
 
@@ -32,25 +32,27 @@ formerly resided in MEAS; they move here.
 
 ```
 include/
-  circuit.h                    # Public API: all types and declarations
+  circuit.h                    # Public API — implemented types and declarations only
+                               # (param_channel_t, pqc_t, lcu_* types not yet present)
 
 src/circuit/
-  pauli.c                      # Pauli string construction, phase function, application
-  pauli_exp.c                  # Pauli exponential: PURE, MIXED_PACKED, MIXED_TILED
-  circuit.c                    # pqc_t, lcu_circuit_t constructors/destructors,
-                               # built-in channel constructors
+  pauli.c                      # ✓ DONE: pauli_new, pauli_from_str, pauli_free,
+                               #         pauli_phase, pauli_apply_pure
+  pauli_exp.c                  # ✗ PENDING: Pauli exponential PURE/PACKED/TILED
+  circuit.c                    # ✗ PENDING: pqc_t, lcu_circuit_t constructors,
+                               #            channel constructors
 
 test/circuit/
-  test_circuit.c               # Test runner + main()
-  test_pauli.c                 # Pauli string unit tests
-  test_pauli_exp.c             # Pauli exponential unit tests
+  test_circuit.c               # ✓ DONE: test runner + main() — 30 tests, 0 failures
+  test_pauli.c                 # ✓ DONE: Pauli construction, phase, apply_pure tests
+  test_pauli_exp.c             # ✗ PENDING: Pauli exponential tests
 ```
 
 **Build (circuit tests only):**
 ```bash
-cd cmake-build-debug
-cmake --build . --target test_circuit
-./test/test_circuit
+cmake --preset debug
+cmake --build --preset debug --target test_circuit
+./cmake-build-debug/test/test_circuit
 ```
 
 ---
@@ -179,9 +181,23 @@ pauli_t *pauli_new(const pauli_label_t *labels, qubit_t n_qubits);
 // Returns NULL on invalid characters, wrong length, or OOM.
 pauli_t *pauli_from_str(const char *s, qubit_t n_qubits);
 
-// Free labels array and struct.
+// Free labels array and struct. Safe to call with NULL.
 void pauli_free(pauli_t *p);
 ```
+
+**String ordering in `pauli_from_str`:** Big-endian — `s[0]` maps to qubit `n_qubits−1`
+(MSB) and `s[n_qubits−1]` maps to qubit 0 (LSB). This matches standard physics notation
+where the leftmost symbol acts on the highest-index qubit. Example for n=4:
+
+    pauli_from_str("IXYZ", 4):
+      s[0]='I' → labels[3] = I  (qubit 3)
+      s[1]='X' → labels[2] = X  (qubit 2)
+      s[2]='Y' → labels[1] = Y  (qubit 1)
+      s[3]='Z' → labels[0] = Z  (qubit 0)
+      x_mask = 0b0110 = 6,  z_mask = 0b0011 = 3,  y_mask = 0b0010 = 2
+
+`pauli_new` uses the opposite (little-endian) convention: `labels[j]` acts on qubit j.
+Use `pauli_from_str("ZYX", 3)` to get the same result as `pauli_new({X,Y,Z}, 3)`.
 
 ### Phase Function
 
@@ -224,6 +240,91 @@ so only one phase evaluation per pair is needed.
 
 **Important identity:** ε(x) · ε*(x') = (−1)^{popcount(y\_mask)} = ±1 (always real).
 This follows from P being Hermitian: (PρP)_{xx} is real.
+
+### Pure-State Application
+
+```c
+// Apply Pauli string P to a pure statevector in-place: |ψ⟩ → P|ψ⟩
+// Requires state->type == PURE and (P->x_mask | P->z_mask) < 2^state->qubits.
+// Fails fast via GATE_VALIDATE on null pointers, wrong state type, or mask overflow.
+void pauli_apply_pure(state_t *state, const pauli_t *P);
+```
+
+**Algorithm — three code paths dispatched by mask structure:**
+
+**Path 1 — Identity** (`x_mask = 0, z_mask = 0`): immediate return. All labels are I;
+the Pauli string is a global phase on pure states and requires no work.
+
+**Path 2 — Diagonal** (`x_mask = 0, z_mask ≠ 0`): `P|ψ⟩[i] = ε(i) · ψ[i]` for
+all i. No amplitude swapping occurs. Two sub-paths:
+
+- **Pure Z-string** (`y_mask = 0`): ε(i) = (−1)^{popcount(i AND z\_mask)} ∈ {±1}.
+  Implemented as a branchless real sign flip `data[i] *= 1.0 - 2.0*parity` — no complex
+  arithmetic required.
+- **Diagonal with Y-factors** (`y_mask ≠ 0`): unreachable in practice, because
+  `y_mask ≠ 0` implies `x_mask ≠ 0`. The branch exists for completeness but is dead
+  code for any valid `pauli_t`. See **Known Pitfalls** below.
+
+**Path 3 — Anti-diagonal** (`x_mask ≠ 0`): amplitudes come in pairs (j, j'), where
+j' = j XOR x_mask. For each pair:
+
+    tmp     = ψ[j]
+    ψ[j]   = ε(j') · ψ[j']      // (P|ψ⟩)[j]  = ε(j') · ψ[j']
+    ψ[j']  = ε(j)  · tmp        // (P|ψ⟩)[j'] = ε(j)  · ψ[j]
+
+Since ε ∈ {±1, ±i}, each multiplication is zero-flop: implemented via `apply_ipow`
+which uses only component swaps and negations (no floating-point multiplications).
+
+**Pair enumeration** (critical implementation detail): there are exactly dim/2 unique
+pairs. To enumerate them without double-counting, insert a 0-bit at the **lowest set
+bit of x_mask** (call it `split_bit = __builtin_ctzll(x_mask)`). For k = 0..dim/2−1:
+
+    j  = insertBit0(k, split_bit)   // j has 0 at split_bit
+    j' = j XOR x_mask               // j' has 1 at split_bit (and all other X-bits flipped)
+
+This uses a single `insertBit0` call regardless of how many bits x_mask has. The
+naive approach of inserting zeros at ALL x_mask bit positions would give only
+dim/2^{popcount(x\_mask)} pairs — correct only for single-bit x_masks — and silently
+skip all remaining pairs for multi-qubit Pauli strings. This was an actual bug caught
+by the test suite during implementation.
+
+**Phase computation:** use the key identity ε(j') = ε(j) · (−1)^{popcount(y\_mask)}
+to compute ε(j') from ε(j) with one extra arithmetic operation rather than a second
+popcount call:
+
+    parity_j  = popcount(j  AND z_mask) & 1
+    exp_j     = (eta_exp + 2 * parity_j) & 3      // ε(j)  = i^{exp_j}
+    exp_jp    = (exp_j  + 2 * y_parity) & 3       // ε(j') = i^{exp_jp}
+
+where `eta_exp = popcount(y_mask) & 3` and `y_parity = popcount(y_mask) & 1` are
+constants for the Pauli string.
+
+**OpenMP:** `#pragma omp parallel for if(dim >= OMP_THRESHOLD)` where
+`OMP_THRESHOLD = 4096`. Pairs are independent — no data races.
+
+**Validation:**
+```c
+GATE_VALIDATE(state && state->data, "...: null state or data pointer");
+GATE_VALIDATE(P,                    "...: null Pauli pointer");
+GATE_VALIDATE(state->type == PURE,  "...: expected PURE state");
+GATE_VALIDATE(state->qubits >= 64 ||
+              (P->x_mask | P->z_mask) >> state->qubits == 0,
+              "...: Pauli mask exceeds state dimension");
+```
+
+The mask check guards against `>> state->qubits` being UB when `state->qubits ≥ 64`
+(shift of a 64-bit type by 64+ is undefined in C17).
+
+### Known Pitfalls
+
+**Dead code branch:** The "Diagonal with Y-factors" sub-path (`x_mask = 0, y_mask ≠ 0`)
+is structurally unreachable. By construction, `y_mask ⊆ x_mask` (every Y label sets
+both its x_mask and z_mask bit), so `y_mask ≠ 0` implies `x_mask ≠ 0`. The branch is
+retained in `pauli.c` as defensive code with a comment noting its unreachability.
+
+**Pair enumeration — single insertBit0 only:** Only insert at `split_bit = ctz(x_mask)`,
+not at all x_mask bit positions. Chaining insertBit0 at all positions yields
+dim/2^{popcount(x\_mask)} pairs, which is wrong for multi-qubit Pauli strings.
 
 ### Identity Pauli Strings
 
@@ -570,83 +671,170 @@ with `#include "circuit.h"`. The following specific changes are required in MEAS
 
 ## Test Coverage
 
-### test_pauli.c
+**Last verified:** 2026-02-26 — 30 tests, 0 failures, tolerance ε = 1e−12.
+
+**Reference strategy:** Every `check_pauli_apply` call constructs the full 2^n × 2^n
+Pauli matrix (`build_pauli_matrix`), multiplies it against the original statevector
+(CBLAS `zgemv` via `zmv`), then compares element-wise against `pauli_apply_pure`
+output. Linalg helpers from `test/utility/linalg.c` are linked into `test_circuit`.
+
+### test_pauli.c — Implemented (30 tests)
+
+#### Pauli Construction and Masks (5 tests)
 
 | Test | Description |
 |------|-------------|
-| `test_pauli_from_str` | Parse "IXYZ", "XXXX", "IIII"; verify labels and masks |
-| `test_pauli_masks` | For n=1..4 and all 4^n Pauli strings: verify x_mask, y_mask, z_mask against brute-force label scan |
-| `test_pauli_phase` | For n ≤ 3: enumerate all (P, x) pairs; compare pauli_phase against direct matrix element extraction via cblas_zgemv |
-| `test_pauli_invalid` | pauli_from_str with bad characters returns NULL |
+| `test_pauli_masks_X` | n=1 X: verify x_mask=1, z_mask=0, y_mask=0 |
+| `test_pauli_masks_Y` | n=1 Y: verify x_mask=1, z_mask=1, y_mask=1 |
+| `test_pauli_masks_Z` | n=1 Z: verify x_mask=0, z_mask=1, y_mask=0 |
+| `test_pauli_masks_str` | `pauli_from_str("IXYZ",4)` big-endian: x_mask=6, z_mask=3, y_mask=2; "IIII" (all zero); "XXXX" (x_mask=15) |
+| `test_pauli_from_str_negative` | NULL string, invalid char 'A', embedded invalid char, length-too-short, length-too-long — all return NULL |
 
-### test_pauli_exp.c
+#### pauli_phase (1 test)
 
-Single-qubit identity checks (compare against gate module):
 | Test | Description |
 |------|-------------|
-| `test_pauli_exp_X` | exp(−iθ/2 X) ≡ Rx(θ); all 3 backends, all standard θ values |
-| `test_pauli_exp_Y` | exp(−iθ/2 Y) ≡ Ry(θ); all 3 backends |
-| `test_pauli_exp_Z` | exp(−iθ/2 Z) ≡ Rz(θ) up to global phase; all 3 backends. For MIXED backends the global phase cancels (ρ' = UρU†) so results are identical. For PURE, verify that `pauli_exp_pure(Z)` produces exp(−iθ/2)·Rz(θ)·ψ elementwise (the factor exp(−iθ/2) is state-independent) |
-| `test_pauli_exp_I` | all-identity string: verify no-op on density matrices; global phase on PURE |
+| `test_pauli_phase` | Spot-checks integer phase components for X(x=0,1), Y(x=0,1), Z(x=0,1) using `TEST_ASSERT_EQUAL_INT` |
 
-Multi-qubit:
+#### pauli_apply_pure — Single-qubit (4 tests)
+
+All four single-qubit tests run against all 6 standard states:
+{|0⟩, |1⟩, |+⟩, |−⟩, |+y⟩, |−y⟩} (Z, X, and Y eigenbases).
+
+| Test | Pauli | x_mask | z_mask | split_bit | Code path |
+|------|-------|--------|--------|-----------|-----------|
+| `test_pauli_apply_I_q0` | I | 0 | 0 | — | Identity (early return) |
+| `test_pauli_apply_X_q0` | X | 1 | 0 | 0 | Anti-diagonal |
+| `test_pauli_apply_Y_q0` | Y | 1 | 1 | 0 | Anti-diagonal + Y-phase |
+| `test_pauli_apply_Z_q0` | Z | 0 | 1 | — | Diagonal pure-Z |
+
+#### pauli_apply_pure — Two-qubit strings (7 tests)
+
+All n=2 tests run against all 7 defined states:
+{|00⟩, |01⟩, |10⟩, |11⟩, |++⟩, |+0⟩, |1+⟩}.
+
+| Test | Pauli | x_mask | z_mask | split_bit | Notes |
+|------|-------|--------|--------|-----------|-------|
+| `test_pauli_apply_XX` | XX | 3 | 0 | 0 | Multi-bit x_mask, no phase |
+| `test_pauli_apply_ZZ` | ZZ | 0 | 3 | — | Diagonal pure-Z, full mask |
+| `test_pauli_apply_XZ` | XZ | 1 | 2 | 0 | Mixed X+Z types |
+| `test_pauli_apply_YY` | YY | 3 | 3 | 0 | Multi-bit x_mask, η=2 → −1 phase |
+| `test_pauli_apply_IZ` | IZ | 0 | 1 | — | Diagonal, non-trivial z position |
+| `test_pauli_apply_IX` | IX | 2 | 0 | **1** | **split_bit=1**: first non-trivial insertBit0 |
+| `test_pauli_apply_IY` | IY | 2 | 2 | **1** | **split_bit=1** with Y-phase |
+
+#### pauli_apply_pure — Three-qubit strings (6 tests)
+
+All n=3 tests run against all 11 defined states:
+8 computational basis states {|000⟩…|111⟩} plus GHZ = (|000⟩+|111⟩)/√2,
+W = (|001⟩+|010⟩+|100⟩)/√3, and |+++⟩.
+
+| Test | Pauli | x_mask | z_mask | split_bit | Notes |
+|------|-------|--------|--------|-----------|-------|
+| `test_pauli_apply_XYZ` | XYZ | 3 | 6 | 0 | Mixed types; inline spot-check XYZ\|000⟩=i\|011⟩ |
+| `test_pauli_apply_ZZZ` | ZZZ | 0 | 7 | — | Full diagonal, dual inline+reference check |
+| `test_pauli_apply_IXI` | IXI | 2 | 0 | **1** | **split_bit=1**, 3-qubit |
+| `test_pauli_apply_XII` | XII | 4 | 0 | **2** | **split_bit=2** |
+| `test_pauli_apply_IZI` | IZI | 0 | 2 | — | Non-uniform diagonal, z_mask=2 |
+| `test_pauli_apply_ZIZ` | ZIZ | 0 | 5 | — | Alternating diagonal, z_mask=5 |
+
+#### pauli_apply_pure — Four-qubit strings (4 tests, MAXQUBITS=4)
+
+All n=4 tests run against all 16 computational basis states plus PSI4_GHZ =
+(|0000⟩+|1111⟩)/√2.
+
+| Test | Pauli (labels[0..3]) | x_mask | z_mask | split_bit | Notes |
+|------|----------------------|--------|--------|-----------|-------|
+| `test_pauli_apply_4q` | XZYX | 13 | 6 | 0 | Mixed types, η=1 (i-phase) |
+| `test_pauli_apply_4q_split1` | IIXI | 2 | 0 | **1** | **split_bit=1**, 4-qubit |
+| `test_pauli_apply_4q_split2` | IXII | 4 | 0 | **2** | **split_bit=2** |
+| `test_pauli_apply_4q_split3` | XIII | 8 | 0 | **3** | **split_bit=3**: all {0,1,2,3} covered |
+
+#### Round-trip, involution, and edge cases (3 tests)
+
 | Test | Description |
 |------|-------------|
-| `test_pauli_exp_XX` | 2-qubit XX string; reference via direct matrix exponentiation |
-| `test_pauli_exp_ZZ` | 2-qubit ZZ string (diagonal, no bit flips) |
-| `test_pauli_exp_XZ` | Mixed-kind 2-qubit string |
-| `test_pauli_exp_random` | Random n=3 Pauli strings and angles; reference via scipy.linalg.expm equivalent (dense matrix multiply) |
+| `test_pauli_from_str_roundtrip` | `pauli_from_str("ZYX",3)` vs `pauli_new({X,Y,Z},3)`: identical masks and application results on all 8 basis states |
+| `test_pauli_apply_involution` | P²=I for X, Y, Z (n=1), XX (n=2), XYZ (n=3) applied to \|0…0⟩ |
+| `test_pauli_apply_identity_noop` | I⊗³ on \|+++⟩ is an exact no-op |
 
-Gradient:
-| Test | Description |
-|------|-------------|
-| `test_grad_inner` | Compare grad_inner output to finite-difference ∂⟨H_C⟩/∂θ for 1-qubit and 2-qubit Pauli strings; all 3 backends |
+**split_bit coverage summary:** All four `insertBit0` positions {0, 1, 2, 3} are exercised
+at n=4 (MAXQUBITS). Position 0 is the degenerate case (`mask=0`, plain left shift);
+positions 1, 2, 3 exercise the nontrivial `(val & mask) | ((val & ~mask) << 1)` path.
 
-**Test states:** Same set as gate module (Z/X/Y-eigenbasis, random density matrices, fixed seed).
-**Tolerance:** ε = 1e−12.
-**System sizes:** n = 1, 2, 3; tiled: n = 5, 6 to exercise cross-tile paths.
+### test_pauli_exp.c — Pending
+
+Tests for `pauli_exp_pure`, `pauli_exp_packed`, `pauli_exp_tiled`, and `grad_inner`
+will be added when `pauli_exp.c` is implemented. See the **Pauli Exponential** section
+above for the planned test design.
 
 ---
 
 ## Build Integration
 
+The circuit library is a STATIC library in `src/CMakeLists.txt`. It links against
+the shared `q` library (which bundles `state` and `gate`) rather than against separate
+`state` and `gate` targets, because those are not exposed as standalone CMake targets.
+
 ```cmake
+# In src/CMakeLists.txt (current implementation — pauli.c only):
 add_library(circuit STATIC
-    src/circuit/pauli.c
-    src/circuit/pauli_exp.c
-    src/circuit/circuit.c
+    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli.c"
 )
-target_include_directories(circuit PUBLIC include)
-target_link_libraries(circuit
-    PUBLIC  state          # state_t visible through circuit.h
-    PRIVATE gate           # gate.h (insertBit0, pack_idx) used by pauli_exp.c
+target_include_directories(circuit
+    PUBLIC  "${CMAKE_SOURCE_DIR}/include"
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled"  # for gate_tiled.h (future use)
 )
-target_include_directories(circuit PRIVATE src/gate/tiled)
-# gate_tiled.h lives in src/gate/tiled/ which is a PRIVATE gate header not exposed
-# through gate's PUBLIC include path (include/). The PRIVATE include above gives
-# pauli_exp.c direct access without leaking gate_tiled.h to circuit's consumers.
-
+target_compile_definitions(circuit PRIVATE LOG_TILE_DIM=${LOG_TILE_DIM})
+if(DEFINED OMP_THRESHOLD)
+    target_compile_definitions(circuit PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
+endif()
+target_link_libraries(circuit PUBLIC q)   # q exposes state.h and gate.h transitively
 if(ENABLE_OPENMP)
-    target_link_libraries(circuit PRIVATE OpenMP::OpenMP_C)
+    target_link_libraries(circuit PRIVATE omp_compiler_flags)
 endif()
 
-if(BUILD_TESTS)
-    add_executable(test_circuit
-        test/circuit/test_circuit.c
-        test/circuit/test_pauli.c
-        test/circuit/test_pauli_exp.c
-    )
-    target_link_libraries(test_circuit PRIVATE circuit gate state)
-    add_test(NAME circuit COMMAND test_circuit)
+# In test/CMakeLists.txt:
+set(TEST_CIRCUIT_SRC
+    "${CIRCUIT_DIR}/test_circuit.c"
+    "${CIRCUIT_DIR}/test_pauli.c"
+    "${UTILITY_DIR}/linalg.c"      # zmv() for reference matrix-vector products
+    "${UNITY_SRC}/unity.c"
+)
+add_executable(test_circuit ${TEST_CIRCUIT_SRC})
+target_compile_definitions(test_circuit PRIVATE
+    UNITY_INCLUDE_DOUBLE UNITY_SUPPORT_64
+    LOG_TILE_DIM=${LOG_TILE_DIM})
+if(DEFINED OMP_THRESHOLD)
+    target_compile_definitions(test_circuit PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
 endif()
+target_include_directories(test_circuit PRIVATE
+    ${UNITY_SRC}
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+target_link_libraries(test_circuit PRIVATE circuit q)
+add_test(NAME test_circuit COMMAND test_circuit)
 ```
 
-`state` is a PUBLIC dependency because `param_channel_t` and `pqc_t` expose `state_t *`
-in their function pointer signatures — consumers of `circuit.h` need `state.h` transitively.
+**When `pauli_exp.c` and `circuit.c` are added**, extend the `circuit` STATIC library:
+```cmake
+add_library(circuit STATIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli_exp.c"   # add when ready
+    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/circuit.c"      # add when ready
+)
+```
+Add `test_pauli_exp.c` to `TEST_CIRCUIT_SRC` at the same time. The `gate/tiled`
+PRIVATE include is already wired for `gate_tiled.h` access needed by `pauli_exp.c`.
 
-`gate` is a PRIVATE dependency because `pauli_exp.c` uses `gate_tiled.h` inline helpers
-(`tile_off`, `elem_off`, `dtile_read`, `dtile_write`) for the tiled backend traversal.
-These helpers do not appear in `circuit.h`.
+**Dependency rationale:**
+- `q` is a PUBLIC dependency of `circuit` because `circuit.h` exposes `state_t *` in
+  function signatures — consumers of `circuit.h` need `state.h` (and `gate.h`)
+  transitively.
+- `omp_compiler_flags` is PRIVATE because OpenMP is an implementation detail of
+  the parallel loops in `pauli.c`; it does not appear in `circuit.h`.
+- `linalg.c` is a test-only dependency (provides `zmv` for the reference oracle).
+  It is not linked into the `circuit` library itself.
 
 ---
 
