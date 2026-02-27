@@ -2,9 +2,9 @@
 
 **Module:** Parametrised Quantum Circuits and Pauli Operations
 **Status:** Partially implemented — Pauli string construction, phase, and pure-state application complete. Exponential (`pauli_exp.c`) and circuit types (`circuit.c`) pending.
-**Depends on:** State module, Gate module
+**Depends on:** State module (`state.h`, `state_t`, `qubit_t`), Gate module (`gate.h`, `GATE_VALIDATE`)
 **Consumed by:** MEAS module
-**Last updated:** 2026-02-26
+**Last updated:** 2026-02-27 (audited against source)
 
 ---
 
@@ -23,30 +23,50 @@ State ──── Gate
 Circuit is the bridging layer between Gate and MEAS. It owns the circuit
 representation (`pqc_t`, `lcu_circuit_t`) and the Pauli string machinery
 that MEAS consumes for expectation value, gradient, and moment matrix
-computation. `pqc_t`, `param_channel_t`, `lcu_layer_t`, and `lcu_circuit_t`
-formerly resided in MEAS; they move here.
+computation.
 
 ---
 
-## Module Layout
+## Directory Layout
 
 ```
 include/
-  circuit.h                    # Public API — implemented types and declarations only
-                               # (param_channel_t, pqc_t, lcu_* types not yet present)
+  circuit.h                    # Public API — pauli_t, pauli_label_t, pauli_phase_t,
+                               #   pauli_new/from_str/free/phase/apply_pure declared.
+                               #   param_channel_t, pqc_t, lcu_* types NOT YET present.
 
 src/circuit/
-  pauli.c                      # ✓ DONE: pauli_new, pauli_from_str, pauli_free,
-                               #         pauli_phase, pauli_apply_pure
-  pauli_exp.c                  # ✗ PENDING: Pauli exponential PURE/PACKED/TILED
-  circuit.c                    # ✗ PENDING: pqc_t, lcu_circuit_t constructors,
-                               #            channel constructors
+  pauli.c                      # DONE: pauli_new, pauli_from_str, pauli_free,
+                               #       pauli_phase, pauli_apply_pure
+  pauli_exp.c                  # PENDING: pauli_exp_{pure,packed,tiled}, grad_inner
+  circuit.c                    # PENDING: pqc_t, lcu_circuit_t constructors,
+                               #          channel constructors
 
 test/circuit/
-  test_circuit.c               # ✓ DONE: test runner + main() — 30 tests, 0 failures
-  test_pauli.c                 # ✓ DONE: Pauli construction, phase, apply_pure tests
-  test_pauli_exp.c             # ✗ PENDING: Pauli exponential tests
+  test_circuit.c               # DONE: test runner + main() — 30 tests, 0 failures
+  test_pauli.c                 # DONE: Pauli construction, phase, apply_pure tests
+  test_pauli_exp.c             # PENDING: Pauli exponential and grad_inner tests
 ```
+
+---
+
+## Current Status and TODO
+
+| Item | Status |
+|------|--------|
+| `pauli_t` type, masks, construction | Complete |
+| `pauli_phase` | Complete |
+| `pauli_apply_pure` (PURE state) | Complete |
+| `pauli_exp_pure` | Pending — algorithm fully specified |
+| `pauli_exp_packed` (MIXED_PACKED) | Pending — algorithm fully specified |
+| `pauli_exp_tiled` (MIXED_TILED) | Pending — algorithm fully specified |
+| `grad_inner` for all state types | Pending — algorithm fully specified |
+| `param_channel_t` type | Pending — type specified, not yet in `circuit.h` |
+| `pqc_t` type and constructors | Pending — type specified, not yet in `circuit.h` |
+| `lcu_layer_t`, `lcu_circuit_t` | Pending — types specified, not yet in `circuit.h` |
+| Channel constructors (`pauli_exp_channel_new`, etc.) | Pending |
+| `test_pauli_exp.c` | Pending — blocked on `pauli_exp.c` |
+| MEAS migration (remove duplicate type defs) | Pending |
 
 **Build (circuit tests only):**
 ```bash
@@ -54,6 +74,27 @@ cmake --preset debug
 cmake --build --preset debug --target test_circuit
 ./cmake-build-debug/test/test_circuit
 ```
+
+---
+
+## Inputs — What This Module Consumes
+
+| Source | Items used |
+|--------|-----------|
+| `state.h` (State module) | `state_t`, `qubit_t`, `state_t.type` (`PURE`/`MIXED_PACKED`/`MIXED_TILED`), `state_t.data`, `state_t.qubits` |
+| `gate.h` (Gate module) | `GATE_VALIDATE` macro (fast-fail validation in `pauli_apply_pure`); `insertBit0` (pair enumeration in `pauli_apply_pure`); `gate_idx_t` (loop index type); `gate_tiled.h` (private, for `dtile_read`/`dtile_write` in pending `pauli_exp.c`) |
+| `<stdint.h>` | `uint64_t` (bitmasks — exactly 64 bits on all platforms, unlike `unsigned long`) |
+| `<math.h>` | `cos`, `sin` (used in pending `pauli_exp.c`) |
+
+---
+
+## Outputs — What This Module Produces
+
+| Artifact | Description |
+|----------|-------------|
+| `libcircuit.a` | Static library linked by `test_circuit` and (future) the MEAS module |
+| `include/circuit.h` | Public header; currently declares Pauli API only; will grow to include channel and circuit types |
+| CMake target `circuit` | PUBLIC dependency on `q` (exposes `state.h`/`gate.h` transitively to consumers) |
 
 ---
 
@@ -70,6 +111,8 @@ typedef enum {
 } pauli_label_t;
 ```
 
+**Note:** `circuit.h` (lines 38–40) has an incorrect comment claiming `Y = 0b11` and `Z = 0b10`; the actual declared values above (`Y=2=0b10`, `Z=3=0b11`) are correct. The mask-construction logic in `pauli_new` uses `switch(labels[j])` and is not affected by the comment error.
+
 ### Pauli String
 
 ```c
@@ -85,19 +128,16 @@ typedef struct {
 } pauli_t;
 ```
 
-**Encoding convention:** labels[j] acts on qubit j — the j-th bit position in the
+**Encoding convention:** `labels[j]` acts on qubit j — the j-th bit position in the
 little-endian computational-basis index (matching STATE_MODULE.md: index 5 = binary
 101 = q₀=1, q₁=0, q₂=1).
 
 **Constraint:** n_qubits ≤ 64. Systems requiring more than 64 qubits are out of scope.
-`uint64_t` (from `<stdint.h>`) is used for masks rather than `unsigned long` because
-`unsigned long` is 32 bits on Windows (LLP64 data model); `uint64_t` is exactly 64 bits
-on all platforms per C17. `qubit_t` is used for `n_qubits` to match `state_t.qubits`.
 
-**Derived masks** (all precomputed in pauli_new):
+**Derived masks** (all precomputed in `pauli_new`):
 - `x_mask`: bits where the Pauli flips the state. Used to compute the paired index x' = x XOR x_mask.
-- `z_mask`: bits that contribute a (−1)^{bit} phase factor. Includes both Y (which has a Z component) and Z labels.
-- `y_mask`: bits that contribute an extra factor of i (or −i when the bit is 1). Equals the subset of z_mask where the Pauli is Y.
+- `z_mask`: bits that contribute a (−1)^{bit} phase factor. Includes both Y and Z labels.
+- `y_mask`: bits that contribute an extra factor of i (or −i when the bit is 1). Equals the subset of z_mask where the Pauli is Y. By construction, `y_mask ⊆ x_mask`, so `y_mask ≠ 0` implies `x_mask ≠ 0`.
 
 ### Parametrised Channel
 
@@ -116,16 +156,15 @@ typedef struct param_channel {
 - Unitary channel: state → U(θ) state (or U(θ)ρU(θ)† for density matrices).
 - Noisy channel: state → Σ_a K_a state K_a† (full Kraus map; θ may be used or ignored).
 
-**Adjoint:** For all unitary channel types, U(θ)† = U(−θ) (i.e., exp(+iθ/2 P) =
-exp(−i(−θ)/2 P)). The backward pass calls `apply(state, −theta, ctx)` directly; no
-separate `apply_adjoint` pointer is needed or stored.
+**Adjoint:** For all unitary channel types, U(θ)† = U(−θ). The backward pass calls
+`apply(state, −theta, ctx)` directly; no separate adjoint pointer is stored.
 
 **`grad_inner(mu, tmp, θ, ctx)`**: Returns −2 Im ⟨μ|G|tmp⟩ (pure state) or
 −2 Im Tr(H_f G σ) (mixed state), where G is the generator of U(θ). Only meaningful
 when `has_gradient = 1`.
 
-**ctx lifetime:** The `ctx` pointer is borrowed — the channel does not own it. The
-caller must keep `ctx` alive for at least the lifetime of the channel.
+**ctx lifetime:** Borrowed — the channel does not own it. The caller must keep `ctx`
+alive for at least the lifetime of the channel.
 
 ### Flat Parametrised Circuit
 
@@ -138,9 +177,8 @@ typedef struct {
 } pqc_t;
 ```
 
-A circuit is **entirely ideal or contains noise**. `is_noisy` is set automatically by
-`pqc_new` based on whether any channel has `has_gradient = 0`. When `is_noisy = 1`,
-MEAS will refuse to compute gradients.
+`is_noisy` is set automatically by `pqc_new` based on whether any channel has
+`has_gradient = 0`. When `is_noisy = 1`, MEAS refuses to compute gradients.
 
 ### LCU Layer
 
@@ -151,16 +189,14 @@ typedef struct {
 } lcu_layer_t;
 ```
 
-Each unitary is a fixed gate sequence (no free parameter). The function pointers do
-not receive a context argument — the caller captures all required data in a closure
-or pre-bound struct. The `K` unitaries are indexed 0 to K−1 and selected by the
-multi-index used in moment matrix computation.
+Each unitary is a fixed gate sequence (no free parameter). The `K` unitaries are
+indexed 0 to K−1 and selected by the multi-index used in moment matrix computation.
 
 ### LCU Circuit
 
 ```c
 typedef struct {
-    lcu_layer_t **layers;   // L layer pointers
+    lcu_layer_t **layers;   // L layer pointers (borrowed; externally owned)
     int           L;
     int           N;        // total multi-indices: N = ΠK_k, product over k = 0..L−1
 } lcu_circuit_t;
@@ -174,7 +210,8 @@ typedef struct {
 
 ```c
 // Allocate from a dense label array. Precomputes all three masks.
-// Returns NULL on OOM or if n_qubits > 64.
+// Returns NULL on OOM, if n_qubits > 64, or if n_qubits > 0 && labels == NULL.
+// n_qubits == 0 is valid: returns a Pauli with NULL labels and all masks zero.
 pauli_t *pauli_new(const pauli_label_t *labels, qubit_t n_qubits);
 
 // Parse from a string of characters 'I','X','Y','Z' of length n_qubits.
@@ -223,23 +260,18 @@ typedef struct { int real; int imag; } pauli_phase_t;
 pauli_phase_t pauli_phase(const pauli_t *P, uint64_t x);
 ```
 
-**Key identity:** ε(x') = ε(x) · (−1)^{popcount(y\_mask)}.
+**Key identity:** ε(x') = ε(x) · (−1)^{popcount(y\_mask)}, where x' = x XOR x\_mask.
 
 Proof: popcount((x XOR x\_mask) AND z\_mask) = popcount((x AND z\_mask) XOR y\_mask)
 = popcount(x AND z\_mask) + popcount(y\_mask) (mod 2), using x\_mask AND z\_mask = y\_mask.
-Therefore ε(x') = i^{pop(y)} · (−1)^{pop(x AND z)+pop(y)} = ε(x) · (−1)^{pop(y\_mask)}.
 
 Corollaries:
 - ε(x) · ε(x') = (−1)^{popcount(y\_mask)} (depends only on the Pauli string, not x).
-- ε(x) · ε*(x') = ε(x) · ε(x)* · (−1)^{pop(y)} = (−1)^{pop(y\_mask)} ∈ {+1, −1}.
+- ε(x) · ε*(x') = (−1)^{popcount(y\_mask)} ∈ {+1, −1} (always real — P is Hermitian).
 - If popcount(y\_mask) is even: ε(x') = ε(x). If odd: ε(x') = −ε(x).
 
-This last corollary is useful for the pauli\_exp implementation: when pop(y\_mask) is odd,
-the phase factor for the paired element is always the negation of the local phase,
-so only one phase evaluation per pair is needed.
-
-**Important identity:** ε(x) · ε*(x') = (−1)^{popcount(y\_mask)} = ±1 (always real).
-This follows from P being Hermitian: (PρP)_{xx} is real.
+The last corollary is used by `pauli_exp`: when pop(y\_mask) is odd, only one phase
+evaluation per pair is needed.
 
 ### Pure-State Application
 
@@ -252,45 +284,42 @@ void pauli_apply_pure(state_t *state, const pauli_t *P);
 
 **Algorithm — three code paths dispatched by mask structure:**
 
-**Path 1 — Identity** (`x_mask = 0, z_mask = 0`): immediate return. All labels are I;
-the Pauli string is a global phase on pure states and requires no work.
+**Path 1 — Identity** (`x_mask = 0, z_mask = 0`): immediate return.
 
 **Path 2 — Diagonal** (`x_mask = 0, z_mask ≠ 0`): `P|ψ⟩[i] = ε(i) · ψ[i]` for
-all i. No amplitude swapping occurs. Two sub-paths:
+all i. No amplitude swapping.
 
 - **Pure Z-string** (`y_mask = 0`): ε(i) = (−1)^{popcount(i AND z\_mask)} ∈ {±1}.
-  Implemented as a branchless real sign flip `data[i] *= 1.0 - 2.0*parity` — no complex
-  arithmetic required.
-- **Diagonal with Y-factors** (`y_mask ≠ 0`): unreachable in practice, because
-  `y_mask ≠ 0` implies `x_mask ≠ 0`. The branch exists for completeness but is dead
-  code for any valid `pauli_t`. See **Known Pitfalls** below.
+  Implemented as a branchless real sign flip `data[i] *= 1.0 - 2.0*parity`.
+- **Diagonal with Y factors** (`y_mask ≠ 0, x_mask = 0`): Structurally unreachable —
+  `PAULI_Y` always sets both `x_mask` and `y_mask` bits, so `y_mask ≠ 0` implies
+  `x_mask ≠ 0`. The branch is present in `pauli.c` (line 217) as dead code for
+  completeness but is never executed.
 
 **Path 3 — Anti-diagonal** (`x_mask ≠ 0`): amplitudes come in pairs (j, j'), where
 j' = j XOR x_mask. For each pair:
 
     tmp     = ψ[j]
-    ψ[j]   = ε(j') · ψ[j']      // (P|ψ⟩)[j]  = ε(j') · ψ[j']
-    ψ[j']  = ε(j)  · tmp        // (P|ψ⟩)[j'] = ε(j)  · ψ[j]
+    ψ[j]   = ε(j') · ψ[j']
+    ψ[j']  = ε(j)  · tmp
 
-Since ε ∈ {±1, ±i}, each multiplication is zero-flop: implemented via `apply_ipow`
-which uses only component swaps and negations (no floating-point multiplications).
+Since ε ∈ {±1, ±i}, each multiplication is implemented via the internal helper
+`apply_ipow(z, exp)` (static inline, `pauli.c` line 151), which rotates a complex
+number by i^exp using only component swaps and sign changes — no floating-point
+multiplications.
 
-**Pair enumeration** (critical implementation detail): there are exactly dim/2 unique
-pairs. To enumerate them without double-counting, insert a 0-bit at the **lowest set
-bit of x_mask** (call it `split_bit = __builtin_ctzll(x_mask)`). For k = 0..dim/2−1:
+**Pair enumeration** (critical implementation detail): to enumerate dim/2 unique pairs
+without double-counting, insert a 0-bit at the **lowest set bit of x_mask** only
+(`split_bit = __builtin_ctzll(x_mask)`). For k = 0..dim/2−1:
 
     j  = insertBit0(k, split_bit)   // j has 0 at split_bit
-    j' = j XOR x_mask               // j' has 1 at split_bit (and all other X-bits flipped)
+    j' = j XOR x_mask               // j' has 1 at split_bit
 
-This uses a single `insertBit0` call regardless of how many bits x_mask has. The
-naive approach of inserting zeros at ALL x_mask bit positions would give only
-dim/2^{popcount(x\_mask)} pairs — correct only for single-bit x_masks — and silently
-skip all remaining pairs for multi-qubit Pauli strings. This was an actual bug caught
-by the test suite during implementation.
+Chaining `insertBit0` at all x\_mask bit positions yields dim/2^{popcount(x\_mask)}
+pairs — correct only for single-bit x\_masks. This was an actual bug caught by the
+test suite.
 
-**Phase computation:** use the key identity ε(j') = ε(j) · (−1)^{popcount(y\_mask)}
-to compute ε(j') from ε(j) with one extra arithmetic operation rather than a second
-popcount call:
+**Phase computation:**
 
     parity_j  = popcount(j  AND z_mask) & 1
     exp_j     = (eta_exp + 2 * parity_j) & 3      // ε(j)  = i^{exp_j}
@@ -298,9 +327,6 @@ popcount call:
 
 where `eta_exp = popcount(y_mask) & 3` and `y_parity = popcount(y_mask) & 1` are
 constants for the Pauli string.
-
-**OpenMP:** `#pragma omp parallel for if(dim >= OMP_THRESHOLD)` where
-`OMP_THRESHOLD = 4096`. Pairs are independent — no data races.
 
 **Validation:**
 ```c
@@ -312,32 +338,21 @@ GATE_VALIDATE(state->qubits >= 64 ||
               "...: Pauli mask exceeds state dimension");
 ```
 
-The mask check guards against `>> state->qubits` being UB when `state->qubits ≥ 64`
-(shift of a 64-bit type by 64+ is undefined in C17).
+The `state->qubits >= 64` guard avoids UB: shifting a 64-bit type by 64+ is undefined
+in C17.
 
-### Known Pitfalls
-
-**Dead code branch:** The "Diagonal with Y-factors" sub-path (`x_mask = 0, y_mask ≠ 0`)
-is structurally unreachable. By construction, `y_mask ⊆ x_mask` (every Y label sets
-both its x_mask and z_mask bit), so `y_mask ≠ 0` implies `x_mask ≠ 0`. The branch is
-retained in `pauli.c` as defensive code with a comment noting its unreachability.
-
-**Pair enumeration — single insertBit0 only:** Only insert at `split_bit = ctz(x_mask)`,
-not at all x_mask bit positions. Chaining insertBit0 at all positions yields
-dim/2^{popcount(x\_mask)} pairs, which is wrong for multi-qubit Pauli strings.
+**OpenMP:** `#pragma omp parallel for if(dim >= OMP_THRESHOLD)` where
+`OMP_THRESHOLD = 4096`. Pairs are independent — no data races.
 
 ### Identity Pauli Strings
 
 When `x_mask = 0` (all labels are I or Z), the Pauli string is diagonal in the
 computational basis: P|x⟩ = ε(x)|x⟩ with no bit flip.
 
-- **Pure state:** exp(−iθ/2 P) applies a state-dependent phase exp(−iθ/2 ε(x)) to
-  each amplitude.
-- **Density matrix:** ρ'_{xy} = exp(−iθ/2 (ε(x) − ε(y))) ρ_{xy}. The diagonal
-  ρ_{xx} is unchanged (global phase cancels). Off-diagonal elements acquire a
-  relative phase.
+- **Pure state:** `exp(−iθ/2 P)` applies a state-dependent phase `exp(−iθ/2 ε(x))` to each amplitude.
+- **Density matrix:** ρ'_{xy} = exp(−iθ/2 (ε(x) − ε(y))) ρ_{xy}. The diagonal is unchanged (global phase cancels). Off-diagonal elements acquire a relative phase.
 
-The all-identity string I⊗n (x_mask = 0, z_mask = 0) is a global phase on pure
+The all-identity string I⊗n (`x_mask = 0, z_mask = 0`) is a global phase on pure
 states and a complete no-op on density matrices.
 
 ---
@@ -346,13 +361,9 @@ states and a complete no-op on density matrices.
 
 ### Mathematical Definition
 
-    U(θ) = exp(−iθ/2 · P)
+    U(θ) = exp(−iθ/2 · P) = cos(θ/2) I − i sin(θ/2) P
 
-Since P is Hermitian and P² = I:
-
-    U(θ) = cos(θ/2) I − i sin(θ/2) P
-
-The adjoint is U(θ)† = exp(+iθ/2 P) = U(−θ).
+The adjoint is U(θ)† = U(−θ).
 
 ### Algorithm: PURE State
 
@@ -372,19 +383,16 @@ pauli_exp_pure(state, P, theta):
         state->data[x'] = c*b - i*s*eps_x  * a   // ε(x)  is the phase for row x'
 ```
 
-**Derivation:** P_{row, col} = ε(col) · δ_{row, col XOR x\_mask}.
-So (P|ψ⟩)_x = ε(x') · ψ(x')  (the only nonzero column contributing to row x is x').
-Therefore ψ'(x) = c·ψ(x) − i·s·ε(x')·ψ(x'), and symmetrically for x'.
+**Derivation:** P_{row, col} = ε(col) · δ_{row, col XOR x\_mask}. So
+(P|ψ⟩)_x = ε(x') · ψ(x'). The inner update is a 2×2 rotation mixing `a` and `b`.
+Since ε(x') ∈ {±1, ±i}, the multiplication by `−i·ε(x')` reduces to component
+swaps and sign changes. When pop(y\_mask) is odd, eps\_x' = −eps\_x, halving the
+number of phase evaluations.
 
-The inner update is a 2×2 rotation mixing `a` and `b`. Since ε(x') ∈ {±1, ±i}, each
-multiplication by `−i·ε(x')` reduces to a combination of negation, swapping real/imag,
-and sign changes — no general complex multiply is needed. When pop(y\_mask) is odd,
-eps\_x' = −eps\_x (by the key identity), halving the number of phase evaluations.
+**Edge case x_mask = 0:** For non-all-identity diagonals (z\_mask ≠ 0), iterate over
+all x without pairing, applying `state->data[x] *= exp(−iθ/2 · ε(x))`.
 
 **OpenMP:** parallel over pairs, `if (dim >= OMP_THRESHOLD)`.
-
-**Edge case x_mask = 0:** For non-all-identity diagonals (z_mask ≠ 0), iterate over
-all x without pairing, applying state->data[x] *= exp(−iθ/2 · ε(x)).
 
 ### Algorithm: MIXED_PACKED and MIXED_TILED
 
@@ -395,52 +403,26 @@ For density matrices ρ → U(θ) ρ U(θ)†:
 
 where c = cos(θ/2), s = sin(θ/2), x' = x XOR x_mask, y' = y XOR x_mask.
 
-**Note on the s² coefficient:** ε(x')ε*(y') = ε(x)ε*(y). This follows from the key
-identity ε(x') = ε(x)·(−1)^{pop(y\_mask)}: the (−1) factors cancel in the product,
-so `ε(x)ε*(y)` and `ε(x')ε*(y')` are interchangeable. The cross terms do NOT share
-this cancellation and must use ε(x') and ε*(y') explicitly.
+**Note:** ε(x')ε*(y') = ε(x)ε*(y) (the (−1)^{pop(y\_mask)} factors cancel in the
+product). The cross terms do not share this cancellation.
 
 **Four-element coupling:** Each output element ρ'_{xy} is a linear combination of
-four input elements: ρ_{xy}, ρ_{x',y'}, ρ_{x',y}, ρ_{x,y'}. These four elements
-form one independent mixing group. Elements in a group are processed atomically —
-all four inputs must be read before any output is written.
+four input elements: ρ_{xy}, ρ_{x',y'}, ρ_{x',y}, ρ_{x,y'}. All four inputs must
+be read before any output is written.
 
-**Group enumeration:** Groups are indexed by the representative pair (x, y) with:
-- x < x' = x XOR x\_mask  (pick the lower row of the row-pair), **and**
-- y < y' = y XOR x\_mask  (pick the lower column of the column-pair).
+**Group enumeration:** Groups are indexed by representative (x, y) with x < x' and
+y < y' (i.e., the lowest set bit of x\_mask is 0 in both x and y). The condition
+y < y' prevents double-counting. Diagonal representatives (y = x) are included in the
+main traversal with no special case.
 
-The second condition (y < y') is equivalent to: the lowest set bit of x\_mask is 0
-in y. Without it, both (x, y) and (x, y') would qualify as representatives for the
-same 4-element group, causing each group to be processed twice.
+**MIXED_PACKED:** Iterate over representative pairs, load all four elements (accessing
+upper-triangle elements via conjugation), compute new values, write back. Diagonal
+block guard: zero the imaginary part of ρ'_{xx} and ρ'_{x'x'} explicitly (numerical
+hygiene; unitarity guarantees they are mathematically zero).
 
-For each representative (x, y), the triangle membership of all four elements
-(upper/lower/diagonal) is determined once before processing. Upper-triangle elements
-are accessed via Hermitian conjugation of the transposed index.
-
-**Special case y = x (diagonal representative):** When y = x, the group contains
-both diagonal elements ρ_{xx} and ρ_{x'x'} along with the off-diagonal pair ρ_{xx'}
-and ρ_{x'x}. Since y' = x' > x = y, the condition y < y' is satisfied, so diagonal
-representatives are included in the main traversal with no special case needed.
-
-**MIXED_PACKED traversal:**
-
-Iterate over representative pairs (x, y) with x < x' and y < y':
-
-1. Determine: `x' = x XOR x_mask`, `y' = y XOR x_mask`.
-2. Load all four elements (accessing upper-triangle via conjugate if needed).
-3. Compute the four new values using the formula above.
-4. Write back, enforcing Hermitian symmetry for upper-triangle positions.
-
-Diagonal block guard: when x = y (diagonal representative), ρ'_{xx} and ρ'_{x'x'}
-are guaranteed real by unitarity (UρU† is Hermitian; its diagonal is real). In
-floating-point, rounding may introduce a tiny imaginary part — zero it explicitly.
-This is a numerical hygiene step, not a mathematical correction.
-
-**MIXED_TILED traversal:** Same 4-element mixing kernel. The traversal structure
-mirrors `gate_tiled_h.c` (Hadamard on tiled storage): iterate over tile pairs
-(tr, tc) with tr ≥ tc, then over the within-tile element groups using the
-dtile_read/dtile_write helpers from `gate_tiled.h`. Diagonal tiles require the same
-conjugation guard as in single-qubit tiled gate implementations.
+**MIXED_TILED:** Same kernel. Traversal mirrors `gate_tiled_h.c`: iterate over tile
+pairs (tr, tc) with tr ≥ tc, then over within-tile element groups using
+`dtile_read`/`dtile_write` from `gate_tiled.h`.
 
 **OpenMP:** parallel over tile rows (MIXED_TILED) or element rows (MIXED_PACKED),
 `if (dim >= OMP_THRESHOLD)`. `OMP_THRESHOLD = 512`.
@@ -459,25 +441,16 @@ S = Σ_{x=0}^{2^n−1}  conj(mu->data[x]) · ε(x') · tmp->data[x']
 return −Im S
 ```
 
-**Derivation:** ⟨μ|P|tmp⟩ = Σ_x μ\*(x) (P|tmp⟩)_x = Σ_x μ\*(x) · ε(x') · tmp(x').
-The phase factor is ε(x'), not ε(x): (P|tmp⟩)_x = Σ_z P_{xz} tmp(z) = ε(x') · tmp(x')
-(only z = x' contributes, since P_{xz} = ε(z) · δ_{x, z XOR x\_mask} is nonzero
-only when z = x' = x XOR x\_mask).
-
-One loop over all amplitudes. Each iteration: one phase lookup (at x'), one multiply-accumulate.
+**Derivation:** (P|tmp⟩)_x = ε(x') · tmp(x') (only z = x' contributes to row x).
+One loop over all amplitudes; each iteration: one phase lookup at x', one multiply-accumulate.
 
 #### Mixed State — O(4^n), Direct Storage Traversal
 
-**Derivation.** Expanding `Tr(H_f · P · σ)` using the matrix elements of P
-(P_{ab} = ε(b) δ_{a, b'} where b' = b XOR x_mask):
+Expanding `Tr(H_f · P · σ)` using P_{ab} = ε(b) δ_{a, b'} where b' = b XOR x_mask:
 
     Tr(H_f P σ) = Σ_{a,b} (H_f)_{b, a'} · ε(a) · σ_{ab}
 
-where `a' = a XOR x_mask`. This is a bilinear form: each element σ_{ab} is paired
-with the element of H_f at coordinates `(b, a')`.
-
-**Reduction to the stored lower triangle.** Since only lower-triangle elements
-(row ≥ col) are stored, and both H_f and σ are Hermitian, expand by cases:
+Since only lower-triangle elements are stored and both H_f and σ are Hermitian:
 
 ```
 S = 0
@@ -488,52 +461,37 @@ for each a = 0..d−1:
 
 // Off-diagonal stored elements of σ  (a > b, two contributions each)
 for each (a, b) with a > b:
-    S += lookup_hf(b, a') · ε(a) · σ_{ab}        // (σ in lower tri)
-    S += lookup_hf(a, b') · ε(b) · conj(σ_{ab})  // (σ upper tri by symmetry)
+    S += lookup_hf(b, a') · ε(a) · σ_{ab}        // σ in lower tri
+    S += lookup_hf(a, b') · ε(b) · conj(σ_{ab})  // σ upper tri by symmetry
 
 return −Im S
 ```
 
-where:
-```
-lookup_hf(r, c):
-    if r >= c:  return mu->data[packed_index(r, c)]          // lower tri, direct
-    else:       return conj(mu->data[packed_index(c, r)])    // upper tri, conjugate
-```
+where `lookup_hf(r, c)` returns `mu->data[packed_index(r, c)]` for r ≥ c, or its
+conjugate for r < c.
 
-**Correctness check — identity string.** For P = I^⊗n (x_mask = 0, z_mask = 0):
-ε(a) = 1 for all a and a' = a. Then S = Σ_{a,b} (H_f)_{ba} σ_{ab} = Tr(H_fᵀ σ).
-Since H_f is Hermitian, H_fᵀ = H_f* and Tr(H_f* σ) = conj(Tr(H_f σ)).
-Because H_f and σ are both Hermitian, Tr(H_f σ) is real, so −Im S = 0. ✓
-(The all-identity Pauli is a no-op on density matrices, so its gradient is zero.)
+**Correctness check:** For P = I^⊗n (x\_mask = 0, z\_mask = 0), S = Tr(H\_fᵀ σ) = 0
+since H\_f and σ are both Hermitian and Tr(H\_f σ) is real. ✓
 
-**MIXED_PACKED:** Direct pointer arithmetic on `mu->data` and `tmp->data`.
-`packed_index(r, c)` = `c * d - c*(c+1)/2 + r` (matching STATE_MODULE.md).
-Iterate over `a = 0..d−1` for diagonal, then over off-diagonal pairs using the
-same outer loop structure as the packed 2Q gate traversal.
-**OpenMP:** `reduction(+:S_real, S_imag)` over the outer loop; `if (dim >= OMP_THRESHOLD)`.
+**MIXED_PACKED:** `packed_index(r, c)` = `c * d - c*(c+1)/2 + r` (matching STATE_MODULE.md).
+**OpenMP:** `reduction(+:S_real, S_imag)` over the outer loop.
 
-**MIXED_TILED:** Replace `packed_index` with `dtile_read(mu->data, r, c, n_tiles)`
-from `gate_tiled.h`, which handles tile offset arithmetic and conjugation for
-upper-triangle tile blocks. The outer loop iterates over tile pairs (tr, tc) with
-tr ≥ tc, then over local indices within each tile — the same structure as the
-tiled Pauli exponential traversal.
-**OpenMP:** parallel over tile rows; `if (dim >= OMP_THRESHOLD)`.
+**MIXED_TILED:** Replace `packed_index` with `dtile_read(mu->data, r, c, n_tiles)`.
+**OpenMP:** parallel over tile rows.
 
 ---
 
-## Built-in Channel Constructors
+## Public Interface
+
+### Channel Constructors
 
 ```c
-// Pauli exponential channel. U(θ) = exp(−iθ/2 P).
-// Generator G = P/2. has_gradient = 1.
+// Pauli exponential channel. U(θ) = exp(−iθ/2 P). Generator G = P/2. has_gradient = 1.
 // P is borrowed — caller must keep P alive for the lifetime of the channel.
 // Returns NULL on OOM.
 param_channel_t *pauli_exp_channel_new(const pauli_t *P);
 
-// Noisy (Kraus) channel. The caller encapsulates the entire Kraus map
-// ρ → Σ_a K_a ρ K_a† in one function.
-// apply_adjoint = NULL, grad_inner = NULL, has_gradient = 0.
+// Noisy (Kraus) channel. grad_inner = NULL, has_gradient = 0.
 // ctx is borrowed. Returns NULL on OOM.
 param_channel_t *kraus_channel_new(
     void       (*apply)(state_t *state, double theta, const void *ctx),
@@ -541,8 +499,6 @@ param_channel_t *kraus_channel_new(
 );
 
 // Generic channel with user-supplied function pointers.
-// Caller sets has_gradient and may pass NULL for grad_inner if inapplicable.
-// Adjoint is always obtained by calling apply with −theta; no separate pointer.
 // ctx is borrowed. Returns NULL on OOM.
 param_channel_t *channel_new(
     void   (*apply)     (state_t *, double, const void *),
@@ -555,30 +511,18 @@ param_channel_t *channel_new(
 void channel_free(param_channel_t *ch);
 ```
 
-**Pauli exponential channel internals:**
-
-The ctx pointer holds a `const pauli_t *`. The three function pointers are set to
-internal static functions:
-- `apply`:      dispatches on `state->type` to `pauli_exp_pure` / `pauli_exp_packed` /
-               `pauli_exp_tiled`; the adjoint U(θ)† is obtained by the caller passing −theta
-- `grad_inner`: computes −Im ⟨μ|P|tmp⟩ as described above
-
----
-
-## Circuit API
+**Pauli exponential channel internals:** ctx holds a `const pauli_t *`. `apply`
+dispatches on `state->type` to `pauli_exp_pure` / `pauli_exp_packed` / `pauli_exp_tiled`.
 
 ### Flat Parametrised Circuit
 
 ```c
-// Create a circuit.
-// - Copies the channels pointer array (not the channel objects themselves).
-// - Allocates params[n_channels], initialised to 0.0.
-// - Sets is_noisy = 1 if any channel has has_gradient == 0, else 0.
+// Create a circuit. Copies the channels pointer array (not the channel objects).
+// Allocates params[n_channels] initialised to 0.0. Sets is_noisy automatically.
 // Returns NULL on OOM.
 pqc_t *pqc_new(param_channel_t **channels, int n_channels);
 
-// Free the circuit struct and params array.
-// Does NOT free the channel objects or their ctx pointers.
+// Free the circuit struct and params array. Does NOT free channels or their ctx.
 void pqc_free(pqc_t *circuit);
 
 // Parameter access
@@ -590,88 +534,56 @@ void   pqc_set_param(pqc_t *circuit, int c, double val);
 ### LCU Structures
 
 ```c
-// LCU layer holding K unparametrised unitary function pointers.
-// Copies the fn_arr array into an internally allocated array (layer->unitaries).
-// Returns NULL on OOM.
+// LCU layer. Copies fn_arr into internal array. Returns NULL on OOM.
 lcu_layer_t *lcu_layer_new(void (**fn_arr)(state_t *), int K);
+void lcu_layer_free(lcu_layer_t *layer);  // frees internal fn ptr array
 
-// Free the lcu_layer_t struct and its internal function pointer array.
-void lcu_layer_free(lcu_layer_t *layer);
-
-// LCU circuit holding L layers.
-// Copies the layers pointer array (does not copy the lcu_layer_t objects).
-// Computes N = ΠK_k and stores it.
-// Returns NULL on OOM.
+// LCU circuit. Copies layers pointer array (layers themselves are borrowed).
+// Computes N = ΠK_k. Returns NULL on OOM.
 lcu_circuit_t *lcu_circuit_new(lcu_layer_t **layers, int L);
+void lcu_circuit_free(lcu_circuit_t *circuit);  // does NOT free lcu_layer_t objects
 
-// Free the circuit struct and the internal layers pointer array.
-// Does NOT free the lcu_layer_t objects.
-void lcu_circuit_free(lcu_circuit_t *circuit);
-
-// Decode a linear multi-index I (0 ≤ I < circuit->N) into per-layer indices.
-// Writes layer-k index into idx_out[k] for k = 0..L−1.
-// Multi-index ordering: idx_out[0] is the least significant (changes fastest).
+// Decode linear multi-index I (0 ≤ I < circuit->N) into per-layer indices.
+// idx_out[0] is least significant (changes fastest).
+// Encoding: I = idx_out[0] + K_0*(idx_out[1] + K_1*(idx_out[2] + ...))
 void lcu_multi_index(const lcu_circuit_t *circuit, int I, int *idx_out);
 ```
 
-**Multi-index encoding:** idx_out[0] cycles fastest, idx_out[L−1] slowest:
-
-    I = idx_out[0] + K_0 * (idx_out[1] + K_1 * (idx_out[2] + ...))
-
-Applying multi-index I to an initial state means sequentially applying:
-`layers[0].unitaries[idx_out[0]](state)`, then `layers[1].unitaries[idx_out[1]](state)`,
-etc. (layer 0 first, layer L−1 last).
+Applying multi-index I means sequentially applying
+`layers[k].unitaries[idx_out[k]](state)` for k = 0..L−1 (layer 0 first).
 
 ---
 
 ## Interface with MEAS
 
-The MEAS module is the exclusive consumer of `pqc_t`, `lcu_circuit_t`, and all
-circuit-level types. The Circuit module exposes these types and their constructors;
-all computation algorithms (expectation value, gradient, moment matrix) live in MEAS.
+MEAS is the exclusive consumer of `pqc_t`, `lcu_circuit_t`, and all circuit-level types.
+Circuit exposes the types and constructors; all computation algorithms (expectation
+value, gradient, moment matrix) live in MEAS.
 
 **MEAS uses from Circuit:**
 - `pqc_t` — for `expectation_value` and `gradient_adjoint`
 - `lcu_circuit_t` — for `moment_matrix`
-- `param_channel_t` function pointers — the 3-pass adjoint algorithm calls `apply`,
-  `apply_adjoint`, and `grad_inner` through these pointers
+- `param_channel_t` function pointers — the 3-pass adjoint algorithm calls `apply` (with
+  `−theta` for the adjoint direction) and `grad_inner` through these pointers
 - `lcu_multi_index` — to decode column and row indices during moment matrix computation
 
 **MEAS defines (outside Circuit's scope):**
-- `diag_hamiltonian_t` — diagonal cost Hamiltonian and its operations
-- QAOA channel constructors — cost channel (diagonal phase multiply using
-  `diag_hamiltonian_t`) and mixer channel (n sequential Rx calls); both use
-  `channel_new` from Circuit
-- `qaoa_circuit_new` — assembles a depth-p QAOA `pqc_t`
-- `expectation_value`, `gradient_adjoint`, `moment_matrix`, `moment_matrix_load`
+- `diag_hamiltonian_t` and its operations
+- QAOA channel constructors (cost and mixer) using `channel_new` from Circuit
+- `qaoa_circuit_new`, `expectation_value`, `gradient_adjoint`, `moment_matrix`
 
-**Consequence for MEAS_MODULE.md:** All type definitions for `param_channel_t`,
-`pqc_t`, `lcu_layer_t`, and `lcu_circuit_t` must be removed from MEAS and replaced
-with `#include "circuit.h"`. The following specific changes are required in MEAS:
-
-- **`param_channel_t`**: Remove the `apply_adjoint` field (it was never there in MEAS;
-  this module does not add it). Pass 2 of the backward algorithm calls
-  `apply(state, −theta, ctx)` directly.
-- **`pqc_t.params`**: Now struct-owned — `pqc_new` allocates, `pqc_free` frees. Remove
-  any caller-side `free(params)` in MEAS. The MEAS spec comment "caller-owned" was
-  incorrect.
-- **`pqc_free`**: Defined here; remove the `pqc_free` declaration from the MEAS API
-  section to avoid duplicate declarations.
-- **`lcu_layer_t.unitaries`**: Field is now named `unitaries` (renamed from `apply`
-  to avoid collision with `param_channel_t.apply`). MEAS already used `unitaries`.
-- **`lcu_circuit_t.layers`**: This module uses `lcu_layer_t **layers` (array of
-  pointers; layers are externally owned and borrowed). MEAS used `lcu_layer_t *layers`
-  (flat array). MEAS must be updated to `lcu_layer_t **layers`.
-- **`unitary_fn_t`**: MEAS Preliminary 2 referenced a shared `unitary_fn_t` typedef.
-  This module uses the raw function pointer type `void (**)(state_t *)` directly in the
-  struct; `unitary_fn_t` is not defined here. MEAS can define it locally if needed for
-  readability, or use the raw type.
+**Required MEAS_MODULE.md updates** (migration tasks, not yet done):
+- Replace all `param_channel_t`, `pqc_t`, `lcu_layer_t`, `lcu_circuit_t` definitions with `#include "circuit.h"`.
+- `pqc_t.params` is now struct-owned (`pqc_new` allocates, `pqc_free` frees) — remove any caller-side `free(params)`.
+- `lcu_circuit_t.layers` is now `lcu_layer_t **` (pointer array, borrowed), not `lcu_layer_t *` (flat array).
+- `lcu_layer_t.unitaries` field (renamed from `apply` in earlier MEAS drafts).
+- Remove the `pqc_free` declaration from MEAS to avoid duplicate declarations.
 
 ---
 
 ## Test Coverage
 
-**Last verified:** 2026-02-26 — 30 tests, 0 failures, tolerance ε = 1e−12.
+**Last verified:** 2026-02-27 — 30 tests, 0 failures, tolerance ε = 1e−12 (via `PRECISION` macro in `test/include/test.h`).
 
 **Reference strategy:** Every `check_pauli_apply` call constructs the full 2^n × 2^n
 Pauli matrix (`build_pauli_matrix`), multiplies it against the original statevector
@@ -684,22 +596,23 @@ output. Linalg helpers from `test/utility/linalg.c` are linked into `test_circui
 
 | Test | Description |
 |------|-------------|
-| `test_pauli_masks_X` | n=1 X: verify x_mask=1, z_mask=0, y_mask=0 |
-| `test_pauli_masks_Y` | n=1 Y: verify x_mask=1, z_mask=1, y_mask=1 |
-| `test_pauli_masks_Z` | n=1 Z: verify x_mask=0, z_mask=1, y_mask=0 |
-| `test_pauli_masks_str` | `pauli_from_str("IXYZ",4)` big-endian: x_mask=6, z_mask=3, y_mask=2; "IIII" (all zero); "XXXX" (x_mask=15) |
+| `test_pauli_masks_X` | n=1 X: x_mask=1, z_mask=0, y_mask=0 |
+| `test_pauli_masks_Y` | n=1 Y: x_mask=1, z_mask=1, y_mask=1 |
+| `test_pauli_masks_Z` | n=1 Z: x_mask=0, z_mask=1, y_mask=0 |
+| `test_pauli_masks_str` | `pauli_from_str("IXYZ",4)`: x_mask=6, z_mask=3, y_mask=2; "IIII" (all zero); "XXXX" (x_mask=15) |
 | `test_pauli_from_str_negative` | NULL string, invalid char 'A', embedded invalid char, length-too-short, length-too-long — all return NULL |
 
 #### pauli_phase (1 test)
 
 | Test | Description |
 |------|-------------|
-| `test_pauli_phase` | Spot-checks integer phase components for X(x=0,1), Y(x=0,1), Z(x=0,1) using `TEST_ASSERT_EQUAL_INT` |
+| `test_pauli_phase` | Spot-checks integer phase components for X(x=0,1), Y(x=0,1), Z(x=0,1) |
 
 #### pauli_apply_pure — Single-qubit (4 tests)
 
-All four single-qubit tests run against all 6 standard states:
-{|0⟩, |1⟩, |+⟩, |−⟩, |+y⟩, |−y⟩} (Z, X, and Y eigenbases).
+All single-qubit tests run against all 6 standard states:
+{|0⟩, |1⟩, |+⟩, |−⟩, |+y⟩, |−y⟩} (named `PSI1_0`, `PSI1_1`, `PSI1_P`, `PSI1_M`,
+`PSI1_PI`, `PSI1_MI` in the source).
 
 | Test | Pauli | x_mask | z_mask | split_bit | Code path |
 |------|-------|--------|--------|-----------|-----------|
@@ -710,8 +623,7 @@ All four single-qubit tests run against all 6 standard states:
 
 #### pauli_apply_pure — Two-qubit strings (7 tests)
 
-All n=2 tests run against all 7 defined states:
-{|00⟩, |01⟩, |10⟩, |11⟩, |++⟩, |+0⟩, |1+⟩}.
+All n=2 tests run against {|00⟩, |01⟩, |10⟩, |11⟩, |++⟩, |+0⟩, |1+⟩}.
 
 | Test | Pauli | x_mask | z_mask | split_bit | Notes |
 |------|-------|--------|--------|-----------|-------|
@@ -720,35 +632,37 @@ All n=2 tests run against all 7 defined states:
 | `test_pauli_apply_XZ` | XZ | 1 | 2 | 0 | Mixed X+Z types |
 | `test_pauli_apply_YY` | YY | 3 | 3 | 0 | Multi-bit x_mask, η=2 → −1 phase |
 | `test_pauli_apply_IZ` | IZ | 0 | 1 | — | Diagonal, non-trivial z position |
-| `test_pauli_apply_IX` | IX | 2 | 0 | **1** | **split_bit=1**: first non-trivial insertBit0 |
-| `test_pauli_apply_IY` | IY | 2 | 2 | **1** | **split_bit=1** with Y-phase |
+| `test_pauli_apply_IX` | IX | 2 | 0 | **1** | split_bit=1: first non-trivial insertBit0 |
+| `test_pauli_apply_IY` | IY | 2 | 2 | **1** | split_bit=1 with Y-phase |
 
 #### pauli_apply_pure — Three-qubit strings (6 tests)
 
-All n=3 tests run against all 11 defined states:
-8 computational basis states {|000⟩…|111⟩} plus GHZ = (|000⟩+|111⟩)/√2,
+All n=3 tests run against 8 computational basis states plus GHZ = (|000⟩+|111⟩)/√2,
 W = (|001⟩+|010⟩+|100⟩)/√3, and |+++⟩.
 
 | Test | Pauli | x_mask | z_mask | split_bit | Notes |
 |------|-------|--------|--------|-----------|-------|
 | `test_pauli_apply_XYZ` | XYZ | 3 | 6 | 0 | Mixed types; inline spot-check XYZ\|000⟩=i\|011⟩ |
-| `test_pauli_apply_ZZZ` | ZZZ | 0 | 7 | — | Full diagonal, dual inline+reference check |
-| `test_pauli_apply_IXI` | IXI | 2 | 0 | **1** | **split_bit=1**, 3-qubit |
-| `test_pauli_apply_XII` | XII | 4 | 0 | **2** | **split_bit=2** |
-| `test_pauli_apply_IZI` | IZI | 0 | 2 | — | Non-uniform diagonal, z_mask=2 |
-| `test_pauli_apply_ZIZ` | ZIZ | 0 | 5 | — | Alternating diagonal, z_mask=5 |
+| `test_pauli_apply_ZZZ` | ZZZ | 0 | 7 | — | Full diagonal |
+| `test_pauli_apply_IXI` | IXI | 2 | 0 | **1** | split_bit=1, 3-qubit |
+| `test_pauli_apply_XII` | XII | 4 | 0 | **2** | split_bit=2 |
+| `test_pauli_apply_IZI` | IZI | 0 | 2 | — | Non-uniform diagonal |
+| `test_pauli_apply_ZIZ` | ZIZ | 0 | 5 | — | Alternating diagonal |
 
 #### pauli_apply_pure — Four-qubit strings (4 tests, MAXQUBITS=4)
 
 All n=4 tests run against all 16 computational basis states plus PSI4_GHZ =
 (|0000⟩+|1111⟩)/√2.
 
+The "Pauli (labels[0..3])" column lists labels in little-endian order (labels[0] = qubit 0).
+This differs from big-endian string notation: e.g., `{X,Z,Y,X}` written big-endian is "XYZX".
+
 | Test | Pauli (labels[0..3]) | x_mask | z_mask | split_bit | Notes |
 |------|----------------------|--------|--------|-----------|-------|
-| `test_pauli_apply_4q` | XZYX | 13 | 6 | 0 | Mixed types, η=1 (i-phase) |
-| `test_pauli_apply_4q_split1` | IIXI | 2 | 0 | **1** | **split_bit=1**, 4-qubit |
-| `test_pauli_apply_4q_split2` | IXII | 4 | 0 | **2** | **split_bit=2** |
-| `test_pauli_apply_4q_split3` | XIII | 8 | 0 | **3** | **split_bit=3**: all {0,1,2,3} covered |
+| `test_pauli_apply_4q` | {X,Z,Y,X} | 13 | 6 | 0 | Mixed types, η=1 (i-phase); y_mask=4 verified in test |
+| `test_pauli_apply_4q_split1` | {I,X,I,I} | 2 | 0 | **1** | split_bit=1, 4-qubit |
+| `test_pauli_apply_4q_split2` | {I,I,X,I} | 4 | 0 | **2** | split_bit=2 |
+| `test_pauli_apply_4q_split3` | {I,I,I,X} | 8 | 0 | **3** | split_bit=3: all {0,1,2,3} covered |
 
 #### Round-trip, involution, and edge cases (3 tests)
 
@@ -758,32 +672,30 @@ All n=4 tests run against all 16 computational basis states plus PSI4_GHZ =
 | `test_pauli_apply_involution` | P²=I for X, Y, Z (n=1), XX (n=2), XYZ (n=3) applied to \|0…0⟩ |
 | `test_pauli_apply_identity_noop` | I⊗³ on \|+++⟩ is an exact no-op |
 
-**split_bit coverage summary:** All four `insertBit0` positions {0, 1, 2, 3} are exercised
-at n=4 (MAXQUBITS). Position 0 is the degenerate case (`mask=0`, plain left shift);
-positions 1, 2, 3 exercise the nontrivial `(val & mask) | ((val & ~mask) << 1)` path.
+**split_bit coverage:** All positions {0, 1, 2, 3} exercised at n=4.
 
 ### test_pauli_exp.c — Pending
 
 Tests for `pauli_exp_pure`, `pauli_exp_packed`, `pauli_exp_tiled`, and `grad_inner`
-will be added when `pauli_exp.c` is implemented. See the **Pauli Exponential** section
-above for the planned test design.
+will be added when `pauli_exp.c` is implemented.
 
 ---
 
 ## Build Integration
 
-The circuit library is a STATIC library in `src/CMakeLists.txt`. It links against
-the shared `q` library (which bundles `state` and `gate`) rather than against separate
+The circuit library is a STATIC library in `src/CMakeLists.txt`. It links against the
+shared `q` library (which bundles `state` and `gate`) rather than against separate
 `state` and `gate` targets, because those are not exposed as standalone CMake targets.
 
 ```cmake
-# In src/CMakeLists.txt (current implementation — pauli.c only):
+# In src/CMakeLists.txt (current — pauli.c only):
 add_library(circuit STATIC
     "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli.c"
+    # pauli_exp.c and circuit.c to be added when implemented
 )
 target_include_directories(circuit
     PUBLIC  "${CMAKE_SOURCE_DIR}/include"
-    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled"  # for gate_tiled.h (future use)
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled"  # gate_tiled.h for pauli_exp.c
 )
 target_compile_definitions(circuit PRIVATE LOG_TILE_DIM=${LOG_TILE_DIM})
 if(DEFINED OMP_THRESHOLD)
@@ -816,40 +728,71 @@ target_link_libraries(test_circuit PRIVATE circuit q)
 add_test(NAME test_circuit COMMAND test_circuit)
 ```
 
-**When `pauli_exp.c` and `circuit.c` are added**, extend the `circuit` STATIC library:
-```cmake
-add_library(circuit STATIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli_exp.c"   # add when ready
-    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/circuit.c"      # add when ready
-)
-```
-Add `test_pauli_exp.c` to `TEST_CIRCUIT_SRC` at the same time. The `gate/tiled`
-PRIVATE include is already wired for `gate_tiled.h` access needed by `pauli_exp.c`.
-
 **Dependency rationale:**
-- `q` is a PUBLIC dependency of `circuit` because `circuit.h` exposes `state_t *` in
-  function signatures — consumers of `circuit.h` need `state.h` (and `gate.h`)
-  transitively.
-- `omp_compiler_flags` is PRIVATE because OpenMP is an implementation detail of
-  the parallel loops in `pauli.c`; it does not appear in `circuit.h`.
-- `linalg.c` is a test-only dependency (provides `zmv` for the reference oracle).
-  It is not linked into the `circuit` library itself.
+- `q` is PUBLIC because `circuit.h` exposes `state_t *` in function signatures —
+  consumers of `circuit.h` need `state.h` (and `gate.h`) transitively.
+- `omp_compiler_flags` is PRIVATE — OpenMP is an implementation detail not in `circuit.h`.
+- `linalg.c` is test-only (provides `zmv`); not linked into the `circuit` library.
 
 ---
 
 ## Deferred — Out of Scope
 
-- **General Pauli-string Hamiltonian evolution** (ΣJ_k P_k): no decision on
-  Trotterisation vs. direct exponentiation; deferred from MEAS.
+- **General Pauli-string Hamiltonian evolution** (ΣJ_k P_k): no decision on Trotterisation vs. direct exponentiation.
 - **Pauli strings on n > 64 qubits.**
 - **Multi-parameter channels** — each channel owns exactly one scalar parameter.
-  Circuits with genuinely independent parameters must use one channel per parameter.
-- **Shared-parameter channels** — if two gates share the same θ, the caller bundles
-  them into one function pointer.
-- **Gradient through Kraus channels** — caller uses parameter-shift or finite
-  differences via repeated `expectation_value` in MEAS.
+- **Shared-parameter channels** — caller bundles shared gates into one function pointer.
+- **Gradient through Kraus channels** — caller uses parameter-shift or finite differences via repeated `expectation_value` in MEAS.
 - **Parametrised LCU unitaries** — unitaries in `lcu_layer_t` have no free parameter.
 - **Circuit optimisation / compilation passes.**
 - **QASM / file-based circuit parsing.**
 - **Hessians, natural gradients, quantum geometric tensor.**
+
+---
+
+## Open Questions
+
+1. ~~**`circuit.h` pending types:** `param_channel_t`, `pqc_t`, `lcu_layer_t`, and
+   `lcu_circuit_t` are specified here but not yet present in `include/circuit.h`. It is
+   unspecified whether they will be added to the existing header or declared in a
+   separate header (e.g., `pqc.h`). The split matters for MEAS's include directives.~~
+   **RESOLVED (2026-02-27):** Audited `include/circuit.h` — none of the pending types
+   are present, and no separate header (e.g., `pqc.h`) exists yet. The split decision
+   remains open as a design choice, but the current state is confirmed: pending types
+   are not declared anywhere in committed source.
+
+2. **`OMP_THRESHOLD` for `pauli_exp`:** The spec uses `OMP_THRESHOLD = 512` for
+   MIXED_PACKED/MIXED_TILED and `4096` for PURE. These values are stated as design
+   intent but have not been validated by benchmarking. Whether they will share the same
+   compile-time constant or be defined separately is unspecified. Note: `pauli.c`
+   already defines `OMP_THRESHOLD = 4096` (line 25) for the PURE path; the
+   MIXED threshold may need a separate symbol when `pauli_exp.c` is implemented.
+
+3. **`pauli_exp_packed` upper-triangle conjugation:** The spec says to access
+   upper-triangle elements of σ by conjugating the transposed index, but the exact
+   interaction with `packed_index` when x' < x (i.e., the representative row flips to
+   a higher index) is not spelled out. The tiled path similarly defers to `dtile_read`
+   without specifying the diagonal-tile conjugation guard in detail.
+
+4. **Error handling policy for channel/circuit constructors:** The spec states
+   constructors return NULL on OOM, but does not specify whether they print to stderr,
+   call a user-supplied error handler, or remain completely silent. This matters for
+   integration with the test suite and MEAS error propagation. Note: `pauli_new` and
+   `pauli_from_str` are completely silent on failure (no stderr output).
+
+5. **`lcu_layer_t` function pointer closure model:** The spec states function pointers
+   capture context "in a closure or pre-bound struct" but gives no concrete mechanism.
+   It is unspecified whether the module will provide helpers for constructing such
+   closures or leave that entirely to the caller.
+
+6. **`grad_inner` signature for diagonal Pauli strings:** For x\_mask = 0, the
+   gradient formula simplifies significantly, but the spec does not state whether a
+   separate fast path will be implemented or whether the general formula handles it
+   transparently.
+
+7. **Naming collision risk:** The field rename from `apply` to `unitaries` in
+   `lcu_layer_t` is documented, but it is not stated whether the old name ever appeared
+   in any committed source file (vs. only in MEAS_MODULE.md). If it did, a grep-based
+   migration is needed. Note: audited `include/circuit.h` and `src/circuit/pauli.c` —
+   neither contains any `lcu_layer_t` definition. The old name `apply` has not appeared
+   in any committed circuit source file. Q7 remains open only for MEAS_MODULE.md.

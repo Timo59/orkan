@@ -52,6 +52,8 @@ QSim/                         # C17/C++17 quantum simulator
 
 **Read only the Technical Spec for your module. Do not read any other Technical Spec. Do not read Thesis Notes unless explicitly asked to add or update them. Each Technical Spec must include a Build Integration section documenting its `CMakeLists.txt`.**
 
+**Documentation update policy: After completing any task — and always before committing changes — update the Technical Spec for the affected module(s) to reflect the current state of the code. The spec must remain the authoritative, accurate description of what is actually implemented.**
+
 | Module      | Status      | Technical Spec          | Thesis Notes |
 |-------------|-------------|-------------------------|--------------|
 | Build System | Complete   | `docs/BUILD_SYSTEM.md`  | —            |
@@ -61,3 +63,4 @@ QSim/                         # C17/C++17 quantum simulator
 | Tests       | In Progress | `docs/TEST_SUITE.md`    | —            |
 | Benchmark   | In Progress | `docs/BENCHMARK.md`     | `~/Projects/thesis/2.Simulation/notes/BENCHMARK_THESIS_NOTES.md` |
 | Profile     | In Progress | `docs/PROFILE.md`       | —            |
+| Circuit     | In Progress | `docs/CIRCUIT_MODULE.md`| —            |

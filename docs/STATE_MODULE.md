@@ -4,34 +4,6 @@
 
 ---
 
-## Source Files
-
-```
-include/
-  state.h               Public API, type definitions, tile constants, type-specific function declarations
-  q_types.h             Foundational types: cplx_t, dim_t, qubit_t, error codes, utility macros
-  utils.h               Print macros: vprint, mprint_packed, mprint_tiled
-src/
-  state/
-    state.c             Dispatch layer — routes all public API calls by state->type
-    state_pure.c        PURE state implementations
-    state_packed.c      MIXED_PACKED state implementations
-    state_tiled.c       MIXED_TILED state implementations
-test/
-  state/
-    test_state.c        Test runner + dispatch layer tests (2 tests)
-    test_state_pure.c   PURE unit tests (10 tests)
-    test_state_packed.c MIXED_PACKED unit tests (13 tests)
-    test_state_tiled.c  MIXED_TILED unit tests (16 tests)
-```
-
-**Run state tests:**
-```bash
-cd cmake-build-debug && cmake --build . && ./test/test_state
-```
-
----
-
 ## Overview
 
 The state module represents n-qubit quantum systems in three storage formats:
@@ -43,6 +15,73 @@ The state module represents n-qubit quantum systems in three storage formats:
 | `MIXED_TILED` | Density matrix, blocked layout | Mixed states; cache-optimised gate operations |
 
 All public functions dispatch at runtime on `state->type`. Type-specific implementations (`state_pure_*`, `state_packed_*`, `state_tiled_*`) are declared in `state.h` and called only through the dispatch layer or the type-specific files.
+
+---
+
+## Directory Layout
+
+```
+include/
+  qlib.h              Top-level convenience header; includes state.h and gate.h
+  state.h             Public API, type definitions, tile constants, type-specific function declarations
+  q_types.h           Foundational types: cplx_t, dim_t, qubit_t, error codes, utility macros
+  utils.h             Print macros: vprint, mprint_packed, mprint_tiled
+src/
+  state/
+    state.c           Dispatch layer — routes all public API calls by state->type
+    state_pure.c      PURE state implementations
+    state_packed.c    MIXED_PACKED state implementations
+    state_tiled.c     MIXED_TILED state implementations
+test/
+  state/
+    test_state.c        Test runner + dispatch layer tests (2 tests)
+    test_state_pure.c   PURE unit tests (10 tests)
+    test_state_packed.c MIXED_PACKED unit tests (13 tests)
+    test_state_tiled.c  MIXED_TILED unit tests (16 tests)
+```
+
+---
+
+## Dependencies (Inputs)
+
+| Dependency | Source | Notes |
+|------------|--------|-------|
+| CBLAS (`cblas_zcopy`) | vecLib (macOS) / OpenBLAS ILP64 (Linux) | Used in `state_cp`; OpenBLAS first build takes 10–30 min |
+| LAPACK packed format | Same BLAS library | MIXED_PACKED layout is directly usable with `zhpmv`, `zhpr`, `zhpevd` |
+| `q_types.h` | `include/` | Provides `cplx_t`, `dim_t`, `qubit_t` |
+
+---
+
+## Build Integration
+
+The state module sources are compiled into the shared library target **`q`**, defined in `src/CMakeLists.txt`.
+
+**Library target:** `q` (shared, `libq.so` / `libq.dylib`)
+
+**State sources compiled into `q`:**
+```cmake
+src/state/state.c
+src/state/state_pure.c
+src/state/state_packed.c
+src/state/state_tiled.c
+```
+
+**Key compile definitions passed to `q`:**
+- `LOG_TILE_DIM=${LOG_TILE_DIM}` — set by CMake from build type; 3 (Debug) or 5 (Release).
+- `OMP_THRESHOLD=4` — Debug-only override that lowers the minimum dimension for OpenMP parallelization so multi-threaded paths are exercised at small qubit counts.
+
+**Test target:** `test_state` (executable), defined in `test/CMakeLists.txt`. Fetches Unity v2.6.1 via `FetchContent`. Links against `q`. Compile definitions: `UNITY_INCLUDE_DOUBLE`, `UNITY_SUPPORT_64`, `LOG_TILE_DIM=${LOG_TILE_DIM}`.
+
+**Installed artifacts** (via `cmake --install`):
+- `libq.so` / `libq.dylib` → `${CMAKE_INSTALL_LIBDIR}`
+- `include/state.h`, `include/q_types.h`, `include/qlib.h` → `${CMAKE_INSTALL_INCLUDEDIR}`
+
+**Run state tests:**
+```bash
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug --tests-regex test_state
+```
 
 ---
 
@@ -76,23 +115,44 @@ typedef enum { PURE, MIXED_PACKED, MIXED_TILED } state_type_t;
 | `dim_t` | `__LAPACK_int` (macOS) / `blasint` (Linux) | 64-bit on both platforms (ILP64); overflow-safe for any memory-feasible qubit count |
 | `qubit_t` | `unsigned char` | Max 255 qubits |
 
-`q_types.h` also defines `POW2(a, T)`, `SETREAL(a, b)`, `SETIMAG(a, b)`, and `SWAP(a, b, T)` used throughout gate implementations.
+`q_types.h` also defines:
+- `POW2(a, T)`, `SETREAL(a, b)`, `SETIMAG(a, b)`, `SWAP(a, b, T)` — used throughout gate implementations.
+- `MIN(a, b)`, `MAX(a, b)` — guarded by `#ifndef` to avoid conflicts with system headers.
+
+### Error codes (`qs_error_t`)
+
+Defined in `q_types.h` as a `typedef enum`:
+
+| Code | Value | Meaning |
+|------|-------|---------|
+| `QS_OK` | 0 | Success |
+| `QS_ERR_NULL` | -1 | Null pointer argument |
+| `QS_ERR_OOM` | -2 | Out of memory |
+| `QS_ERR_QUBIT` | -3 | Invalid qubit index |
+| `QS_ERR_TYPE` | -4 | Invalid state type for operation |
+| `QS_ERR_FILE` | -5 | File I/O error |
+| `QS_ERR_FORMAT` | -6 | Invalid file format |
+| `QS_ERR_PARAM` | -7 | Invalid parameter value |
+
+Note: the public API currently uses `assert` and OOM-via-NULL rather than returning `qs_error_t`. The enum is defined for future use or by other modules.
 
 ---
 
 ## Constants
 
-Defined in `state.h`:
+Defined in `state.h` and set by CMake at compile time via `-DLOG_TILE_DIM=<n>`:
 
 ```c
 #ifndef LOG_TILE_DIM
-#define LOG_TILE_DIM 5          // Override at compile time: -DLOG_TILE_DIM=6
+#define LOG_TILE_DIM 5          // Fallback only; value is injected by CMake
 #endif
-#define TILE_DIM  (1 << LOG_TILE_DIM)   // 32 by default
-#define TILE_SIZE (TILE_DIM * TILE_DIM) // 1024 by default
+#define TILE_DIM  (1 << LOG_TILE_DIM)   // 8 (Debug) or 32 (Release)
+#define TILE_SIZE (TILE_DIM * TILE_DIM) // 64 (Debug) or 1024 (Release)
 ```
 
-**Rationale for default (LOG_TILE_DIM = 5, TILE_DIM = 32):**
+**Do not set `LOG_TILE_DIM` manually.** CMake enforces correct values per build type (3 for Debug, 5 for Release). Valid range enforced by CMake: 3–8.
+
+**Rationale for release default (LOG_TILE_DIM = 5, TILE_DIM = 32):**
 - One tile = 32 × 32 × 16 bytes = 16 KB → fits in L1 cache (~32–64 KB)
 - Four tiles = 64 KB → fits in L2 cache (~256 KB), enabling cross-tile operations without thrashing
 
@@ -180,7 +240,7 @@ idx         = tile_offset * TILE_SIZE + local_row * TILE_DIM + local_col;
 
 ---
 
-## API Reference
+## Public API
 
 All functions in `state.h` dispatch on `state->type`. Initialize `type` before any call.
 
@@ -216,20 +276,31 @@ Note: this is a rank-1 pure state embedded in density matrix form, **not** the m
 ```c
 state_t state_cp(const state_t *state);
 ```
-Returns a deep copy with an independent allocation. Uses `cblas_zcopy`. On OOM, the returned state has `data == NULL`.
+Returns a deep copy with an independent allocation. Allocates 64-byte-aligned storage, then copies with `cblas_zcopy`. On OOM, the returned state has `data == NULL`. Requires `state->data != NULL`; calling on an uninitialized or freed state triggers an `assert`.
 
 ### `state_get` / `state_set`
 ```c
 cplx_t state_get(const state_t *state, dim_t row, dim_t col);
 void   state_set(state_t *state, dim_t row, dim_t col, cplx_t val);
 ```
-Element access with Hermitian symmetry handling. For PURE, `col` must be 0. For mixed types, accessing the upper triangle (row < col) returns/stores the conjugate of the transposed element.
+Element access with Hermitian symmetry handling. For PURE, `col` must be 0; passing a non-zero `col` triggers an `assert` (crash in debug builds, undefined behavior if asserts are disabled). For mixed types, accessing the upper triangle (row < col) returns/stores the conjugate of the transposed element.
+
+**MIXED_TILED diagonal tile mirroring:** `state_tiled_set` applies additional mirroring for diagonal tiles (where `row / TILE_DIM == col / TILE_DIM`): setting a lower-triangle element also writes the conjugate into the corresponding upper-triangle position within the same tile, so the full tile stays consistent for gate code that reads both sides directly.
 
 ### `state_print`
 ```c
 void state_print(const state_t *state);
 ```
 Prints to stdout. Delegates to `mprint_packed` / `mprint_tiled` macros in `utils.h`.
+
+---
+
+## Memory Ownership
+
+- `state_t` owns its `data` pointer after initialization.
+- `state_init(..., &data)` transfers ownership; caller's pointer is set to NULL.
+- No shared ownership. Each buffer has exactly one owner.
+- Calling `state_init()` on an already-initialized state frees the previous allocation.
 
 ---
 
@@ -244,18 +315,9 @@ After `state_init()` or `state_plus()`, check `state->data != NULL` before use.
 
 ---
 
-## Memory Ownership
-
-- `state_t` owns its `data` pointer after initialization.
-- `state_init(..., &data)` transfers ownership; caller's pointer is set to NULL.
-- No shared ownership. Each buffer has exactly one owner.
-- Calling `state_init()` on an already-initialized state frees the previous allocation.
-
----
-
 ## Memory Footprint
 
-Each `cplx_t` is 16 bytes. TILE_DIM = 32.
+Each `cplx_t` is 16 bytes. Release TILE_DIM = 32; Debug TILE_DIM = 8.
 
 | Qubits | dim | PURE | MIXED_PACKED | MIXED_TILED |
 |--------|-----|------|--------------|-------------|
@@ -266,6 +328,8 @@ Each `cplx_t` is 16 bytes. TILE_DIM = 32.
 | 10 | 1024 | 16 KB | 8.4 MB | 8.6 MB |
 | 12 | 4096 | 64 KB | 134 MB | 136 MB |
 
+MIXED_TILED figures assume Release (TILE_DIM = 32). In Debug (TILE_DIM = 8), the minimum allocation is 1 KB (one tile) and overhead differs significantly for small qubit counts.
+
 MIXED_TILED wastes space for small systems (n < LOG_TILE_DIM) but converges to MIXED_PACKED overhead for n ≥ 8.
 
 ---
@@ -273,3 +337,21 @@ MIXED_TILED wastes space for small systems (n < LOG_TILE_DIM) but converges to M
 ## Platform Notes
 
 `dim_t` is 64-bit on both platforms. On Linux, OpenBLAS must be compiled with ILP64 (handled by CMake; first build takes 10–30 min). On macOS, vecLib provides ILP64 natively.
+
+---
+
+## Open Questions
+
+1. ~~**`state_get`/`state_set` for PURE with col ≠ 0:**~~ **RESOLVED.** Both `state_get` (state.c:183) and `state_set` (state.c:201) contain `assert(col == 0 && "col must be 0 for PURE states")`. A non-zero `col` triggers an assert crash in debug builds; behavior with asserts disabled is undefined. Note: the `state.h` comment says "col is ignored" for PURE — this is misleading and contradicts the implementation. The assert is the authoritative behavior.
+
+2. ~~**Alignment contract for `state_init` ownership-transfer path:**~~ **RESOLVED.** The alignment threshold is 64 bytes (`STATE_ALIGNMENT = 64`, state.c:19), checked as `((uintptr_t)*data & 63) == 0`. If the buffer is not 64-byte aligned: new aligned storage is allocated, the data is `memcpy`'d, and the original buffer is `free()`'d. The caller's pointer is set to NULL in both aligned and non-aligned paths (state.c:96).
+
+3. **Thread safety:** No statement is made about whether any `state_t` operation is safe to call concurrently on distinct state objects, or on the same state object from multiple threads. No synchronization is present in any implementation file.
+
+4. ~~**`MIXED` deprecated alias:**~~ **RESOLVED.** `MIXED` is a preprocessor `#define` to `MIXED_PACKED` (state.h:50). It is resolved at compile time and never appears as a separate `case` in any switch statement. No removal timeline is documented.
+
+5. ~~**Padding element invariant enforcement:**~~ **RESOLVED.** `state_init` calls `state_alloc_aligned` which uses `memset(ptr, 0, size)` (state.c:33) — this zero-initializes all allocated bytes including padding. In the ownership-transfer path, when a non-aligned buffer is copied into new aligned storage, the new allocation is also zero-initialized before the `memcpy`, so padding bytes are zero. If the caller passes an already-aligned buffer, it is taken directly with no zeroing — the caller is responsible for ensuring padding is zero in that path.
+
+6. ~~**`state_plus` for MIXED_TILED with padding:**~~ **RESOLVED.** `state_tiled_plus` (state_tiled.c:124–137) explicitly checks `if (state->qubits < LOG_TILE_DIM)` and loops only over the `dim × dim` physical corner. Padding elements remain zero from `state_init`'s `memset`.
+
+7. **Memory footprint table accuracy for Debug builds:** The MIXED_TILED column was computed assuming TILE_DIM = 32 (Release). The table should either be annotated for which build type it applies to, or split by build type for clarity. (Partially addressed in the footnote, but the raw numbers in the table are potentially misleading for Debug users.)

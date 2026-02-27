@@ -2,7 +2,7 @@
 
 **Module:** Measurement and Gradient Computation
 **Status:** Design complete — implementation pending
-**Last Updated:** 2026-02-23
+**Last Updated:** 2026-02-27
 
 ---
 
@@ -28,6 +28,79 @@ no knowledge of how it was produced.
 
 ---
 
+## Directory Layout
+
+Files to be created (none exist yet; module is pending implementation):
+
+```
+QSim/
+├── include/
+│   └── meas.h                  # Public API: all types and function declarations
+├── src/
+│   └── meas/
+│       ├── expectation.c       # expectation_value(): forward pass for ideal and noisy
+│       ├── gradient.c          # gradient_adjoint(): 3-pass adjoint differentiation
+│       ├── qaoa.c              # qaoa_circuit_new(), pqc_free(), cost/mixer channels
+│       └── moment_matrix.c     # moment_matrix(), moment_matrix_load(); MPI-parallel
+└── docs/
+    └── MEAS_MODULE.md          # This file
+```
+
+`q_types.h` (location TBD — see Open Questions) must define `unitary_fn_t`
+before `meas.h` can be compiled.
+
+---
+
+## Inputs / Dependencies
+
+### Consumed from other modules
+
+| Dependency            | Header / symbol              | Required by                        |
+|-----------------------|------------------------------|------------------------------------|
+| `state_t`             | `state.h`                    | All functions                      |
+| `gate_rx`             | `gate.h`                     | Mixer channel (`qaoa.c`)           |
+| `gate_diag_phase`     | `gate.h` (not yet added)     | Cost channel (`qaoa.c`, `gradient.c`) |
+| `unitary_fn_t` type   | `q_types.h` (not yet defined)| `lcu_layer_t`, `moment_matrix.c`   |
+| Pauli exponential constructor | Pauli module (unspecified) | `moment_matrix.c` only   |
+| MPI                   | system / `ENABLE_MPI=ON`     | `moment_matrix.c` (optional)       |
+
+### External input at call time
+
+- `state_t *initial` — caller-prepared quantum state (pure or mixed).
+- `double *h` — diagonal Hamiltonian coefficients, length 2^n, caller-allocated.
+- `double *params` — variational parameters, length `n_channels`, caller-owned.
+
+---
+
+## Outputs / Artifacts
+
+| Artifact                         | Type           | Description                                       |
+|----------------------------------|----------------|---------------------------------------------------|
+| `libmeas.a`                      | Static library | Linked by test suite and any optimiser driver     |
+| `meas.h`                         | Public header  | All types and function declarations               |
+| Moment matrix file (`*.mmat`)    | Binary file    | Lower triangle of M; format described below       |
+| `double` return values           | In-process     | `expectation_value` and `gradient_adjoint` return ⟨H_C⟩ |
+| `grad_out[]` array               | In-process     | `gradient_adjoint` writes ∂⟨H_C⟩/∂params[c]      |
+
+---
+
+## TODO
+
+- [ ] Add `gate_diag_phase` to gate module (all four backends) — critical path
+- [ ] Decide location of `unitary_fn_t` definition (`q_types.h` vs `gate.h`)
+- [ ] Add `ENABLE_MPI` CMake option to `CMakeLists.txt` and `CMakePresets.json`
+- [ ] Record MPI write protocol decision (see Open Questions)
+- [ ] Publish Pauli module interface (blocks `moment_matrix.c`)
+- [ ] Implement `expectation.c`
+- [ ] Implement `qaoa.c` (cost + mixer channels, `qaoa_circuit_new`, `pqc_free`)
+- [ ] Implement `gradient.c`
+- [ ] Implement `moment_matrix.c` (deferred until Pauli module + MPI decision)
+- [ ] Write `meas.h` public header
+- [ ] Add CMake target `meas` to `CMakeLists.txt`
+- [ ] Add test suite entries covering all four backends × all three deliverables
+
+---
+
 ## Preliminaries
 
 The following work in other modules must be completed before any part of this
@@ -47,16 +120,13 @@ Semantics:
 - **Pure:** `ψ(x) ← ψ(x) · exp(−iγ h_x)` for all x in 0 … 2^n − 1
 - **Mixed:** `ρ_{xy} ← ρ_{xy} · exp(−iγ (h_x − h_y))` for all x, y
 
-This is the only unresolved gate dependency. Without it the cost channel
-(`qaoa.c`), the QAOA circuit constructor, and the adjoint gradient cannot be
-implemented. `expectation_value` and `gradient_adjoint` with a mixer-only
+Without it the cost channel (`qaoa.c`), the QAOA circuit constructor, and the
+adjoint gradient cannot be implemented. `expectation_value` and a mixer-only
 circuit could be written first but would be of limited utility.
 
 ### 2. Shared Type — `unitary_fn_t`
 
-The type used for unitaries in `lcu_layer_t` (see Data Structures) must be
-defined in a shared header (`q_types.h` or `gate.h`) before the meas data
-structures can be declared:
+Must be defined in a shared header before `meas.h` can be compiled:
 
 ```c
 // Applies a single unitary U in-place to *state.
@@ -67,8 +137,7 @@ typedef void (*unitary_fn_t)(state_t *state);
 ### 3. Pauli Module — Pauli Exponential Unitary *(blocks moment matrix)*
 
 `lcu_layer_t` supports unitaries of the form exp(−iθ P) for a Pauli string P.
-This is delivered by a separate module not yet fully specified. The delivery
-contract required by this module is:
+The delivery contract required by this module is:
 
 - A constructor that returns a `unitary_fn_t` with angle θ and Pauli string P
   baked in.
@@ -77,12 +146,12 @@ contract required by this module is:
 `moment_matrix` implementation must be deferred until this interface is
 published, even if the Pauli module itself is incomplete.
 
-### 4. Build System — `ENABLE_MPI` Option *(blocks moment matrix)*
+### 4. Build System — `ENABLE_MPI` Option *(blocks MPI path in moment matrix)*
 
-The `ENABLE_MPI` CMake option referenced in the Build Integration section does
-not yet exist in `CMakeLists.txt` or `CMakePresets.json`. It must be added
-before `moment_matrix.c` can be compiled with MPI support. The single-process
-(OpenMP-only) path can be compiled without this option.
+The `ENABLE_MPI` CMake option does not yet exist in `CMakeLists.txt` or
+`CMakePresets.json`. It must be added before `moment_matrix.c` can be compiled
+with MPI support. The single-process (OpenMP-only) path can be compiled without
+this option.
 
 ### 5. Architecture Decision — MPI Write Protocol *(blocks moment matrix)*
 
@@ -99,9 +168,6 @@ are:
 **Decision must be recorded here before implementation begins.**
 
 ### Recommended Implementation Order
-
-The items above are ordered by external dependency. Within this module the
-recommended build sequence is:
 
 1. **`expectation_value`** — shortest dependency chain; useful immediately for
    both ideal and noisy circuits; unblocks all further work.
@@ -177,9 +243,8 @@ Adjoint differentiation is chosen over finite differences for three reasons:
 
 2. **No tuning parameter.** The optimal finite-difference step ε depends on the
    Hamiltonian coefficients, the circuit depth, and the current parameter
-   values — none of which are known at library-design time. A fixed ε will be
-   wrong somewhere across the parameter landscape. Adjoint differentiation has
-   no such parameter.
+   values — none of which are known at library-design time. Adjoint
+   differentiation has no such parameter.
 
 3. **Cost independent of parameter count.** For pure states the cost is 3 ×
    N_ch channel applications regardless of how many parameters the circuit has.
@@ -211,55 +276,11 @@ complex vectors; the trace reduces to a vector inner product. H_f^(k) is never
 expanded into a matrix. For **mixed states** both are 2^n × 2^n Hermitian
 operators stored in the density matrix memory layout.
 
-### Parametrised Channel
-
-The fundamental unit is a **parametrised channel**: all gates sharing one scalar
-parameter θ, grouped together. Each channel exposes three operations:
-
-```c
-typedef struct param_channel {
-    void   (*apply)     (state_t *state, double theta, const void *ctx);
-    double (*grad_inner)(const state_t *lambda, const state_t *tmp,
-                         double theta, const void *ctx);
-    const void *ctx;        // channel-specific data (qubit indices, Hamiltonian, …)
-    int    has_gradient;    // 0 for fixed non-parametrised channels
-} param_channel_t;
-```
-
-- **`apply(state, θ)`** — Forward unitary evolution: state → U(θ) state U(θ)†.
-  For noisy channels includes the Kraus step after the unitary. The unitary
-  adjoint needed by Pass 2 is obtained by calling `apply(state, −θ)`, which is
-  equivalent for all channel types appearing in ideal circuits. A separate
-  adjoint callback is not needed: the Kraus adjoint ε†(A) = Σ_k K†_k A K_k is
-  structurally different and cannot be obtained by negating a parameter, but
-  Pass 2 is never invoked for noisy circuits.
-- **`grad_inner(λ, tmp, θ)`** — Returns −2 Im ⟨λ|G_k|tmp⟩ (pure) or
-  −2 Im Tr(H_f · G_k · σ) (mixed), the gradient contribution of this channel.
-  Never called for noisy circuits.
-
-Parameters are **not** shared across channels. Each channel owns exactly one
-scalar parameter.
-
-### Circuit
-
-```c
-typedef struct {
-    param_channel_t **channels;
-    int               n_channels;
-    double           *params;     // length n_channels, one parameter per channel
-    int               is_noisy;   // 0: ideal (gradient supported), 1: noisy (forward only)
-} pqc_t;
-```
-
-A circuit is **either entirely ideal or entirely noisy**. Mixed circuits are not
-supported. For ideal circuits, `gradient_adjoint` uses the 3-pass algorithm
-below. For noisy circuits, only `expectation_value` is available.
-
 ### 3-Pass Algorithm
 
-Exploits unitarity U_k U_k† = I to carry both the state and co-state through the
-circuit without storing any intermediate states. Total cost: 3 × N_ch channel
-applications, two state-sized buffers.
+Exploits unitarity U_k U_k† = I to carry both the state and co-state through
+the circuit without storing any intermediate states. Total cost: 3 × N_ch
+channel applications, two state-sized buffers.
 
 **Pass 1 — forward, compute final state and expectation value:**
 ```
@@ -317,7 +338,7 @@ Channel 2p:   mixer layer, param β_p
 
 ### Cost Channel
 
-Implements U_C(γ) = exp(−iγ H_C).
+Implements U_C(γ) = exp(−iγ H_C) via `gate_diag_phase` (see Preliminary 1).
 
 Since H_C is diagonal, this is **element-wise phase multiplication** in O(2^n):
 
@@ -352,17 +373,6 @@ contracting with H_f.
 ### Initial State
 
 |ψ_0⟩ = |+⟩^⊗n (uniform superposition) via `state_plus()` — already implemented.
-
-### Required Gates
-
-| Gate / Operation                      | Gate module status     | Needed for    |
-|---------------------------------------|------------------------|---------------|
-| Rx(θ)                                 | ✓ All backends         | Mixer channel |
-| Diagonal phase multiply exp(−iγ h_x)  | ✗ New operation needed | Cost channel  |
-
-The cost channel must be implemented as a direct diagonal phase multiply, not as
-decomposed RZZ gates. The new gate operation must be added to the gate module
-before the cost channel can be implemented.
 
 ---
 
@@ -537,8 +547,8 @@ void moment_matrix(
 // Load a previously written moment matrix from file.
 // Allocates *M_out (caller must free). Sets *N_out = circuit N.
 void moment_matrix_load(
-    const char   *path,
-    int          *N_out,
+    const char     *path,
+    int            *N_out,
     double complex **M_out    // lower triangle, length N*(N+1)/2
 );
 ```
@@ -592,3 +602,49 @@ OpenMP within each rank.
 - **General Pauli-string Hamiltonian evolution** (non-QAOA; no decision on
   Trotterisation vs. direct exponentiation)
 - **RSWAP and other non-standard parametrised gates**
+
+---
+
+## Open Questions
+
+1. **MPI write protocol (blocks `moment_matrix.c`)** — The three options
+   (OpenMP-only, MPI gather to rank 0, MPI-IO) are listed in Preliminary 5 but
+   no decision has been recorded. Must be resolved before implementation begins.
+
+2. **Location of `unitary_fn_t`** — Should this type live in `q_types.h` (a new
+   shared header), `gate.h`, or `meas.h` itself? If `meas.h`, the Pauli module
+   would need to include a meas header to satisfy the construction contract,
+   creating a circular dependency risk.
+
+3. **Pauli module interface** — The Pauli exponential constructor's exact
+   signature (return type, argument order, ownership semantics) is unspecified.
+   The meas module requires it to return a `unitary_fn_t` with all parameters
+   baked in, but no Pauli module spec exists yet.
+
+4. **`moment_matrix_load` error return** — The function signature returns `void`
+   but must communicate file-not-found, corrupt header, and version mismatch to
+   the caller. The current convention (`errno` + NULL write to `*M_out`) is not
+   stated explicitly. Should it return an error code instead?
+
+5. **`gradient_adjoint` for channels with `has_gradient == 0`** — The Pass 3
+   pseudocode applies `channel[k]` to both `tmp` and `λ` even when
+   `has_gradient == 0`. Is a non-parametrised channel's `apply` guaranteed to
+   be its own unitary adjoint when called with θ = 0? What is the contract
+   for fixed (non-parametrised) channels in the backward direction?
+
+6. **Ownership of `param_channel_t` in `pqc_t`** — `pqc_free` does not free
+   `params` (caller-owned, documented). It is unspecified whether `pqc_free`
+   frees the `channels` array and the individual `param_channel_t` objects, or
+   whether those are also caller-owned.
+
+7. **`qaoa_circuit_new` parameter ownership** — The constructor takes
+   `const diag_hamiltonian_t *H_C` and `n_qubits`. It is unspecified whether
+   the returned `pqc_t` holds a pointer to the caller's `H_C` (shallow copy) or
+   makes its own copy of `h`. If shallow, the caller must not free `H_C` while
+   the circuit is alive.
+
+8. **Mixed-state `gradient_adjoint` buffer count** — The spec states "two
+   state-sized buffers" for the pure-state case. For mixed states, a density
+   matrix is 2^{2n} elements rather than 2^n, making this significantly more
+   expensive. The spec does not confirm the buffer count or memory bound for the
+   mixed-state path.
