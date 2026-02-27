@@ -133,6 +133,31 @@ pauli_phase_t pauli_phase(const pauli_t *P, uint64_t x);
  */
 void pauli_apply_pure(state_t *state, const pauli_t *P);
 
+/**
+ * @brief Apply the Pauli gadget exp(-i*theta/2 * P) to a pure state in-place
+ *
+ * Implements the Euler decomposition:
+ *   U(theta) = exp(-i*theta/2 * P) = cos(theta/2) * I  -  i * sin(theta/2) * P
+ *
+ * Three cases dispatched by mask structure:
+ *
+ * - Identity (x_mask == 0 && z_mask == 0): global phase e^{-i*theta/2} applied
+ *   to every amplitude. Not a physical no-op; differs from the density-matrix case.
+ *
+ * - Diagonal (x_mask == 0): per-amplitude scalar multiply by e^{-i*theta/2}
+ *   if epsilon(i) = +1, or e^{+i*theta/2} if epsilon(i) = -1.
+ *
+ * - Non-diagonal (x_mask != 0): paired update over (j, j XOR x_mask).
+ *   Both amplitudes are read before either is written (no aliasing hazard).
+ *
+ * OpenMP-parallelised when dim >= OMP_THRESHOLD (default 4096).
+ *
+ * @param[in,out] state  Pure quantum state (must have type == PURE)
+ * @param[in]     P      Pauli string (masks must fit within state dimension)
+ * @param[in]     theta  Rotation angle in radians; U = exp(-i*theta/2 * P)
+ */
+void pauli_exp_pure(state_t *state, const pauli_t *P, double theta);
+
 #ifdef __cplusplus
 }
 #endif
