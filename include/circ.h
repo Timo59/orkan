@@ -33,16 +33,6 @@ extern "C" {
  */
 
 /**
- * @brief Single-qubit Pauli label used by pauli_new
- */
-typedef enum {
-    PAULI_I = 0,
-    PAULI_X = 1,
-    PAULI_Y = 2,
-    PAULI_Z = 3
-} pauli_label_t;
-
-/**
  * @brief Multi-qubit Pauli string P = P_{n-1} otimes ... otimes P_0
  *
  * Stores precomputed bitmasks for O(2^n) application:
@@ -74,13 +64,6 @@ typedef struct {
  * Pauli string API
  * =====================================================================================================================
  */
-
-/**
- * @brief Allocate a Pauli string from a dense label array (little-endian: labels[j] acts on qubit j)
- *
- * Aborts via GATE_VALIDATE on n_qubits > 64 or NULL labels with n_qubits > 0.
- */
-pauli_t *pauli_new(const pauli_label_t *labels, qubit_t n_qubits);
 
 /**
  * @brief Parse a Pauli string from an "IXYZ..." character string
