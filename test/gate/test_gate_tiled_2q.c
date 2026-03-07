@@ -47,7 +47,7 @@ void testTwoQubitGateTiled(const two_qubit_gate gate, const cplx_t *mat) {
     unsigned nmixed = 0;
 
     for (unsigned nqubits = 2; nqubits <= MAXQUBITS_TILED; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         for (unsigned q1 = 0; q1 < nqubits; ++q1) {
             for (unsigned q2 = 0; q2 < nqubits; ++q2) {

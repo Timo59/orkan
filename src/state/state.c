@@ -35,12 +35,6 @@ static cplx_t *state_alloc_aligned(dim_t len) {
     return ptr;
 }
 
-#if defined(__APPLE__)
-    #include <vecLib/cblas_new.h>
-#elif defined(__linux__)
-    #include <cblas.h>
-#endif
-
 /*
  * =====================================================================================================================
  * Public API - Dispatch implementations
@@ -149,8 +143,7 @@ state_t state_cp(const state_t *state) {
         return out;
     }
 
-    /* Deep copy of data using BLAS */
-    cblas_zcopy(len, state->data, 1, out.data, 1);
+    memcpy(out.data, state->data, (size_t)len * sizeof(cplx_t));
 
     return out;
 }

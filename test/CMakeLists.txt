@@ -88,7 +88,7 @@ add_test(NAME test_gate COMMAND test_gate)
 # test_circuit
 #=======================================================================================================================
 
-set(CIRCUIT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/circuit")
+set(CIRCUIT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/circ")
 
 set(TEST_CIRCUIT_SRC
         "${CIRCUIT_DIR}/test_circuit.c"

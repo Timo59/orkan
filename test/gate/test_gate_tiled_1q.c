@@ -52,7 +52,7 @@ void testSingleQubitGateTiled(const single_qubit_gate gate, const cplx_t *mat) {
     unsigned nmixed = 0;
 
     for (unsigned nqubits = 1; nqubits <= MAXQUBITS_TILED; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         for (unsigned pos = 0; pos < nqubits; ++pos) {
             if (!((test_rhos = test_mk_states_mixed(nqubits, &nmixed)))) {
@@ -153,7 +153,7 @@ void testRotationGateTiled(const rotation_gate gate, void (*mat_fn)(double theta
         mat_fn(theta, mat2x2);
 
         for (unsigned nqubits = 1; nqubits <= MAXQUBITS_TILED; ++nqubits) {
-            const unsigned dim = POW2(nqubits, dim_t);
+            const unsigned dim = POW2(nqubits, unsigned);
 
             for (unsigned pos = 0; pos < nqubits; ++pos) {
                 if (!((test_rhos = test_mk_states_mixed(nqubits, &nmixed)))) {
@@ -243,7 +243,7 @@ void testSingleQubitMatGateTiled(const cplx_t *mat) {
     unsigned nmixed = 0;
 
     for (unsigned nqubits = 1; nqubits <= MAXQUBITS_TILED; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         for (unsigned pos = 0; pos < nqubits; ++pos) {
             if (!((test_rhos = test_mk_states_mixed(nqubits, &nmixed)))) {
@@ -333,7 +333,7 @@ void testSingleQubitMatGateTiledDouble(const cplx_t *mat1, const cplx_t *mat2) {
     unsigned nmixed = 0;
 
     for (unsigned nqubits = 1; nqubits <= MAXQUBITS_TILED; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         for (unsigned pos = 0; pos < nqubits; ++pos) {
             if (!((test_rhos = test_mk_states_mixed(nqubits, &nmixed)))) {

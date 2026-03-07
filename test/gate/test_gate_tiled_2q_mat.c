@@ -98,7 +98,7 @@ void testTwoFromMat(const cplx_t *mat4x4) {
     unsigned nmixed = 0;
 
     for (unsigned nqubits = 2; nqubits <= MAXQUBITS_TILED; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         for (unsigned q1 = 0; q1 < nqubits; ++q1) {
             for (unsigned q2 = 0; q2 < nqubits; ++q2) {
@@ -200,7 +200,7 @@ void testTwoFromMatDouble(const cplx_t *mat4x4) {
     unsigned nmixed = 0;
 
     for (unsigned nqubits = 2; nqubits <= MAXQUBITS_TILED; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         for (unsigned q1 = 0; q1 < nqubits; ++q1) {
             for (unsigned q2 = 0; q2 < nqubits; ++q2) {
@@ -317,7 +317,7 @@ void testTwoFromMatSymmetry(const cplx_t *mat4x4) {
     unsigned nmixed = 0;
 
     for (unsigned nqubits = 2; nqubits <= MAXQUBITS_TILED; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         /* q1 < q2: visit each unordered pair exactly once */
         for (unsigned q1 = 0; q1 < nqubits; ++q1) {

@@ -27,26 +27,18 @@ extern "C" {
 
 /*
  * =====================================================================================================================
- * Fortran BLAS function zrot_
- * =====================================================================================================================
- */
-#ifdef __linux__
-void zrot_(
-    const blasint *n,
-    openblas_complex_double *x, const blasint *incx,
-    openblas_complex_double *y, const blasint *incy,
-    const double *c, const openblas_complex_double *s);
-#endif
-
-/*
- * =====================================================================================================================
  * Index type for gate internals
  * =====================================================================================================================
  *
  * gate_idx_t is an unsigned 64-bit type used for ALL index computations within the gate
- * module (loop variables, dim, stride, step, pack_idx results). This avoids signed 32-bit
- * overflow that would occur with dim_t (LAPACK int) for 16+ qubit mixed states where
- * dim*(dim+1)/2 exceeds 2^31. dim_t is retained only at LAPACK/BLAS call boundaries.
+ * module (loop variables, dim, stride, step, pack_idx results).
+ *
+ * It is intentionally distinct from dim_t (int64_t) for two reasons:
+ *   1. Unsigned semantics: bitwise NOT, right-shift, and wrap-around are unambiguous for
+ *      unsigned types in C. Index arithmetic is always non-negative; uint64_t makes that
+ *      invariant explicit and avoids implementation-defined behaviour on right shifts.
+ *   2. Separation of concerns: dim_t is a public API dimension; gate_idx_t is an internal
+ *      index. Their widths happen to match, but they are semantically distinct.
  */
 typedef uint64_t gate_idx_t;
 

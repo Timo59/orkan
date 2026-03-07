@@ -49,7 +49,7 @@ void testSingleQubitGateMixed(const single_qubit_gate gate, const cplx_t *mat) {
 
     // Iterate the number of qubits (start from 1 to cover 1-qubit mixed states)
     for (unsigned nqubits = 1; nqubits <= MAXQUBITS; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         // Iterate target qubits
         for (unsigned pos = 0; pos < nqubits; ++pos) {
@@ -176,7 +176,7 @@ void testRotationGateMixed(const rotation_gate gate, void (*mat_fn)(double theta
 
         // Iterate the number of qubits (start from 1 to cover 1-qubit mixed states)
         for (unsigned nqubits = 1; nqubits <= MAXQUBITS; ++nqubits) {
-            const unsigned dim = POW2(nqubits, dim_t);
+            const unsigned dim = POW2(nqubits, unsigned);
 
             // Iterate target qubits
             for (unsigned pos = 0; pos < nqubits; ++pos) {

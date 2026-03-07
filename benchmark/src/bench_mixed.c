@@ -4,8 +4,8 @@
  *
  * Compares:
  * 1. qlib packed sparse - Production implementation with packed lower-triangular storage
- * 2. BLAS dense - Full matrix UρU† via zgemm
- * 3. Naive loop - Element-by-element computation
+ * 2. BLAS dense         - Full matrix UρU† via zgemm
+ * 3. Naive loop         - Element-by-element computation
  */
 
 #include "bench.h"
@@ -30,7 +30,6 @@
 #define INVSQRT2 0.7071067811865475
 
 static const cplx_t XMAT[4] = {0.0, 1.0, 1.0, 0.0};
-static const cplx_t YMAT[4] = {0.0, -I, I, 0.0};
 static const cplx_t ZMAT[4] = {1.0, 0.0, 0.0, -1.0};
 static const cplx_t HMAT[4] = {INVSQRT2, INVSQRT2, INVSQRT2, -INVSQRT2};
 
@@ -104,41 +103,32 @@ static cplx_t* kron(dim_t ma, dim_t na, const cplx_t *A,
     return C;
 }
 
-/** @brief Build full gate matrix I⊗...⊗U⊗...⊗I for single-qubit gate */
+/** @brief Build full gate matrix I⊗...⊗U⊗...⊗I for single-qubit gate on `target` */
 static cplx_t* build_full_gate_matrix(qubit_t qubits, const cplx_t gate[4], qubit_t target) {
-    dim_t dim = (dim_t)1 << qubits;
-
-    /* Start with identity for qubits above target */
     qubit_t pos = qubits - 1 - target;
     dim_t dim_left = (dim_t)1 << pos;
 
-    /* Identity matrix for left qubits */
     cplx_t *id_left = calloc(dim_left * dim_left, sizeof(cplx_t));
     if (!id_left) return NULL;
     for (dim_t i = 0; i < dim_left; ++i) id_left[i + i * dim_left] = 1.0;
 
-    /* Kronecker with gate */
     cplx_t *tmp = kron(dim_left, dim_left, id_left, 2, 2, gate);
     free(id_left);
     if (!tmp) return NULL;
-
     dim_left *= 2;
 
-    /* Identity for right qubits */
     dim_t dim_right = (dim_t)1 << target;
     cplx_t *id_right = calloc(dim_right * dim_right, sizeof(cplx_t));
     if (!id_right) { free(tmp); return NULL; }
     for (dim_t i = 0; i < dim_right; ++i) id_right[i + i * dim_right] = 1.0;
 
-    /* Final Kronecker product */
     cplx_t *U = kron(dim_left, dim_left, tmp, dim_right, dim_right, id_right);
     free(tmp);
     free(id_right);
-
     return U;
 }
 
-/** @brief Build full gate matrix I⊗...⊗U⊗...⊗I for two-qubit gate on qubits q1, q2 */
+/** @brief Build full gate matrix for two-qubit gate on qubits q1, q2 */
 static cplx_t* build_full_gate_matrix_2q(qubit_t qubits, const cplx_t gate[16],
                                           qubit_t q1, qubit_t q2) {
     dim_t dim = (dim_t)1 << qubits;
@@ -160,46 +150,41 @@ static cplx_t* build_full_gate_matrix_2q(qubit_t qubits, const cplx_t gate[16],
             dim_t j = i;
             j = (j & ~((dim_t)1 << q1)) | ((dim_t)out_b1 << q1);
             j = (j & ~((dim_t)1 << q2)) | ((dim_t)out_b2 << q2);
-
             U[j + i * dim] = val;
         }
     }
     return U;
 }
 
-/** @brief Unpack lower-triangular to full Hermitian matrix */
-static cplx_t* unpack_density(dim_t dim, const cplx_t *packed) {
-    cplx_t *full = malloc(dim * dim * sizeof(cplx_t));
-    if (!full) return NULL;
+/*
+ * Build all ordered qubit pairs (q1 < q2) for an n-qubit system.
+ * Returns the number of pairs written. MAX_PAIRS must be >= qubits*(qubits-1)/2.
+ */
+#define MAX_PAIRS 128  /* sufficient for up to ~16 qubits */
 
-    dim_t k = 0;
-    for (dim_t j = 0; j < dim; ++j) {
-        for (dim_t i = j; i < dim; ++i) {
-            full[i + j * dim] = packed[k];
-            full[j + i * dim] = conj(packed[k]);
-            ++k;
+static int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out) {
+    int n = 0;
+    for (qubit_t q1 = 0; q1 < qubits; ++q1) {
+        for (qubit_t q2 = q1 + 1; q2 < qubits; ++q2) {
+            if (n >= MAX_PAIRS) break;
+            q1_out[n] = q1;
+            q2_out[n] = q2;
+            n++;
         }
     }
-    return full;
+    return n;
 }
 
-/** @brief Pack full Hermitian matrix to lower-triangular */
-static void pack_density(dim_t dim, const cplx_t *full, cplx_t *packed) {
-    dim_t k = 0;
-    for (dim_t j = 0; j < dim; ++j) {
-        for (dim_t i = j; i < dim; ++i) {
-            packed[k++] = full[i + j * dim];
-        }
-    }
-}
-
-/** @brief Compute UρU† using BLAS zgemm */
-static void apply_uruh_blas(dim_t dim, const cplx_t *U, cplx_t *rho) {
-    cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
-    if (!tmp) return;
-
+/*
+ * Compute UρU† using BLAS zgemm.
+ *
+ * tmp: pre-allocated scratch buffer of dim*dim complex doubles.
+ * Passing tmp from outside the hot loop eliminates per-call allocation overhead,
+ * keeping the comparison focused on algorithmic cost.
+ */
+static void apply_uruh_blas(dim_t dim, const cplx_t *U, cplx_t *rho, cplx_t *tmp) {
     const cplx_t alpha = 1.0;
-    const cplx_t beta = 0.0;
+    const cplx_t beta  = 0.0;
 
     /* tmp = U * rho */
     cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
@@ -208,23 +193,22 @@ static void apply_uruh_blas(dim_t dim, const cplx_t *U, cplx_t *rho) {
     /* rho = tmp * U† */
     cblas_zgemm(CblasColMajor, CblasNoTrans, CblasConjTrans,
                 dim, dim, dim, &alpha, tmp, dim, U, dim, &beta, rho, dim);
-
-    free(tmp);
 }
 
-/** @brief Compute UρU† using naive loops */
-static void apply_uruh_naive(dim_t dim, const cplx_t *U, cplx_t *rho) {
-    cplx_t *tmp = calloc(dim * dim, sizeof(cplx_t));
-    cplx_t *out = calloc(dim * dim, sizeof(cplx_t));
-    if (!tmp || !out) { free(tmp); free(out); return; }
-
+/*
+ * Compute UρU† using naive triple-nested loops.
+ *
+ * tmp, out: pre-allocated scratch buffers of dim*dim complex doubles.
+ * Same rationale as apply_uruh_blas: allocation lives outside the hot loop.
+ */
+static void apply_uruh_naive(dim_t dim, const cplx_t *U, cplx_t *rho,
+                              cplx_t *tmp, cplx_t *out) {
     /* tmp = U * rho */
     for (dim_t j = 0; j < dim; ++j) {
         for (dim_t i = 0; i < dim; ++i) {
             cplx_t sum = 0.0;
-            for (dim_t k = 0; k < dim; ++k) {
+            for (dim_t k = 0; k < dim; ++k)
                 sum += U[i + k * dim] * rho[k + j * dim];
-            }
             tmp[i + j * dim] = sum;
         }
     }
@@ -233,16 +217,13 @@ static void apply_uruh_naive(dim_t dim, const cplx_t *U, cplx_t *rho) {
     for (dim_t j = 0; j < dim; ++j) {
         for (dim_t i = 0; i < dim; ++i) {
             cplx_t sum = 0.0;
-            for (dim_t k = 0; k < dim; ++k) {
+            for (dim_t k = 0; k < dim; ++k)
                 sum += tmp[i + k * dim] * conj(U[j + k * dim]);
-            }
             out[i + j * dim] = sum;
         }
     }
 
     memcpy(rho, out, dim * dim * sizeof(cplx_t));
-    free(tmp);
-    free(out);
 }
 
 /*
@@ -255,35 +236,30 @@ bench_result_t bench_qlib_packed(qubit_t qubits, const char *gate_name,
                                   void (*gate_fn)(state_t*, qubit_t),
                                   int iterations, int warmup) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "qlib_packed";
-    result.iterations = iterations;
+    result.qubits      = qubits;
+    result.dim         = (dim_t)1 << qubits;
+    result.gate_name   = gate_name;
+    result.method      = "qlib_packed";
+    result.iterations  = iterations;
 
-    /* Measure actual memory usage */
-    size_t mem_before = bench_get_rss();
     state_t state = {0};
     init_random_mixed_state(&state, qubits, MIXED_PACKED);
     if (!state.data) return result;
-    size_t mem_after = bench_get_rss();
-    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_packed_size(qubits);
 
-    /* Warm-up */
-    for (int i = 0; i < warmup; ++i) {
-        gate_fn(&state, 0);
-    }
+    /* Theoretical size is exact: we know the allocator */
+    result.memory_bytes = bench_packed_size(qubits);
 
-    /* Timed iterations */
+    /* Warm-up: cycle through all qubit targets so every code path is hot */
+    for (int i = 0; i < warmup; ++i)
+        gate_fn(&state, (qubit_t)(i % qubits));
+
     uint64_t start = bench_time_ns();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < qubits; ++t) {
+    for (int i = 0; i < iterations; ++i)
+        for (qubit_t t = 0; t < qubits; ++t)
             gate_fn(&state, t);
-        }
-    }
     uint64_t end = bench_time_ns();
 
-    result.time_ms = bench_ns_to_ms(end - start);
+    result.time_ms    = bench_ns_to_ms(end - start);
     result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
 
     state_free(&state);
@@ -294,35 +270,28 @@ bench_result_t bench_qlib_tiled(qubit_t qubits, const char *gate_name,
                                  void (*gate_fn)(state_t*, qubit_t),
                                  int iterations, int warmup) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "qlib_tiled";
-    result.iterations = iterations;
+    result.qubits      = qubits;
+    result.dim         = (dim_t)1 << qubits;
+    result.gate_name   = gate_name;
+    result.method      = "qlib_tiled";
+    result.iterations  = iterations;
 
-    /* Measure actual memory usage */
-    size_t mem_before = bench_get_rss();
     state_t state = {0};
     init_random_mixed_state(&state, qubits, MIXED_TILED);
     if (!state.data) return result;
-    size_t mem_after = bench_get_rss();
-    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_tiled_size(qubits);
 
-    /* Warm-up */
-    for (int i = 0; i < warmup; ++i) {
-        gate_fn(&state, 0);
-    }
+    result.memory_bytes = bench_tiled_size(qubits);
 
-    /* Timed iterations */
+    for (int i = 0; i < warmup; ++i)
+        gate_fn(&state, (qubit_t)(i % qubits));
+
     uint64_t start = bench_time_ns();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < qubits; ++t) {
+    for (int i = 0; i < iterations; ++i)
+        for (qubit_t t = 0; t < qubits; ++t)
             gate_fn(&state, t);
-        }
-    }
     uint64_t end = bench_time_ns();
 
-    result.time_ms = bench_ns_to_ms(end - start);
+    result.time_ms     = bench_ns_to_ms(end - start);
     result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
 
     state_free(&state);
@@ -333,56 +302,50 @@ bench_result_t bench_blas_dense(qubit_t qubits, const char *gate_name,
                                  const cplx_t gate_mat[4],
                                  int iterations, int warmup) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "blas_dense";
-    result.iterations = iterations;
+    result.qubits      = qubits;
+    result.dim         = (dim_t)1 << qubits;
+    result.gate_name   = gate_name;
+    result.method      = "blas_dense";
+    result.iterations  = iterations;
 
     dim_t dim = result.dim;
 
-    /* Measure actual memory usage */
-    size_t mem_before = bench_get_rss();
-
-    /* Create full density matrix (random) */
     cplx_t *rho = malloc(dim * dim * sizeof(cplx_t));
     if (!rho) return result;
-    for (dim_t i = 0; i < dim * dim; ++i) {
+    for (dim_t i = 0; i < dim * dim; ++i)
         rho[i] = (double)rand() / RAND_MAX + ((double)rand() / RAND_MAX) * I;
-    }
 
-    /* Build full gate matrices for each target */
     cplx_t **U = malloc(qubits * sizeof(cplx_t*));
     if (!U) { free(rho); return result; }
-    for (qubit_t t = 0; t < qubits; ++t) {
+    for (qubit_t t = 0; t < qubits; ++t)
         U[t] = build_full_gate_matrix(qubits, gate_mat, t);
+
+    /* Single scratch buffer allocated once outside the hot loop */
+    cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
+    if (!tmp) {
+        for (qubit_t t = 0; t < qubits; ++t) free(U[t]);
+        free(U); free(rho);
+        return result;
     }
 
-    size_t mem_after = bench_get_rss();
-    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_dense_size(qubits);
+    result.memory_bytes = bench_dense_size(qubits);
 
-    /* Warm-up */
-    for (int i = 0; i < warmup; ++i) {
-        apply_uruh_blas(dim, U[0], rho);
-    }
+    for (int i = 0; i < warmup; ++i)
+        apply_uruh_blas(dim, U[i % qubits], rho, tmp);
 
-    /* Timed iterations */
     uint64_t start = bench_time_ns();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < qubits; ++t) {
-            apply_uruh_blas(dim, U[t], rho);
-        }
-    }
+    for (int i = 0; i < iterations; ++i)
+        for (qubit_t t = 0; t < qubits; ++t)
+            apply_uruh_blas(dim, U[t], rho, tmp);
     uint64_t end = bench_time_ns();
 
-    result.time_ms = bench_ns_to_ms(end - start);
+    result.time_ms     = bench_ns_to_ms(end - start);
     result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
 
-    /* Cleanup */
+    free(tmp);
     free(rho);
     for (qubit_t t = 0; t < qubits; ++t) free(U[t]);
     free(U);
-
     return result;
 }
 
@@ -390,56 +353,52 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
                                  const cplx_t gate_mat[4],
                                  int iterations, int warmup) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "naive_loop";
-    result.iterations = iterations;
+    result.qubits      = qubits;
+    result.dim         = (dim_t)1 << qubits;
+    result.gate_name   = gate_name;
+    result.method      = "naive_loop";
+    result.iterations  = iterations;
 
     dim_t dim = result.dim;
 
-    /* Measure actual memory usage */
-    size_t mem_before = bench_get_rss();
-
-    /* Create full density matrix (random) */
     cplx_t *rho = malloc(dim * dim * sizeof(cplx_t));
     if (!rho) return result;
-    for (dim_t i = 0; i < dim * dim; ++i) {
+    for (dim_t i = 0; i < dim * dim; ++i)
         rho[i] = (double)rand() / RAND_MAX + ((double)rand() / RAND_MAX) * I;
-    }
 
-    /* Build full gate matrices for each target */
     cplx_t **U = malloc(qubits * sizeof(cplx_t*));
     if (!U) { free(rho); return result; }
-    for (qubit_t t = 0; t < qubits; ++t) {
+    for (qubit_t t = 0; t < qubits; ++t)
         U[t] = build_full_gate_matrix(qubits, gate_mat, t);
+
+    /* Two scratch buffers allocated once outside the hot loop */
+    cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
+    cplx_t *out = malloc(dim * dim * sizeof(cplx_t));
+    if (!tmp || !out) {
+        free(tmp); free(out);
+        for (qubit_t t = 0; t < qubits; ++t) free(U[t]);
+        free(U); free(rho);
+        return result;
     }
 
-    size_t mem_after = bench_get_rss();
-    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_dense_size(qubits);
+    result.memory_bytes = bench_dense_size(qubits);
 
-    /* Warm-up */
-    for (int i = 0; i < warmup; ++i) {
-        apply_uruh_naive(dim, U[0], rho);
-    }
+    for (int i = 0; i < warmup; ++i)
+        apply_uruh_naive(dim, U[i % qubits], rho, tmp, out);
 
-    /* Timed iterations */
     uint64_t start = bench_time_ns();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < qubits; ++t) {
-            apply_uruh_naive(dim, U[t], rho);
-        }
-    }
+    for (int i = 0; i < iterations; ++i)
+        for (qubit_t t = 0; t < qubits; ++t)
+            apply_uruh_naive(dim, U[t], rho, tmp, out);
     uint64_t end = bench_time_ns();
 
-    result.time_ms = bench_ns_to_ms(end - start);
+    result.time_ms     = bench_ns_to_ms(end - start);
     result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
 
-    /* Cleanup */
+    free(tmp); free(out);
     free(rho);
     for (qubit_t t = 0; t < qubits; ++t) free(U[t]);
     free(U);
-
     return result;
 }
 
@@ -448,43 +407,40 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
  * Two-qubit benchmark implementations
  * =====================================================================================================================
  *
- * Two-qubit gates iterate over adjacent pairs (t, t+1) for t = 0..n-2,
- * yielding (qubits-1) gate applications per iteration.
+ * Two-qubit gates iterate over ALL ordered pairs (q1, q2) with q1 < q2,
+ * giving qubits*(qubits-1)/2 applications per iteration.
+ * This exercises every code path: within-tile, mixed, and tile-level cases.
  */
 
 bench_result_t bench_qlib_packed_2q(qubit_t qubits, const char *gate_name,
                                       void (*gate_fn)(state_t*, qubit_t, qubit_t),
                                       int iterations, int warmup) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "qlib_packed";
-    result.iterations = iterations;
+    result.qubits      = qubits;
+    result.dim         = (dim_t)1 << qubits;
+    result.gate_name   = gate_name;
+    result.method      = "qlib_packed";
+    result.iterations  = iterations;
 
-    size_t mem_before = bench_get_rss();
     state_t state = {0};
     init_random_mixed_state(&state, qubits, MIXED_PACKED);
     if (!state.data) return result;
-    size_t mem_after = bench_get_rss();
-    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_packed_size(qubits);
+    result.memory_bytes = bench_packed_size(qubits);
 
-    /* Warm-up */
-    for (int i = 0; i < warmup; ++i) {
-        gate_fn(&state, 0, 1);
-    }
+    qubit_t q1s[MAX_PAIRS], q2s[MAX_PAIRS];
+    int num_pairs = build_all_pairs(qubits, q1s, q2s);
+    if (num_pairs == 0) { state_free(&state); return result; }
 
-    /* Timed iterations */
-    qubit_t num_pairs = qubits - 1;
+    for (int i = 0; i < warmup; ++i)
+        gate_fn(&state, q1s[i % num_pairs], q2s[i % num_pairs]);
+
     uint64_t start = bench_time_ns();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < num_pairs; ++t) {
-            gate_fn(&state, t, t + 1);
-        }
-    }
+    for (int i = 0; i < iterations; ++i)
+        for (int p = 0; p < num_pairs; ++p)
+            gate_fn(&state, q1s[p], q2s[p]);
     uint64_t end = bench_time_ns();
 
-    result.time_ms = bench_ns_to_ms(end - start);
+    result.time_ms     = bench_ns_to_ms(end - start);
     result.ops_per_sec = (double)(iterations * num_pairs) / (result.time_ms / 1000.0);
 
     state_free(&state);
@@ -495,35 +451,31 @@ bench_result_t bench_qlib_tiled_2q(qubit_t qubits, const char *gate_name,
                                      void (*gate_fn)(state_t*, qubit_t, qubit_t),
                                      int iterations, int warmup) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "qlib_tiled";
-    result.iterations = iterations;
+    result.qubits      = qubits;
+    result.dim         = (dim_t)1 << qubits;
+    result.gate_name   = gate_name;
+    result.method      = "qlib_tiled";
+    result.iterations  = iterations;
 
-    size_t mem_before = bench_get_rss();
     state_t state = {0};
     init_random_mixed_state(&state, qubits, MIXED_TILED);
     if (!state.data) return result;
-    size_t mem_after = bench_get_rss();
-    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_tiled_size(qubits);
+    result.memory_bytes = bench_tiled_size(qubits);
 
-    /* Warm-up */
-    for (int i = 0; i < warmup; ++i) {
-        gate_fn(&state, 0, 1);
-    }
+    qubit_t q1s[MAX_PAIRS], q2s[MAX_PAIRS];
+    int num_pairs = build_all_pairs(qubits, q1s, q2s);
+    if (num_pairs == 0) { state_free(&state); return result; }
 
-    /* Timed iterations */
-    qubit_t num_pairs = qubits - 1;
+    for (int i = 0; i < warmup; ++i)
+        gate_fn(&state, q1s[i % num_pairs], q2s[i % num_pairs]);
+
     uint64_t start = bench_time_ns();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < num_pairs; ++t) {
-            gate_fn(&state, t, t + 1);
-        }
-    }
+    for (int i = 0; i < iterations; ++i)
+        for (int p = 0; p < num_pairs; ++p)
+            gate_fn(&state, q1s[p], q2s[p]);
     uint64_t end = bench_time_ns();
 
-    result.time_ms = bench_ns_to_ms(end - start);
+    result.time_ms     = bench_ns_to_ms(end - start);
     result.ops_per_sec = (double)(iterations * num_pairs) / (result.time_ms / 1000.0);
 
     state_free(&state);
@@ -534,53 +486,53 @@ bench_result_t bench_blas_dense_2q(qubit_t qubits, const char *gate_name,
                                      const cplx_t gate_mat[16],
                                      int iterations, int warmup) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "blas_dense";
-    result.iterations = iterations;
+    result.qubits      = qubits;
+    result.dim         = (dim_t)1 << qubits;
+    result.gate_name   = gate_name;
+    result.method      = "blas_dense";
+    result.iterations  = iterations;
 
     dim_t dim = result.dim;
-    qubit_t num_pairs = qubits - 1;
 
-    size_t mem_before = bench_get_rss();
+    qubit_t q1s[MAX_PAIRS], q2s[MAX_PAIRS];
+    int num_pairs = build_all_pairs(qubits, q1s, q2s);
+    if (num_pairs == 0) return result;
 
     cplx_t *rho = malloc(dim * dim * sizeof(cplx_t));
     if (!rho) return result;
-    for (dim_t i = 0; i < dim * dim; ++i) {
+    for (dim_t i = 0; i < dim * dim; ++i)
         rho[i] = (double)rand() / RAND_MAX + ((double)rand() / RAND_MAX) * I;
-    }
 
     cplx_t **U = malloc(num_pairs * sizeof(cplx_t*));
     if (!U) { free(rho); return result; }
-    for (qubit_t t = 0; t < num_pairs; ++t) {
-        U[t] = build_full_gate_matrix_2q(qubits, gate_mat, t, t + 1);
+    for (int p = 0; p < num_pairs; ++p)
+        U[p] = build_full_gate_matrix_2q(qubits, gate_mat, q1s[p], q2s[p]);
+
+    cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
+    if (!tmp) {
+        for (int p = 0; p < num_pairs; ++p) free(U[p]);
+        free(U); free(rho);
+        return result;
     }
 
-    size_t mem_after = bench_get_rss();
-    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : bench_dense_size(qubits);
+    result.memory_bytes = bench_dense_size(qubits);
 
-    /* Warm-up */
-    for (int i = 0; i < warmup; ++i) {
-        apply_uruh_blas(dim, U[0], rho);
-    }
+    for (int i = 0; i < warmup; ++i)
+        apply_uruh_blas(dim, U[i % num_pairs], rho, tmp);
 
-    /* Timed iterations */
     uint64_t start = bench_time_ns();
-    for (int i = 0; i < iterations; ++i) {
-        for (qubit_t t = 0; t < num_pairs; ++t) {
-            apply_uruh_blas(dim, U[t], rho);
-        }
-    }
+    for (int i = 0; i < iterations; ++i)
+        for (int p = 0; p < num_pairs; ++p)
+            apply_uruh_blas(dim, U[p], rho, tmp);
     uint64_t end = bench_time_ns();
 
-    result.time_ms = bench_ns_to_ms(end - start);
+    result.time_ms     = bench_ns_to_ms(end - start);
     result.ops_per_sec = (double)(iterations * num_pairs) / (result.time_ms / 1000.0);
 
+    free(tmp);
     free(rho);
-    for (qubit_t t = 0; t < num_pairs; ++t) free(U[t]);
+    for (int p = 0; p < num_pairs; ++p) free(U[p]);
     free(U);
-
     return result;
 }
 
@@ -593,9 +545,8 @@ bench_result_t bench_blas_dense_2q(qubit_t qubits, const char *gate_name,
 void bench_print_result(const bench_result_t *result, int verbose) {
     printf("  %-14s %10.3f ms (%'12.0f ops/sec)",
            result->method, result->time_ms, result->ops_per_sec);
-    if (verbose) {
+    if (verbose)
         printf("  [%zu bytes]", result->memory_bytes);
-    }
     printf("\n");
 }
 
@@ -604,9 +555,85 @@ void bench_print_csv_header(void) {
 }
 
 void bench_print_csv(const bench_result_t *result) {
-    printf("%u,%ld,%s,%s,%.6f,%.0f,%zu,%d\n",
-           result->qubits, result->dim, result->gate_name, result->method,
+    printf("%u,%lld,%s,%s,%.6f,%.0f,%zu,%d\n",
+           result->qubits, (long long)result->dim, result->gate_name, result->method,
            result->time_ms, result->ops_per_sec, result->memory_bytes, result->iterations);
+}
+
+/*
+ * =====================================================================================================================
+ * Summary struct and shared speedup/memory printing
+ * =====================================================================================================================
+ *
+ * Collects results for one (gate, qubit-count) combination across all methods.
+ * Eliminates the duplicate speedup+memory display logic between the 1Q and 2Q loops.
+ */
+
+typedef struct {
+    bench_result_t packed;
+    bench_result_t tiled;   int has_tiled;
+    bench_result_t dense;   int has_dense;
+    bench_result_t naive;   int has_naive;
+    double naive_scale;     /* multiply naive speedup by this when naive ran fewer iterations */
+    bench_result_t quest;   int has_quest;
+    bench_result_t qulacs;  int has_qulacs;
+} bench_summary_t;
+
+static void print_speedup_and_memory(const bench_summary_t *s) {
+    /* Speedup line */
+    printf("  Speedup:");
+    int has = 0;
+    if (s->has_tiled && s->tiled.time_ms > 0) {
+        printf(" %.2fx tiled vs packed", s->packed.time_ms / s->tiled.time_ms);
+        has = 1;
+    }
+    if (s->has_dense && s->dense.time_ms > 0) {
+        printf("%s%.1fx vs dense", has ? ", " : " ", s->dense.time_ms / s->packed.time_ms);
+        has = 1;
+    }
+    if (s->has_naive && s->naive.time_ms > 0) {
+        double speedup = (s->naive.time_ms / s->packed.time_ms) * s->naive_scale;
+        printf("%s~%.0fx vs naive", has ? ", " : " ", speedup);
+        has = 1;
+    }
+    if (s->has_quest && s->quest.time_ms > 0) {
+        printf("%s%.1fx vs QuEST", has ? ", " : " ", s->quest.time_ms / s->packed.time_ms);
+        has = 1;
+    }
+    if (s->has_qulacs && s->qulacs.time_ms > 0) {
+        printf("%s%.1fx vs Qulacs", has ? ", " : " ", s->qulacs.time_ms / s->packed.time_ms);
+        has = 1;
+    }
+    (void)has;
+    printf("\n");
+
+    /* Memory line */
+    size_t max_mem = s->packed.memory_bytes;
+    if (s->has_tiled  && s->tiled.memory_bytes  > max_mem) max_mem = s->tiled.memory_bytes;
+    if (s->has_dense  && s->dense.memory_bytes  > max_mem) max_mem = s->dense.memory_bytes;
+    if (s->has_naive  && s->naive.memory_bytes  > max_mem) max_mem = s->naive.memory_bytes;
+    if (s->has_quest  && s->quest.memory_bytes  > max_mem) max_mem = s->quest.memory_bytes;
+    if (s->has_qulacs && s->qulacs.memory_bytes > max_mem) max_mem = s->qulacs.memory_bytes;
+
+    const char *unit  = (max_mem >= 1024 * 1024) ? "MB" : "KB";
+    double      scale = (max_mem >= 1024 * 1024) ? 1024.0 * 1024.0 : 1024.0;
+
+    printf("  Memory: packed=%.1f %s", (double)s->packed.memory_bytes / scale, unit);
+    if (s->has_tiled  && s->tiled.memory_bytes  > 0)
+        printf(", tiled=%.1f %s",  (double)s->tiled.memory_bytes  / scale, unit);
+    if (s->has_dense  && s->dense.memory_bytes  > 0)
+        printf(", dense=%.1f %s",  (double)s->dense.memory_bytes  / scale, unit);
+    if (s->has_naive  && s->naive.memory_bytes  > 0)
+        printf(", naive=%.1f %s",  (double)s->naive.memory_bytes  / scale, unit);
+    if (s->has_quest  && s->quest.memory_bytes  > 0)
+        printf(", QuEST=%.1f %s",  (double)s->quest.memory_bytes  / scale, unit);
+    if (s->has_qulacs && s->qulacs.memory_bytes > 0)
+        printf(", Qulacs=%.1f %s", (double)s->qulacs.memory_bytes / scale, unit);
+    if (s->has_dense && s->packed.memory_bytes > 0 && s->dense.memory_bytes > 0) {
+        double savings = 100.0 * (1.0 - (double)s->packed.memory_bytes / (double)s->dense.memory_bytes);
+        printf(" (packed saves %.0f%%)", savings);
+    }
+    printf("\n");
 }
 
 /*
@@ -618,50 +645,73 @@ void bench_print_csv(const bench_result_t *result) {
 static void print_usage(const char *prog) {
     printf("Usage: %s [options]\n\n", prog);
     printf("Options:\n");
-    printf("  --min-qubits N   Minimum qubit count (default: %d)\n", BENCH_DEFAULT_MIN_QUBITS);
-    printf("  --max-qubits N   Maximum qubit count (default: %d)\n", BENCH_DEFAULT_MAX_QUBITS);
-    printf("  --step N         Qubit count increment (default: %d)\n", BENCH_DEFAULT_STEP);
-    printf("  --iterations N   Number of iterations (default: %d)\n", BENCH_DEFAULT_ITERATIONS);
-    printf("  --warmup N       Warm-up iterations (default: %d)\n", BENCH_DEFAULT_WARMUP);
+    printf("  --min-qubits N   Minimum qubit count, 1..30 (default: %d)\n", BENCH_DEFAULT_MIN_QUBITS);
+    printf("  --max-qubits N   Maximum qubit count, 1..30 (default: %d)\n", BENCH_DEFAULT_MAX_QUBITS);
+    printf("  --step N         Qubit count increment, >=1 (default: %d)\n", BENCH_DEFAULT_STEP);
+    printf("  --iterations N   Number of timed iterations, >=1 (default: %d)\n", BENCH_DEFAULT_ITERATIONS);
+    printf("  --warmup N       Warm-up iterations, >=0 (default: %d)\n", BENCH_DEFAULT_WARMUP);
     printf("  --csv            Output in CSV format\n");
     printf("  --pgfplots       Output in pgfplots-compatible .dat format\n");
-    printf("  --verbose        Show additional details\n");
+    printf("  --verbose        Show memory usage per result\n");
     printf("  --help           Show this help\n");
 }
 
 bench_options_t bench_parse_options(int argc, char *argv[]) {
     bench_options_t opts = {
-        .min_qubits = BENCH_DEFAULT_MIN_QUBITS,
-        .max_qubits = BENCH_DEFAULT_MAX_QUBITS,
-        .step = BENCH_DEFAULT_STEP,
-        .iterations = BENCH_DEFAULT_ITERATIONS,
-        .warmup = BENCH_DEFAULT_WARMUP,
-        .csv_output = 0,
+        .min_qubits     = BENCH_DEFAULT_MIN_QUBITS,
+        .max_qubits     = BENCH_DEFAULT_MAX_QUBITS,
+        .step           = BENCH_DEFAULT_STEP,
+        .iterations     = BENCH_DEFAULT_ITERATIONS,
+        .warmup         = BENCH_DEFAULT_WARMUP,
+        .csv_output     = 0,
         .pgfplots_output = 0,
-        .verbose = 0
+        .verbose        = 0
     };
 
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "--min-qubits") == 0 && i + 1 < argc) {
-            opts.min_qubits = (qubit_t)atoi(argv[++i]);
-        } else if (strcmp(argv[i], "--max-qubits") == 0 && i + 1 < argc) {
-            opts.max_qubits = (qubit_t)atoi(argv[++i]);
-        } else if (strcmp(argv[i], "--step") == 0 && i + 1 < argc) {
-            opts.step = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "--iterations") == 0 && i + 1 < argc) {
-            opts.iterations = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "--warmup") == 0 && i + 1 < argc) {
-            opts.warmup = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "--csv") == 0) {
-            opts.csv_output = 1;
-        } else if (strcmp(argv[i], "--pgfplots") == 0) {
+        if        (strcmp(argv[i], "--min-qubits")  == 0 && i + 1 < argc) {
+            opts.min_qubits  = (qubit_t)atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--max-qubits")  == 0 && i + 1 < argc) {
+            opts.max_qubits  = (qubit_t)atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--step")        == 0 && i + 1 < argc) {
+            opts.step        = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--iterations")  == 0 && i + 1 < argc) {
+            opts.iterations  = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--warmup")      == 0 && i + 1 < argc) {
+            opts.warmup      = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--csv")         == 0) {
+            opts.csv_output  = 1;
+        } else if (strcmp(argv[i], "--pgfplots")    == 0) {
             opts.pgfplots_output = 1;
-        } else if (strcmp(argv[i], "--verbose") == 0) {
-            opts.verbose = 1;
-        } else if (strcmp(argv[i], "--help") == 0) {
+        } else if (strcmp(argv[i], "--verbose")     == 0) {
+            opts.verbose     = 1;
+        } else if (strcmp(argv[i], "--help")        == 0) {
             print_usage(argv[0]);
             exit(0);
         }
+    }
+
+    /* Input validation */
+    if (opts.min_qubits < 1 || opts.min_qubits > 30) {
+        fprintf(stderr, "error: --min-qubits must be between 1 and 30\n");
+        exit(1);
+    }
+    if (opts.max_qubits < opts.min_qubits || opts.max_qubits > 30) {
+        fprintf(stderr, "error: --max-qubits must be between --min-qubits (%u) and 30\n",
+                opts.min_qubits);
+        exit(1);
+    }
+    if (opts.step <= 0) {
+        fprintf(stderr, "error: --step must be >= 1\n");
+        exit(1);
+    }
+    if (opts.iterations <= 0) {
+        fprintf(stderr, "error: --iterations must be >= 1\n");
+        exit(1);
+    }
+    if (opts.warmup < 0) {
+        fprintf(stderr, "error: --warmup must be >= 0\n");
+        exit(1);
     }
 
     return opts;
@@ -669,11 +719,11 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
 
 /*
  * =====================================================================================================================
- * Gate definitions for benchmarking
+ * Gate tables
  * =====================================================================================================================
  */
 
-typedef struct gate_def {
+typedef struct {
     const char *name;
     void (*fn)(state_t*, qubit_t);
     const cplx_t *mat;
@@ -686,87 +736,80 @@ static const gate_def_t gates[] = {
     {NULL, NULL, NULL}
 };
 
-typedef struct gate_def_2q {
+typedef struct {
     const char *name;
     void (*fn)(state_t*, qubit_t, qubit_t);
     const cplx_t *mat;
-    int has_tiled;              /**< 1 if tiled backend is implemented */
+    int has_tiled;
 } gate_def_2q_t;
 
 static const gate_def_2q_t gates_2q[] = {
-    {"CX",   cx,        CXMAT,    1},
-    {"SWAP", swap_gate,  SWAPMAT,  1},
+    {"CX",   cx,        CXMAT,   1},
+    {"SWAP", swap_gate, SWAPMAT, 1},
     {NULL, NULL, NULL, 0}
 };
 
-#define NUM_1Q_GATES 3
-#define NUM_2Q_GATES 2
-#define NUM_GATES (NUM_1Q_GATES + NUM_2Q_GATES)
+#define NUM_1Q_GATES    3
+#define NUM_2Q_GATES    2
+#define NUM_GATES       (NUM_1Q_GATES + NUM_2Q_GATES)
 #define MAX_QUBIT_CONFIGS 32
-#define NUM_METHODS 6  /* qlib_packed, qlib_tiled, blas, naive, quest, qulacs */
+#define NUM_METHODS     6   /* qlib_packed, qlib_tiled, blas, naive, quest, qulacs */
 
 static const char *all_gate_names[NUM_GATES] = {"X", "H", "Z", "CX", "SWAP"};
 
-/** @brief Storage for pgfplots output (collected during benchmark) */
+/*
+ * =====================================================================================================================
+ * pgfplots output
+ * =====================================================================================================================
+ */
+
 typedef struct {
     qubit_t qubits[MAX_QUBIT_CONFIGS];
-    int num_configs;
-    double time_ms[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
-    size_t memory[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
+    int     num_configs;
+    double  time_ms[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
+    size_t  memory[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
 } pgfplots_data_t;
 
-static pgfplots_data_t pgf_data = {0};
-
-/** @brief Method indices for pgfplots data */
 enum { M_QLIB = 0, M_QLIB_TILED = 1, M_BLAS = 2, M_NAIVE = 3, M_QUEST = 4, M_QULACS = 5 };
 
-/** @brief Print pgfplots-compatible .dat output */
-static void print_pgfplots_output(void) {
-    const char *method_names[] = {"qlib", "qlib_tiled", "blas", "quest", "qulacs"};
-    int method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS, M_QUEST, M_QULACS};
-    int num_methods = 5;
+static void print_pgfplots_output(const pgfplots_data_t *pgf) {
+    const char *method_names[]  = {"qlib", "qlib_tiled", "blas", "quest", "qulacs"};
+    int         method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS, M_QUEST, M_QULACS};
+    int         num_methods      = 5;
 
-    /* Print timing tables (one per gate) */
     for (int g = 0; g < NUM_GATES; ++g) {
         printf("# %s gate timing (ms)\n", all_gate_names[g]);
         printf("%-8s", "qubits");
-        for (int m = 0; m < num_methods; ++m) {
-            printf("  %-12s", method_names[m]);
-        }
+        for (int m = 0; m < num_methods; ++m) printf("  %-12s", method_names[m]);
         printf("\n");
 
-        for (int q = 0; q < pgf_data.num_configs; ++q) {
-            printf("%-8u", pgf_data.qubits[q]);
+        for (int q = 0; q < pgf->num_configs; ++q) {
+            printf("%-8u", pgf->qubits[q]);
             for (int m = 0; m < num_methods; ++m) {
-                double val = pgf_data.time_ms[g][q][method_indices[m]];
-                if (val > 0) {
+                double val = pgf->time_ms[g][q][method_indices[m]];
+                if (val > 0)
                     printf("  %-12.6f", val);
-                } else {
+                else
                     printf("  %-12s", "nan");
-                }
             }
             printf("\n");
         }
         printf("\n");
     }
 
-    /* Print memory table (same for all gates, use first gate) */
     printf("# Memory usage (MB)\n");
     printf("%-8s", "qubits");
-    for (int m = 0; m < num_methods; ++m) {
-        printf("  %-12s", method_names[m]);
-    }
+    for (int m = 0; m < num_methods; ++m) printf("  %-12s", method_names[m]);
     printf("\n");
 
-    for (int q = 0; q < pgf_data.num_configs; ++q) {
-        printf("%-8u", pgf_data.qubits[q]);
+    for (int q = 0; q < pgf->num_configs; ++q) {
+        printf("%-8u", pgf->qubits[q]);
         for (int m = 0; m < num_methods; ++m) {
-            size_t bytes = pgf_data.memory[0][q][method_indices[m]];
-            if (bytes > 0) {
+            size_t bytes = pgf->memory[0][q][method_indices[m]];
+            if (bytes > 0)
                 printf("  %-12.3f", (double)bytes / (1024.0 * 1024.0));
-            } else {
+            else
                 printf("  %-12s", "nan");
-            }
         }
         printf("\n");
     }
@@ -781,8 +824,15 @@ static void print_pgfplots_output(void) {
 int main(int argc, char *argv[]) {
     bench_options_t opts = bench_parse_options(argc, argv);
 
-    /* Seed random number generator for reproducibility */
-    srand(42);
+    /* Allocate pgfplots storage only when --pgfplots is requested */
+    pgfplots_data_t *pgf = NULL;
+    if (opts.pgfplots_output) {
+        pgf = calloc(1, sizeof(pgfplots_data_t));
+        if (!pgf) {
+            fprintf(stderr, "error: failed to allocate pgfplots buffer\n");
+            return 1;
+        }
+    }
 
     if (opts.csv_output) {
         bench_print_csv_header();
@@ -799,374 +849,190 @@ int main(int argc, char *argv[]) {
         printf("\n");
         printf("Iterations: %d, Warm-up: %d\n", opts.iterations, opts.warmup);
 #ifdef WITH_QUEST
-        printf("QuEST: enabled (https://quest.qtechtheory.org/)\n");
+        printf("QuEST: enabled\n");
 #endif
 #ifdef WITH_QULACS
-        printf("Qulacs: enabled (https://github.com/qulacs/qulacs)\n");
+        printf("Qulacs: enabled\n");
 #endif
         printf("\n");
     }
 
-    int qi = 0;  /* Qubit configuration index for pgfplots */
+    int qi = 0;
 
     for (qubit_t qubits = opts.min_qubits; qubits <= opts.max_qubits; qubits += opts.step) {
-        dim_t dim = (dim_t)1 << qubits;
+        dim_t dim    = (dim_t)1 << qubits;
+        int run_dense = (qubits <= 8);  /* O(N³) BLAS/naive: practical only up to 8 qubits */
 
-        /* Skip if memory would be too large (> 4GB for dense) */
-        if (bench_dense_size(qubits) > 4ULL * 1024 * 1024 * 1024) {
-            if (!opts.csv_output && !opts.pgfplots_output) {
-                printf("Skipping %u qubits (dense matrix > 4GB)\n", qubits);
-            }
-            continue;
-        }
+        if (pgf && qi < MAX_QUBIT_CONFIGS)
+            pgf->qubits[qi] = qubits;
 
-        /* Store qubit count for pgfplots */
-        if (opts.pgfplots_output && qi < MAX_QUBIT_CONFIGS) {
-            pgf_data.qubits[qi] = qubits;
-        }
+        if (!opts.csv_output && !opts.pgfplots_output)
+            printf("qubits: %u, dim: %lld\n", qubits, (long long)dim);
 
-        if (!opts.csv_output && !opts.pgfplots_output) {
-            printf("qubits: %u, dim: %ld\n", qubits, dim);
-        }
-
+        /* ── One-qubit gates ─────────────────────────────────────────────────── */
         for (int g = 0; gates[g].name != NULL; ++g) {
-            if (!opts.csv_output && !opts.pgfplots_output) {
+            if (!opts.csv_output && !opts.pgfplots_output)
                 printf("\nGate: %s\n", gates[g].name);
-            }
 
-            /* Benchmark qlib packed */
-            bench_result_t r_packed = bench_qlib_packed(
-                qubits, gates[g].name, gates[g].fn,
-                opts.iterations, opts.warmup);
+            bench_summary_t s = {0};
+            s.naive_scale = 10.0;  /* naive runs at iterations/10 due to O(N³) cost */
 
-            /* Benchmark qlib tiled */
-            bench_result_t r_tiled = bench_qlib_tiled(
-                qubits, gates[g].name, gates[g].fn,
-                opts.iterations, opts.warmup);
+            srand(42); s.packed = bench_qlib_packed(qubits, gates[g].name, gates[g].fn,
+                                                     opts.iterations, opts.warmup);
+            srand(42); s.tiled  = bench_qlib_tiled(qubits, gates[g].name, gates[g].fn,
+                                                    opts.iterations, opts.warmup);
+            s.has_tiled = (s.tiled.time_ms > 0);
 
-            /* Benchmark BLAS dense (skip for larger systems - O(N³) is too slow) */
-            bench_result_t r_dense = {0};
-            if (qubits <= 8) {
-                r_dense = bench_blas_dense(
-                    qubits, gates[g].name, gates[g].mat,
-                    opts.iterations, opts.warmup);
-            }
+            if (run_dense) {
+                srand(42); s.dense = bench_blas_dense(qubits, gates[g].name, gates[g].mat,
+                                                       opts.iterations, opts.warmup);
+                s.has_dense = 1;
 
-            /* Benchmark naive loop (skip for larger systems) */
-            bench_result_t r_naive = {0};
-            if (qubits <= 8) {
-                r_naive = bench_naive_loop(
-                    qubits, gates[g].name, gates[g].mat,
-                    opts.iterations / 10, opts.warmup / 10);  /* Fewer iterations for slow naive */
+                srand(42); s.naive = bench_naive_loop(qubits, gates[g].name, gates[g].mat,
+                                                       opts.iterations / 10,
+                                                       opts.warmup    / 10);
+                s.has_naive = 1;
             }
 
 #ifdef WITH_QUEST
-            /* Benchmark QuEST framework */
-            bench_result_t r_quest = bench_quest(
-                qubits, gates[g].name,
-                opts.iterations, opts.warmup);
+            s.quest     = bench_quest(qubits, gates[g].name, opts.iterations, opts.warmup);
+            s.has_quest = (s.quest.time_ms > 0);
 #endif
-
 #ifdef WITH_QULACS
-            /* Benchmark Qulacs framework */
-            bench_result_t r_qulacs = bench_qulacs(
-                qubits, gates[g].name,
-                opts.iterations, opts.warmup);
+            s.qulacs     = bench_qulacs(qubits, gates[g].name, opts.iterations, opts.warmup);
+            s.has_qulacs = (s.qulacs.time_ms > 0);
 #endif
 
-            /* Store results for pgfplots output */
-            if (opts.pgfplots_output && qi < MAX_QUBIT_CONFIGS) {
-                pgf_data.time_ms[g][qi][M_QLIB] = r_packed.time_ms;
-                pgf_data.time_ms[g][qi][M_QLIB_TILED] = r_tiled.time_ms;
-                pgf_data.time_ms[g][qi][M_BLAS] = r_dense.time_ms;
-                pgf_data.time_ms[g][qi][M_NAIVE] = r_naive.time_ms;
-                pgf_data.memory[g][qi][M_QLIB] = r_packed.memory_bytes;
-                pgf_data.memory[g][qi][M_QLIB_TILED] = r_tiled.memory_bytes;
-                pgf_data.memory[g][qi][M_BLAS] = r_dense.memory_bytes;
-                pgf_data.memory[g][qi][M_NAIVE] = r_naive.memory_bytes;
+            if (pgf && qi < MAX_QUBIT_CONFIGS) {
+                pgf->time_ms[g][qi][M_QLIB]       = s.packed.time_ms;
+                pgf->time_ms[g][qi][M_QLIB_TILED]  = s.tiled.time_ms;
+                pgf->time_ms[g][qi][M_BLAS]        = s.dense.time_ms;
+                pgf->time_ms[g][qi][M_NAIVE]       = s.naive.time_ms;
+                pgf->memory[g][qi][M_QLIB]         = s.packed.memory_bytes;
+                pgf->memory[g][qi][M_QLIB_TILED]   = s.tiled.memory_bytes;
+                pgf->memory[g][qi][M_BLAS]         = s.dense.memory_bytes;
+                pgf->memory[g][qi][M_NAIVE]        = s.naive.memory_bytes;
 #ifdef WITH_QUEST
-                pgf_data.time_ms[g][qi][M_QUEST] = r_quest.time_ms;
-                pgf_data.memory[g][qi][M_QUEST] = r_quest.memory_bytes;
+                pgf->time_ms[g][qi][M_QUEST]  = s.quest.time_ms;
+                pgf->memory[g][qi][M_QUEST]   = s.quest.memory_bytes;
 #endif
 #ifdef WITH_QULACS
-                pgf_data.time_ms[g][qi][M_QULACS] = r_qulacs.time_ms;
-                pgf_data.memory[g][qi][M_QULACS] = r_qulacs.memory_bytes;
+                pgf->time_ms[g][qi][M_QULACS] = s.qulacs.time_ms;
+                pgf->memory[g][qi][M_QULACS]  = s.qulacs.memory_bytes;
 #endif
             }
 
             if (opts.csv_output) {
-                bench_print_csv(&r_packed);
-                bench_print_csv(&r_tiled);
-                if (qubits <= 8) bench_print_csv(&r_dense);
-                if (qubits <= 8) bench_print_csv(&r_naive);
+                bench_print_csv(&s.packed);
+                bench_print_csv(&s.tiled);
+                if (s.has_dense) bench_print_csv(&s.dense);
+                if (s.has_naive) bench_print_csv(&s.naive);
 #ifdef WITH_QUEST
-                bench_print_csv(&r_quest);
+                if (s.has_quest) bench_print_csv(&s.quest);
 #endif
 #ifdef WITH_QULACS
-                bench_print_csv(&r_qulacs);
+                if (s.has_qulacs) bench_print_csv(&s.qulacs);
 #endif
             } else if (!opts.pgfplots_output) {
-                bench_print_result(&r_packed, opts.verbose);
-                bench_print_result(&r_tiled, opts.verbose);
-                if (qubits <= 8) bench_print_result(&r_dense, opts.verbose);
-                if (qubits <= 8) bench_print_result(&r_naive, opts.verbose);
+                bench_print_result(&s.packed, opts.verbose);
+                bench_print_result(&s.tiled,  opts.verbose);
+                if (s.has_dense) bench_print_result(&s.dense, opts.verbose);
+                if (s.has_naive) bench_print_result(&s.naive, opts.verbose);
 #ifdef WITH_QUEST
-                bench_print_result(&r_quest, opts.verbose);
+                if (s.has_quest) bench_print_result(&s.quest, opts.verbose);
 #endif
 #ifdef WITH_QULACS
-                bench_print_result(&r_qulacs, opts.verbose);
+                if (s.has_qulacs) bench_print_result(&s.qulacs, opts.verbose);
 #endif
-
-                /* Speedup */
-                printf("  Speedup:");
-                int has_speedup = 0;
-                if (r_tiled.time_ms > 0) {
-                    double speedup_tiled = r_packed.time_ms / r_tiled.time_ms;
-                    printf(" %.2fx tiled vs packed", speedup_tiled);
-                    has_speedup = 1;
-                }
-                if (qubits <= 8 && r_dense.time_ms > 0) {
-                    double speedup_dense = r_dense.time_ms / r_packed.time_ms;
-                    printf("%s%.1fx vs dense", has_speedup ? ", " : " ", speedup_dense);
-                    has_speedup = 1;
-                }
-                if (qubits <= 8 && r_naive.time_ms > 0) {
-                    double speedup_naive = r_naive.time_ms / r_packed.time_ms;
-                    /* Scale for different iteration counts */
-                    speedup_naive *= 10;
-                    printf("%s~%.0fx vs naive", has_speedup ? ", " : " ", speedup_naive);
-                    has_speedup = 1;
-                }
-#ifdef WITH_QUEST
-                if (r_quest.time_ms > 0) {
-                    double speedup_quest = r_quest.time_ms / r_packed.time_ms;
-                    printf(", %.1fx vs QuEST", speedup_quest);
-                }
-#endif
-#ifdef WITH_QULACS
-                if (r_qulacs.time_ms > 0) {
-                    double speedup_qulacs = r_qulacs.time_ms / r_packed.time_ms;
-                    printf(", %.1fx vs Qulacs", speedup_qulacs);
-                }
-#endif
-                printf("\n");
-
-                /* Memory comparison (actual RSS measured) */
-                size_t max_mem = r_packed.memory_bytes;
-                if (r_tiled.memory_bytes > max_mem) max_mem = r_tiled.memory_bytes;
-                if (r_dense.memory_bytes > max_mem) max_mem = r_dense.memory_bytes;
-                if (r_naive.memory_bytes > max_mem) max_mem = r_naive.memory_bytes;
-#ifdef WITH_QUEST
-                if (r_quest.memory_bytes > max_mem) max_mem = r_quest.memory_bytes;
-#endif
-#ifdef WITH_QULACS
-                if (r_qulacs.memory_bytes > max_mem) max_mem = r_qulacs.memory_bytes;
-#endif
-
-                /* Auto-scale units based on largest value */
-                const char *unit;
-                double scale;
-                if (max_mem >= 1024 * 1024) {
-                    unit = "MB";
-                    scale = 1024.0 * 1024.0;
-                } else {
-                    unit = "KB";
-                    scale = 1024.0;
-                }
-
-                printf("  Memory: packed=%.1f %s", (double)r_packed.memory_bytes / scale, unit);
-                if (r_tiled.memory_bytes > 0) {
-                    printf(", tiled=%.1f %s", (double)r_tiled.memory_bytes / scale, unit);
-                }
-                if (qubits <= 8 && r_dense.memory_bytes > 0) {
-                    printf(", dense=%.1f %s", (double)r_dense.memory_bytes / scale, unit);
-                }
-                if (qubits <= 8 && r_naive.memory_bytes > 0) {
-                    printf(", naive=%.1f %s", (double)r_naive.memory_bytes / scale, unit);
-                }
-#ifdef WITH_QUEST
-                if (r_quest.memory_bytes > 0) {
-                    printf(", QuEST=%.1f %s", (double)r_quest.memory_bytes / scale, unit);
-                }
-#endif
-#ifdef WITH_QULACS
-                if (r_qulacs.memory_bytes > 0) {
-                    printf(", Qulacs=%.1f %s", (double)r_qulacs.memory_bytes / scale, unit);
-                }
-#endif
-                if (qubits <= 8 && r_packed.memory_bytes > 0 && r_dense.memory_bytes > 0) {
-                    double savings = 100.0 * (1.0 - (double)r_packed.memory_bytes / (double)r_dense.memory_bytes);
-                    printf(" (packed saves %.0f%%)", savings);
-                }
-                printf("\n");
+                print_speedup_and_memory(&s);
             }
         }
 
-        /* Two-qubit gates */
+        /* ── Two-qubit gates ─────────────────────────────────────────────────── */
         for (int g = 0; gates_2q[g].name != NULL; ++g) {
-            if (!opts.csv_output && !opts.pgfplots_output) {
+            if (!opts.csv_output && !opts.pgfplots_output)
                 printf("\nGate: %s\n", gates_2q[g].name);
-            }
 
-            bench_result_t r_packed = bench_qlib_packed_2q(
-                qubits, gates_2q[g].name, gates_2q[g].fn,
-                opts.iterations, opts.warmup);
+            bench_summary_t s = {0};
+            s.naive_scale = 1.0;
 
-            bench_result_t r_tiled = {0};
+            srand(42); s.packed = bench_qlib_packed_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
+                                                        opts.iterations, opts.warmup);
+
             if (gates_2q[g].has_tiled) {
-                r_tiled = bench_qlib_tiled_2q(
-                    qubits, gates_2q[g].name, gates_2q[g].fn,
-                    opts.iterations, opts.warmup);
+                srand(42); s.tiled = bench_qlib_tiled_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
+                                                          opts.iterations, opts.warmup);
+                s.has_tiled = (s.tiled.time_ms > 0);
             }
 
-            bench_result_t r_dense = {0};
-            if (qubits <= 8) {
-                r_dense = bench_blas_dense_2q(
-                    qubits, gates_2q[g].name, gates_2q[g].mat,
-                    opts.iterations, opts.warmup);
+            if (run_dense) {
+                srand(42); s.dense = bench_blas_dense_2q(qubits, gates_2q[g].name, gates_2q[g].mat,
+                                                          opts.iterations, opts.warmup);
+                s.has_dense = 1;
             }
 
 #ifdef WITH_QUEST
-            bench_result_t r_quest = bench_quest(
-                qubits, gates_2q[g].name,
-                opts.iterations, opts.warmup);
+            s.quest     = bench_quest(qubits, gates_2q[g].name, opts.iterations, opts.warmup);
+            s.has_quest = (s.quest.time_ms > 0);
 #endif
-
 #ifdef WITH_QULACS
-            bench_result_t r_qulacs = bench_qulacs(
-                qubits, gates_2q[g].name,
-                opts.iterations, opts.warmup);
+            s.qulacs     = bench_qulacs(qubits, gates_2q[g].name, opts.iterations, opts.warmup);
+            s.has_qulacs = (s.qulacs.time_ms > 0);
 #endif
 
-            /* Store results for pgfplots output */
             int pg = NUM_1Q_GATES + g;
-            if (opts.pgfplots_output && qi < MAX_QUBIT_CONFIGS) {
-                pgf_data.time_ms[pg][qi][M_QLIB] = r_packed.time_ms;
-                pgf_data.time_ms[pg][qi][M_QLIB_TILED] = r_tiled.time_ms;
-                pgf_data.time_ms[pg][qi][M_BLAS] = r_dense.time_ms;
-                pgf_data.memory[pg][qi][M_QLIB] = r_packed.memory_bytes;
-                pgf_data.memory[pg][qi][M_QLIB_TILED] = r_tiled.memory_bytes;
-                pgf_data.memory[pg][qi][M_BLAS] = r_dense.memory_bytes;
+            if (pgf && qi < MAX_QUBIT_CONFIGS) {
+                pgf->time_ms[pg][qi][M_QLIB]       = s.packed.time_ms;
+                pgf->time_ms[pg][qi][M_QLIB_TILED]  = s.tiled.time_ms;
+                pgf->time_ms[pg][qi][M_BLAS]        = s.dense.time_ms;
+                pgf->memory[pg][qi][M_QLIB]         = s.packed.memory_bytes;
+                pgf->memory[pg][qi][M_QLIB_TILED]   = s.tiled.memory_bytes;
+                pgf->memory[pg][qi][M_BLAS]         = s.dense.memory_bytes;
 #ifdef WITH_QUEST
-                pgf_data.time_ms[pg][qi][M_QUEST] = r_quest.time_ms;
-                pgf_data.memory[pg][qi][M_QUEST] = r_quest.memory_bytes;
+                pgf->time_ms[pg][qi][M_QUEST]  = s.quest.time_ms;
+                pgf->memory[pg][qi][M_QUEST]   = s.quest.memory_bytes;
 #endif
 #ifdef WITH_QULACS
-                pgf_data.time_ms[pg][qi][M_QULACS] = r_qulacs.time_ms;
-                pgf_data.memory[pg][qi][M_QULACS] = r_qulacs.memory_bytes;
+                pgf->time_ms[pg][qi][M_QULACS] = s.qulacs.time_ms;
+                pgf->memory[pg][qi][M_QULACS]  = s.qulacs.memory_bytes;
 #endif
             }
 
             if (opts.csv_output) {
-                bench_print_csv(&r_packed);
-                if (gates_2q[g].has_tiled) bench_print_csv(&r_tiled);
-                if (qubits <= 8) bench_print_csv(&r_dense);
+                bench_print_csv(&s.packed);
+                if (s.has_tiled) bench_print_csv(&s.tiled);
+                if (s.has_dense) bench_print_csv(&s.dense);
 #ifdef WITH_QUEST
-                bench_print_csv(&r_quest);
+                if (s.has_quest) bench_print_csv(&s.quest);
 #endif
 #ifdef WITH_QULACS
-                bench_print_csv(&r_qulacs);
+                if (s.has_qulacs) bench_print_csv(&s.qulacs);
 #endif
             } else if (!opts.pgfplots_output) {
-                bench_print_result(&r_packed, opts.verbose);
-                if (gates_2q[g].has_tiled) bench_print_result(&r_tiled, opts.verbose);
-                if (qubits <= 8) bench_print_result(&r_dense, opts.verbose);
+                bench_print_result(&s.packed, opts.verbose);
+                if (s.has_tiled) bench_print_result(&s.tiled,  opts.verbose);
+                if (s.has_dense) bench_print_result(&s.dense,  opts.verbose);
 #ifdef WITH_QUEST
-                bench_print_result(&r_quest, opts.verbose);
+                if (s.has_quest) bench_print_result(&s.quest, opts.verbose);
 #endif
 #ifdef WITH_QULACS
-                bench_print_result(&r_qulacs, opts.verbose);
+                if (s.has_qulacs) bench_print_result(&s.qulacs, opts.verbose);
 #endif
-
-                /* Speedup */
-                printf("  Speedup:");
-                int has_speedup = 0;
-                if (r_tiled.time_ms > 0) {
-                    double speedup_tiled = r_packed.time_ms / r_tiled.time_ms;
-                    printf(" %.2fx tiled vs packed", speedup_tiled);
-                    has_speedup = 1;
-                }
-                if (qubits <= 8 && r_dense.time_ms > 0) {
-                    double speedup_dense = r_dense.time_ms / r_packed.time_ms;
-                    printf("%s%.1fx vs dense", has_speedup ? ", " : " ", speedup_dense);
-                    has_speedup = 1;
-                }
-#ifdef WITH_QUEST
-                if (r_quest.time_ms > 0) {
-                    double speedup_quest = r_quest.time_ms / r_packed.time_ms;
-                    printf("%s%.1fx vs QuEST", has_speedup ? ", " : " ", speedup_quest);
-                    has_speedup = 1;
-                }
-#endif
-#ifdef WITH_QULACS
-                if (r_qulacs.time_ms > 0) {
-                    double speedup_qulacs = r_qulacs.time_ms / r_packed.time_ms;
-                    printf("%s%.1fx vs Qulacs", has_speedup ? ", " : " ", speedup_qulacs);
-                    has_speedup = 1;
-                }
-#endif
-                printf("\n");
-
-                /* Memory comparison */
-                size_t max_mem = r_packed.memory_bytes;
-                if (r_tiled.memory_bytes > max_mem) max_mem = r_tiled.memory_bytes;
-                if (r_dense.memory_bytes > max_mem) max_mem = r_dense.memory_bytes;
-#ifdef WITH_QUEST
-                if (r_quest.memory_bytes > max_mem) max_mem = r_quest.memory_bytes;
-#endif
-#ifdef WITH_QULACS
-                if (r_qulacs.memory_bytes > max_mem) max_mem = r_qulacs.memory_bytes;
-#endif
-
-                const char *unit;
-                double scale;
-                if (max_mem >= 1024 * 1024) {
-                    unit = "MB";
-                    scale = 1024.0 * 1024.0;
-                } else {
-                    unit = "KB";
-                    scale = 1024.0;
-                }
-
-                printf("  Memory: packed=%.1f %s", (double)r_packed.memory_bytes / scale, unit);
-                if (r_tiled.memory_bytes > 0) {
-                    printf(", tiled=%.1f %s", (double)r_tiled.memory_bytes / scale, unit);
-                }
-                if (qubits <= 8 && r_dense.memory_bytes > 0) {
-                    printf(", dense=%.1f %s", (double)r_dense.memory_bytes / scale, unit);
-                }
-#ifdef WITH_QUEST
-                if (r_quest.memory_bytes > 0) {
-                    printf(", QuEST=%.1f %s", (double)r_quest.memory_bytes / scale, unit);
-                }
-#endif
-#ifdef WITH_QULACS
-                if (r_qulacs.memory_bytes > 0) {
-                    printf(", Qulacs=%.1f %s", (double)r_qulacs.memory_bytes / scale, unit);
-                }
-#endif
-                if (qubits <= 8 && r_packed.memory_bytes > 0 && r_dense.memory_bytes > 0) {
-                    double savings = 100.0 * (1.0 - (double)r_packed.memory_bytes / (double)r_dense.memory_bytes);
-                    printf(" (packed saves %.0f%%)", savings);
-                }
-                printf("\n");
+                print_speedup_and_memory(&s);
             }
         }
 
-        if (!opts.csv_output && !opts.pgfplots_output) {
+        if (!opts.csv_output && !opts.pgfplots_output)
             printf("\n" "─────────────────────────────────────────────────\n");
-        }
 
-        /* Increment qubit config index for pgfplots */
-        if (opts.pgfplots_output) {
+        if (pgf)
             qi++;
-        }
     }
 
-    /* Output pgfplots data */
-    if (opts.pgfplots_output) {
-        pgf_data.num_configs = qi;
-        print_pgfplots_output();
+    if (pgf) {
+        pgf->num_configs = qi;
+        print_pgfplots_output(pgf);
+        free(pgf);
     }
 
 #ifdef WITH_QUEST

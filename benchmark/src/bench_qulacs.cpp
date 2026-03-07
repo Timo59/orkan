@@ -99,9 +99,8 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
 
     if (gate_fn_1q) {
         /* Single-qubit gate benchmark */
-        for (int i = 0; i < warmup; ++i) {
-            gate_fn_1q(0, rho, dim);
-        }
+        for (int i = 0; i < warmup; ++i)
+            gate_fn_1q(static_cast<UINT>(i % qubits), rho, dim);
 
         auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < iterations; ++i) {
@@ -115,19 +114,32 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
         result.time_ms = static_cast<double>(duration.count()) / 1000000.0;
         result.ops_per_sec = static_cast<double>(iterations * qubits) / (result.time_ms / 1000.0);
     } else {
-        /* Two-qubit gate benchmark: adjacent pairs (t, t+1) */
-        qubit_t num_pairs = qubits - 1;
+        /* Two-qubit gate benchmark: all ordered pairs (q1 < q2) */
+        qubit_t q1s[128], q2s[128];
+        int num_pairs = 0;
+        for (qubit_t q1 = 0; q1 < qubits; ++q1)
+            for (qubit_t q2 = q1 + 1; q2 < qubits; ++q2) {
+                if (num_pairs >= 128) break;
+                q1s[num_pairs] = q1;
+                q2s[num_pairs] = q2;
+                num_pairs++;
+            }
 
-        for (int i = 0; i < warmup; ++i) {
-            gate_fn_2q(0, 1, rho, dim);
+        if (num_pairs == 0) {
+            std::free(rho);
+            write(write_fd, &result, sizeof(result));
+            close(write_fd);
+            _exit(0);
         }
+
+        for (int i = 0; i < warmup; ++i)
+            gate_fn_2q(static_cast<UINT>(q1s[i % num_pairs]),
+                       static_cast<UINT>(q2s[i % num_pairs]), rho, dim);
 
         auto start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < iterations; ++i) {
-            for (qubit_t t = 0; t < num_pairs; ++t) {
-                gate_fn_2q(static_cast<UINT>(t), static_cast<UINT>(t + 1), rho, dim);
-            }
-        }
+        for (int i = 0; i < iterations; ++i)
+            for (int p = 0; p < num_pairs; ++p)
+                gate_fn_2q(static_cast<UINT>(q1s[p]), static_cast<UINT>(q2s[p]), rho, dim);
         auto end = std::chrono::high_resolution_clock::now();
 
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
