@@ -21,6 +21,7 @@ set(Q_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate_pure.c"
         ${GATE_PACKED_SOURCES}
         ${GATE_TILED_SOURCES}
+        "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli.c"
 )
 
 # Include directory
@@ -39,6 +40,7 @@ target_include_directories(q
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
+            "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled"
 )
 target_compile_definitions(q
         PRIVATE
@@ -70,21 +72,3 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-# Circuit module (static library, linked against q for state_t and gate internals)
-add_library(circuit STATIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/circuit/pauli.c"
-)
-target_include_directories(circuit
-    PUBLIC  "${CMAKE_SOURCE_DIR}/include"
-    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled"
-)
-target_compile_definitions(circuit PRIVATE LOG_TILE_DIM=${LOG_TILE_DIM})
-if(DEFINED OMP_THRESHOLD)
-    target_compile_definitions(circuit PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
-endif()
-target_link_libraries(circuit
-    PUBLIC q
-)
-if(ENABLE_OPENMP)
-    target_link_libraries(circuit PRIVATE omp_compiler_flags)
-endif()

@@ -29,6 +29,20 @@ extern "C" {
  * =====================================================================================================================
  */
 
+/**
+ * @brief Build the full 2^n × 2^n matrix for a Pauli string via Kronecker products
+ *
+ * Constructs M = M(s[0]) ⊗ M(s[1]) ⊗ ... ⊗ M(s[n-1]) where s[0] is qubit n-1
+ * (big-endian, matching pauli_from_str convention) and M('I'), M('X'), M('Y'), M('Z')
+ * are the standard 2×2 Pauli matrices (column-major). Completely independent of the
+ * bitmask representation in pauli_t.
+ *
+ * @param[in] s         Big-endian string of 'I','X','Y','Z' characters (length n_qubits)
+ * @param[in] n_qubits  Number of qubits; 0 returns a 1×1 matrix with value 1
+ * @return Heap-allocated column-major matrix of size (2^n_qubits)^2, or NULL on OOM
+ */
+cplx_t *mat_pauli_str(const char *s, unsigned n_qubits);
+
 /*
  * @brief   Returns the matrix representing the application of the identity gate to a multiqubit state
  *

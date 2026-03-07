@@ -17,12 +17,77 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /*
  * =====================================================================================================================
  * Function definitions
  * =====================================================================================================================
  */
+
+/*
+ * =====================================================================================================================
+ * Pauli string matrix builder
+ *
+ * Builds the 2^n × 2^n matrix for a Pauli string using Kronecker products of the
+ * four 2×2 Pauli matrices. This is an independent implementation from the bitmask
+ * path in pauli_apply_pure — no masks are consulted.
+ *
+ * String convention: big-endian — s[0] = qubit n-1 (MSB), s[n-1] = qubit 0 (LSB).
+ * Matrix = M(s[0]) ⊗ M(s[1]) ⊗ ... ⊗ M(s[n-1]).
+ * =====================================================================================================================
+ */
+
+/* 2×2 Pauli matrices in column-major order: {M[0,0], M[1,0], M[0,1], M[1,1]} */
+static const cplx_t PMAT_I[4] = { 1.0+0.0*I,  0.0+0.0*I,  0.0+0.0*I,  1.0+0.0*I};
+static const cplx_t PMAT_X[4] = { 0.0+0.0*I,  1.0+0.0*I,  1.0+0.0*I,  0.0+0.0*I};
+static const cplx_t PMAT_Y[4] = { 0.0+0.0*I,  0.0+1.0*I,  0.0-1.0*I,  0.0+0.0*I};
+static const cplx_t PMAT_Z[4] = { 1.0+0.0*I,  0.0+0.0*I,  0.0+0.0*I, -1.0+0.0*I};
+
+static const cplx_t *char_to_pmat(char c) {
+    switch (c) {
+        case 'X': return PMAT_X;
+        case 'Y': return PMAT_Y;
+        case 'Z': return PMAT_Z;
+        default:  return PMAT_I;
+    }
+}
+
+cplx_t *mat_pauli_str(const char *s, unsigned n_qubits) {
+    if (n_qubits == 0) {
+        /* Scalar 1: 1×1 "matrix" */
+        cplx_t *out = malloc(sizeof(cplx_t));
+        if (!out) {
+            fprintf(stderr, "mat_pauli_str(): allocation failed for n=0\n");
+            return NULL;
+        }
+        *out = 1.0 + 0.0*I;
+        return out;
+    }
+
+    /* Start with the 2×2 matrix for qubit n-1 (s[0]) */
+    cplx_t *acc = malloc(4 * sizeof(cplx_t));
+    if (!acc) {
+        fprintf(stderr, "mat_pauli_str(): initial allocation failed\n");
+        return NULL;
+    }
+    memcpy(acc, char_to_pmat(s[0]), 4 * sizeof(cplx_t));
+    unsigned acc_dim = 2;
+
+    /* Kron acc with M(s[i]) for each subsequent qubit */
+    for (unsigned i = 1; i < n_qubits; ++i) {
+        cplx_t *tmp = zkron(acc_dim, acc_dim, acc, 2, 2, char_to_pmat(s[i]));
+        free(acc);
+        if (!tmp) {
+            fprintf(stderr, "mat_pauli_str(): zkron failed at position %u\n", i);
+            return NULL;
+        }
+        acc = tmp;
+        acc_dim *= 2;
+    }
+
+    return acc;
+}
 
 cplx_t* mat_id(const unsigned nqubits) {
     // Allocate memory for identity matrix and initialize all entries to zero
