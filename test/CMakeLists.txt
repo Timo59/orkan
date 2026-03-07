@@ -94,6 +94,8 @@ set(TEST_CIRCUIT_SRC
         "${CIRCUIT_DIR}/test_circuit.c"
         "${CIRCUIT_DIR}/test_pauli.c"
         "${UTILITY_DIR}/linalg.c"
+        "${UTILITY_DIR}/gatemat.c"
+        "${UTILITY_DIR}/test_pure_states.c"
         "${UNITY_SRC}/unity.c"
 )
 
@@ -114,7 +116,6 @@ target_include_directories(test_circuit
 )
 target_link_libraries(test_circuit
         PRIVATE
-            circuit
             q
 )
 add_test(NAME test_circuit COMMAND test_circuit)

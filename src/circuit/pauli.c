@@ -33,47 +33,28 @@
  */
 
 pauli_t *pauli_new(const pauli_label_t *labels, qubit_t n_qubits) {
-    if (n_qubits > 64 || (n_qubits > 0 && labels == NULL)) {
-        return NULL;
-    }
+    GATE_VALIDATE(n_qubits <= 64,
+                  "pauli_new: n_qubits exceeds maximum of 64");
+    GATE_VALIDATE(n_qubits == 0 || labels != NULL,
+                  "pauli_new: null labels with n_qubits > 0");
 
     pauli_t *p = malloc(sizeof(pauli_t));
-    if (!p) return NULL;
+    GATE_VALIDATE(p, "pauli_new: out of memory");
 
     p->n_qubits = n_qubits;
     p->x_mask = 0;
     p->z_mask = 0;
     p->y_mask = 0;
 
-    if (n_qubits == 0) {
-        p->labels = NULL;
-        return p;
-    }
-
-    p->labels = malloc((size_t)n_qubits * sizeof(pauli_label_t));
-    if (!p->labels) {
-        free(p);
-        return NULL;
-    }
-
-    memcpy(p->labels, labels, (size_t)n_qubits * sizeof(pauli_label_t));
+    if (n_qubits == 0) return p;
 
     for (qubit_t j = 0; j < n_qubits; ++j) {
         const uint64_t bit = (uint64_t)1 << j;
         switch (labels[j]) {
-            case PAULI_I:
-                break;
-            case PAULI_X:
-                p->x_mask |= bit;
-                break;
-            case PAULI_Y:
-                p->x_mask |= bit;
-                p->z_mask |= bit;
-                p->y_mask |= bit;
-                break;
-            case PAULI_Z:
-                p->z_mask |= bit;
-                break;
+            case PAULI_I: break;
+            case PAULI_X: p->x_mask |= bit; break;
+            case PAULI_Y: p->x_mask |= bit; p->z_mask |= bit; p->y_mask |= bit; break;
+            case PAULI_Z: p->z_mask |= bit; break;
         }
     }
 
@@ -81,13 +62,16 @@ pauli_t *pauli_new(const pauli_label_t *labels, qubit_t n_qubits) {
 }
 
 pauli_t *pauli_from_str(const char *s, qubit_t n_qubits) {
-    if (!s) return NULL;
+    GATE_VALIDATE(s, "pauli_from_str: null string");
 
     const size_t len = strlen(s);
-    if (len != (size_t)n_qubits) return NULL;
+    GATE_VALIDATE(len == (size_t)n_qubits,
+                  "pauli_from_str: string length does not match n_qubits");
+
+    if (n_qubits == 0) return pauli_new(NULL, 0);
 
     pauli_label_t *labels = malloc((size_t)n_qubits * sizeof(pauli_label_t));
-    if (!labels) return NULL;
+    GATE_VALIDATE(labels, "pauli_from_str: out of memory");
 
     /* String is big-endian: s[0] = qubit n-1, s[n-1] = qubit 0 */
     for (size_t i = 0; i < len; ++i) {
@@ -98,8 +82,7 @@ pauli_t *pauli_from_str(const char *s, qubit_t n_qubits) {
             case 'Y': labels[qubit_idx] = PAULI_Y; break;
             case 'Z': labels[qubit_idx] = PAULI_Z; break;
             default:
-                free(labels);
-                return NULL;
+                GATE_VALIDATE(0, "pauli_from_str: invalid character (expected 'I','X','Y','Z')");
         }
     }
 
@@ -108,9 +91,29 @@ pauli_t *pauli_from_str(const char *s, qubit_t n_qubits) {
     return p;
 }
 
+char *pauli_to_str(const pauli_t *P) {
+    GATE_VALIDATE(P, "pauli_to_str: null Pauli pointer");
+
+    char *s = malloc((size_t)P->n_qubits + 1);
+    GATE_VALIDATE(s, "pauli_to_str: out of memory");
+
+    /* Big-endian: s[0] = qubit n-1, s[n-1] = qubit 0 */
+    for (qubit_t j = 0; j < P->n_qubits; ++j) {
+        const int has_x = (int)((P->x_mask >> j) & 1u);
+        const int has_z = (int)((P->z_mask >> j) & 1u);
+        char c;
+        if      (has_x && has_z) c = 'Y';
+        else if (has_x)          c = 'X';
+        else if (has_z)          c = 'Z';
+        else                     c = 'I';
+        s[P->n_qubits - 1 - j] = c;
+    }
+    s[P->n_qubits] = '\0';
+    return s;
+}
+
 void pauli_free(pauli_t *p) {
     if (!p) return;
-    free(p->labels);
     free(p);
 }
 
@@ -164,16 +167,14 @@ static inline cplx_t apply_ipow(const cplx_t z, const unsigned exp) {
 /**
  * @brief Apply Pauli string P to pure state in-place: |psi> -> P|psi>
  *
- * Three cases, dispatched by mask structure:
+ * Two cases dispatched by mask structure:
  *
- * 1. Identity (x_mask == 0 && z_mask == 0): no-op.
+ * 1. Diagonal (x_mask == 0): identity returns immediately; pure Z-string
+ *    applies real sign flips (-1)^{popcount(i & z_mask)}.
+ *    (y_mask != 0 with x_mask == 0 is structurally impossible: PAULI_Y always
+ *    sets both x_mask and y_mask, so y_mask ⊆ x_mask by construction.)
  *
- * 2. Diagonal (x_mask == 0): pure phase application.
- *    - Z-only (y_mask == 0): real sign flips (-1)^{popcount(i & z_mask)}.
- *    - With Y factors (unreachable: y_mask != 0 implies x_mask != 0, so
- *      this branch is dead, but kept for completeness).
- *
- * 3. Non-diagonal (x_mask != 0): swap + phase on pairs (j, j XOR x_mask).
+ * 2. Non-diagonal (x_mask != 0): swap + phase on pairs (j, j XOR x_mask).
  *    Enumerate j by inserting 0 at the LOWEST set bit of x_mask.
  *    This gives exactly dim/2 unique pairs, each (j, jp) differing at all
  *    x_mask bit positions. XOR with the full x_mask then applies all X-flips.
@@ -199,29 +200,14 @@ void pauli_apply_pure(state_t *state, const pauli_t *P) {
     const uint64_t z_mask = P->z_mask;
     const uint64_t y_mask = P->y_mask;
 
-    if (x_mask == 0 && z_mask == 0) {
-        return;
-    }
-
-    const unsigned eta_exp = (unsigned)(__builtin_popcountll(y_mask) & 3u);
-
     if (x_mask == 0) {
-        if (y_mask == 0) {
-            /* Pure Z-string: real sign flips only */
-            #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t i = 0; i < dim; ++i) {
-                const unsigned parity = (unsigned)(__builtin_popcountll(i & z_mask) & 1u);
-                const double sign = 1.0 - 2.0 * (double)parity;
-                data[i] = data[i] * sign;
-            }
-        } else {
-            /* Diagonal with Y factors: multiply by i^{eta_exp + 2*parity} */
-            #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t i = 0; i < dim; ++i) {
-                const unsigned parity = (unsigned)(__builtin_popcountll(i & z_mask) & 1u);
-                const unsigned exp = (eta_exp + 2u * parity) & 3u;
-                data[i] = apply_ipow(data[i], exp);
-            }
+        if (z_mask == 0) return;  /* identity: no-op */
+        /* Pure Z-string (y_mask == 0 guaranteed): real sign flips only */
+        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+        for (gate_idx_t i = 0; i < dim; ++i) {
+            const unsigned parity = (unsigned)(__builtin_popcountll(i & z_mask) & 1u);
+            const double sign = 1.0 - 2.0 * (double)parity;
+            data[i] = data[i] * sign;
         }
     } else {
         /* Non-diagonal: swap-and-phase on pairs (j, j XOR x_mask).
@@ -231,7 +217,8 @@ void pauli_apply_pure(state_t *state, const pauli_t *P) {
          * all X-bits at once (including the split bit), ensuring jp != j and
          * each pair is visited exactly once.
          */
-        const unsigned y_parity = (unsigned)(__builtin_popcountll(y_mask) & 1u);
+        const unsigned eta_exp   = (unsigned)(__builtin_popcountll(y_mask) & 3u);
+        const unsigned y_parity  = (unsigned)(__builtin_popcountll(y_mask) & 1u);
         const qubit_t  split_bit = (qubit_t)__builtin_ctzll(x_mask);
         const gate_idx_t n_pairs = dim >> 1;
 
@@ -257,19 +244,16 @@ void pauli_apply_pure(state_t *state, const pauli_t *P) {
  * Uses the Euler decomposition:
  *   U(theta) = cos(theta/2) * I  -  i * sin(theta/2) * P
  *
- * Three cases, matching the structure of pauli_apply_pure:
+ * Two cases dispatched by mask structure:
  *
- * 1. Identity (x_mask == 0 && z_mask == 0): global phase e^{-i*theta/2}.
- *    All amplitudes scaled by CMPLX(cos(theta/2), -sin(theta/2)).
+ * 1. Diagonal (x_mask == 0):
+ *    - Identity (z_mask == 0): global phase e^{-i*theta/2}. All amplitudes
+ *      scaled by CMPLX(cos(theta/2), -sin(theta/2)). Not a no-op.
+ *    - Pure Z-string (z_mask != 0): two precomputed scalars e^{±i*theta/2}
+ *      selected per amplitude by (-1)^{popcount(i & z_mask)}.
+ *      (y_mask != 0 with x_mask == 0 is structurally impossible.)
  *
- * 2. Diagonal (x_mask == 0): per-amplitude scalar multiply.
- *    data[i] = c*data[i] + s*apply_ipow(data[i], (exp_i+3)&3)
- *    where exp_i = (eta_exp + 2*parity_i) & 3 and -i corresponds to i^3.
- *
- *    For pure Z (y_mask == 0), only parity in {0,1} and eta_exp=0, so
- *    two precomputed scalars e^{-i*theta/2} and e^{+i*theta/2} suffice.
- *
- * 3. Non-diagonal (x_mask != 0): paired update, reading both old values first.
+ * 2. Non-diagonal (x_mask != 0): paired update, reading both old values first.
  *    new_j  = c*old_j  + s*apply_ipow(old_jp, (exp_jp+3)&3)
  *    new_jp = c*old_jp + s*apply_ipow(old_j,  (exp_j +3)&3)
  *    Derivation: -i*i^k = i^3 * i^k = i^{(k+3)&3}. This avoids all complex
@@ -299,45 +283,27 @@ void pauli_exp_pure(state_t *state, const pauli_t *P, double theta) {
     const double c    = cos(half);
     const double s    = sin(half);
 
-    if (x_mask == 0 && z_mask == 0) {
-        /* Global phase: all amplitudes multiplied by e^{-i*theta/2} = c - i*s */
-        const cplx_t phase = CMPLX(c, -s);
+    if (x_mask == 0) {
+        if (z_mask == 0) {
+            /* Global phase: all amplitudes multiplied by e^{-i*theta/2} = c - i*s */
+            const cplx_t phase = CMPLX(c, -s);
+            #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+            for (gate_idx_t i = 0; i < dim; ++i) {
+                data[i] = data[i] * phase;
+            }
+            return;
+        }
+        /* Pure Z-string (y_mask == 0 guaranteed): eta_exp = 0, parity_i in {0, 1}.
+         * parity=0: e^{-i*theta/2}*data  (phase +1 eigenstate)
+         * parity=1: e^{+i*theta/2}*data  (phase -1 eigenstate)
+         * Precompute both scalars to avoid per-iteration apply_ipow dispatch.
+         */
+        const cplx_t fac_pos = CMPLX(c, -s);   /* epsilon = +1: e^{-i*theta/2} */
+        const cplx_t fac_neg = CMPLX(c,  s);   /* epsilon = -1: e^{+i*theta/2} */
         #pragma omp parallel for if(dim >= OMP_THRESHOLD)
         for (gate_idx_t i = 0; i < dim; ++i) {
-            data[i] = data[i] * phase;
-        }
-        return;
-    }
-
-    const unsigned eta_exp = (unsigned)(__builtin_popcountll(y_mask) & 3u);
-
-    if (x_mask == 0) {
-        if (y_mask == 0) {
-            /* Pure Z-string: eta_exp = 0, parity_i in {0, 1} only.
-             * parity=0 => exp_i=0 => -i * i^0 = i^3 => factor = c*data + s*i^3*data
-             *          = (c - is)*data = e^{-i*theta/2}*data   (phase +1 eigenstate)
-             * parity=1 => exp_i=2 => -i * i^2 = i^1 => factor = c*data + s*i^1*data
-             *          = (c + is)*data = e^{+i*theta/2}*data   (phase -1 eigenstate)
-             * Precompute both scalars to avoid per-iteration apply_ipow dispatch.
-             */
-            const cplx_t fac_pos = CMPLX(c, -s);   /* epsilon = +1: e^{-i*theta/2} */
-            const cplx_t fac_neg = CMPLX(c,  s);   /* epsilon = -1: e^{+i*theta/2} */
-            #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t i = 0; i < dim; ++i) {
-                const unsigned parity = (unsigned)(__builtin_popcountll(i & z_mask) & 1u);
-                data[i] = data[i] * (parity ? fac_neg : fac_pos);
-            }
-        } else {
-            /* Diagonal with Y factors (structurally dead: y_mask != 0 implies x_mask != 0,
-             * kept for completeness matching pauli_apply_pure).
-             * data[i] = c*data[i] + s*apply_ipow(data[i], (exp_i+3)&3)
-             */
-            #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t i = 0; i < dim; ++i) {
-                const unsigned parity = (unsigned)(__builtin_popcountll(i & z_mask) & 1u);
-                const unsigned exp_i  = (eta_exp + 2u * parity) & 3u;
-                data[i] = c * data[i] + s * apply_ipow(data[i], (exp_i + 3u) & 3u);
-            }
+            const unsigned parity = (unsigned)(__builtin_popcountll(i & z_mask) & 1u);
+            data[i] = data[i] * (parity ? fac_neg : fac_pos);
         }
     } else {
         /* Non-diagonal: paired update on (j, jp = j XOR x_mask).
@@ -349,6 +315,7 @@ void pauli_exp_pure(state_t *state, const pauli_t *P, double theta) {
          * Both old values must be read before either write.
          * Phase exponents computed identically to pauli_apply_pure.
          */
+        const unsigned eta_exp   = (unsigned)(__builtin_popcountll(y_mask) & 3u);
         const unsigned y_parity  = (unsigned)(__builtin_popcountll(y_mask) & 1u);
         const qubit_t  split_bit = (qubit_t)__builtin_ctzll(x_mask);
         const gate_idx_t n_pairs = dim >> 1;
