@@ -69,7 +69,7 @@ cplx_t* density_pack(unsigned n, const cplx_t *full) {
  */
 
 void tiled_state_from_full(state_t *state, unsigned nqubits, const cplx_t *full) {
-    const unsigned dim = POW2(nqubits, dim_t);
+    const unsigned dim = POW2(nqubits, unsigned);
 
     state->type = MIXED_TILED;
     state_init(state, nqubits, NULL);  // Allocate zero-initialized tiled storage

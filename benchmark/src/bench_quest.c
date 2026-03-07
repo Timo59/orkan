@@ -92,9 +92,8 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
 
     if (gate_fn_1q) {
         /* Single-qubit gate benchmark */
-        for (int i = 0; i < warmup; ++i) {
-            gate_fn_1q(rho, 0);
-        }
+        for (int i = 0; i < warmup; ++i)
+            gate_fn_1q(rho, (int)(i % qubits));
 
         uint64_t start = bench_time_ns();
         for (int i = 0; i < iterations; ++i) {
@@ -107,19 +106,32 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
         result.time_ms = bench_ns_to_ms(end - start);
         result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
     } else {
-        /* Two-qubit gate benchmark: adjacent pairs (t, t+1) */
-        qubit_t num_pairs = qubits - 1;
+        /* Two-qubit gate benchmark: all ordered pairs (q1 < q2) */
+        qubit_t q1s[128], q2s[128];
+        int num_pairs = 0;
+        for (qubit_t q1 = 0; q1 < qubits; ++q1)
+            for (qubit_t q2 = q1 + 1; q2 < qubits; ++q2) {
+                if (num_pairs >= 128) break;
+                q1s[num_pairs] = q1;
+                q2s[num_pairs] = q2;
+                num_pairs++;
+            }
 
-        for (int i = 0; i < warmup; ++i) {
-            gate_fn_2q(rho, 0, 1);
+        if (num_pairs == 0) {
+            write(write_fd, &result, sizeof(result));
+            close(write_fd);
+            destroyQureg(rho);
+            finalizeQuESTEnv();
+            _exit(0);
         }
+
+        for (int i = 0; i < warmup; ++i)
+            gate_fn_2q(rho, (int)q1s[i % num_pairs], (int)q2s[i % num_pairs]);
 
         uint64_t start = bench_time_ns();
-        for (int i = 0; i < iterations; ++i) {
-            for (qubit_t t = 0; t < num_pairs; ++t) {
-                gate_fn_2q(rho, (int)t, (int)(t + 1));
-            }
-        }
+        for (int i = 0; i < iterations; ++i)
+            for (int p = 0; p < num_pairs; ++p)
+                gate_fn_2q(rho, (int)q1s[p], (int)q2s[p]);
         uint64_t end = bench_time_ns();
 
         result.time_ms = bench_ns_to_ms(end - start);

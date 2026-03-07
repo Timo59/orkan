@@ -48,7 +48,7 @@ void testThreeQubitGateMixed(const three_qubit_gate gate, const cplx_t *mat) {
 
     // Iterate the number of qubits (minimum 3 for three-qubit gates)
     for (unsigned nqubits = 3; nqubits <= MAXQUBITS; ++nqubits) {
-        const unsigned dim = POW2(nqubits, dim_t);
+        const unsigned dim = POW2(nqubits, unsigned);
 
         // Iterate all (q1, q2, q3) triples where all three are distinct
         for (unsigned q1 = 0; q1 < nqubits; ++q1) {

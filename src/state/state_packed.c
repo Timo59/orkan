@@ -43,8 +43,7 @@
  * @return      Index into packed storage array
  */
 static inline dim_t packed_idx(dim_t dim, dim_t row, dim_t col) {
-    /* Cast to size_t to prevent overflow of col*dim on 32-bit dim_t */
-    return (dim_t)((size_t)col * dim - (size_t)col * (col + 1) / 2 + row);
+    return col * dim - col * (col + 1) / 2 + row;
 }
 
 /*
@@ -60,9 +59,8 @@ dim_t state_packed_len(qubit_t qubits) {
      * To avoid overflow in dim*(dim+1), we compute (dim/2)*(dim+1) since
      * dim = 2^qubits is always even for qubits >= 1.
      *
-     * Maximum supported qubits depends on sizeof(dim_t):
-     * - 32-bit dim_t: max ~30 qubits (storage ~2^60 elements won't fit anyway)
-     * - 64-bit dim_t: max ~62 qubits (memory limited long before overflow)
+     * dim_t is int64_t so overflow is not reachable in practice
+     * (memory is exhausted long before 62 qubits).
      */
     assert(qubits < sizeof(dim_t) * 8 - 1);  /* Prevent dim overflow */
 

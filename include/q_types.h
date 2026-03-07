@@ -9,11 +9,8 @@
  * =====================================================================================================================
  */
 
-#if defined(__APPLE__)
-    #include <vecLib/lapack_types.h>
-#elif defined(__linux__)
-    #include <openblas_config.h>
-#endif
+#include <stdint.h>
+#include <complex.h>
 
 /*
  * =====================================================================================================================
@@ -49,14 +46,8 @@ typedef enum {
  */
 
 typedef unsigned char               qubit_t;    // Qubit identifier
-
-#if defined(__APPLE__)
-    typedef __LAPACK_double_complex cplx_t;
-    typedef __LAPACK_int            dim_t;
-#elif defined(__linux__)
-    typedef openblas_complex_double cplx_t;
-    typedef blasint                 dim_t;
-#endif
+typedef double _Complex             cplx_t;     // Complex double (C99, ABI-compatible with all BLAS vendors)
+typedef int64_t                     dim_t;      // State/matrix dimension (ILP64: 64-bit to handle dim^2 > 2^31)
 
 /*
  * =====================================================================================================================
