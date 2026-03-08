@@ -13,6 +13,9 @@
  * Memory measurement: QuEST cannot be re-initialized after finalization,
  * so we fork a child process for each benchmark to get accurate memory
  * measurements that include the full environment setup cost.
+ *
+ * Statistics: the child performs `runs` independent timed rounds and returns
+ * the full bench_run_stats_t summary through the pipe.
  */
 
 #ifdef WITH_QUEST
@@ -36,14 +39,16 @@ void bench_quest_cleanup(void) {
 /**
  * @brief Run QuEST benchmark in child process (internal)
  *
- * This runs in a forked child and writes results to the pipe.
+ * Performs `runs` independent timed rounds and fills all statistical fields
+ * in result before writing it to the pipe.
  */
 static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_name,
-                               int iterations, int warmup) {
+                               int iterations, int warmup, int runs) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
+    result.qubits     = qubits;
+    result.dim        = (dim_t)1 << qubits;
     result.iterations = iterations;
+    result.runs       = runs;
 
     /*
      * Measure total memory: environment + Qureg allocation.
@@ -90,23 +95,31 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
         _exit(1);
     }
 
+    double run_times[200];  /* bounded by --runs validation (max 200) */
+    int cnt = (runs < 200) ? runs : 200;
+
     if (gate_fn_1q) {
-        /* Single-qubit gate benchmark */
+        /* Single-qubit gate: `runs` independent timed rounds */
         for (int i = 0; i < warmup; ++i)
             gate_fn_1q(rho, (int)(i % qubits));
 
-        uint64_t start = bench_time_ns();
-        for (int i = 0; i < iterations; ++i) {
-            for (qubit_t t = 0; t < qubits; ++t) {
-                gate_fn_1q(rho, (int)t);
-            }
+        for (int r = 0; r < cnt; ++r) {
+            uint64_t start = bench_time_ns();
+            for (int i = 0; i < iterations; ++i)
+                for (qubit_t t = 0; t < qubits; ++t)
+                    gate_fn_1q(rho, (int)t);
+            run_times[r] = bench_ns_to_ms(bench_time_ns() - start);
         }
-        uint64_t end = bench_time_ns();
 
-        result.time_ms = bench_ns_to_ms(end - start);
-        result.ops_per_sec = (double)(iterations * qubits) / (result.time_ms / 1000.0);
+        bench_run_stats_t stats = bench_compute_stats(run_times, cnt);
+        result.time_ms        = stats.mean;
+        result.time_ms_std    = stats.std_dev;
+        result.time_ms_min    = stats.min;
+        result.time_ms_median = stats.median;
+        result.time_ms_cv     = stats.cv;
+        result.ops_per_sec    = (double)(iterations * qubits) / (stats.mean / 1000.0);
     } else {
-        /* Two-qubit gate benchmark: all ordered pairs (q1 < q2) */
+        /* Two-qubit gate: all ordered pairs (q1 < q2) */
         qubit_t q1s[128], q2s[128];
         int num_pairs = 0;
         for (qubit_t q1 = 0; q1 < qubits; ++q1)
@@ -128,48 +141,50 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
         for (int i = 0; i < warmup; ++i)
             gate_fn_2q(rho, (int)q1s[i % num_pairs], (int)q2s[i % num_pairs]);
 
-        uint64_t start = bench_time_ns();
-        for (int i = 0; i < iterations; ++i)
-            for (int p = 0; p < num_pairs; ++p)
-                gate_fn_2q(rho, (int)q1s[p], (int)q2s[p]);
-        uint64_t end = bench_time_ns();
+        for (int r = 0; r < cnt; ++r) {
+            uint64_t start = bench_time_ns();
+            for (int i = 0; i < iterations; ++i)
+                for (int p = 0; p < num_pairs; ++p)
+                    gate_fn_2q(rho, (int)q1s[p], (int)q2s[p]);
+            run_times[r] = bench_ns_to_ms(bench_time_ns() - start);
+        }
 
-        result.time_ms = bench_ns_to_ms(end - start);
-        result.ops_per_sec = (double)(iterations * num_pairs) / (result.time_ms / 1000.0);
+        bench_run_stats_t stats = bench_compute_stats(run_times, cnt);
+        result.time_ms        = stats.mean;
+        result.time_ms_std    = stats.std_dev;
+        result.time_ms_min    = stats.min;
+        result.time_ms_median = stats.median;
+        result.time_ms_cv     = stats.cv;
+        result.ops_per_sec    = (double)(iterations * num_pairs) / (stats.mean / 1000.0);
     }
 
-    /* Write result to parent */
+    /* Write result to parent.
+     * NOTE: gate_name and method are pointer fields valid only in this child's
+     * address space. The parent discards them and uses its own string literals. */
     write(write_fd, &result, sizeof(result));
     close(write_fd);
 
-    /* Cleanup and exit */
     destroyQureg(rho);
     finalizeQuESTEnv();
     _exit(0);
 }
 
 /**
- * @brief Benchmark QuEST density matrix gate operations
+ * @brief Benchmark QuEST density matrix gate operations.
  *
- * Forks a child process for each benchmark to ensure accurate memory
- * measurement. QuEST cannot be re-initialized after finalization.
- *
- * @param qubits Number of qubits
- * @param gate_name Name of the gate ("X", "H", "Z")
- * @param iterations Number of iterations
- * @param warmup Number of warm-up iterations
- * @return bench_result_t Benchmark results
+ * Forks a child process; the child performs `runs` independent timed rounds
+ * and returns the full statistical summary via pipe.
  */
 bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
-                           int iterations, int warmup) {
+                           int iterations, int warmup, int runs) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "quest";
+    result.qubits     = qubits;
+    result.dim        = (dim_t)1 << qubits;
+    result.gate_name  = gate_name;
+    result.method     = "quest";
     result.iterations = iterations;
+    result.runs       = runs;
 
-    /* Create pipe for child to send results back */
     int pipefd[2];
     if (pipe(pipefd) == -1) {
         perror("bench_quest: pipe failed");
@@ -185,28 +200,28 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
     }
 
     if (pid == 0) {
-        /* Child process */
-        close(pipefd[0]);  /* Close read end */
-        bench_quest_child(pipefd[1], qubits, gate_name, iterations, warmup);
-        _exit(0);  /* Should not reach here */
+        close(pipefd[0]);
+        bench_quest_child(pipefd[1], qubits, gate_name, iterations, warmup, runs);
+        _exit(0);  /* unreachable */
     }
 
-    /* Parent process */
-    close(pipefd[1]);  /* Close write end */
+    close(pipefd[1]);
 
-    /* Read result from child */
     bench_result_t child_result;
     ssize_t n = read(pipefd[0], &child_result, sizeof(child_result));
     close(pipefd[0]);
 
-    /* Wait for child to finish */
     int status;
     waitpid(pid, &status, 0);
 
     if (n == sizeof(child_result)) {
-        result.time_ms = child_result.time_ms;
-        result.ops_per_sec = child_result.ops_per_sec;
-        result.memory_bytes = child_result.memory_bytes;
+        result.time_ms        = child_result.time_ms;
+        result.time_ms_std    = child_result.time_ms_std;
+        result.time_ms_min    = child_result.time_ms_min;
+        result.time_ms_median = child_result.time_ms_median;
+        result.time_ms_cv     = child_result.time_ms_cv;
+        result.ops_per_sec    = child_result.ops_per_sec;
+        result.memory_bytes   = child_result.memory_bytes;
     }
 
     return result;

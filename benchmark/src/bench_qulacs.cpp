@@ -12,6 +12,9 @@
  *
  * Memory measurement: We fork a child process for each benchmark to get
  * accurate memory measurements, avoiding memory reuse between benchmarks.
+ *
+ * Statistics: the child performs `runs` independent timed rounds and returns
+ * the full bench_run_stats_t summary through the pipe.
  */
 
 #ifdef WITH_QULACS
@@ -37,14 +40,16 @@ extern "C" {
 /**
  * @brief Run Qulacs benchmark in child process (internal)
  *
- * This runs in a forked child and writes results to the pipe.
+ * Performs `runs` independent timed rounds and fills all statistical fields
+ * in result before writing it to the pipe.
  */
 static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_name,
-                               int iterations, int warmup) {
+                               int iterations, int warmup, int runs) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
+    result.qubits     = qubits;
+    result.dim        = (dim_t)1 << qubits;
     result.iterations = iterations;
+    result.runs       = runs;
 
     /* Allocate full density matrix (dim x dim complex doubles) */
     ITYPE dim = static_cast<ITYPE>(1) << qubits;
@@ -58,7 +63,6 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
 
     /*
      * Initialize to |0><0| state and touch all memory pages.
-     * We set all elements to zero first, then set rho[0,0] = 1.
      * The density matrix is stored in row-major order: rho[i*dim + j]
      */
     std::memset(rho, 0, matrix_size);
@@ -67,7 +71,6 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
     /*
      * Memory measurement: Use theoretical size since RSS measurement after fork()
      * is unreliable on macOS (child inherits parent's COW pages, deltas are wrong).
-     * The density matrix is the dominant allocation: dim^2 * sizeof(complex<double>).
      */
     result.memory_bytes = matrix_size;
 
@@ -90,31 +93,40 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
     }
 
     if (!gate_fn_1q && !gate_fn_2q) {
-        /* Unknown gate */
         std::free(rho);
         write(write_fd, &result, sizeof(result));
         close(write_fd);
         _exit(1);
     }
 
+    int cnt = (runs < 200) ? runs : 200;
+    double run_times[200];
+
     if (gate_fn_1q) {
-        /* Single-qubit gate benchmark */
+        /* Single-qubit gate: `runs` independent timed rounds */
         for (int i = 0; i < warmup; ++i)
             gate_fn_1q(static_cast<UINT>(i % qubits), rho, dim);
 
-        auto start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < iterations; ++i) {
-            for (qubit_t t = 0; t < qubits; ++t) {
-                gate_fn_1q(static_cast<UINT>(t), rho, dim);
-            }
+        for (int r = 0; r < cnt; ++r) {
+            auto start = std::chrono::high_resolution_clock::now();
+            for (int i = 0; i < iterations; ++i)
+                for (qubit_t t = 0; t < qubits; ++t)
+                    gate_fn_1q(static_cast<UINT>(t), rho, dim);
+            auto end = std::chrono::high_resolution_clock::now();
+            run_times[r] = static_cast<double>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count())
+                / 1000000.0;
         }
-        auto end = std::chrono::high_resolution_clock::now();
 
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-        result.time_ms = static_cast<double>(duration.count()) / 1000000.0;
-        result.ops_per_sec = static_cast<double>(iterations * qubits) / (result.time_ms / 1000.0);
+        bench_run_stats_t stats = bench_compute_stats(run_times, cnt);
+        result.time_ms        = stats.mean;
+        result.time_ms_std    = stats.std_dev;
+        result.time_ms_min    = stats.min;
+        result.time_ms_median = stats.median;
+        result.time_ms_cv     = stats.cv;
+        result.ops_per_sec    = static_cast<double>(iterations * qubits) / (stats.mean / 1000.0);
     } else {
-        /* Two-qubit gate benchmark: all ordered pairs (q1 < q2) */
+        /* Two-qubit gate: all ordered pairs (q1 < q2) */
         qubit_t q1s[128], q2s[128];
         int num_pairs = 0;
         for (qubit_t q1 = 0; q1 < qubits; ++q1)
@@ -136,20 +148,31 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
             gate_fn_2q(static_cast<UINT>(q1s[i % num_pairs]),
                        static_cast<UINT>(q2s[i % num_pairs]), rho, dim);
 
-        auto start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < iterations; ++i)
-            for (int p = 0; p < num_pairs; ++p)
-                gate_fn_2q(static_cast<UINT>(q1s[p]), static_cast<UINT>(q2s[p]), rho, dim);
-        auto end = std::chrono::high_resolution_clock::now();
+        for (int r = 0; r < cnt; ++r) {
+            auto start = std::chrono::high_resolution_clock::now();
+            for (int i = 0; i < iterations; ++i)
+                for (int p = 0; p < num_pairs; ++p)
+                    gate_fn_2q(static_cast<UINT>(q1s[p]), static_cast<UINT>(q2s[p]), rho, dim);
+            auto end = std::chrono::high_resolution_clock::now();
+            run_times[r] = static_cast<double>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count())
+                / 1000000.0;
+        }
 
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-        result.time_ms = static_cast<double>(duration.count()) / 1000000.0;
-        result.ops_per_sec = static_cast<double>(iterations * num_pairs) / (result.time_ms / 1000.0);
+        bench_run_stats_t stats = bench_compute_stats(run_times, cnt);
+        result.time_ms        = stats.mean;
+        result.time_ms_std    = stats.std_dev;
+        result.time_ms_min    = stats.min;
+        result.time_ms_median = stats.median;
+        result.time_ms_cv     = stats.cv;
+        result.ops_per_sec    = static_cast<double>(iterations * num_pairs) / (stats.mean / 1000.0);
     }
 
     std::free(rho);
 
-    /* Write result to parent */
+    /* Write result to parent.
+     * NOTE: gate_name and method are pointers valid only in this child's address space.
+     * The parent discards them and uses its own string literals. */
     write(write_fd, &result, sizeof(result));
     close(write_fd);
     _exit(0);
@@ -158,27 +181,21 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
 extern "C" {
 
 /**
- * @brief Benchmark Qulacs density matrix gate operations
+ * @brief Benchmark Qulacs density matrix gate operations.
  *
- * Forks a child process for each benchmark to ensure accurate memory
- * measurement, avoiding memory reuse between benchmarks.
- *
- * @param qubits Number of qubits
- * @param gate_name Name of the gate ("X", "H", "Z")
- * @param iterations Number of iterations
- * @param warmup Number of warm-up iterations
- * @return bench_result_t Benchmark results
+ * Forks a child process; the child performs `runs` independent timed rounds
+ * and returns the full statistical summary via pipe.
  */
 bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
-                            int iterations, int warmup) {
+                            int iterations, int warmup, int runs) {
     bench_result_t result = {0};
-    result.qubits = qubits;
-    result.dim = (dim_t)1 << qubits;
-    result.gate_name = gate_name;
-    result.method = "qulacs";
+    result.qubits     = qubits;
+    result.dim        = (dim_t)1 << qubits;
+    result.gate_name  = gate_name;
+    result.method     = "qulacs";
     result.iterations = iterations;
+    result.runs       = runs;
 
-    /* Create pipe for child to send results back */
     int pipefd[2];
     if (pipe(pipefd) == -1) {
         perror("bench_qulacs: pipe failed");
@@ -194,28 +211,28 @@ bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
     }
 
     if (pid == 0) {
-        /* Child process */
-        close(pipefd[0]);  /* Close read end */
-        bench_qulacs_child(pipefd[1], qubits, gate_name, iterations, warmup);
-        _exit(0);  /* Should not reach here */
+        close(pipefd[0]);
+        bench_qulacs_child(pipefd[1], qubits, gate_name, iterations, warmup, runs);
+        _exit(0);  /* unreachable */
     }
 
-    /* Parent process */
-    close(pipefd[1]);  /* Close write end */
+    close(pipefd[1]);
 
-    /* Read result from child */
     bench_result_t child_result;
     ssize_t n = read(pipefd[0], &child_result, sizeof(child_result));
     close(pipefd[0]);
 
-    /* Wait for child to finish */
     int status;
     waitpid(pid, &status, 0);
 
     if (n == static_cast<ssize_t>(sizeof(child_result))) {
-        result.time_ms = child_result.time_ms;
-        result.ops_per_sec = child_result.ops_per_sec;
-        result.memory_bytes = child_result.memory_bytes;
+        result.time_ms        = child_result.time_ms;
+        result.time_ms_std    = child_result.time_ms_std;
+        result.time_ms_min    = child_result.time_ms_min;
+        result.time_ms_median = child_result.time_ms_median;
+        result.time_ms_cv     = child_result.time_ms_cv;
+        result.ops_per_sec    = child_result.ops_per_sec;
+        result.memory_bytes   = child_result.memory_bytes;
     }
 
     return result;
