@@ -1,58 +1,73 @@
 # Benchmark Module
 
-Technical spec for `bench_mixed`, which compares qlib's mixed-state gate implementations against each other and against external frameworks.
+Technical specification for `bench_gate`, which measures single-gate throughput of qlib's mixed-state implementations and compares them against external frameworks. Circuit-level benchmarking is out of scope; a future `bench_circuit` executable is reserved for that purpose.
 
 ## File Layout
 
 ```
 benchmark/
-├── CMakeLists.txt              # Release-only build config; auto-detects QuEST + Qulacs
-├── README.md                   # Local notes: setup instructions, sample results, methodology
+├── CMakeLists.txt              # Release-only build; auto-detects QuEST + Qulacs
+├── README.md                   # Developer convenience: setup instructions, sample results, methodology
 ├── include/
-│   └── bench.h                 # Types (bench_result_t, bench_options_t), timing helpers, memory measurement, function declarations
+│   └── bench.h                 # Types, timing helpers, statistical helpers, memory utilities, function declarations
 └── src/
-    ├── bench_mixed.c           # qlib adapters: init_random_mixed_state, build_all_pairs, bench_qlib_packed/tiled (1Q and 2Q)
-    ├── bench_baselines.c       # BLAS/naive baselines: gate matrices, kron, build_full_gate_matrix, apply_uruh_blas/naive, bench_blas_dense/naive_loop/blas_dense_2q
-    ├── bench_main.c            # Orchestration: gate tables, CLI parsing, output formatting (bench_print_result/csv/pgfplots), main()
+    ├── bench_mixed.c           # qlib adapters: bench_qlib_packed/tiled (1Q and 2Q)
+    ├── bench_baselines.c       # BLAS/naive baselines: gate matrices, bench_blas_dense/naive_loop/blas_dense_2q
+    ├── bench_main.c            # Orchestration: gate tables, CLI parsing, output formatting, main()
     ├── bench_quest.c           # QuEST adapter (compiled only when WITH_QUEST is defined)
     └── bench_qulacs.cpp        # Qulacs adapter (compiled only when WITH_QULACS is defined)
 ```
 
-`README.md` is a developer convenience file (setup commands, sample results, methodology notes). This spec is the authoritative reference.
+`README.md` is a developer convenience file. This spec is the authoritative reference.
 
-## Dependencies (Inputs)
+## Dependencies
 
-**qlib module (`libq`)**: `bench_mixed` links against `libq` and exercises the public gate API directly — specifically `src/gate/packed/` (packed lower-triangular) and `src/gate/tiled/` (tiled lower-triangular). It inherits BLAS and OpenMP linkage transitively via `libq`'s public CMake dependencies.
+**qlib module (`libq`):** `bench_gate` links against `libq` and exercises the public gate API directly — `src/gate/packed/` (packed lower-triangular) and `src/gate/tiled/` (tiled lower-triangular). BLAS and OpenMP linkage are inherited transitively via `libq`'s public CMake dependencies.
 
-**External frameworks** (optional, auto-detected):
+**External frameworks** (optional, auto-detected at configure time):
 
-| Dependency | Location | Detection | Build |
-|------------|----------|-----------|-------|
-| QuEST v4 | `extern/QuEST/` | `find_path(quest/include/quest.h)` + `find_library(QuEST)` | Pre-built; see `benchmark/README.md` for setup |
-| Qulacs (`csim`) | `extern/qulacs/src/csim/` | Checks for `update_ops_dm.hpp` | Built in-tree as `csim_static`; requires Eigen |
-| Eigen | System or Homebrew | `find_path(Eigen/Core)` | Header-only; needed by `csim_static` |
-| OpenMP | System or Homebrew libomp | `find_package(OpenMP)` | macOS: auto-configured from `brew --prefix libomp` |
+| Dependency | Location | Detection |
+|------------|----------|-----------|
+| QuEST v4 | `extern/QuEST/` | `find_path(quest/include/quest.h)` + `find_library(QuEST)` |
+| Qulacs (`csim`) | `extern/qulacs/src/csim/` | Presence of `update_ops_dm.hpp` |
+| Eigen | System or Homebrew | `find_path(Eigen/Core)` |
+| OpenMP | System or Homebrew libomp | `find_package(OpenMP)` (macOS: auto-configured from `brew --prefix libomp`) |
 
-If a framework is absent its columns are omitted from output; the binary still builds.
+If a framework is absent, its columns are omitted from all output; the binary still builds.
 
 ## Build Integration
 
-Benchmarks require a **Release build**. `CMakeLists.txt` returns immediately (with a status message) if `CMAKE_BUILD_TYPE != Release`.
+### Requirements
+
+Benchmarks require a **Release build**. `benchmark/CMakeLists.txt` calls `return()` immediately (with a status message) if `CMAKE_BUILD_TYPE != Release`.
+
+### Commands
 
 ```bash
 # From project root
 cmake -B cmake-build-release -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
-cmake --build cmake-build-release --target bench_mixed
-# Binary lands at: cmake-build-release/benchmark/bench_mixed
+cmake --build cmake-build-release --target bench_gate
+# Binary lands at: cmake-build-release/benchmark/bench_gate
 ```
 
-The `bench` convenience target (requires `BUILD_TESTS=ON`) runs the full test suite first, then the benchmark:
+### CMake targets produced
 
-```bash
-cmake --build cmake-build-release --target bench
-```
+| Target | Type | Condition |
+|--------|------|-----------|
+| `bench_gate` | Executable | Always (Release only) |
+| `csim_static` | Static library | `QULACS_FOUND` |
 
-CMake prints a configuration summary at the end of the benchmark configure step:
+### Compile definitions
+
+`_GNU_SOURCE` is always defined. `WITH_QUEST` is defined when QuEST is found. `WITH_QULACS` is defined when Qulacs is found.
+
+### Custom install paths
+
+Pass `-DQuEST_DIR=/path` to cmake for a non-default QuEST location. There is no `QULACS_DIR` hint; Qulacs must reside at `extern/qulacs/`.
+
+### Configuration summary
+
+CMake prints at configure time:
 
 ```
 -- Benchmark configuration:
@@ -61,158 +76,273 @@ CMake prints a configuration summary at the end of the benchmark configure step:
 --   OpenMP:    TRUE/FALSE
 ```
 
-Note: the OpenMP line reflects `OpenMP_CXX_FOUND`, not the generic `OpenMP_FOUND`.
+The OpenMP line reflects `OpenMP_CXX_FOUND`.
 
-**CMake targets produced:**
-
-| Target | Type | Condition |
-|--------|------|-----------|
-| `bench_mixed` | Executable | Always (Release only) |
-| `csim_static` | Static library | `QULACS_FOUND` |
-| `bench` | Custom (ctest --output-on-failure + bench_mixed) | `BUILD_TESTS=ON` |
-
-**Compile definitions:** `_GNU_SOURCE` always; `WITH_QUEST` if QuEST found; `WITH_QULACS` if Qulacs found.
-
-**Custom install paths:** Pass `-DQuEST_DIR=/path` to cmake for a non-default QuEST location. There is no equivalent `QULACS_DIR` hint — the Qulacs path is hardcoded to `${CMAKE_SOURCE_DIR}/extern/qulacs`.
-
-**`bench` target dependencies:** The `bench` custom target depends on `test_state` and `test_gate` specifically (not all test targets). If new test targets are added, this list must be updated manually in `benchmark/CMakeLists.txt`.
-
-## Running
+## CLI Reference
 
 ```bash
-# From the Release build directory
-./benchmark/bench_mixed                                    # Defaults: qubits 2–12, step 1, 1000 iter, 100 warmup
-./benchmark/bench_mixed --min-qubits 4 --max-qubits 8     # Qubit range
-./benchmark/bench_mixed --step 2                           # Even qubit counts only (2, 4, 6, …)
-./benchmark/bench_mixed --iterations 5000                  # Higher precision
-./benchmark/bench_mixed --csv > results.csv                # CSV export
-./benchmark/bench_mixed --pgfplots > results.dat           # pgfplots export (stdout)
-./benchmark/bench_mixed --verbose                          # Per-method memory inline
-./benchmark/bench_mixed --help                             # Full usage
+./benchmark/bench_gate                                    # All defaults
+./benchmark/bench_gate --min-qubits 4 --max-qubits 8
+./benchmark/bench_gate --step 2
+./benchmark/bench_gate --iterations 5000
+./benchmark/bench_gate --runs 20
+./benchmark/bench_gate --csv > results.csv
+./benchmark/bench_gate --pgfplots > results.dat
+./benchmark/bench_gate --verbose
+./benchmark/bench_gate --help
 ```
 
-All CLI flags:
+All flags:
 
 | Flag | Default | Valid range | Purpose |
 |------|---------|-------------|---------|
 | `--min-qubits N` | 2 | 1–30 | Minimum qubit count |
 | `--max-qubits N` | 12 | min–30 | Maximum qubit count |
 | `--step N` | 1 | ≥1 | Qubit count increment |
-| `--iterations N` | 1000 | ≥1 | Timed iterations per gate/method |
-| `--warmup N` | 100 | ≥0 | Warm-up iterations (untimed) |
-| `--csv` | off | — | One CSV row per measurement |
-| `--pgfplots` | off | — | Five timing tables per gate (mean, std dev, min, median, CV) + one memory table (all to stdout) |
-| `--verbose` | off | — | Show per-method memory inline |
+| `--iterations N` | 1000 | ≥1 | Gate calls per timed run |
+| `--warmup N` | 100 | ≥0 | Untimed warm-up iterations before each run series |
+| `--runs N` | 10 | 1–200 | Independent timing runs per (gate, qubits, method) |
+| `--csv` | off | — | One CSV row per measurement; output to stdout |
+| `--pgfplots` | off | — | Five normalized timing tables per gate + one memory table; output to stdout |
+| `--verbose` | off | — | Append min, median, and memory bytes to each console result line |
+| `--help` | — | — | Print usage and exit |
 
-All arguments are validated at startup; invalid values print an error and exit with code 1. Defaults are defined as macros in `bench.h` (`BENCH_DEFAULT_*`).
+All values are validated at startup; invalid values print to stderr and exit with code 1. Defaults are defined as macros in `bench.h` (`BENCH_DEFAULT_*`).
 
-`blas_dense` and `naive_loop` are skipped for qubit counts above 8 (hardcoded `run_dense = (qubits <= 8)`; not derived from `--max-qubits`, not configurable). `qlib_packed` and `qlib_tiled` run for all qubit counts up to `--max-qubits` with no additional size guard.
+**`blas_dense` and `naive_loop`** are skipped for qubit counts above 8 (hardcoded: `run_dense = (qubits <= 8)`). This cutoff is not derived from `--max-qubits` and is not configurable.
 
-`naive_loop` runs at 1/10th the iteration and warmup counts relative to `--iterations`/`--warmup` (hardcoded in `bench_main.c`) to keep runtimes tractable for its O(N³) cost.
+**`naive_loop`** runs at 1/10th the iteration and warmup counts relative to `--iterations`/`--warmup` (hardcoded in `bench_main.c`). The reported speedup is scaled by ×10 to make it comparable to other methods.
 
-## Output Format
+## Statistical Model
 
-**Default (console):** For each qubit count, for each gate: one line per method showing method name, time_ms, and ops/sec. After each gate block: a speedup summary line and a memory comparison line (values auto-scaled to KB or MB). Memory is always shown in the default mode; `--verbose` adds per-method memory inline on the method line itself.
+### Structure of a single measurement
 
-**`--csv`:** One row per `(gate, qubits, method)` triple. Header and columns:
+For each `(gate, qubits, method)` triple:
+
+1. `warmup` untimed gate applications are performed, cycling through all qubit targets (`i % qubits`) or all qubit pairs (`i % num_pairs`), to bring code paths and data into cache.
+2. `runs` independent timed runs are performed. Each run applies the gate `iterations × sweep_size` times and is measured as a single wall-clock interval.
+3. `bench_compute_stats()` computes the five statistics below from the `runs` wall-clock measurements.
+
+### `sweep_size`
+
+`sweep_size` is the number of gate applications per timed iteration:
+
+- **1Q gates**: `sweep_size = qubits` (one application per qubit, target 0..n-1)
+- **2Q gates**: `sweep_size = qubits * (qubits - 1) / 2` (one application per ordered pair `(q1, q2)` with `q1 < q2`)
+
+The 2Q all-pairs sweep is deliberate: it exercises within-tile, cross-tile, and tile-boundary code paths in a single run.
+
+### Statistics collected
+
+All statistics are computed by `bench_compute_stats()` from the array of `runs` wall-clock measurements (each in ms):
+
+| Statistic | `bench_result_t` field | Definition |
+|-----------|------------------------|------------|
+| Mean | `time_ms` | Arithmetic mean of `runs` wall-clock measurements (ms) |
+| Std dev | `time_ms_std` | Sample standard deviation, Bessel-corrected: `sqrt(Σ(xᵢ−x̄)² / (n−1))` (ms); 0 if `runs == 1` |
+| Minimum | `time_ms_min` | Minimum of `runs` measurements — best-case hardware throughput (ms) |
+| Median | `time_ms_median` | Median of `runs` measurements — robust to scheduler spikes (ms) |
+| CV | `time_ms_cv` | Coefficient of variation: `std_dev / mean × 100` (%) |
+
+`ops_per_sec` is derived from the mean: `(iterations × sweep_size) / (time_ms / 1000)`.
+
+`time_per_gate_ms` (CSV only) is the mean normalized per gate application: `time_ms / (iterations × sweep_size)`.
+
+### Reproducibility
+
+`srand(42)` is called before each `bench_*` invocation for a given `(gate, qubits)` combination, so all methods initialise from the same random number sequence.
+
+## Output Formats
+
+### Console (default)
+
+For each qubit count, for each gate: one result line per method showing method name, `time_ms ± time_ms_std`, CV, and ops/sec. Format:
 
 ```
-qubits,dim,gate,method,time_ms,ops_per_sec,memory_bytes,iterations
+  %-14s %8.3f ± %6.3f ms (CV %4.1f%%)  %'12.0f ops/sec
 ```
 
-Values formatted as: `%u,%ld,%s,%s,%.6f,%.0f,%zu,%d`. Output to stdout; redirect to file as needed.
+With `--verbose`, each result line is extended with:
 
-**`--pgfplots`:** Output to stdout. For each gate, five timing tables are emitted in order: mean, std dev, min, median, and CV (coefficient of variation, in %). Each table has columns `qubits` followed by one column per method. After all per-gate tables, one memory table is emitted (values in MB). `naive_loop` is excluded from pgfplots output (5 methods shown: `qlib_packed`, `qlib_tiled`, `blas`, `quest`, `qulacs`). Missing values (not-built or skipped) are emitted as `nan` for mean, std dev, min, and median; CV uses `0.000000` instead since CV=0 is a valid result when std=0.
+```
+  [min %8.3f ms  med %8.3f ms  mem %zu B]
+```
 
-## Methods Compared
+After each gate block: a speedup summary line (packed vs other methods) and a memory comparison line (values auto-scaled to KB or MB, with packed vs dense savings percentage).
 
-Six methods are indexed in `bench_main.c` (enum `M_QLIB` … `M_QULACS`):
+### CSV (`--csv`)
+
+One row per `(gate, qubits, method)` triple, written to stdout. Header:
+
+```
+qubits,dim,gate,method,runs,iterations,sweep_size,time_ms_mean,time_ms_std,time_ms_min,time_ms_median,time_ms_cv,time_per_gate_ms,ops_per_sec,memory_bytes
+```
+
+Row format: `%u,%lld,%s,%s,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.3f,%.9f,%.0f,%zu`.
+
+`sweep_size` and `time_per_gate_ms` are computed at emit time via the `SET_SWEEP` macro in `bench_main.c` and are not stored in `bench_result_t` between benchmarks.
+
+### pgfplots (`--pgfplots`)
+
+Output to stdout. For each of the 5 gates (X, H, Z, CX, SWAP), five tables are emitted in this order:
+
+| Table | Column header comment | Unit | Definition |
+|-------|-----------------------|------|------------|
+| Mean per-gate time | `time_per_gate_us` | µs | `time_ms × 1000 / (iterations × sweep_size)` |
+| 95% CI half-width | `ci95_per_gate` | µs | `t_crit(runs−1) × (std / sqrt(runs)) × 1000 / (iterations × sweep_size)` |
+| Min per-gate time | `min_per_gate` | µs | `time_ms_min × 1000 / (iterations × sweep_size)` |
+| Median per-gate time | `median_per_gate` | µs | `time_ms_median × 1000 / (iterations × sweep_size)` |
+| CV | `cv` | % | `time_ms_cv` (dimensionless; invariant under normalization) |
+
+All timing values are in **µs** (microseconds), not ms. CV is reproduced directly from the stored percentage value without renormalization.
+
+Each table has a leading `qubits` column followed by one column per method. Five methods appear: `qlib_packed`, `qlib_tiled`, `blas`, `quest`, `qulacs`. `naive_loop` is excluded from pgfplots output. Missing values (framework not built, or qubit count exceeds the dense cutoff) are emitted as `nan`; the CV table emits `0.000000` for missing methods.
+
+After all per-gate tables, one memory table is emitted with values in MB:
+
+```
+# Memory usage (MB)
+qubits  qlib_packed     qlib_tiled      blas            quest           qulacs
+```
+
+Memory values are taken from gate index 0 (X gate) for all methods. Missing values are `nan`.
+
+#### Confidence interval formula
+
+```
+CI₉₅ = t_crit(df) × (σ / √n) × 1000 / (iterations × sweep_size)
+```
+
+where `df = runs − 1`, `σ = time_ms_std`, and `n = runs`. The t-critical value is looked up from a hard-coded table covering df = 1..49 exactly (49-entry array in `bench_main.c`). For df ≥ 50, the normal approximation 1.96 is used. If `runs < 2`, the CI is emitted as `nan`.
+
+## Key Data Structures
+
+All defined in `bench.h` unless noted.
+
+### `bench_result_t`
+
+```c
+typedef struct bench_result {
+    qubit_t    qubits;          // Number of qubits
+    dim_t      dim;             // Hilbert space dimension (2^qubits)
+    const char *gate_name;      // Name of the gate tested
+    const char *method;         // Implementation method name
+    double time_ms;             // Mean total time per run (ms)
+    double time_ms_std;         // Sample std dev across runs, Bessel-corrected (ms)
+    double time_ms_min;         // Minimum run time (ms)
+    double time_ms_median;      // Median run time (ms)
+    double time_ms_cv;          // Coefficient of variation = std/mean × 100 (%)
+    double ops_per_sec;         // Gate applications per second, from mean time
+    double time_per_gate_ms;    // Mean time per gate application: time_ms / (iterations × sweep_size)
+    size_t memory_bytes;        // Memory used for state representation
+    int    iterations;          // Gate calls per timed run
+    int    sweep_size;          // Gate applications per timed iteration
+    int    runs;                // Number of independent timing runs
+} bench_result_t;
+```
+
+`time_per_gate_ms` and `sweep_size` are populated at emit time (CSV path) via the `SET_SWEEP` macro in `bench_main.c`; they are zero-initialized and not set by the benchmark functions themselves.
+
+### `bench_options_t`
+
+```c
+typedef struct bench_options {
+    qubit_t min_qubits;
+    qubit_t max_qubits;
+    int step;
+    int iterations;
+    int warmup;
+    int runs;
+    int csv_output;
+    int pgfplots_output;
+    int verbose;
+} bench_options_t;
+```
+
+### `bench_run_stats_t`
+
+Internal helper returned by `bench_compute_stats()`. Fields: `mean`, `std_dev`, `min`, `median`, `cv` (all `double`, all in ms except `cv` which is %). Not stored persistently; its values are immediately copied into `bench_result_t`.
+
+### `pgfplots_data_t`
+
+Defined in `bench_main.c` (not `bench.h`). Heap-allocated only when `--pgfplots` is passed; zero BSS impact otherwise. Contains:
+
+- `qubits[MAX_QUBIT_CONFIGS]`: qubit counts recorded
+- `num_configs`: number of qubit configs recorded
+- `iterations`: gate calls per run (scalar; shared across all methods)
+- `runs[MAX_QUBIT_CONFIGS]`: number of timing runs per qubit config
+- Six 3-D arrays indexed as `[gate_index][qubit_config_index][method_index]`: `time_ms`, `time_ms_std`, `time_ms_min`, `time_ms_median`, `time_ms_cv`, and `memory`
+
+`MAX_QUBIT_CONFIGS = 32`. Gate indices 0–2 are 1Q (X, H, Z); 3–4 are 2Q (CX, SWAP). Method indices are defined by the enum `M_QLIB=0, M_QLIB_TILED=1, M_BLAS=2, M_NAIVE=3, M_QUEST=4, M_QULACS=5`. Normalization to per-gate µs values is computed at emit time in `print_pgfplots_output()`.
+
+### `bench_summary_t`
+
+Defined in `bench_main.c`. Collects all method results for one `(gate, qubit-count)` combination and is passed to `print_speedup_and_memory()`. Contains one `bench_result_t` per method plus `has_*` flags and `naive_scale`.
+
+## Implementations Benchmarked
+
+Six method slots are defined (enum in `bench_main.c`):
 
 | Index | Enum | Method string | Description | Source |
 |-------|------|---------------|-------------|--------|
-| 0 | `M_QLIB` | `qlib_packed` | Production packed lower-triangular (BLAS-1) | `src/gate/packed/` |
+| 0 | `M_QLIB` | `qlib_packed` | Production packed lower-triangular | `src/gate/packed/` |
 | 1 | `M_QLIB_TILED` | `qlib_tiled` | Production tiled lower-triangular | `src/gate/tiled/` |
-| 2 | `M_BLAS` | `blas_dense` | Full N×N matrix, `zgemm` UρU† | `bench_baselines.c` |
+| 2 | `M_BLAS` | `blas_dense` | Full N×N density matrix, `zgemm` for UρU† | `bench_baselines.c` |
 | 3 | `M_NAIVE` | `naive_loop` | Element-by-element UρU† loop | `bench_baselines.c` |
 | 4 | `M_QUEST` | `quest` | QuEST density-matrix backend | `bench_quest.c` |
 | 5 | `M_QULACS` | `qulacs` | Qulacs csim density-matrix backend | `bench_qulacs.cpp` |
 
-QuEST and Qulacs are conditionally compiled; their slots are absent from output when not built.
+QuEST and Qulacs are conditionally compiled. When not present, their slots contain zero-initialized results and are omitted from output.
 
 ## Gates Benchmarked
 
-**Single-qubit** (`gates[]` in `bench_main.c`): X, H, Z — benchmarked with all available methods.
+**Single-qubit** (all methods): X, H, Z.
 
-**Two-qubit** (`gates_2q[]`): Each entry carries a `has_tiled` flag controlling whether the tiled method runs.
+**Two-qubit** (no `naive_loop`):
 
-| Gate | `has_tiled` | Notes |
-|------|-------------|-------|
-| CX | 1 | Tiled implementation: `gate_tiled_cx.c` |
-| SWAP | 1 | Tiled implementation: `gate_tiled_swap.c` |
+| Gate | Tiled | Notes |
+|------|-------|-------|
+| CX | Yes | |
+| SWAP | Yes | |
 
-Two-qubit gates do not run `naive_loop`. Each 2Q gate iterates over all `n*(n-1)/2` ordered qubit pairs `(q1, q2)` with `q1 < q2` (not just adjacent pairs), so every code path — within-tile, mixed, and tile-level — is exercised. To add a new 2Q gate: append to `gates_2q[]` and set `has_tiled`.
-
-## Key Data Structures
-
-All defined in `bench.h` unless noted:
-
-- **`bench_result_t`**: Single measurement record — qubits, dim, gate name, method name, time_ms, ops/sec, memory bytes, iterations.
-- **`bench_options_t`**: Parsed CLI options.
-- **`bench_summary_t`** (defined in `bench_main.c`): Collects all method results for one `(gate, qubit-count)` combination. Used by `print_speedup_and_memory()` to emit the speedup and memory lines — shared between 1Q and 2Q loops.
-- **`pgfplots_data_t`** (defined in `bench_main.c`, not `bench.h`): Accumulates results for `--pgfplots` output. Heap-allocated only when `--pgfplots` is passed (zero BSS impact otherwise). Contains six 3-D arrays indexed as `[gate][qubit_config][method]`: `time_ms` (mean), `time_ms_std` (std dev), `time_ms_min` (minimum), `time_ms_median` (median), `time_ms_cv` (CV in %), and `memory` (bytes).
+Each 2Q gate iterates over all `n*(n-1)/2` ordered pairs `(q1, q2)` with `q1 < q2`. This all-pairs sweep is intentional: it exercises within-tile, cross-tile, and tile-boundary code paths in a single run, providing a representative average over the gate's full qubit-pair distribution.
 
 ## Timing and Memory Methodology
 
-**Timing:** Wall-clock time. qlib, blas_dense, and naive_loop use `clock_gettime(CLOCK_MONOTONIC)` via `bench_time_ns()` in `bench.h`. The Qulacs adapter uses `std::chrono::high_resolution_clock` instead.
+### Timing
 
-Each measurement:
-1. `warmup` untimed iterations, cycling through all qubit targets (`i % qubits`) or all qubit pairs (`i % num_pairs`) so that every code path is cache-warm before timing starts.
-2. `iterations` timed iterations: single-qubit gates apply to every qubit 0..n-1; two-qubit gates apply to every ordered pair `(q1, q2)` with `q1 < q2` (`n*(n-1)/2` pairs per iteration).
-3. `srand(42)` is called before each `bench_*` invocation for a given `(gate, qubits)` combination, so all methods initialise their state from the same random number sequence.
+qlib, `blas_dense`, and `naive_loop` use `clock_gettime(CLOCK_MONOTONIC)` via `bench_time_ns()` defined in `bench.h`. The Qulacs adapter uses `std::chrono::high_resolution_clock` instead (a consequence of the C++ translation unit).
 
-ops/sec = `(iterations × gates_per_iteration) / (time_ms / 1000)`. For naive_loop the iteration count is `iterations/10`; the displayed speedup is scaled by ×10 to make it comparable.
+### Memory reporting
 
-**Memory:** qlib's own formats (`qlib_packed`, `qlib_tiled`) report the exact theoretical allocation size via `bench_packed_size()` / `bench_tiled_size()` — these are exact because the allocator is known. `blas_dense` and `naive_loop` report `bench_dense_size()` (exact). `blas_dense` and `naive_loop` pre-allocate scratch buffers (`tmp`, `out`) once outside the hot loop; these scratch buffers are **not** included in the reported memory (they are implementation overhead, not state storage). QuEST reports RSS delta (before/after `createDensityQureg` + `initDebugState` to force page faults) measured inside a forked child. Qulacs reports theoretical matrix size (`dim² × 16 bytes`) because RSS delta after `fork()` is unreliable on macOS.
+| Method | Measurement |
+|--------|-------------|
+| `qlib_packed` | Theoretical: `dim*(dim+1)/2 × sizeof(cplx_t)` via `bench_packed_size()` |
+| `qlib_tiled` | Theoretical: tile-pair count × `TILE_SIZE × sizeof(cplx_t)` via `bench_tiled_size()` |
+| `blas_dense` | Theoretical: `dim² × sizeof(cplx_t)` via `bench_dense_size()` |
+| `naive_loop` | Theoretical: same as `blas_dense` |
+| QuEST | RSS delta: process resident memory before and after `createDensityQureg` + `initDebugState` (inside forked child; macOS via `mach_task_basic_info`, Linux via `/proc/self/status`) |
+| Qulacs | Theoretical: `dim² × sizeof(CTYPE)` — RSS delta is unreliable after `fork()` on macOS |
 
-## External Dependencies
+Scratch buffers allocated by `blas_dense` and `naive_loop` outside the hot loop are not included in `memory_bytes`.
 
-| Dependency | Location | Build condition |
-|------------|----------|----------------|
-| QuEST v4 | `extern/QuEST/` | `QuEST_FOUND` (pre-built; `libQuEST` + `quest/include/quest.h`) |
-| Qulacs | `extern/qulacs/` | `QULACS_FOUND` (built as `csim_static` from `src/csim/*.cpp`; needs Eigen) |
+### QuEST and Qulacs isolation
 
-Setup instructions (submodule init, macOS Homebrew deps, build commands): see `benchmark/README.md`.
-
-Custom install paths: pass `-DQuEST_DIR=/path` to cmake. No `QULACS_DIR` hint is supported; Qulacs must reside at `extern/qulacs/`.
+QuEST cannot be re-initialized after finalization. Qulacs memory measurement via RSS delta is unreliable on macOS after `fork()` due to copy-on-write page sharing. Both frameworks are therefore run inside a forked child process for each `(gate, qubits)` pair. The child performs all `runs` timed rounds, computes the full statistical summary, and writes a `bench_result_t` to a pipe. The parent reads the result and copies the timing and memory fields. The `gate_name` and `method` pointer fields transferred through the pipe are discarded by the parent, which substitutes its own string literals.
 
 ## Memory Layout Background
 
 The benchmark compares two production storage formats for density matrices (full specification in `docs/STATE_MODULE.md`):
 
-- **Packed** (`MIXED_PACKED`): LAPACK packed lower-triangular, column-major. ~N(N+1)/2 elements. Favors BLAS-1 but has variable-stride access for high target qubits.
-- **Tiled** (`MIXED_TILED`): Lower triangle partitioned into `TILE_DIM × TILE_DIM` tiles. Intra-tile layout is row-major. Eliminates the variable-stride bottleneck via contiguous cache-friendly access.
+- **Packed** (`MIXED_PACKED`): LAPACK packed lower-triangular, column-major. ~N(N+1)/2 elements. Favors BLAS-1 operations but has variable-stride access for high target qubits.
+- **Tiled** (`MIXED_TILED`): Lower triangle partitioned into `TILE_DIM × TILE_DIM` tiles, row-major within each tile. Eliminates the variable-stride bottleneck via contiguous cache-friendly access.
 
 ## Status
 
-**In Progress.** Core benchmark (`bench_mixed`) is functional for single-qubit gates (X, H, Z) and two-qubit gates (CX, SWAP). External framework adapters are complete.
+**In Progress.** Single-gate throughput benchmarking is functional for 1Q gates (X, H, Z) and 2Q gates (CX, SWAP). External framework adapters (QuEST, Qulacs) are complete.
 
-Known gaps / TODO:
-- No separate timing of gate matrix construction vs. gate application.
-- Measurement (non-unitary) operations not benchmarked.
-- No thread-count sweep (OpenMP uses all available threads by default; controlled externally via `OMP_NUM_THREADS`).
-- Scientific rigor checklist (environment, build config, statistical caveats) documented in `benchmark/README.md` — not yet enforced by the benchmark binary itself.
-- **Circuit benchmark** (separate executable `bench_circuit`): time a realistic gate sequence rather than isolated gates. Proposed circuits:
-  1. **GHZ preparation**: `H(0)` followed by `CX(0, k)` for k = 1..n-1 (depth n, linear qubit connectivity). Exercises the dispatch path for a heterogeneous sequence; all CX gates touch qubit 0, stressing the packed format's variable-stride access.
-  2. **Random brick-wall layer**: alternating layers of random single-qubit unitaries and nearest-neighbour CX gates (standard in quantum volume benchmarks). Exercises all code paths uniformly. Repeat for `depth` layers.
-  The circuit benchmark would use the `circ` module (see `docs/CIRCUIT_MODULE.md`) to build and execute the circuit, measuring total wall time per circuit execution (not per gate). This gives a realistic ops/sec figure for circuit-level simulation and reveals dispatch overhead per gate that the isolated-gate benchmark cannot see.
-
-## Open Questions
-
-1. **`--step` default intent**: The CLI default is `--step 1` (every integer qubit count), confirmed in source. Whether the default should be 2 for thesis-quality runs is a design decision, not a code question. Left open for author decision.
-2. ~~**`--pgfplots` output destination**~~: **Resolved.** Output goes to stdout via `printf()`. The user pipes to a file (`> results.dat`). One timing table per gate followed by one memory table, all in a single stdout stream.
-3. ~~**CSV header format**~~: **Resolved.** Header is `qubits,dim,gate,method,time_ms,ops_per_sec,memory_bytes,iterations`. Row format: `%u,%ld,%s,%s,%.6f,%.0f,%zu,%d`. Stable.
-4. ~~**`bench_mixed.c` enum names**~~: **Resolved.** Enum: `M_QLIB=0, M_QLIB_TILED=1, M_BLAS=2, M_NAIVE=3, M_QUEST=4, M_QULACS=5`. The first value is `M_QLIB`. Enum and gate tables live in `bench_main.c`. The method string in both console/CSV output and pgfplots column headers is `"qlib_packed"`.
-5. ~~**`blas_dense` upper qubit cutoff**~~: **Resolved.** Hardcoded as `qubits <= 8` in `bench_main.c` (`run_dense` flag). Not derived from `--max-qubits`, not configurable. There is no separate size guard; `qlib_packed` and `qlib_tiled` run unrestricted up to `--max-qubits`.
-6. ~~**QuEST version**~~: **Resolved.** CMakeLists.txt line 17 comment explicitly states "QuEST v4 requires the root directory as include path." v4 confirmed.
-7. ~~**`bench` target dependency list**~~: **Resolved.** The `bench` custom target depends on exactly `test_state` and `test_gate` (CMakeLists.txt line 163). This is a hardcoded list; new test targets require manual update.
-8. **Qulacs `--step` interaction with OpenMP threshold**: Qulacs enables OpenMP at dim ≥ 1024 (10 qubits). With `--step 1`, intermediate qubit counts (9, 11) are also benchmarked; their behavior relative to the OpenMP threshold is undocumented. Left open.
+Known gaps:
+- Gate matrix construction time is not separated from gate application time.
+- Measurement (non-unitary) operations are not benchmarked.
+- No thread-count sweep; OpenMP uses all available threads by default (control via `OMP_NUM_THREADS`).
+- Circuit-level benchmarking is reserved for a future `bench_circuit` executable.

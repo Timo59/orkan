@@ -155,11 +155,11 @@ if(QULACS_FOUND)
 endif()
 
 #=======================================================================================================================
-# bench target - Run tests then benchmark in one command
+# bench_gate target - Run tests then benchmark in one command
 #=======================================================================================================================
 
 if(BUILD_TESTS)
-    add_custom_target(bench
+    add_custom_target(bench_gate
         COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
         COMMAND $<TARGET_FILE:bench_mixed>
         DEPENDS test_state test_gate bench_mixed

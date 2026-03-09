@@ -87,8 +87,9 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
     }
 
     if (!gate_fn_1q && !gate_fn_2q) {
-        /* Unknown gate - write empty result and exit */
-        write(write_fd, &result, sizeof(result));
+        /* Unknown gate - write empty (zeroed) pipe result and exit */
+        bench_pipe_result_t pr = {0};
+        write(write_fd, &pr, sizeof(pr));
         close(write_fd);
         destroyQureg(rho);
         finalizeQuESTEnv();
@@ -131,7 +132,8 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
             }
 
         if (num_pairs == 0) {
-            write(write_fd, &result, sizeof(result));
+            bench_pipe_result_t pr = {0};
+            write(write_fd, &pr, sizeof(pr));
             close(write_fd);
             destroyQureg(rho);
             finalizeQuESTEnv();
@@ -158,10 +160,18 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
         result.ops_per_sec    = (double)(iterations * num_pairs) / (stats.mean / 1000.0);
     }
 
-    /* Write result to parent.
-     * NOTE: gate_name and method are pointer fields valid only in this child's
-     * address space. The parent discards them and uses its own string literals. */
-    write(write_fd, &result, sizeof(result));
+    /* Write scalar fields to parent via a pipe-safe struct.
+     * bench_result_t contains pointer fields (gate_name, method) that are
+     * meaningless in the parent address space and must not be transmitted. */
+    bench_pipe_result_t pr;
+    pr.time_ms        = result.time_ms;
+    pr.time_ms_std    = result.time_ms_std;
+    pr.time_ms_min    = result.time_ms_min;
+    pr.time_ms_median = result.time_ms_median;
+    pr.time_ms_cv     = result.time_ms_cv;
+    pr.ops_per_sec    = result.ops_per_sec;
+    pr.memory_bytes   = result.memory_bytes;
+    write(write_fd, &pr, sizeof(pr));
     close(write_fd);
 
     destroyQureg(rho);
@@ -207,21 +217,21 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
 
     close(pipefd[1]);
 
-    bench_result_t child_result;
-    ssize_t n = read(pipefd[0], &child_result, sizeof(child_result));
+    bench_pipe_result_t pr;
+    ssize_t n = read(pipefd[0], &pr, sizeof(pr));
     close(pipefd[0]);
 
     int status;
     waitpid(pid, &status, 0);
 
-    if (n == sizeof(child_result)) {
-        result.time_ms        = child_result.time_ms;
-        result.time_ms_std    = child_result.time_ms_std;
-        result.time_ms_min    = child_result.time_ms_min;
-        result.time_ms_median = child_result.time_ms_median;
-        result.time_ms_cv     = child_result.time_ms_cv;
-        result.ops_per_sec    = child_result.ops_per_sec;
-        result.memory_bytes   = child_result.memory_bytes;
+    if (n == (ssize_t)sizeof(pr)) {
+        result.time_ms        = pr.time_ms;
+        result.time_ms_std    = pr.time_ms_std;
+        result.time_ms_min    = pr.time_ms_min;
+        result.time_ms_median = pr.time_ms_median;
+        result.time_ms_cv     = pr.time_ms_cv;
+        result.ops_per_sec    = pr.ops_per_sec;
+        result.memory_bytes   = pr.memory_bytes;
     }
 
     return result;
