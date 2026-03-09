@@ -10,11 +10,8 @@
  * To enable: cmake -DWITH_QULACS=ON ..
  * Requires: Boost 1.71+, Eigen3 (auto-fetched by Qulacs)
  *
- * Memory measurement: We fork a child process for each benchmark to get
- * accurate memory measurements, avoiding memory reuse between benchmarks.
- *
- * Statistics: the child performs `runs` independent timed rounds and returns
- * the full bench_run_stats_t summary through the pipe.
+ * Qulacs csim has no global state — no init/finalize, no singleton.
+ * The benchmark runs directly in-process: malloc, compute, free, return.
  */
 
 #ifdef WITH_QULACS
@@ -23,8 +20,6 @@
 #include <csim/type.hpp>
 #include <cstdlib>
 #include <cstring>
-#include <unistd.h>
-#include <sys/wait.h>
 
 extern "C" {
 #include "bench.h"
@@ -37,17 +32,21 @@ int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
  * =====================================================================================================================
  */
 
+extern "C" {
+
 /**
- * @brief Run Qulacs benchmark in child process (internal)
+ * @brief Run Qulacs density matrix benchmark in-process.
  *
- * Performs `runs` independent timed rounds and fills all statistical fields
- * in result before writing it to the pipe.
+ * Qulacs csim has no global state; this is a direct malloc/compute/free call.
+ * Performs `runs` independent timed rounds and returns the full statistical summary.
  */
-static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_name,
-                               int iterations, int warmup, int runs) {
+bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
+                            int iterations, int warmup, int runs) {
     bench_result_t result = {0};
     result.qubits     = qubits;
     result.dim        = (dim_t)1 << qubits;
+    result.gate_name  = gate_name;
+    result.method     = "qulacs";
     result.iterations = iterations;
     result.runs       = runs;
 
@@ -56,9 +55,7 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
     size_t matrix_size = static_cast<size_t>(dim) * static_cast<size_t>(dim) * sizeof(CTYPE);
     CTYPE* rho = static_cast<CTYPE*>(std::malloc(matrix_size));
     if (!rho) {
-        write(write_fd, &result, sizeof(result));
-        close(write_fd);
-        _exit(1);
+        return result;
     }
 
     /*
@@ -68,10 +65,7 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
     std::memset(rho, 0, matrix_size);
     rho[0] = CTYPE(1.0, 0.0);
 
-    /*
-     * Memory measurement: Use theoretical size since RSS measurement after fork()
-     * is unreliable on macOS (child inherits parent's COW pages, deltas are wrong).
-     */
+    /* Memory: theoretical density matrix size. */
     result.memory_bytes = matrix_size;
 
     /* Dispatch: single-qubit gates */
@@ -94,13 +88,7 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
 
     if (!gate_fn_1q && !gate_fn_2q) {
         std::free(rho);
-        bench_pipe_result_t pr = {0};
-        if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
-            close(write_fd);
-            _exit(1);
-        }
-        close(write_fd);
-        _exit(1);
+        return result;
     }
 
     int cnt = (runs < 200) ? runs : 200;
@@ -133,13 +121,7 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
 
         if (num_pairs == 0) {
             std::free(rho);
-            bench_pipe_result_t pr = {0};
-            if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
-                close(write_fd);
-                _exit(1);
-            }
-            close(write_fd);
-            _exit(0);
+            return result;
         }
 
         for (int i = 0; i < warmup; ++i)
@@ -164,83 +146,6 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
     }
 
     std::free(rho);
-
-    /* Write scalar fields to parent via a pipe-safe struct.
-     * bench_result_t contains pointer fields (gate_name, method) that are
-     * meaningless in the parent address space and must not be transmitted. */
-    bench_pipe_result_t pr;
-    pr.time_ms        = result.time_ms;
-    pr.time_ms_std    = result.time_ms_std;
-    pr.time_ms_min    = result.time_ms_min;
-    pr.time_ms_median = result.time_ms_median;
-    pr.time_ms_cv     = result.time_ms_cv;
-    pr.ops_per_sec    = result.ops_per_sec;
-    pr.memory_bytes   = result.memory_bytes;
-    if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
-        close(write_fd);
-        _exit(1);
-    }
-    close(write_fd);
-    _exit(0);
-}
-
-extern "C" {
-
-/**
- * @brief Benchmark Qulacs density matrix gate operations.
- *
- * Forks a child process; the child performs `runs` independent timed rounds
- * and returns the full statistical summary via pipe.
- */
-bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
-                            int iterations, int warmup, int runs) {
-    bench_result_t result = {0};
-    result.qubits     = qubits;
-    result.dim        = (dim_t)1 << qubits;
-    result.gate_name  = gate_name;
-    result.method     = "qulacs";
-    result.iterations = iterations;
-    result.runs       = runs;
-
-    int pipefd[2];
-    if (pipe(pipefd) == -1) {
-        perror("bench_qulacs: pipe failed");
-        return result;
-    }
-
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror("bench_qulacs: fork failed");
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return result;
-    }
-
-    if (pid == 0) {
-        close(pipefd[0]);
-        bench_qulacs_child(pipefd[1], qubits, gate_name, iterations, warmup, runs);
-        _exit(0);  /* unreachable */
-    }
-
-    close(pipefd[1]);
-
-    bench_pipe_result_t pr;
-    ssize_t n = read(pipefd[0], &pr, sizeof(pr));
-    close(pipefd[0]);
-
-    int status;
-    waitpid(pid, &status, 0);
-
-    if (n == static_cast<ssize_t>(sizeof(pr))) {
-        result.time_ms        = pr.time_ms;
-        result.time_ms_std    = pr.time_ms_std;
-        result.time_ms_min    = pr.time_ms_min;
-        result.time_ms_median = pr.time_ms_median;
-        result.time_ms_cv     = pr.time_ms_cv;
-        result.ops_per_sec    = pr.ops_per_sec;
-        result.memory_bytes   = pr.memory_bytes;
-    }
-
     return result;
 }
 
