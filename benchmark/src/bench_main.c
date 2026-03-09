@@ -524,6 +524,10 @@ int main(int argc, char *argv[]) {
 
     int qi = 0;
 
+#ifdef WITH_QUEST
+    bench_quest_init();
+#endif
+
     /*
      * Annotate a result with sweep_size and derived time_per_gate_ms.
      * Called just before bench_print_csv() so the CSV row carries normalized values.

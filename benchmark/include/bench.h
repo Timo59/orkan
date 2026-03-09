@@ -99,25 +99,6 @@ static inline double bench_ns_to_ms(uint64_t ns) {
  * =====================================================================================================================
  */
 
-/**
- * @brief Pipe-safe result for child-to-parent communication.
- *
- * Contains only the scalar/array fields that child processes (QuEST, Qulacs)
- * compute and the parent needs to read.  No pointer fields — pointer values
- * are meaningless across the fork/pipe boundary and must never be transmitted.
- * The parent sets gate_name and method on the bench_result_t it returns using
- * its own string literals.
- */
-typedef struct {
-    double time_ms;
-    double time_ms_std;
-    double time_ms_min;
-    double time_ms_median;
-    double time_ms_cv;
-    double ops_per_sec;
-    size_t memory_bytes;
-} bench_pipe_result_t;
-
 /** @brief Statistical summary computed from K independent timing runs */
 typedef struct {
     double mean;     /**< Arithmetic mean (ms) */
@@ -319,14 +300,17 @@ bench_options_t bench_parse_options(int argc, char *argv[]);
  */
 
 #ifdef WITH_QUEST
+/** @brief Initialise the QuEST environment. Must be called once before any bench_quest() calls. */
 void bench_quest_init(void);
+/** @brief Finalise the QuEST environment. Must be called once after all bench_quest() calls. */
 void bench_quest_cleanup(void);
 
 /**
- * @brief Run QuEST density matrix benchmark.
+ * @brief Run QuEST density matrix benchmark in-process.
  *
- * Forks a child process; the child performs `runs` independent timed rounds
- * and returns the full statistical summary via pipe.
+ * Requires bench_quest_init() to have been called. Creates and destroys a
+ * Qureg per call; performs `runs` independent timed rounds and returns the
+ * full statistical summary.
  */
 bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
                            int iterations, int warmup, int runs);
@@ -334,10 +318,10 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
 
 #ifdef WITH_QULACS
 /**
- * @brief Run Qulacs density matrix benchmark.
+ * @brief Run Qulacs density matrix benchmark in-process.
  *
- * Forks a child process; the child performs `runs` independent timed rounds
- * and returns the full statistical summary via pipe.
+ * Qulacs csim has no global state; this is a direct malloc/compute/free call.
+ * Performs `runs` independent timed rounds and returns the full statistical summary.
  */
 bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
                             int iterations, int warmup, int runs);

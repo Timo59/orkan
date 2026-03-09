@@ -324,13 +324,15 @@ All methods — qlib, `blas_dense`, `naive_loop`, and both external framework ad
 | QuEST | Theoretical: `dim² × sizeof(double) × 2` (full density matrix, complex double) |
 | Qulacs | Theoretical: `dim² × sizeof(CTYPE)` |
 
-All methods report only the state storage footprint, not process or framework overhead. RSS delta is unreliable after `fork()` on macOS (child inherits COW pages from the parent, inflating the baseline before any allocation).
+All methods report only the state storage footprint, not process or framework overhead.
 
 Scratch buffers allocated by `blas_dense` and `naive_loop` outside the hot loop are not included in `memory_bytes`.
 
-### QuEST and Qulacs isolation
+### QuEST and Qulacs execution model
 
-QuEST cannot be re-initialized after finalization. Both frameworks are therefore run inside a forked child process for each `(gate, qubits)` pair. The child performs all `runs` timed rounds, computes the full statistical summary, and writes a `bench_result_t` to a pipe. The parent reads the result and copies the timing and memory fields. The `gate_name` and `method` pointer fields transferred through the pipe are discarded by the parent, which substitutes its own string literals.
+QuEST uses an init-once pattern: `bench_quest_init()` calls `initQuESTEnv()` once at program start. Each `bench_quest()` call creates a fresh `Qureg` with `createDensityQureg`, calls `initDebugState` to touch all pages, runs warmup + timed rounds, then destroys the `Qureg` with `destroyQureg`. `bench_quest_cleanup()` calls `finalizeQuESTEnv()` once at program exit. This avoids forking while respecting QuEST's constraint that `initQuESTEnv()` cannot be called again after `finalizeQuESTEnv()`.
+
+Qulacs runs directly in-process: `bench_qulacs()` allocates the density matrix with `malloc`, runs warmup + timed rounds, then frees with `free`. No subprocess is involved; Qulacs `csim` has no global state.
 
 ## Memory Layout Background
 
