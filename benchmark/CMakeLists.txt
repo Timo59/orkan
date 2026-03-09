@@ -78,8 +78,8 @@ if(EXISTS "${QULACS_CSIM_DIR}/update_ops_dm.hpp")
 
     # Qulacs headers reference each other via <csim/...>
     target_include_directories(csim_static PRIVATE "${EXTERN_DIR}/qulacs/src")
-    # Suppress warnings in third-party code
-    target_compile_options(csim_static PRIVATE -w)
+    # Suppress warnings in third-party code; match qlib's Release vectorisation flags
+    target_compile_options(csim_static PRIVATE -w $<$<CONFIG:Release>:-march=native>)
     set_property(TARGET csim_static PROPERTY CXX_STANDARD 17)
     if(OpenMP_CXX_FOUND)
         target_link_libraries(csim_static PRIVATE OpenMP::OpenMP_CXX)

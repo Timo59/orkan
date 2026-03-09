@@ -52,12 +52,6 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
     result.iterations = iterations;
     result.runs       = runs;
 
-    /*
-     * Measure total memory: environment + Qureg allocation.
-     * Fresh process ensures we capture the true memory cost.
-     */
-    size_t mem_before = bench_get_rss();
-
     initQuESTEnv();
     Qureg rho = createDensityQureg((int)qubits);
 
@@ -67,8 +61,15 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
      */
     initDebugState(rho);
 
-    size_t mem_after = bench_get_rss();
-    result.memory_bytes = (mem_after > mem_before) ? (mem_after - mem_before) : 0;
+    /*
+     * Memory: theoretical density matrix size (dim x dim complex doubles).
+     * Matches the methodology used by qlib and Qulacs — all three report
+     * only the state storage footprint, not framework overhead.
+     * RSS delta is unreliable here: the forked child inherits the parent's
+     * COW pages, inflating mem_before and making the delta meaningless on macOS.
+     */
+    dim_t dim = (dim_t)1 << qubits;
+    result.memory_bytes = (size_t)dim * (size_t)dim * sizeof(double) * 2; /* complex<double> */
 
     /* Dispatch: single-qubit gates */
     void (*gate_fn_1q)(Qureg, int) = NULL;
