@@ -18,7 +18,7 @@
  */
 
 void bench_print_result(const bench_result_t *result, int verbose) {
-    printf("  %-14s %8.3f ± %6.3f ms (CV %4.1f%%)  %'12.0f ops/sec",
+    printf("  %-14s %8.3f ± %6.3f ms (CV %4.1f%%)  %12.0f ops/sec",
            result->method,
            result->time_ms, result->time_ms_std, result->time_ms_cv,
            result->ops_per_sec);
@@ -555,22 +555,24 @@ int main(int argc, char *argv[]) {
             bench_summary_t s = {0};
             s.naive_scale = 10.0;  /* naive runs at iterations/10 due to O(N³) cost */
 
-            srand(42); s.packed = bench_qlib_packed(qubits, gates[g].name, gates[g].fn,
-                                                     opts.iterations, opts.warmup, opts.runs);
-            srand(42); s.tiled  = bench_qlib_tiled(qubits, gates[g].name, gates[g].fn,
-                                                    opts.iterations, opts.warmup, opts.runs);
+            s.packed = bench_qlib_packed(qubits, gates[g].name, gates[g].fn,
+                                         opts.iterations, opts.warmup, opts.runs);
+            s.tiled  = bench_qlib_tiled(qubits, gates[g].name, gates[g].fn,
+                                        opts.iterations, opts.warmup, opts.runs);
             s.has_tiled = (s.tiled.time_ms > 0);
 
             if (run_dense) {
-                srand(42); s.dense = bench_blas_dense(qubits, gates[g].name, gates[g].mat,
-                                                       opts.iterations, opts.warmup, opts.runs);
+                s.dense = bench_blas_dense(qubits, gates[g].name, gates[g].mat,
+                                           opts.iterations, opts.warmup, opts.runs);
                 s.has_dense = 1;
 
-                srand(42); s.naive = bench_naive_loop(qubits, gates[g].name, gates[g].mat,
-                                                       opts.iterations / 10,
-                                                       opts.warmup    / 10,
-                                                       opts.runs);
-                s.has_naive = 1;
+                if (!opts.pgfplots_output) {
+                    s.naive = bench_naive_loop(qubits, gates[g].name, gates[g].mat,
+                                               opts.iterations / 10,
+                                               opts.warmup    / 10,
+                                               opts.runs);
+                    s.has_naive = 1;
+                }
             }
 
 #ifdef WITH_QUEST
@@ -587,27 +589,21 @@ int main(int argc, char *argv[]) {
                 pgf->time_ms[g][qi][M_QLIB]           = s.packed.time_ms;
                 pgf->time_ms[g][qi][M_QLIB_TILED]     = s.tiled.time_ms;
                 pgf->time_ms[g][qi][M_BLAS]            = s.dense.time_ms;
-                pgf->time_ms[g][qi][M_NAIVE]           = s.naive.time_ms;
                 pgf->time_ms_std[g][qi][M_QLIB]        = s.packed.time_ms_std;
                 pgf->time_ms_std[g][qi][M_QLIB_TILED]  = s.tiled.time_ms_std;
                 pgf->time_ms_std[g][qi][M_BLAS]        = s.dense.time_ms_std;
-                pgf->time_ms_std[g][qi][M_NAIVE]       = s.naive.time_ms_std;
                 pgf->time_ms_min[g][qi][M_QLIB]        = s.packed.time_ms_min;
                 pgf->time_ms_min[g][qi][M_QLIB_TILED]  = s.tiled.time_ms_min;
                 pgf->time_ms_min[g][qi][M_BLAS]        = s.dense.time_ms_min;
-                pgf->time_ms_min[g][qi][M_NAIVE]       = s.naive.time_ms_min;
                 pgf->time_ms_median[g][qi][M_QLIB]        = s.packed.time_ms_median;
                 pgf->time_ms_median[g][qi][M_QLIB_TILED]  = s.tiled.time_ms_median;
                 pgf->time_ms_median[g][qi][M_BLAS]        = s.dense.time_ms_median;
-                pgf->time_ms_median[g][qi][M_NAIVE]       = s.naive.time_ms_median;
                 pgf->time_ms_cv[g][qi][M_QLIB]         = s.packed.time_ms_cv;
                 pgf->time_ms_cv[g][qi][M_QLIB_TILED]   = s.tiled.time_ms_cv;
                 pgf->time_ms_cv[g][qi][M_BLAS]         = s.dense.time_ms_cv;
-                pgf->time_ms_cv[g][qi][M_NAIVE]        = s.naive.time_ms_cv;
                 pgf->memory[g][qi][M_QLIB]             = s.packed.memory_bytes;
                 pgf->memory[g][qi][M_QLIB_TILED]       = s.tiled.memory_bytes;
                 pgf->memory[g][qi][M_BLAS]             = s.dense.memory_bytes;
-                pgf->memory[g][qi][M_NAIVE]            = s.naive.memory_bytes;
 #ifdef WITH_QUEST
                 pgf->time_ms[g][qi][M_QUEST]           = s.quest.time_ms;
                 pgf->time_ms_std[g][qi][M_QUEST]       = s.quest.time_ms_std;
@@ -663,18 +659,18 @@ int main(int argc, char *argv[]) {
             bench_summary_t s = {0};
             s.naive_scale = 1.0;
 
-            srand(42); s.packed = bench_qlib_packed_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
-                                                        opts.iterations, opts.warmup, opts.runs);
+            s.packed = bench_qlib_packed_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
+                                            opts.iterations, opts.warmup, opts.runs);
 
             if (gates_2q[g].has_tiled) {
-                srand(42); s.tiled = bench_qlib_tiled_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
-                                                          opts.iterations, opts.warmup, opts.runs);
+                s.tiled = bench_qlib_tiled_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
+                                              opts.iterations, opts.warmup, opts.runs);
                 s.has_tiled = (s.tiled.time_ms > 0);
             }
 
             if (run_dense) {
-                srand(42); s.dense = bench_blas_dense_2q(qubits, gates_2q[g].name, gates_2q[g].mat,
-                                                          opts.iterations, opts.warmup, opts.runs);
+                s.dense = bench_blas_dense_2q(qubits, gates_2q[g].name, gates_2q[g].mat,
+                                              opts.iterations, opts.warmup, opts.runs);
                 s.has_dense = 1;
             }
 

@@ -90,7 +90,7 @@ if(EXISTS "${QULACS_CSIM_DIR}/update_ops_dm.hpp")
 endif()
 
 #=======================================================================================================================
-# bench_mixed - Main mixed state benchmark
+# bench_gate - Main mixed state benchmark
 #=======================================================================================================================
 
 set(BENCH_MIXED_SRC
@@ -107,64 +107,47 @@ if(QULACS_FOUND)
     list(APPEND BENCH_MIXED_SRC "${BENCH_SRC_DIR}/bench_qulacs.cpp")
 endif()
 
-add_executable(bench_mixed ${BENCH_MIXED_SRC})
+add_executable(bench_gate ${BENCH_MIXED_SRC})
 
 # Output binary to cmake-build-*/benchmark/
-set_target_properties(bench_mixed PROPERTIES
+set_target_properties(bench_gate PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
+    EXCLUDE_FROM_ALL TRUE
 )
 
-target_include_directories(bench_mixed
+target_include_directories(bench_gate
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
 # Link libq — inherits compiler flags, BLAS, OpenMP, and include dirs via PUBLIC deps
-target_link_libraries(bench_mixed
+target_link_libraries(bench_gate
         PRIVATE
             q
 )
 
-target_compile_definitions(bench_mixed
-        PRIVATE
-            _GNU_SOURCE
-)
-
 if(QuEST_FOUND)
-    target_compile_definitions(bench_mixed PRIVATE WITH_QUEST)
-    target_include_directories(bench_mixed PRIVATE
+    target_compile_definitions(bench_gate PRIVATE WITH_QUEST)
+    target_include_directories(bench_gate PRIVATE
         ${QuEST_INCLUDE_DIR}
         ${EXTERN_DIR}/QuEST/build  # For generated config.h
     )
-    target_link_libraries(bench_mixed PRIVATE ${QuEST_LIBRARY})
+    target_link_libraries(bench_gate PRIVATE ${QuEST_LIBRARY})
 endif()
 
 if(QULACS_FOUND)
-    target_compile_definitions(bench_mixed PRIVATE WITH_QULACS)
-    target_include_directories(bench_mixed PRIVATE
+    target_compile_definitions(bench_gate PRIVATE WITH_QULACS)
+    target_include_directories(bench_gate PRIVATE
         ${QULACS_INCLUDE_DIR}
     )
-    target_link_libraries(bench_mixed PRIVATE csim_static)
+    target_link_libraries(bench_gate PRIVATE csim_static)
     # Qulacs requires C++14 minimum (we use C++17 for consistency)
-    set_property(TARGET bench_mixed PROPERTY CXX_STANDARD 17)
-    set_property(TARGET bench_mixed PROPERTY CXX_STANDARD_REQUIRED ON)
+    set_property(TARGET bench_gate PROPERTY CXX_STANDARD 17)
+    set_property(TARGET bench_gate PROPERTY CXX_STANDARD_REQUIRED ON)
     # Enable OpenMP if available (Qulacs uses it internally)
     if(OpenMP_CXX_FOUND)
-        target_link_libraries(bench_mixed PRIVATE OpenMP::OpenMP_CXX)
+        target_link_libraries(bench_gate PRIVATE OpenMP::OpenMP_CXX)
     endif()
-endif()
-
-#=======================================================================================================================
-# bench_gate target - Run tests then benchmark in one command
-#=======================================================================================================================
-
-if(BUILD_TESTS)
-    add_custom_target(bench_gate
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-        COMMAND $<TARGET_FILE:bench_mixed>
-        DEPENDS test_state test_gate bench_mixed
-        COMMENT "Running tests, then benchmark..."
-    )
 endif()
 
 #=======================================================================================================================

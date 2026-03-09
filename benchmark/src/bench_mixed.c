@@ -61,7 +61,7 @@ int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out) {
  */
 
 /**
- * @brief Descriptor for a single-qubit qlib timing run.
+ * @brief Descriptor for a qlib timing run (single- or two-qubit).
  *
  * Captures the parts that differ between packed and tiled variants so the
  * shared timing loop can be called from thin wrappers.
@@ -70,7 +70,7 @@ typedef struct {
     state_type_t  state_type;   /**< MIXED_PACKED or MIXED_TILED */
     size_t        memory_bytes; /**< Pre-computed memory footprint */
     const char   *method;       /**< "qlib_packed" or "qlib_tiled" */
-} qlib_1q_desc_t;
+} qlib_bench_desc_t;
 
 /**
  * @brief Shared timing loop for single-qubit qlib benchmarks.
@@ -81,7 +81,7 @@ typedef struct {
 static bench_result_t run_1q_timing(qubit_t qubits, const char *gate_name,
                                     void (*gate_fn)(state_t*, qubit_t),
                                     int iterations, int warmup, int runs,
-                                    const qlib_1q_desc_t *desc) {
+                                    const qlib_bench_desc_t *desc) {
     bench_result_t result = {0};
     result.qubits       = qubits;
     result.dim          = (dim_t)1 << qubits;
@@ -114,23 +114,11 @@ static bench_result_t run_1q_timing(qubit_t qubits, const char *gate_name,
     result.time_ms_median = stats.median;
     result.time_ms_cv     = stats.cv;
     result.runs           = runs;
-    result.ops_per_sec    = (double)(iterations * qubits) / (stats.mean / 1000.0);
+    result.ops_per_sec    = (stats.mean > 0.0) ? (double)(iterations * qubits) / (stats.mean / 1000.0) : 0.0;
 
     state_free(&state);
     return result;
 }
-
-/**
- * @brief Descriptor for a two-qubit qlib timing run.
- *
- * Captures the parts that differ between packed and tiled variants so the
- * shared timing loop can be called from thin wrappers.
- */
-typedef struct {
-    state_type_t  state_type;   /**< MIXED_PACKED or MIXED_TILED */
-    size_t        memory_bytes; /**< Pre-computed memory footprint */
-    const char   *method;       /**< "qlib_packed" or "qlib_tiled" */
-} qlib_2q_desc_t;
 
 /**
  * @brief Shared timing loop for two-qubit qlib benchmarks.
@@ -141,7 +129,7 @@ typedef struct {
 static bench_result_t run_2q_timing(qubit_t qubits, const char *gate_name,
                                     void (*gate_fn)(state_t*, qubit_t, qubit_t),
                                     int iterations, int warmup, int runs,
-                                    const qlib_2q_desc_t *desc) {
+                                    const qlib_bench_desc_t *desc) {
     bench_result_t result = {0};
     result.qubits       = qubits;
     result.dim          = (dim_t)1 << qubits;
@@ -178,7 +166,7 @@ static bench_result_t run_2q_timing(qubit_t qubits, const char *gate_name,
     result.time_ms_median = stats.median;
     result.time_ms_cv     = stats.cv;
     result.runs           = runs;
-    result.ops_per_sec    = (double)(iterations * num_pairs) / (stats.mean / 1000.0);
+    result.ops_per_sec    = (stats.mean > 0.0) ? (double)(iterations * num_pairs) / (stats.mean / 1000.0) : 0.0;
 
     state_free(&state);
     return result;
@@ -193,7 +181,7 @@ static bench_result_t run_2q_timing(qubit_t qubits, const char *gate_name,
 bench_result_t bench_qlib_packed(qubit_t qubits, const char *gate_name,
                                   void (*gate_fn)(state_t*, qubit_t),
                                   int iterations, int warmup, int runs) {
-    const qlib_1q_desc_t desc = {
+    const qlib_bench_desc_t desc = {
         .state_type   = MIXED_PACKED,
         .memory_bytes = bench_packed_size(qubits),
         .method       = "qlib_packed",
@@ -204,7 +192,7 @@ bench_result_t bench_qlib_packed(qubit_t qubits, const char *gate_name,
 bench_result_t bench_qlib_tiled(qubit_t qubits, const char *gate_name,
                                  void (*gate_fn)(state_t*, qubit_t),
                                  int iterations, int warmup, int runs) {
-    const qlib_1q_desc_t desc = {
+    const qlib_bench_desc_t desc = {
         .state_type   = MIXED_TILED,
         .memory_bytes = bench_tiled_size(qubits),
         .method       = "qlib_tiled",
@@ -225,7 +213,7 @@ bench_result_t bench_qlib_tiled(qubit_t qubits, const char *gate_name,
 bench_result_t bench_qlib_packed_2q(qubit_t qubits, const char *gate_name,
                                       void (*gate_fn)(state_t*, qubit_t, qubit_t),
                                       int iterations, int warmup, int runs) {
-    const qlib_2q_desc_t desc = {
+    const qlib_bench_desc_t desc = {
         .state_type   = MIXED_PACKED,
         .memory_bytes = bench_packed_size(qubits),
         .method       = "qlib_packed",
@@ -236,7 +224,7 @@ bench_result_t bench_qlib_packed_2q(qubit_t qubits, const char *gate_name,
 bench_result_t bench_qlib_tiled_2q(qubit_t qubits, const char *gate_name,
                                      void (*gate_fn)(state_t*, qubit_t, qubit_t),
                                      int iterations, int warmup, int runs) {
-    const qlib_2q_desc_t desc = {
+    const qlib_bench_desc_t desc = {
         .state_type   = MIXED_TILED,
         .memory_bytes = bench_tiled_size(qubits),
         .method       = "qlib_tiled",

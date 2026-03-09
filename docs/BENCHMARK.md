@@ -59,7 +59,7 @@ cmake --build cmake-build-release --target bench_gate
 
 ### Compile definitions
 
-`_GNU_SOURCE` is always defined. `WITH_QUEST` is defined when QuEST is found. `WITH_QULACS` is defined when Qulacs is found.
+`WITH_QUEST` is defined when QuEST is found. `WITH_QULACS` is defined when Qulacs is found.
 
 ### Custom install paths
 
@@ -150,7 +150,7 @@ All statistics are computed by `bench_compute_stats()` from the array of `runs` 
 
 ### Reproducibility
 
-`srand(42)` is called before each `bench_*` invocation for a given `(gate, qubits)` combination, so all methods initialise from the same random number sequence.
+State data is filled with random values via `rand()` at state initialisation. No fixed seed is set; the PRNG state is whatever it happens to be at the time of the call. Since state values do not affect gate execution timing (no data-dependent branches in the arithmetic), this has no impact on measurement fairness or repeatability.
 
 ## Output Formats
 
@@ -159,7 +159,7 @@ All statistics are computed by `bench_compute_stats()` from the array of `runs` 
 For each qubit count, for each gate: one result line per method showing method name, `time_ms ± time_ms_std`, CV, and ops/sec. Format:
 
 ```
-  %-14s %8.3f ± %6.3f ms (CV %4.1f%%)  %'12.0f ops/sec
+  %-14s %8.3f ± %6.3f ms (CV %4.1f%%)  %12.0f ops/sec
 ```
 
 With `--verbose`, each result line is extended with:
@@ -196,7 +196,7 @@ Output to stdout. For each of the 5 gates (X, H, Z, CX, SWAP), five tables are e
 
 All timing values are in **µs** (microseconds), not ms. CV is reproduced directly from the stored percentage value without renormalization.
 
-Each table has a leading `qubits` column followed by one column per method. Five methods appear: `qlib_packed`, `qlib_tiled`, `blas`, `quest`, `qulacs`. `naive_loop` is excluded from pgfplots output. Missing values (framework not built, or qubit count exceeds the dense cutoff) are emitted as `nan`; the CV table emits `0.000000` for missing methods.
+Each table has a leading `qubits` column followed by one column per method. Five methods appear: `qlib_packed`, `qlib_tiled`, `blas`, `quest`, `qulacs`. `naive_loop` is neither executed nor stored when `--pgfplots` is active. Missing values (framework not built, or qubit count exceeds the dense cutoff) are emitted as `nan`; the CV table emits `0.000000` for missing methods.
 
 After all per-gate tables, one memory table is emitted with values in MB:
 
@@ -311,7 +311,7 @@ Each 2Q gate iterates over all `n*(n-1)/2` ordered pairs `(q1, q2)` with `q1 < q
 
 ### Timing
 
-qlib, `blas_dense`, and `naive_loop` use `clock_gettime(CLOCK_MONOTONIC)` via `bench_time_ns()` defined in `bench.h`. The Qulacs adapter uses `std::chrono::high_resolution_clock` instead (a consequence of the C++ translation unit).
+All methods — qlib, `blas_dense`, `naive_loop`, and both external framework adapters — use `clock_gettime(CLOCK_MONOTONIC)` via `bench_time_ns()` defined in `bench.h`.
 
 ### Memory reporting
 

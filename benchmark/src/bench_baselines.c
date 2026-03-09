@@ -257,7 +257,7 @@ bench_result_t bench_blas_dense(qubit_t qubits, const char *gate_name,
     result.time_ms_median = stats.median;
     result.time_ms_cv     = stats.cv;
     result.runs           = runs;
-    result.ops_per_sec    = (double)(iterations * qubits) / (stats.mean / 1000.0);
+    result.ops_per_sec    = (stats.mean > 0.0) ? (double)(iterations * qubits) / (stats.mean / 1000.0) : 0.0;
 
     free(tmp);
     free(rho);
@@ -322,7 +322,7 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
     result.time_ms_median = stats.median;
     result.time_ms_cv     = stats.cv;
     result.runs           = runs;
-    result.ops_per_sec    = (double)(iterations * qubits) / (stats.mean / 1000.0);
+    result.ops_per_sec    = (stats.mean > 0.0) ? (double)(iterations * qubits) / (stats.mean / 1000.0) : 0.0;
 
     free(tmp); free(out);
     free(rho);
@@ -389,7 +389,7 @@ bench_result_t bench_blas_dense_2q(qubit_t qubits, const char *gate_name,
     result.time_ms_median = stats.median;
     result.time_ms_cv     = stats.cv;
     result.runs           = runs;
-    result.ops_per_sec    = (double)(iterations * num_pairs) / (stats.mean / 1000.0);
+    result.ops_per_sec    = (stats.mean > 0.0) ? (double)(iterations * num_pairs) / (stats.mean / 1000.0) : 0.0;
 
     free(tmp);
     free(rho);
