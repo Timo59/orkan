@@ -28,6 +28,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+extern int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
+
 void bench_quest_init(void) {
     /* No-op: environment initialized in forked child */
 }
@@ -89,7 +91,12 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
     if (!gate_fn_1q && !gate_fn_2q) {
         /* Unknown gate - write empty (zeroed) pipe result and exit */
         bench_pipe_result_t pr = {0};
-        write(write_fd, &pr, sizeof(pr));
+        if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
+            close(write_fd);
+            destroyQureg(rho);
+            finalizeQuESTEnv();
+            _exit(1);
+        }
         close(write_fd);
         destroyQureg(rho);
         finalizeQuESTEnv();
@@ -122,18 +129,16 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
     } else {
         /* Two-qubit gate: all ordered pairs (q1 < q2) */
         qubit_t q1s[128], q2s[128];
-        int num_pairs = 0;
-        for (qubit_t q1 = 0; q1 < qubits; ++q1)
-            for (qubit_t q2 = q1 + 1; q2 < qubits; ++q2) {
-                if (num_pairs >= 128) break;
-                q1s[num_pairs] = q1;
-                q2s[num_pairs] = q2;
-                num_pairs++;
-            }
+        int num_pairs = build_all_pairs(qubits, q1s, q2s);
 
         if (num_pairs == 0) {
             bench_pipe_result_t pr = {0};
-            write(write_fd, &pr, sizeof(pr));
+            if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
+                close(write_fd);
+                destroyQureg(rho);
+                finalizeQuESTEnv();
+                _exit(1);
+            }
             close(write_fd);
             destroyQureg(rho);
             finalizeQuESTEnv();
@@ -171,7 +176,12 @@ static void bench_quest_child(int write_fd, qubit_t qubits, const char *gate_nam
     pr.time_ms_cv     = result.time_ms_cv;
     pr.ops_per_sec    = result.ops_per_sec;
     pr.memory_bytes   = result.memory_bytes;
-    write(write_fd, &pr, sizeof(pr));
+    if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
+        close(write_fd);
+        destroyQureg(rho);
+        finalizeQuESTEnv();
+        _exit(1);
+    }
     close(write_fd);
 
     destroyQureg(rho);

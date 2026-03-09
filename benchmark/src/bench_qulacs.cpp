@@ -21,7 +21,6 @@
 
 #include <csim/update_ops_dm.hpp>
 #include <csim/type.hpp>
-#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
@@ -29,6 +28,7 @@
 
 extern "C" {
 #include "bench.h"
+int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
 }
 
 /*
@@ -95,7 +95,10 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
     if (!gate_fn_1q && !gate_fn_2q) {
         std::free(rho);
         bench_pipe_result_t pr = {0};
-        write(write_fd, &pr, sizeof(pr));
+        if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
+            close(write_fd);
+            _exit(1);
+        }
         close(write_fd);
         _exit(1);
     }
@@ -109,14 +112,11 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
             gate_fn_1q(static_cast<UINT>(i % qubits), rho, dim);
 
         for (int r = 0; r < cnt; ++r) {
-            auto start = std::chrono::high_resolution_clock::now();
+            uint64_t start = bench_time_ns();
             for (int i = 0; i < iterations; ++i)
                 for (qubit_t t = 0; t < qubits; ++t)
                     gate_fn_1q(static_cast<UINT>(t), rho, dim);
-            auto end = std::chrono::high_resolution_clock::now();
-            run_times[r] = static_cast<double>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count())
-                / 1000000.0;
+            run_times[r] = bench_ns_to_ms(bench_time_ns() - start);
         }
 
         bench_run_stats_t stats = bench_compute_stats(run_times, cnt);
@@ -129,19 +129,15 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
     } else {
         /* Two-qubit gate: all ordered pairs (q1 < q2) */
         qubit_t q1s[128], q2s[128];
-        int num_pairs = 0;
-        for (qubit_t q1 = 0; q1 < qubits; ++q1)
-            for (qubit_t q2 = q1 + 1; q2 < qubits; ++q2) {
-                if (num_pairs >= 128) break;
-                q1s[num_pairs] = q1;
-                q2s[num_pairs] = q2;
-                num_pairs++;
-            }
+        int num_pairs = build_all_pairs(qubits, q1s, q2s);
 
         if (num_pairs == 0) {
             std::free(rho);
             bench_pipe_result_t pr = {0};
-            write(write_fd, &pr, sizeof(pr));
+            if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
+                close(write_fd);
+                _exit(1);
+            }
             close(write_fd);
             _exit(0);
         }
@@ -151,14 +147,11 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
                        static_cast<UINT>(q2s[i % num_pairs]), rho, dim);
 
         for (int r = 0; r < cnt; ++r) {
-            auto start = std::chrono::high_resolution_clock::now();
+            uint64_t start = bench_time_ns();
             for (int i = 0; i < iterations; ++i)
                 for (int p = 0; p < num_pairs; ++p)
                     gate_fn_2q(static_cast<UINT>(q1s[p]), static_cast<UINT>(q2s[p]), rho, dim);
-            auto end = std::chrono::high_resolution_clock::now();
-            run_times[r] = static_cast<double>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count())
-                / 1000000.0;
+            run_times[r] = bench_ns_to_ms(bench_time_ns() - start);
         }
 
         bench_run_stats_t stats = bench_compute_stats(run_times, cnt);
@@ -183,7 +176,10 @@ static void bench_qulacs_child(int write_fd, qubit_t qubits, const char *gate_na
     pr.time_ms_cv     = result.time_ms_cv;
     pr.ops_per_sec    = result.ops_per_sec;
     pr.memory_bytes   = result.memory_bytes;
-    write(write_fd, &pr, sizeof(pr));
+    if (write(write_fd, &pr, sizeof(pr)) != (ssize_t)sizeof(pr)) {
+        close(write_fd);
+        _exit(1);
+    }
     close(write_fd);
     _exit(0);
 }

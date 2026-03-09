@@ -5,9 +5,10 @@ Benchmarks comparing qlib's packed sparse density matrix implementation against 
 ## How to Run
 
 ```bash
-# From project root
-cd cmake-build-debug
-cmake --build . --target bench_mixed
+# From project root (Release build required for benchmarks)
+cd cmake-build-release
+cmake --build . --target bench_gate   # runs tests first, then benchmark
+# or run the binary directly:
 ./benchmark/bench_mixed
 ```
 
@@ -17,11 +18,12 @@ cmake --build . --target bench_mixed
 --min-qubits N   Minimum qubit count (default: 2)
 --max-qubits N   Maximum qubit count (default: 12)
 --step N         Qubit count increment (default: 1)
---iterations N   Number of iterations (default: 1000)
+--iterations N   Gate calls per timed run (default: 1000)
 --warmup N       Warm-up iterations (default: 100)
+--runs N         Independent timing runs for statistics, 1..200 (default: 10)
 --csv            Output CSV format
---pgfplots       Output pgfplots-compatible .dat format
---verbose        Show per-method memory usage inline
+--pgfplots       Output pgfplots-compatible .dat format (includes std dev)
+--verbose        Show min, median, and memory per result
 --help           Show help
 ```
 
@@ -33,6 +35,7 @@ cmake --build . --target bench_mixed
 ./benchmark/bench_mixed --csv > results.csv      # Export CSV data
 ./benchmark/bench_mixed --pgfplots > results.dat # Export for pgfplots/LaTeX
 ./benchmark/bench_mixed --iterations 5000        # Higher precision
+./benchmark/bench_mixed --runs 20                # More runs for tighter confidence intervals
 ```
 
 ## Results (10 qubits, 1024-dim)
@@ -64,11 +67,11 @@ The blocked format excels at small sizes (avoiding BLAS overhead) and at larger 
 
 ### Timing Strategy
 
-Each benchmark measures the time to apply a gate to every qubit in the system:
+Each benchmark measures the time to apply a gate to every qubit (or qubit pair, for 2Q gates) in the system:
 
 1. **Warm-up phase**: Run `warmup` iterations (default: 100) to stabilize caches and JIT
-2. **Timed phase**: Run `iterations` iterations (default: 1000), applying the gate to each qubit
-3. **Metrics**: Total time and ops/sec (one op = one gate application)
+2. **Timed phase**: Repeat `runs` times (default: 10, max 200): run `iterations` iterations (default: 1000), applying the gate to each target qubit (or pair)
+3. **Metrics**: Across runs — mean ± std dev, CV (coefficient of variation), min, median, CI95; plus ops/sec
 
 The benchmark applies gates to all target qubits per iteration to measure realistic workloads where gates are applied across the register.
 
@@ -168,10 +171,9 @@ When citing these benchmarks, document the following:
 - Link-time optimization (LTO) enabled?
 
 ### Statistical Validity
-- Number of independent runs (current: single run)
-- Variance and standard deviation not reported
-- No confidence intervals
-- Results may vary between runs due to system load
+- Default 10 independent timing runs per (gate, qubit count, method); configurable up to 200 with `--runs`
+- Reported statistics per result: mean ± std dev, CV, min, median, CI95 (Student's t, 95%)
+- Results may vary between runs due to system load; CV quantifies this
 
 ### Timing
 - Clock source: `CLOCK_MONOTONIC` via `clock_gettime()`
@@ -186,9 +188,7 @@ When citing these benchmarks, document the following:
 - All frameworks now have comparable multithreading capabilities
 
 ### Limitations
-- Only single-qubit gates benchmarked
-- No multi-qubit gate operations (CNOT, CZ)
-- No measurement operations
+- No measurement operations benchmarked
 - Random state initialization (not physically meaningful states)
 - Does not measure gate matrix construction time separately
 - Memory measurement granularity limited by OS page size (typically 4KB/16KB)
@@ -239,9 +239,11 @@ cmake -DQuEST_DIR=/path/to/quest -DQULACS_DIR=/path/to/qulacs ..
 ```
 benchmark/
 ├── CMakeLists.txt
-├── include/bench.h      # Timing utilities, result types
+├── include/bench.h         # Timing utilities, result types, option defaults
 └── src/
-    ├── bench_mixed.c    # Main benchmark + BLAS/naive implementations
-    ├── bench_quest.c    # QuEST wrapper
-    └── bench_qulacs.cpp # Qulacs wrapper
+    ├── bench_main.c        # CLI parsing, output formatting (CSV/pgfplots/text), main()
+    ├── bench_mixed.c       # qlib packed and tiled gate benchmarks (1Q and 2Q)
+    ├── bench_baselines.c   # BLAS dense and naive loop baselines; gate matrix constants
+    ├── bench_quest.c       # QuEST wrapper
+    └── bench_qulacs.cpp    # Qulacs wrapper
 ```
