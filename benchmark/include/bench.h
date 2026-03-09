@@ -55,8 +55,10 @@ typedef struct bench_result {
     double time_ms_median;      /**< Median run time — robust to scheduler spikes (ms) */
     double time_ms_cv;          /**< Coefficient of variation = std/mean × 100 (%) */
     double ops_per_sec;         /**< Gate applications per second, from mean time */
+    double time_per_gate_ms;    /**< Mean time normalised per gate application: time_ms / (iterations × sweep_size) */
     size_t memory_bytes;        /**< Memory used for state representation */
     int    iterations;          /**< Gate calls per timed run */
+    int    sweep_size;          /**< Gate applications per timed iteration (qubits for 1Q, pairs for 2Q) */
     int    runs;                /**< Number of independent timing runs */
 } bench_result_t;
 
@@ -96,6 +98,25 @@ static inline double bench_ns_to_ms(uint64_t ns) {
  * Statistical helpers
  * =====================================================================================================================
  */
+
+/**
+ * @brief Pipe-safe result for child-to-parent communication.
+ *
+ * Contains only the scalar/array fields that child processes (QuEST, Qulacs)
+ * compute and the parent needs to read.  No pointer fields — pointer values
+ * are meaningless across the fork/pipe boundary and must never be transmitted.
+ * The parent sets gate_name and method on the bench_result_t it returns using
+ * its own string literals.
+ */
+typedef struct {
+    double time_ms;
+    double time_ms_std;
+    double time_ms_min;
+    double time_ms_median;
+    double time_ms_cv;
+    double ops_per_sec;
+    size_t memory_bytes;
+} bench_pipe_result_t;
 
 /** @brief Statistical summary computed from K independent timing runs */
 typedef struct {
