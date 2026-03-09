@@ -55,7 +55,7 @@ cmake --build cmake-build-release --target bench_gate
 | Target | Type | Condition |
 |--------|------|-----------|
 | `bench_gate` | Executable | Always (Release only) |
-| `csim_static` | Static library | `QULACS_FOUND` |
+| `csim_static` | Static library | `QULACS_FOUND` — compiled with `-w $<$<CONFIG:Release>:-march=native>` to match qlib's vectorisation flags |
 
 ### Compile definitions
 
@@ -321,14 +321,16 @@ All methods — qlib, `blas_dense`, `naive_loop`, and both external framework ad
 | `qlib_tiled` | Theoretical: tile-pair count × `TILE_SIZE × sizeof(cplx_t)` via `bench_tiled_size()` |
 | `blas_dense` | Theoretical: `dim² × sizeof(cplx_t)` via `bench_dense_size()` |
 | `naive_loop` | Theoretical: same as `blas_dense` |
-| QuEST | RSS delta: process resident memory before and after `createDensityQureg` + `initDebugState` (inside forked child; macOS via `mach_task_basic_info`, Linux via `/proc/self/status`) |
-| Qulacs | Theoretical: `dim² × sizeof(CTYPE)` — RSS delta is unreliable after `fork()` on macOS |
+| QuEST | Theoretical: `dim² × sizeof(double) × 2` (full density matrix, complex double) |
+| Qulacs | Theoretical: `dim² × sizeof(CTYPE)` |
+
+All methods report only the state storage footprint, not process or framework overhead. RSS delta is unreliable after `fork()` on macOS (child inherits COW pages from the parent, inflating the baseline before any allocation).
 
 Scratch buffers allocated by `blas_dense` and `naive_loop` outside the hot loop are not included in `memory_bytes`.
 
 ### QuEST and Qulacs isolation
 
-QuEST cannot be re-initialized after finalization. Qulacs memory measurement via RSS delta is unreliable on macOS after `fork()` due to copy-on-write page sharing. Both frameworks are therefore run inside a forked child process for each `(gate, qubits)` pair. The child performs all `runs` timed rounds, computes the full statistical summary, and writes a `bench_result_t` to a pipe. The parent reads the result and copies the timing and memory fields. The `gate_name` and `method` pointer fields transferred through the pipe are discarded by the parent, which substitutes its own string literals.
+QuEST cannot be re-initialized after finalization. Both frameworks are therefore run inside a forked child process for each `(gate, qubits)` pair. The child performs all `runs` timed rounds, computes the full statistical summary, and writes a `bench_result_t` to a pipe. The parent reads the result and copies the timing and memory fields. The `gate_name` and `method` pointer fields transferred through the pipe are discarded by the parent, which substitutes its own string literals.
 
 ## Memory Layout Background
 
