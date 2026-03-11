@@ -57,12 +57,6 @@ const cplx_t SWAPMAT[16] = {
     0, 0, 0, 1    /* col 3: |1,1> -> |1,1> */
 };
 
-/*
- * Build all ordered qubit pairs (q1 < q2) for an n-qubit system.
- * Declared here for use in bench_blas_dense_2q(); defined in bench_mixed.c.
- */
-#define MAX_PAIRS 128  /* sufficient for up to ~16 qubits */
-int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
 
 /*
  * =====================================================================================================================
@@ -224,6 +218,12 @@ bench_result_t bench_blas_dense(qubit_t qubits, const char *gate_name,
     if (!U) { free(rho); return result; }
     for (qubit_t t = 0; t < qubits; ++t)
         U[t] = build_full_gate_matrix(qubits, gate_mat, t);
+    for (qubit_t t = 0; t < qubits; ++t) {
+        if (!U[t]) {
+            for (qubit_t k = 0; k < t; ++k) free(U[k]);
+            free(U); free(rho); return result;
+        }
+    }
 
     cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
     if (!tmp) {
@@ -287,6 +287,12 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
     if (!U) { free(rho); return result; }
     for (qubit_t t = 0; t < qubits; ++t)
         U[t] = build_full_gate_matrix(qubits, gate_mat, t);
+    for (qubit_t t = 0; t < qubits; ++t) {
+        if (!U[t]) {
+            for (qubit_t k = 0; k < t; ++k) free(U[k]);
+            free(U); free(rho); return result;
+        }
+    }
 
     cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
     cplx_t *out = malloc(dim * dim * sizeof(cplx_t));
@@ -356,6 +362,12 @@ bench_result_t bench_blas_dense_2q(qubit_t qubits, const char *gate_name,
     if (!U) { free(rho); return result; }
     for (int p = 0; p < num_pairs; ++p)
         U[p] = build_full_gate_matrix_2q(qubits, gate_mat, q1s[p], q2s[p]);
+    for (int p = 0; p < num_pairs; ++p) {
+        if (!U[p]) {
+            for (int k = 0; k < p; ++k) free(U[k]);
+            free(U); free(rho); return result;
+        }
+    }
 
     cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
     if (!tmp) {

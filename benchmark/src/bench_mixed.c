@@ -37,15 +37,13 @@ static void init_random_mixed_state(state_t *state, qubit_t qubits, state_type_t
 
 /*
  * Build all ordered qubit pairs (q1 < q2) for an n-qubit system.
- * Returns the number of pairs written. MAX_PAIRS must be >= qubits*(qubits-1)/2.
+ * Shared across all benchmark adapters (bench_baselines.c, bench_quest.c, bench_qulacs.cpp);
+ * declared in bench.h. Returns the number of pairs written (at most MAX_PAIRS).
  */
-#define MAX_PAIRS 128  /* sufficient for up to ~16 qubits */
-
 int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out) {
     int n = 0;
-    for (qubit_t q1 = 0; q1 < qubits; ++q1) {
-        for (qubit_t q2 = q1 + 1; q2 < qubits; ++q2) {
-            if (n >= MAX_PAIRS) break;
+    for (qubit_t q1 = 0; q1 < qubits && n < MAX_PAIRS; ++q1) {
+        for (qubit_t q2 = q1 + 1; q2 < qubits && n < MAX_PAIRS; ++q2) {
             q1_out[n] = q1;
             q2_out[n] = q2;
             n++;

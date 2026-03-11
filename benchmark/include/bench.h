@@ -30,6 +30,7 @@ extern "C" {
 #define BENCH_DEFAULT_ITERATIONS    1000
 #define BENCH_DEFAULT_WARMUP        100
 #define BENCH_DEFAULT_RUNS          10   /**< Independent timing runs per (gate, qubits, method) */
+#define BENCH_MAX_RUNS              200  /**< Hard upper bound on --runs; shared with bench_compute_stats */
 
 /*
  * =====================================================================================================================
@@ -191,53 +192,24 @@ static inline size_t bench_tiled_size(qubit_t qubits) {
 
 /*
  * =====================================================================================================================
- * Runtime memory measurement
+ * Shared pair-building utility (implemented in bench_mixed.c)
  * =====================================================================================================================
  */
 
-#if defined(__APPLE__)
-#include <mach/mach.h>
+/** @brief Maximum number of qubit pairs supported by build_all_pairs(). Sufficient for up to 16 qubits. */
+#define MAX_PAIRS 128
 
-/** @brief Get current process resident memory (RSS) in bytes */
-static inline size_t bench_get_rss(void) {
-    struct mach_task_basic_info info;
-    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
-    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
-                  (task_info_t)&info, &count) != KERN_SUCCESS) {
-        return 0;
-    }
-    return info.resident_size;
-}
-
-#elif defined(__linux__)
-#include <stdio.h>
-#include <string.h>
-
-/** @brief Get current process resident memory (RSS) in bytes */
-static inline size_t bench_get_rss(void) {
-    FILE *f = fopen("/proc/self/status", "r");
-    if (!f) return 0;
-
-    size_t rss = 0;
-    char line[256];
-    while (fgets(line, sizeof(line), f)) {
-        if (strncmp(line, "VmRSS:", 6) == 0) {
-            sscanf(line + 6, "%zu", &rss);
-            rss *= 1024;
-            break;
-        }
-    }
-    fclose(f);
-    return rss;
-}
-
-#else
-static inline size_t bench_get_rss(void) { return 0; }
-#endif
+/**
+ * @brief Build all ordered qubit pairs (q1 < q2) for an n-qubit system.
+ *
+ * Writes up to MAX_PAIRS pairs into q1_out/q2_out. Returns the number of pairs written.
+ * Asserts that qubits*(qubits-1)/2 <= MAX_PAIRS; callers must not pass qubits > 16.
+ */
+int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
 
 /*
  * =====================================================================================================================
- * Benchmark functions — single-qubit gates (implemented in bench_mixed.c)
+ * Benchmark functions — single-qubit gates (qlib: bench_mixed.c; baselines: bench_baselines.c)
  * =====================================================================================================================
  */
 
@@ -259,7 +231,7 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
 
 /*
  * =====================================================================================================================
- * Benchmark functions — two-qubit gates (implemented in bench_mixed.c)
+ * Benchmark functions — two-qubit gates (qlib: bench_mixed.c; baselines: bench_baselines.c)
  * =====================================================================================================================
  */
 
@@ -277,7 +249,7 @@ bench_result_t bench_blas_dense_2q(qubit_t qubits, const char *gate_name,
 
 /*
  * =====================================================================================================================
- * Output functions (implemented in bench_mixed.c)
+ * Output functions and CLI parsing (implemented in bench_main.c)
  * =====================================================================================================================
  */
 

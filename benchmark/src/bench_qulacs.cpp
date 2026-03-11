@@ -21,10 +21,7 @@
 #include <cstdlib>
 #include <cstring>
 
-extern "C" {
 #include "bench.h"
-int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
-}
 
 /*
  * =====================================================================================================================
@@ -59,11 +56,17 @@ bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
     }
 
     /*
-     * Initialize to |0><0| state and touch all memory pages.
-     * The density matrix is stored in row-major order: rho[i*dim + j]
+     * Fill with random values to match qlib and BLAS baselines.
+     * A computational basis state (e.g. |0><0|) leaves Z and CX effectively
+     * as no-ops throughout the benchmark, making those timings meaningless.
+     * Random initialisation also faults all pages before timing begins.
      */
-    std::memset(rho, 0, matrix_size);
-    rho[0] = CTYPE(1.0, 0.0);
+    size_t n_elems = static_cast<size_t>(dim) * static_cast<size_t>(dim);
+    for (size_t i = 0; i < n_elems; ++i) {
+        double re = (double)std::rand() / RAND_MAX - 0.5;
+        double im = (double)std::rand() / RAND_MAX - 0.5;
+        rho[i] = CTYPE(re, im);
+    }
 
     /* Memory: theoretical density matrix size. */
     result.memory_bytes = matrix_size;
@@ -113,10 +116,10 @@ bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
         result.time_ms_min    = stats.min;
         result.time_ms_median = stats.median;
         result.time_ms_cv     = stats.cv;
-        result.ops_per_sec    = static_cast<double>(iterations * qubits) / (stats.mean / 1000.0);
+        result.ops_per_sec    = (stats.mean > 0.0) ? static_cast<double>(iterations * qubits) / (stats.mean / 1000.0) : 0.0;
     } else {
         /* Two-qubit gate: all ordered pairs (q1 < q2) */
-        qubit_t q1s[128], q2s[128];
+        qubit_t q1s[MAX_PAIRS], q2s[MAX_PAIRS];
         int num_pairs = build_all_pairs(qubits, q1s, q2s);
 
         if (num_pairs == 0) {
@@ -142,7 +145,7 @@ bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
         result.time_ms_min    = stats.min;
         result.time_ms_median = stats.median;
         result.time_ms_cv     = stats.cv;
-        result.ops_per_sec    = static_cast<double>(iterations * num_pairs) / (stats.mean / 1000.0);
+        result.ops_per_sec    = (stats.mean > 0.0) ? static_cast<double>(iterations * num_pairs) / (stats.mean / 1000.0) : 0.0;
     }
 
     std::free(rho);
