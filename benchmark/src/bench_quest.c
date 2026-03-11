@@ -8,7 +8,8 @@
  * Homepage: https://quest.qtechtheory.org/
  * GitHub: https://github.com/QuEST-Kit/QuEST
  *
- * To enable: cmake -DWITH_QUEST=ON -DQuEST_DIR=/path/to/quest ..
+ * To enable: QuEST is auto-detected at configure time. Pass -DQuEST_DIR=/path/to/quest
+ *            if QuEST is not in the default extern/QuEST/ location.
  *
  * Uses an init-once pattern: bench_quest_init() calls initQuESTEnv() once at
  * benchmark start. Each bench_quest() call creates a fresh Qureg with
@@ -28,7 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
 
 void bench_quest_init(void) {
     initQuESTEnv();
@@ -116,10 +116,10 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
         result.time_ms_min    = stats.min;
         result.time_ms_median = stats.median;
         result.time_ms_cv     = stats.cv;
-        result.ops_per_sec    = (double)(iterations * qubits) / (stats.mean / 1000.0);
+        result.ops_per_sec    = (stats.mean > 0.0) ? (double)(iterations * qubits) / (stats.mean / 1000.0) : 0.0;
     } else {
         /* Two-qubit gate: all ordered pairs (q1 < q2) */
-        qubit_t q1s[128], q2s[128];
+        qubit_t q1s[MAX_PAIRS], q2s[MAX_PAIRS];
         int num_pairs = build_all_pairs(qubits, q1s, q2s);
 
         if (num_pairs == 0) {
@@ -144,7 +144,7 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
         result.time_ms_min    = stats.min;
         result.time_ms_median = stats.median;
         result.time_ms_cv     = stats.cv;
-        result.ops_per_sec    = (double)(iterations * num_pairs) / (stats.mean / 1000.0);
+        result.ops_per_sec    = (stats.mean > 0.0) ? (double)(iterations * num_pairs) / (stats.mean / 1000.0) : 0.0;
     }
 
     destroyQureg(rho);

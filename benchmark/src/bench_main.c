@@ -177,6 +177,9 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--help")        == 0) {
             print_usage(argv[0]);
             exit(0);
+        } else {
+            fprintf(stderr, "error: unrecognized option '%s'\n", argv[i]);
+            exit(1);
         }
     }
 
@@ -454,7 +457,7 @@ static void print_pgfplots_output(const pgfplots_data_t *pgf) {
             for (int m = 0; m < num_methods; ++m) {
                 double mean_val = pgf->time_ms[g][q][method_indices[m]];
                 if (mean_val > 0) printf("  %-14.6f", pgf->time_ms_cv[g][q][method_indices[m]]);
-                else              printf("  %-14s", "0.000000");
+                else              printf("  %-14s", "nan");
             }
             printf("\n");
         }
@@ -755,7 +758,7 @@ int main(int argc, char *argv[]) {
         if (!opts.csv_output && !opts.pgfplots_output)
             printf("\n" "─────────────────────────────────────────────────\n");
 
-        if (pgf)
+        if (pgf && qi < MAX_QUBIT_CONFIGS)
             qi++;
     }
 
