@@ -38,10 +38,13 @@ Step 1 (vendor headers)
     │
     ├──────────────────────────────────────────────────┐
     ▼                                                  ▼
-Step 2 (write bench_aer_dm.cpp)             Step 3 (update CMakeLists.txt)
+Step 2 (write bench_aer_dm.cpp)             Step 3a (CMake detection + INTERFACE target)
     │                                                  │
     └──────────────────┬───────────────────────────────┘
-                       │  (both 2 and 3 must be done)
+                       │  (both 2 and 3a must be done)
+                       ▼
+          Step 3b (CMake source list + target wiring)
+                       │
                        ▼
           Step 4 (update bench.h)
                        │
@@ -53,11 +56,11 @@ Step 2 (write bench_aer_dm.cpp)             Step 3 (update CMakeLists.txt)
           ┌─────┴─────┐    with Step 5)
           ▼           ▼
       Step 6       Step 7
-  (thesis notes) (bench_aer_only)
-  (depends on     (depends on Step 5;
-   Step 5;         #ifndef guards must
-   does not        exist before binary
-   block 7/8)      produces correct output)
+  (thesis notes) (bench_aer_only CMake only)
+  (depends on     (CMake additions are independent
+   Step 5;         of Step 5 source edits, but the
+   does not        binary is not correct until Step 5
+   block 7/8)      guards are in place)
 ```
 
 **Parallel batches:**
@@ -65,17 +68,22 @@ Step 2 (write bench_aer_dm.cpp)             Step 3 (update CMakeLists.txt)
 | Batch | Steps | Prerequisite |
 |-------|-------|--------------|
 | A | Step 1 | None |
-| B | Steps 2, 3 | Step 1 |
-| C | Step 4 | Steps 2 and 3 |
-| D | Steps 5, 8 | Step 4 |
-| E | Steps 6, 7 | Step 5 |
+| B | Steps 2, 3a | Step 1 |
+| C | Step 3b | Steps 2 and 3a |
+| D | Step 4 | Step 3b |
+| E | Steps 5, 8 | Step 4 |
+| F | Steps 6, 7 | Step 5 |
 
-Steps 6 and 7 both depend on Step 5 and can run concurrently with each other. Step 6 depends
-on Step 5 because the thesis notes describe the adapter design (method names, API surface) which
-is determined in Step 2 and validated in Step 5. Step 7 depends on Step 5 because the
-`#ifndef BENCH_AER_ONLY_MODE` guards added in Step 5 must exist before `bench_aer_only`
-produces correct output (without them, the binary compiles but runs all methods, defeating its
-purpose). Step 8 has no dependency on Steps 5, 6, or 7 and can run concurrently with Step 5.
+Step 3 is split into two sub-steps: **3a** (CMake detection block and INTERFACE target) is
+independent of Step 2 and can run in parallel with it. **3b** (appending `bench_aer_dm.cpp` to
+`BENCH_MIXED_SRC` and wiring the `bench_gate` target) depends on Step 2, because
+`bench_aer_dm.cpp` must exist before CMake references it in the source list. Steps 6 and 7 both
+depend on Step 5 and can run concurrently with each other. Step 6 depends on Step 5 because the
+thesis notes describe the adapter design (method names, API surface) which is determined in Step
+2 and validated in Step 5. Step 7 depends on Step 5 because the `#ifndef BENCH_AER_ONLY_MODE`
+guards added in Step 5 must exist before `bench_aer_only` produces correct output (without them,
+the binary compiles but runs all methods, defeating its purpose). Step 8 has no dependency on
+Steps 5, 6, or 7 and can run concurrently with Step 5.
 
 ---
 
@@ -83,7 +91,7 @@ purpose). Step 8 has no dependency on Steps 5, 6, or 7 and can run concurrently 
 
 **Estimated effort:** 3–5 hours
 **Depends on:** nothing
-**Blocks:** Steps 2, 3
+**Blocks:** Steps 2, 3a
 
 ### What to do
 
@@ -111,8 +119,16 @@ extern/aer-dm/
         ├── matrix.hpp                     # AER::matrix<T> container
         ├── utils.hpp                      # Utility functions used by DM kernel
         ├── avx2_types.hpp                 # SIMD type aliases (include if present)
-        └── json.hpp                       # Minimal JSON (may be needed by types.hpp)
+        └── json.hpp                       # nlohmann/json — required hard dependency (see note below)
 ```
+
+**`nlohmann/json.hpp` is a required hard dependency, not optional.** `framework/types.hpp`
+unconditionally includes `nlohmann/json.hpp` (~25,000 lines of header-only template code).
+Always copy it; omitting it will cause a compile error. Be aware that this header significantly
+increases compilation time for `bench_aer_dm.cpp` (expect 10–30 seconds per TU on typical
+hardware). If build times become intolerable, investigate whether a stub `json.hpp` that defines
+only the types actually used by `types.hpp` is feasible — but this requires careful inspection
+and is not part of the standard vendoring path.
 
 Note: `DensityMatrix<double>` inherits from `QubitVector` (in
 `simulators/statevector/qubitvector.hpp`), not from `UnitaryMatrix`. Do not copy
@@ -139,7 +155,9 @@ cp ${QISKIT_REPO}/src/framework/types.hpp \
    ${QISKIT_REPO}/src/framework/matrix.hpp \
    ${QISKIT_REPO}/src/framework/utils.hpp \
    ${DEST}/framework/
-# Add avx2_types.hpp and json.hpp if the compiler requires them
+# Always copy json.hpp — it is unconditionally included by types.hpp:
+cp ${QISKIT_REPO}/src/framework/json.hpp ${DEST}/framework/
+# Add avx2_types.hpp if the compiler requires it
 ```
 
 **Version pinning — record the exact commit used:**
@@ -156,18 +174,20 @@ The `extern/aer-dm/VERSION` file must be committed alongside the headers.
 
 **Verification — compile a minimal probe program:**
 
-The probe serves two purposes: (1) confirm which headers are transitively required, and (2)
-verify the actual API surface of `AER::QV::DensityMatrix<double>` before Step 2 is written.
+The probe serves three purposes: (1) confirm which headers are transitively required, (2)
+verify the actual API surface of `AER::QV::DensityMatrix<double>` before Step 2 is written,
+and (3) verify the object model (heap vs. stack allocation of internal buffers).
 **Step 2 must not be written until this probe compiles successfully and the API is confirmed.**
 
-The probe tests five things: constructor convention, data accessor, and all five gate methods
-used in the adapter.
+The probe tests six things: constructor convention, data accessor, sizeof, and all five gate
+methods used in the adapter.
 
 ```bash
 cat > /tmp/aer_probe.cpp << 'EOF'
 #include "simulators/density_matrix/densitymatrix.hpp"
 #include <cassert>
 #include <complex>
+#include <cstdio>
 
 int main() {
     // (A) Constructor convention: confirm whether the argument is num_qubits or num_states.
@@ -175,15 +195,21 @@ int main() {
     //     If it takes num_states (= 2^n), dm(4) produces a 4-qubit state only if num_states=16.
     //     Check the resulting state dimension to disambiguate.
     AER::QV::DensityMatrix<double> dm(4);
-    // The data buffer should have (2^4)^2 = 256 complex elements for a 4-qubit state.
-    // If data() exists and returns a pointer, use it to check the size indirectly.
 
-    // (B) Data accessor: verify dm.data() returns std::complex<double>*
+    // (B) sizeof check: confirm the DensityMatrix object itself is small (internal buffer
+    //     is almost certainly heap-allocated by the constructor via std::vector or similar).
+    //     If this prints a value larger than a few KB, the object model is unusual.
+    //     The object itself should be small (pointer + metadata); all state is on the heap.
+    printf("sizeof(DensityMatrix<double>) = %zu\n", sizeof(dm));
+    // Expected: a small value (< 1 KB). The 4-qubit density matrix buffer is
+    //   (2^4)^2 * 16 bytes = 4096 bytes and must be on the heap, not inside the object.
+
+    // (C) Data accessor: verify dm.data() returns std::complex<double>*
     //     or find the actual accessor exposed by the QubitVector base class.
     auto *p = dm.data();
     p[0] = {1.0, 0.0};   // write a value; confirms raw-pointer access
 
-    // (C) Gate methods: test all five gates used in bench_aer_dm.cpp.
+    // (D) Gate methods: test all five gates used in bench_aer_dm.cpp.
     //     These method names are NOT guaranteed to exist — the probe confirms them.
     //     If any call fails to compile, comment it out and note the correct alternative
     //     (e.g., apply_unitary_matrix with an explicit gate matrix).
@@ -235,11 +261,16 @@ must NOT be included. The density matrix simulation core (`densitymatrix.hpp`,
 
 **Estimated effort:** 2–3 hours
 **Depends on:** Step 1 (probe must have compiled and API surface confirmed)
-**Blocks:** Step 4
+**Blocks:** Step 3b, Step 4
 
-**This step must not begin until the Step 1 probe has compiled successfully.** The gate method
-names, constructor convention, and data accessor used below must match the confirmed API from
-Step 1. Treat the names below as placeholders; replace them with whatever the probe verified.
+> **WARNING: ALL CODE SNIPPETS IN THIS STEP ARE TEMPLATES AND PLACEHOLDERS.**
+>
+> The gate method names (`apply_x`, `apply_h`, `apply_z`, `apply_cnot`, `apply_swap`), the
+> constructor convention (num_qubits vs. num_states), and the data accessor (`dm.data()`) shown
+> below are **assumed names** that have NOT been verified. They MUST be replaced with the
+> names confirmed by the Step 1 probe before this file is written. Do not write
+> `bench_aer_dm.cpp` until the probe compiles successfully and the actual API is known.
+> Every occurrence of a method name in the snippets below is a placeholder.
 
 ### What to do
 
@@ -250,7 +281,7 @@ Create `benchmark/src/bench_aer_dm.cpp` modelled directly on `benchmark/src/benc
 | Aspect | Qulacs | Aer DM |
 |--------|--------|--------|
 | Include | `<csim/update_ops_dm.hpp>` | `"simulators/density_matrix/densitymatrix.hpp"` |
-| State type | `CTYPE*` (raw pointer) | `AER::QV::DensityMatrix<double>` (value type / stack allocatable for small sizes) |
+| State type | `CTYPE*` (raw pointer, manually heap-allocated) | `AER::QV::DensityMatrix<double>` (local variable; internal buffer is heap-allocated by constructor) |
 | Allocation | `std::malloc` / `std::free` | Constructor / destructor |
 | 1Q gate API | `dm_X_gate(qubit, rho, dim)` | confirmed in Step 1 probe (placeholder: `dm.apply_x(qubit)`) |
 | 1Q H gate | `dm_H_gate(qubit, rho, dim)` | confirmed in Step 1 probe (placeholder: `dm.apply_h(qubit)`) |
@@ -260,15 +291,39 @@ Create `benchmark/src/bench_aer_dm.cpp` modelled directly on `benchmark/src/benc
 | Global state | None | None — constructor/destructor only |
 | Random init | Manual loop over `CTYPE*` | Fill underlying data buffer via accessor confirmed in Step 1 |
 
+**Note on object model:** `AER::QV::DensityMatrix<double>` is declared as a local variable in
+`bench_aer_dm()`. The object itself is small (pointer + metadata); the internal state buffer
+(which is `dim² × sizeof(std::complex<double>)` bytes) is almost certainly heap-allocated by the
+constructor (likely via `std::vector` or similar). Verify with the `sizeof` check in the Step 1
+probe. Do NOT rely on the state buffer being on the stack — at 12 qubits the density matrix is
+256 MB, which would overflow any reasonable stack limit (default 8 MB).
+
+**OpenMP thread contention warning:** `AER::QV::DensityMatrix<double>` inherits from
+`QubitVector`, which uses OpenMP internally. If `bench_gate` or `bench_aer_only` is run with
+`OMP_NUM_THREADS > 1`, both qlib (through `libq`) and Aer's kernel may compete for the same
+thread pool, measuring contended behavior rather than peak single-method throughput. For
+controlled comparisons:
+
+```bash
+OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1 ./benchmark/bench_gate
+OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1 ./benchmark/bench_aer_only
+```
+
+`OMP_MAX_ACTIVE_LEVELS=1` disables nested parallelism. See also the Notes section at the end
+of this plan.
+
 **Exact function signatures (C linkage, matching bench_qulacs.cpp pattern):**
 
 ```cpp
 #ifdef WITH_AER_DM
 
 #include "simulators/density_matrix/densitymatrix.hpp"
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <complex>
+#include <exception>
+#include <random>
 #include "bench.h"
 
 extern "C" {
@@ -281,6 +336,38 @@ bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
 #endif /* WITH_AER_DM */
 ```
 
+**Exception handling — mandatory:** `AER::QV::DensityMatrix<double>` is a C++ class whose
+constructor, gate methods, and destructor can throw (at minimum `std::bad_alloc`). If an
+exception propagates through the `extern "C"` boundary into `bench_main.c`, behavior is
+undefined. The entire body of `bench_aer_dm()` must be wrapped in a try/catch block:
+
+```cpp
+bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
+                             int iterations, int warmup, int runs) {
+    bench_result_t result = {0};
+    result.qubits     = qubits;
+    result.dim        = (dim_t)1 << qubits;
+    result.gate_name  = gate_name;
+    result.method     = "qiskit_aer_dm";
+    result.iterations = iterations;
+    result.runs       = runs;
+
+    try {
+        /* ... all Aer DM logic here ... */
+    } catch (const std::exception &e) {
+        fprintf(stderr, "bench_aer_dm: exception for %u qubits, gate %s: %s\n",
+                (unsigned)qubits, gate_name, e.what());
+        return result;
+    } catch (...) {
+        fprintf(stderr, "bench_aer_dm: unknown exception for %u qubits, gate %s\n",
+                (unsigned)qubits, gate_name);
+        return result;
+    }
+
+    return result;
+}
+```
+
 **Allocation and initialisation pattern:**
 
 ```cpp
@@ -291,13 +378,17 @@ bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
 AER::QV::DensityMatrix<double> dm(qubits);  // replace with confirmed form
 
 // Fill with random values to force page faults and avoid trivial gate no-ops.
+// Use a local mt19937 PRNG with a deterministic seed derived from qubits.
+// Do NOT use std::rand(): it is not thread-safe and the global state is shared.
+std::mt19937_64 rng(static_cast<uint64_t>(qubits) * 6364136223846793005ULL + 1442695040888963407ULL); /* Knuth LCG constants — deterministic seed varies with qubit count */
+std::uniform_real_distribution<double> dist(-0.5, 0.5);
+
 // Use the data accessor confirmed in Step 1. If dm.data() returns std::complex<double>*:
-size_t n_elems = (size_t)(1 << qubits) * (size_t)(1 << qubits);
+size_t dim_val = (size_t)1 << qubits;
+size_t n_elems = dim_val * dim_val;
 auto *buf = dm.data();  // replace with confirmed accessor; verify it returns std::complex<double>*
 for (size_t i = 0; i < n_elems; ++i) {
-    buf[i] = std::complex<double>(
-        (double)std::rand() / RAND_MAX - 0.5,
-        (double)std::rand() / RAND_MAX - 0.5);
+    buf[i] = std::complex<double>(dist(rng), dist(rng));
 }
 // If no raw pointer accessor is available, apply random unitaries before the timed region instead.
 
@@ -310,12 +401,14 @@ result.memory_bytes = n_elems * sizeof(std::complex<double>);
 // Function pointer approach does not work with member functions.
 // Use a string comparison + direct call, identical in structure to Qulacs.
 // Replace method names below with the confirmed API from Step 1.
+double run_times[BENCH_MAX_RUNS];
+
 if (std::strcmp(gate_name, "X") == 0) {
     // warmup
     for (int i = 0; i < warmup; ++i)
         dm.apply_x(i % qubits);  // replace with confirmed method name
     // timed runs
-    for (int r = 0; r < cnt; ++r) {
+    for (int r = 0; r < runs; ++r) {
         uint64_t start = bench_time_ns();
         for (int i = 0; i < iterations; ++i)
             for (qubit_t t = 0; t < qubits; ++t)
@@ -329,6 +422,10 @@ if (std::strcmp(gate_name, "X") == 0) {
     ...
 }
 ```
+
+Note: the `int cnt = (runs < 200) ? runs : 200;` clamp from `bench_qulacs.cpp` is not needed
+here. `bench_parse_options` already enforces `runs <= BENCH_MAX_RUNS (200)`, so the clamp is
+dead code. Use `runs` directly.
 
 Because `AER::QV::DensityMatrix<double>` is a value type (not a raw pointer), it cannot be
 passed to a C function pointer. The if/else dispatch structure is identical to the Qulacs
@@ -349,21 +446,23 @@ linkage and will link correctly from a `.cpp` translation unit compiled with `ex
 
 ---
 
-## Step 3 — Update `benchmark/CMakeLists.txt`
+## Step 3a — Update `benchmark/CMakeLists.txt`: Detection + INTERFACE Target
 
-**Estimated effort:** 1–2 hours
+**Estimated effort:** 30–45 minutes
 **Depends on:** Step 1
-**Blocks:** Step 4
+**Blocks:** Step 3b
+**Parallel with:** Step 2
 
 ### What to do
 
-Add Qiskit-Aer detection and the `aer_dm_static` library target immediately after the Qulacs
-block (around line 90), using the same structure.
+Add Qiskit-Aer detection and the `aer_dm_static` INTERFACE library target immediately after the
+Qulacs block (around line 90).
 
 **Detection block (add after the `endif()` that closes the Qulacs block):**
 
 ```cmake
 # Qiskit-Aer DM — header-only kernel vendored to extern/aer-dm/
+# Vendored from commit: <record the hash from extern/aer-dm/VERSION here>
 set(AER_DM_INCLUDE_DIR "${EXTERN_DIR}/aer-dm/include")
 if(EXISTS "${AER_DM_INCLUDE_DIR}/simulators/density_matrix/densitymatrix.hpp")
     set(AER_DM_FOUND TRUE)
@@ -394,6 +493,16 @@ Note: `-w` is intentionally absent. Suppressing warnings from vendored headers i
 `SYSTEM` keyword on `target_include_directories`, which is the correct mechanism and does not
 leak warning suppression to consumer translation units (`bench_main.c`, `bench_aer_dm.cpp`, etc.).
 
+---
+
+## Step 3b — Update `benchmark/CMakeLists.txt`: Source List + Target Wiring
+
+**Estimated effort:** 30–45 minutes
+**Depends on:** Steps 2 and 3a (file `bench_aer_dm.cpp` must exist; `aer_dm_static` target must exist)
+**Blocks:** Step 4
+
+### What to do
+
 **Append to `BENCH_MIXED_SRC` (add after the `if(QULACS_FOUND)` source-append block):**
 
 ```cmake
@@ -408,6 +517,8 @@ endif()
 if(AER_DM_FOUND)
     target_compile_definitions(bench_gate PRIVATE WITH_AER_DM)
     target_link_libraries(bench_gate PRIVATE aer_dm_static)
+    # Redundant if Qulacs is also found (Qulacs block already sets CXX_STANDARD 17 on bench_gate);
+    # required if only Aer DM is present and Qulacs is absent.
     set_property(TARGET bench_gate PROPERTY CXX_STANDARD 17)
     set_property(TARGET bench_gate PROPERTY CXX_STANDARD_REQUIRED ON)
     if(OpenMP_CXX_FOUND)
@@ -437,7 +548,7 @@ message(STATUS "  OpenMP:    ${OpenMP_CXX_FOUND}")
 ## Step 4 — Update `benchmark/include/bench.h`
 
 **Estimated effort:** 30 minutes
-**Depends on:** Steps 2 and 3 (must know function signature and compile guard name)
+**Depends on:** Steps 2 and 3b (must know function signature and compile guard name)
 **Blocks:** Steps 5, 6, 7, 8
 
 ### What to do
@@ -454,7 +565,8 @@ following the exact pattern of `bench_qulacs`.
  *
  * AER::QV::DensityMatrix<double> has no global state; this is a direct
  * construct/compute/destruct call. Performs `runs` independent timed rounds
- * and returns the full statistical summary.
+ * and returns the full statistical summary. Exceptions from C++ code are
+ * caught internally; a zero time_ms result indicates failure.
  */
 bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
                             int iterations, int warmup, int runs);
@@ -474,9 +586,10 @@ constants all apply unchanged.
 
 ### What to do
 
-Seven distinct edits are required in `bench_main.c`. They are listed in top-to-bottom file order.
+Seven distinct edits are required in `bench_main.c`. They are listed in top-to-bottom file
+order and labelled Edit A through Edit G to avoid confusion with the top-level Step numbering.
 
-**Edit 1 — `bench_summary_t` struct (around line 57):** add `aer_dm` result slot:
+**Edit A — `bench_summary_t` struct (around line 57):** add `aer_dm` result slot:
 
 ```c
 typedef struct {
@@ -491,8 +604,14 @@ typedef struct {
 } bench_summary_t;
 ```
 
-**Edit 2 — `print_speedup_and_memory()` (around line 67):** add `aer_dm` to both the speedup
-and memory sections, following the `has_qulacs` pattern exactly:
+**Edit B — `print_speedup_and_memory()` (around line 67):** add `aer_dm` to both the speedup
+and memory sections, following the `has_qulacs` pattern exactly.
+
+In the speedup section, note that `print_speedup_and_memory` divides by `s->packed.time_ms`. In
+`BENCH_AER_ONLY_MODE`, `s->packed` is zero-initialized (`time_ms == 0`), causing division by
+zero. Guard the entire `print_speedup_and_memory` call site in Edit F and Edit G with
+`#ifndef BENCH_AER_ONLY_MODE` (see those edits below). The function body itself does not need
+guarding; it is unreachable in that mode.
 
 ```c
 // In speedup section (after the has_qulacs block):
@@ -509,7 +628,7 @@ if (s->has_aer_dm && s->aer_dm.memory_bytes > 0)
     printf(", Aer-DM=%.1f %s", (double)s->aer_dm.memory_bytes / scale, unit);
 ```
 
-**Edit 3 — `NUM_METHODS` macro and method enum (around line 259–282):**
+**Edit C — `NUM_METHODS` macro and method enum (around line 259–282):**
 
 Change `NUM_METHODS` from 6 to 7 and add `M_AER_DM` to the enum:
 
@@ -527,10 +646,10 @@ automatically expands every array in `pgfplots_data_t` — no struct definition 
 beyond the `#define` update. The struct itself requires no separate edit.
 
 Note: `method_names[]`, `method_indices[]`, and `num_methods` in `print_pgfplots_output()` are
-local arrays NOT driven by `NUM_METHODS` — Edit 4 updating them is a hard requirement, not
+local arrays NOT driven by `NUM_METHODS` — Edit D updating them is a hard requirement, not
 optional cleanup.
 
-**Edit 4 — `print_pgfplots_output()` method table (around line 364):** add `qiskit_aer_dm` as
+**Edit D — `print_pgfplots_output()` method table (around line 364):** add `qiskit_aer_dm` as
 the 6th pgfplots column. Note: `M_NAIVE` is intentionally excluded from pgfplots output (naive
 runs at reduced iterations and is only meaningful in console/CSV mode). The pgfplots method list
 therefore has 6 entries (not 7):
@@ -546,29 +665,81 @@ This change applies to the single `print_pgfplots_output()` function call site. 
 automatically propagates to all 5 timing tables (mean, ci95, min, median, cv) and the memory
 table — no per-table edits are needed.
 
-**Edit 5 — header banner `printf` (around line 510):** add Aer-DM to the "Comparing:" line
-and the enabled-framework status lines:
+**Edit E — header banner `printf` (around line 510):** add Aer-DM to the "Comparing:" line
+and the enabled-framework status lines. Gate the non-Aer components of the banner with
+`#ifndef BENCH_AER_ONLY_MODE` so that in `BENCH_AER_ONLY_MODE`, the banner accurately reflects
+only the Aer-DM method running:
 
 ```c
-#ifdef WITH_AER_DM
+#ifndef BENCH_AER_ONLY_MODE
+    printf("Comparing: qlib packed");
+    printf(" vs qlib tiled");
+    printf(" vs BLAS dense");
+    printf(" vs naive loop");
+  #ifdef WITH_QUEST
+    printf(" vs QuEST");
+  #endif
+  #ifdef WITH_QULACS
+    printf(" vs Qulacs");
+  #endif
+  #ifdef WITH_AER_DM
     printf(" vs Qiskit-Aer-DM");
+  #endif
+#else /* BENCH_AER_ONLY_MODE */
+  #ifdef WITH_AER_DM
+    printf("Comparing: Qiskit-Aer-DM only (bench_aer_only mode)\n");
+  #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+
+// Status lines — similarly gated:
+#ifndef BENCH_AER_ONLY_MODE
+  #ifdef WITH_QUEST
+    printf("QuEST: enabled\n");
+  #endif
+  #ifdef WITH_QULACS
+    printf("Qulacs: enabled\n");
+  #endif
 #endif
-// ...
 #ifdef WITH_AER_DM
     printf("Qiskit-Aer-DM: enabled\n");
 #endif
 ```
 
-**Edit 6 — 1Q gate loop (around line 585):** add after the `WITH_QULACS` block:
+**Edit F — 1Q gate loop (around line 585):** four sub-edits.
+
+(a) **Method call sites** — wrap all non-Aer calls in `#ifndef BENCH_AER_ONLY_MODE`, then add
+the Aer call unconditionally (within `#ifdef WITH_AER_DM`):
 
 ```c
+#ifndef BENCH_AER_ONLY_MODE
+    s.packed = bench_qlib_packed(...);
+    s.tiled  = bench_qlib_tiled(...);
+    s.has_tiled = ...;
+    if (run_dense) {
+        s.dense = bench_blas_dense(...);
+        s.has_dense = 1;
+        if (!opts.pgfplots_output) {
+            s.naive = bench_naive_loop(...);
+            s.has_naive = 1;
+        }
+    }
+  #ifdef WITH_QUEST
+    s.quest     = bench_quest(...);
+    s.has_quest = ...;
+  #endif
+  #ifdef WITH_QULACS
+    s.qulacs     = bench_qulacs(...);
+    s.has_qulacs = ...;
+  #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+
 #ifdef WITH_AER_DM
     s.aer_dm     = bench_aer_dm(qubits, gates[g].name, opts.iterations, opts.warmup, opts.runs);
     s.has_aer_dm = (s.aer_dm.time_ms > 0);
 #endif
 ```
 
-Add pgf storage (inside `if (pgf && qi < MAX_QUBIT_CONFIGS)`, after the `#ifdef WITH_QULACS`
+(b) **pgf storage** (inside `if (pgf && qi < MAX_QUBIT_CONFIGS)`, after the `#ifdef WITH_QULACS`
 pgf block):
 
 ```c
@@ -582,7 +753,7 @@ pgf block):
 #endif
 ```
 
-Add CSV emit (inside `if (opts.csv_output)`, after the `#ifdef WITH_QULACS` CSV block):
+(c) **CSV emit** (inside `if (opts.csv_output)`, after the `#ifdef WITH_QULACS` CSV block):
 
 ```c
 #ifdef WITH_AER_DM
@@ -590,35 +761,64 @@ Add CSV emit (inside `if (opts.csv_output)`, after the `#ifdef WITH_QULACS` CSV 
 #endif
 ```
 
-Add console emit (inside `else if (!opts.pgfplots_output)`, after the `#ifdef WITH_QULACS`
+(d) **Console emit** (inside `else if (!opts.pgfplots_output)`, after the `#ifdef WITH_QULACS`
 console block):
 
 ```c
+#ifndef BENCH_AER_ONLY_MODE
+    bench_print_result(&s.packed, opts.verbose);
+    /* ... other non-Aer results ... */
+#endif /* !BENCH_AER_ONLY_MODE */
+
 #ifdef WITH_AER_DM
     if (s.has_aer_dm) bench_print_result(&s.aer_dm, opts.verbose);
 #endif
+
+/* Speedup and memory summary: divide by s.packed.time_ms, which is zero in
+ * BENCH_AER_ONLY_MODE. Skip entirely in that mode to avoid division by zero
+ * and a meaningless zero-valued line. */
+#ifndef BENCH_AER_ONLY_MODE
+    print_speedup_and_memory(&s);
+#endif
 ```
 
-The `bench_print_result` call respects `opts.verbose` automatically — verbose mode (showing min,
-median, memory per row) requires no special handling beyond the existing `verbose` flag
-propagation.
-
-**Edit 7 — 2Q gate loop (around line 685):** same four sub-edits as Edit 6, with two
+**Edit G — 2Q gate loop (around line 685):** same four sub-edits as Edit F, with two
 substitutions throughout: `pg` (= `NUM_1Q_GATES + g`) replaces `g` in all pgf array indices,
 and `sw2q` replaces `sw1q` in `SET_SWEEP`. Note: the 2Q loop does not include `naive_loop`,
-consistent with the existing benchmark design.
+consistent with the existing benchmark design. The `#ifndef BENCH_AER_ONLY_MODE` and
+`#ifndef BENCH_AER_ONLY_MODE` guard on `bench_print_result(&s.packed, ...)` and
+`print_speedup_and_memory(&s)` apply identically in the 2Q loop.
 
-(a) **`bench_aer_dm()` call site** (inside the 2Q loop, after the `#ifdef WITH_QULACS` block):
+(a) **`bench_aer_dm()` call site** — the `#ifndef BENCH_AER_ONLY_MODE` guard covers ALL
+non-Aer calls: `bench_qlib_packed_2q`, `bench_qlib_tiled_2q`, `bench_blas_dense_2q`, and the
+Quest/Qulacs calls. The Aer call sits OUTSIDE the guard (inside its own `#ifdef WITH_AER_DM`).
+The complete guard scope is shown below — do not start the guard at the Quest/Qulacs block; it
+must begin at the first qlib call:
 
 ```c
 #ifndef BENCH_AER_ONLY_MODE
+    s.packed = bench_qlib_packed_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
+                                    opts.iterations, opts.warmup, opts.runs);
+
+    if (gates_2q[g].has_tiled) {
+        s.tiled = bench_qlib_tiled_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
+                                      opts.iterations, opts.warmup, opts.runs);
+        s.has_tiled = (s.tiled.time_ms > 0);
+    }
+
+    if (run_dense) {
+        s.dense = bench_blas_dense_2q(qubits, gates_2q[g].name, gates_2q[g].mat,
+                                      opts.iterations, opts.warmup, opts.runs);
+        s.has_dense = 1;
+    }
+
   #ifdef WITH_QUEST
-    s.quest     = bench_quest(...);
-    s.has_quest = ...;
+    s.quest     = bench_quest(qubits, gates_2q[g].name, opts.iterations, opts.warmup, opts.runs);
+    s.has_quest = (s.quest.time_ms > 0);
   #endif
   #ifdef WITH_QULACS
-    s.qulacs     = bench_qulacs(...);
-    s.has_qulacs = ...;
+    s.qulacs     = bench_qulacs(qubits, gates_2q[g].name, opts.iterations, opts.warmup, opts.runs);
+    s.has_qulacs = (s.qulacs.time_ms > 0);
   #endif
 #endif /* !BENCH_AER_ONLY_MODE */
 
@@ -655,8 +855,17 @@ uses `sw2q`):
 console block):
 
 ```c
+#ifndef BENCH_AER_ONLY_MODE
+    bench_print_result(&s.packed, opts.verbose);
+    /* ... other non-Aer results ... */
+#endif /* !BENCH_AER_ONLY_MODE */
+
 #ifdef WITH_AER_DM
     if (s.has_aer_dm) bench_print_result(&s.aer_dm, opts.verbose);
+#endif
+
+#ifndef BENCH_AER_ONLY_MODE
+    print_speedup_and_memory(&s);
 #endif
 ```
 
@@ -729,58 +938,30 @@ created. The CMake target compiles the identical source list but adds
 `-DBENCH_AER_ONLY_MODE=1`, which causes `bench_main.c` to skip all method calls except
 `bench_aer_dm()`.
 
-**Required addition to `bench_main.c` (part of Step 5, Edit 6 and 7):** wrap each non-Aer
-method call site in `#ifndef BENCH_AER_ONLY_MODE` / `#endif`. Specifically, the following call
-sites in the 1Q loop and their 2Q counterparts must be gated:
+The `#ifndef BENCH_AER_ONLY_MODE` guards in `bench_main.c` are documented in Step 5 (Edits F
+and G) and must be in place before `bench_aer_only` produces correct output. The CMake
+additions in this step can be written in parallel with Step 5 (the CMake file does not reference
+the source guards), but the resulting binary is not testable until Step 5 is complete.
 
-```c
-/* 1Q loop — gate out everything except aer_dm */
-#ifndef BENCH_AER_ONLY_MODE
-    s.packed = bench_qlib_packed(...);
-    s.tiled  = bench_qlib_tiled(...);
-    s.has_tiled = ...;
-    if (run_dense) {
-        s.dense = bench_blas_dense(...);
-        s.has_dense = 1;
-        if (!opts.pgfplots_output) {
-            s.naive = bench_naive_loop(...);
-            s.has_naive = 1;
-        }
-    }
-  #ifdef WITH_QUEST
-    s.quest     = bench_quest(...);
-    s.has_quest = ...;
-  #endif
-  #ifdef WITH_QULACS
-    s.qulacs     = bench_qulacs(...);
-    s.has_qulacs = ...;
-  #endif
-#endif /* !BENCH_AER_ONLY_MODE */
+### `bench_mixed.c` and `bench_baselines.c` link dependency
 
-#ifdef WITH_AER_DM
-    s.aer_dm     = bench_aer_dm(...);
-    s.has_aer_dm = ...;
-#endif
-```
+`bench_aer_only` compiles `bench_mixed.c` and `bench_baselines.c` as part of `BENCH_MIXED_SRC`.
+These files contain function bodies that reference qlib and BLAS symbols unconditionally (the
+function bodies are not gated by `BENCH_AER_ONLY_MODE`). Two strategies exist:
 
-The same gating applies in the 2Q loop and in the pgf storage and CSV/console emit blocks for
-those methods. The output functions (`bench_print_result`, `bench_print_csv`, `pgfplots_data_t`
-accumulation, `print_speedup_and_memory`, `print_pgfplots_output`) are **not** gated — they
-remain active and will simply print only the Aer-DM rows/columns because all other `has_*`
-flags will be zero.
+**Option (a) — accept the `libq` link dependency (chosen approach):** Link `bench_aer_only`
+against `q` (and transitively BLAS). This is the simpler path: the link works correctly, the
+binary is slightly larger, and the existing source files require no modification beyond the call
+site guards in Step 5. This is the approach used in the CMake wiring below.
 
-This approach guarantees that `bench_aer_only`:
-- Has **identical** CLI flags, defaults, validation, and help text (from `bench_parse_options`)
-- Has **identical** CSV output format and header (from `bench_print_csv_header` / `bench_print_csv`)
-- Has **identical** pgfplots output (from `print_pgfplots_output` — emits `nan` for absent methods)
-- Has **identical** console output including verbose mode (from `bench_print_result`)
-- Has **identical** statistical options (`--runs`, `--warmup`, `--iterations`, `--step`)
-- Requires **zero code duplication** — all logic lives in `bench_main.c`
+**Option (b) — guard function bodies with `#ifndef BENCH_AER_ONLY_MODE` (not chosen):**
+Wrap the bodies of functions in `bench_mixed.c` and `bench_baselines.c` that reference qlib/BLAS
+symbols with `#ifndef BENCH_AER_ONLY_MODE` stubs. This would allow dropping the `libq` and BLAS
+link dependency from `bench_aer_only`. The trade-off is significant additional source
+modifications that increase maintenance burden. Option (a) is preferred unless the `libq`
+dependency becomes unavailable or causes build problems on the target machine.
 
 ### CMake wiring for `bench_aer_only` (add at the bottom of `benchmark/CMakeLists.txt`)
-
-The CMake additions in this step can be written in parallel with Step 5 (the CMake file does not
-reference the source guards), but the resulting binary is not testable until Step 5 is complete.
 
 ```cmake
 #=======================================================================================================================
@@ -801,8 +982,8 @@ if(AER_DM_FOUND)
     )
     # WITH_AER_DM enables bench_aer_dm() calls; BENCH_AER_ONLY_MODE skips all other methods.
     target_compile_definitions(bench_aer_only PRIVATE WITH_AER_DM BENCH_AER_ONLY_MODE=1)
-    # q is required: bench_mixed.c and bench_baselines.c function definitions reference
-    # qlib symbols regardless of BENCH_AER_ONLY_MODE gating.
+    # q is required: bench_mixed.c and bench_baselines.c function bodies reference qlib/BLAS
+    # symbols unconditionally. Option (a) accepted — see Step 7 rationale.
     target_link_libraries(bench_aer_only PRIVATE q aer_dm_static)
     # Note: QuEST and Qulacs link dependencies are intentionally omitted here.
     # Without WITH_QUEST or WITH_QULACS defined, bench_quest.c and bench_qulacs.cpp compile
@@ -818,66 +999,67 @@ if(AER_DM_FOUND)
 endif()
 ```
 
-**Build commands:**
+### Build commands
 
 ```bash
 cmake -B cmake-build-release -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
 cmake --build cmake-build-release --target bench_aer_only
 
 # Console mode (default):
-./cmake-build-release/benchmark/bench_aer_only
+OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1 \
+    ./cmake-build-release/benchmark/bench_aer_only
 
 # CSV mode:
-./cmake-build-release/benchmark/bench_aer_only --csv > aer_dm_results.csv
+OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1 \
+    ./cmake-build-release/benchmark/bench_aer_only --csv > aer_dm_results.csv
 
 # pgfplots mode:
-./cmake-build-release/benchmark/bench_aer_only --pgfplots > aer_dm_pgf.dat
+OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1 \
+    ./cmake-build-release/benchmark/bench_aer_only --pgfplots > aer_dm_pgf.dat
 
 # Verbose console mode:
-./cmake-build-release/benchmark/bench_aer_only --verbose
+OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1 \
+    ./cmake-build-release/benchmark/bench_aer_only --verbose
 
 # Custom range:
-./cmake-build-release/benchmark/bench_aer_only --min-qubits 8 --max-qubits 12 --step 1 \
+OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1 \
+    ./cmake-build-release/benchmark/bench_aer_only \
+    --min-qubits 8 --max-qubits 12 --step 1 \
     --runs 20 --warmup 200 --iterations 5000 --csv
 ```
 
 All flags listed above are identical to `bench_gate` — they come from the same
-`bench_parse_options()` call.
+`bench_parse_options()` call. Run with `OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1` for
+controlled single-threaded measurements that avoid OpenMP thread contention between qlib and
+Aer's internal parallelism.
 
-**Merging CSV data:** The output CSV of `bench_aer_only --csv` has the identical header and row
-format as `bench_gate --csv`. Concatenate after removing the header from the second file:
+### Merging CSV data
+
+CSV is the canonical merge format. The output CSV of `bench_aer_only --csv` has the identical
+header and row format as `bench_gate --csv`. Concatenate after removing the header from the
+second file:
 
 ```bash
 # Assuming existing data is in bench_gate_results.csv:
 tail -n +2 aer_dm_results.csv >> bench_gate_results.csv
 ```
 
-**Merging pgfplots data:** pgfplots output from `bench_aer_only --pgfplots` emits `nan` for all
-non-Aer columns (qlib_packed, qlib_tiled, blas, quest, qulacs). This output is **not** directly
-concatenatable with `bench_gate --pgfplots` output. The Aer column must be extracted and
-joined column-wise with the existing pgfplots data.
+This is sufficient for all downstream analysis. If pgfplots figures are generated from CSV
+(rather than the raw pgfplots dat files), no further merge step is needed.
 
-Procedure using awk (assumes both files have identical row ordering — same gates, same qubit
-values, same table structure):
+### Merging pgfplots data
 
-```awk
-# extract_aer_col.awk — extract the qiskit_aer_dm column from bench_aer_only pgfplots output
-# and append it to the corresponding rows from bench_gate pgfplots output.
-#
-# Usage:
-#   awk -f extract_aer_col.awk bench_gate_pgf.dat aer_dm_pgf.dat > merged_pgf.dat
-#
-# This is a sketch; the exact column index depends on the pgfplots table structure emitted
-# by print_pgfplots_output(). Inspect the header row to determine the column index of
-# qiskit_aer_dm in aer_dm_pgf.dat, then join on the qubits column.
-```
+pgfplots output from `bench_aer_only --pgfplots` emits `nan` for all non-Aer columns
+(`qlib_packed`, `qlib_tiled`, `blas`, `quest`, `qulacs`). This output is **not** directly
+concatenatable with `bench_gate --pgfplots` output; the Aer column must be extracted and joined
+column-wise with the existing pgfplots data.
 
-Alternatively, use a Python script to load both files into pandas DataFrames, join on the
-`(gate, qubits)` key columns, and write the merged result. This is more robust than awk when
-the table structure has comment lines or variable whitespace.
+**Recommended approach:** use Python/pandas to load both files, join on the `(gate, qubits)` key
+columns, and write the merged result. This is robust to comment lines, variable whitespace, and
+the multi-table structure emitted by `print_pgfplots_output()`.
 
-If pgfplots merging is not required (e.g., thesis figures are generated from CSV, not the raw
-pgfplots dat files), skip this step entirely and use CSV as the merge format.
+If pgfplots merging is not required (e.g., thesis figures are generated from CSV), skip this
+step entirely and use the CSV merge procedure above.
 
 ---
 
@@ -951,11 +1133,13 @@ The `naive` method is excluded from pgfplots output (as it has always been).
 paragraph:
 
 > **Qiskit-Aer DM** runs directly in-process. `bench_aer_dm()` constructs an
-> `AER::QV::DensityMatrix<double>` on the stack (or heap for large qubit counts), fills its
-> internal buffer with non-trivial values to fault all pages before the timed region, runs
-> warmup + timed rounds, then destroys the object. No global state; no init/finalize. The kernel
-> is the same C++ code executed by the Qiskit `AerSimulator` for `method='density_matrix'`
-> workloads, extracted and compiled without Python infrastructure.
+> `AER::QV::DensityMatrix<double>` (whose internal state buffer is heap-allocated by the
+> constructor), fills its internal buffer with non-trivial values to fault all pages before the
+> timed region, runs warmup + timed rounds, then destroys the object. No global state; no
+> init/finalize. The kernel is the same C++ code executed by the Qiskit `AerSimulator` for
+> `method='density_matrix'` workloads, extracted and compiled without Python infrastructure.
+> Exceptions from C++ are caught at the `extern "C"` boundary; a zero `time_ms` result indicates
+> a failure (e.g., `std::bad_alloc` at large qubit counts).
 
 **Memory reporting table:** add row:
 
@@ -983,5 +1167,10 @@ are complete.
   It must be requested explicitly: `cmake --build ... --target bench_aer_only`.
 - `bench_aer_only` and `bench_gate` produce identical output for the `qiskit_aer_dm` rows.
   pgfplots output from `bench_aer_only` will print `nan` for all non-Aer columns, which is
-  correct and expected. See the pgfplots merge procedure in Step 7 for how to combine this
-  output with existing `bench_gate` pgfplots data.
+  correct and expected. Use CSV as the canonical merge format (see Step 7).
+- **OpenMP thread contention:** `AER::QV::DensityMatrix<double>` (via its `QubitVector` base
+  class) uses OpenMP internally. Running `bench_gate` or `bench_aer_only` with `OMP_NUM_THREADS
+  > 1` may cause thread pool contention between qlib's OpenMP parallelism and Aer's internal
+  parallelism, producing measurements that reflect contended behavior rather than peak
+  single-method throughput. Always run with `OMP_NUM_THREADS=1 OMP_MAX_ACTIVE_LEVELS=1` for
+  controlled, reproducible comparisons. `OMP_MAX_ACTIVE_LEVELS=1` disables nested parallelism.
