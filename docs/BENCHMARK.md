@@ -15,7 +15,8 @@ benchmark/
     ├── bench_baselines.c       # BLAS/naive baselines: gate matrices, bench_blas_dense/naive_loop/blas_dense_2q
     ├── bench_main.c            # Orchestration: gate tables, CLI parsing, output formatting, main()
     ├── bench_quest.c           # QuEST adapter (compiled only when WITH_QUEST is defined)
-    └── bench_qulacs.cpp        # Qulacs adapter (compiled only when WITH_QULACS is defined)
+    ├── bench_qulacs.cpp        # Qulacs adapter (compiled only when WITH_QULACS is defined)
+    └── bench_aer_dm.cpp        # Qiskit-Aer DM adapter (compiled only when WITH_AER_DM is defined)
 ```
 
 `README.md` is a developer convenience file. This spec is the authoritative reference.
@@ -32,6 +33,8 @@ benchmark/
 |------------|----------|-----------|
 | QuEST v4 | `extern/QuEST/` | `find_path(quest/include/quest.h)` + `find_library(QuEST)` |
 | Qulacs (`csim`) | `extern/qulacs/src/csim/` | Presence of `update_ops_dm.hpp` |
+| Qiskit-Aer DM kernel | `extern/aer-dm/include/` | Presence of `simulators/density_matrix/densitymatrix.hpp` |
+| nlohmann/json | System or Homebrew | `find_path(nlohmann/json.hpp)` (macOS: auto-configured from `brew --prefix nlohmann-json`); required by `extern/aer-dm/include/framework/json.hpp` |
 | Eigen | System or Homebrew | `find_path(Eigen/Core)` |
 | OpenMP | System or Homebrew libomp | `find_package(OpenMP)` (macOS: auto-configured from `brew --prefix libomp`) |
 
@@ -58,10 +61,16 @@ cmake --build cmake-build-release --target bench_gate
 |--------|------|-----------|
 | `bench_gate` | Executable | Always (Release only) |
 | `csim_static` | Static library | `QULACS_FOUND` — compiled with `-w $<$<CONFIG:Release>:-march=native>` to match qlib's vectorisation flags |
+| `aer_dm_static` | Interface library | `AER_DM_FOUND` — carries SYSTEM include paths for vendored Aer headers and nlohmann/json |
+| `bench_aer_only` | Executable | `AER_DM_FOUND` (EXCLUDE_FROM_ALL; temporary — delete after data collection) |
 
 ### Compile definitions
 
 `WITH_QUEST` is defined when QuEST is found. `WITH_QULACS` is defined when Qulacs is found. Both are set automatically by CMake — there are no manual `-DWITH_QUEST=ON` or `-DWITH_QULACS=ON` flags.
+
+`WITH_AER_DM` is defined on `bench_gate` and `bench_aer_only` when headers are found at `extern/aer-dm/include/`. Set automatically; no manual flag required. When headers are present, the `qiskit_aer_dm` column appears in all output modes.
+
+`BENCH_AER_ONLY_MODE` is defined only on `bench_aer_only`. Gates out all non-Aer method call sites in `bench_main.c` while preserving the full CLI, output formatting, and statistical infrastructure.
 
 ### Custom install paths
 
@@ -75,6 +84,7 @@ CMake prints at configure time:
 -- Benchmark configuration:
 --   QuEST:     TRUE/FALSE
 --   Qulacs:    TRUE/FALSE
+--   Aer DM:    TRUE/FALSE
 --   OpenMP:    TRUE/FALSE
 ```
 
@@ -198,13 +208,13 @@ Output to stdout. For each of the 5 gates (X, H, Z, CX, SWAP), five tables are e
 
 All timing values are in **µs** (microseconds), not ms. CV is reproduced directly from the stored percentage value without renormalization.
 
-Each table has a leading `qubits` column followed by one column per method. Five methods appear: `qlib_packed`, `qlib_tiled`, `blas`, `quest`, `qulacs`. `naive_loop` is neither executed nor stored when `--pgfplots` is active. Missing values (framework not built, or qubit count exceeds the dense cutoff) are emitted as `nan`.
+Each table has a leading `qubits` column followed by one column per method. Six methods appear: `qlib_packed`, `qlib_tiled`, `blas`, `quest`, `qulacs`, `qiskit_aer_dm`. `naive_loop` is neither executed nor stored when `--pgfplots` is active. Missing values (framework not built, or qubit count exceeds the dense cutoff) are emitted as `nan`.
 
 After all per-gate tables, one memory table is emitted with values in MB:
 
 ```
 # Memory usage (MB)
-qubits  qlib_packed     qlib_tiled      blas            quest           qulacs
+qubits  qlib_packed     qlib_tiled      blas            quest           qulacs          qiskit_aer_dm
 ```
 
 Memory values are taken from gate index 0 (X gate) for all methods. Missing values are `nan`.
@@ -233,7 +243,7 @@ All types are declared in `bench.h`. See that file for the authoritative field-l
 
 ## Implementations Benchmarked
 
-Six method slots are defined (enum in `bench_main.c`):
+Seven method slots are defined (enum in `bench_main.c`):
 
 | Index | Enum | Method string | Description | Source |
 |-------|------|---------------|-------------|--------|
@@ -243,8 +253,9 @@ Six method slots are defined (enum in `bench_main.c`):
 | 3 | `M_NAIVE` | `naive_loop` | Element-by-element UρU† loop | `bench_baselines.c` |
 | 4 | `M_QUEST` | `quest` | QuEST density-matrix backend | `bench_quest.c` |
 | 5 | `M_QULACS` | `qulacs` | Qulacs csim density-matrix backend | `bench_qulacs.cpp` |
+| 6 | `M_AER_DM` | `qiskit_aer_dm` | Qiskit-Aer internal C++ density matrix kernel | `bench_aer_dm.cpp` |
 
-QuEST and Qulacs are conditionally compiled. When not present, their slots contain zero-initialized results and are omitted from output.
+QuEST, Qulacs, and Aer DM are conditionally compiled. When not present, their slots contain zero-initialized results and are omitted from output.
 
 ## Gates Benchmarked
 
@@ -263,7 +274,7 @@ Each 2Q gate iterates over all `n*(n-1)/2` ordered pairs `(q1, q2)` with `q1 < q
 
 ### Timing
 
-All methods — qlib, `blas_dense`, `naive_loop`, and both external framework adapters — use `clock_gettime(CLOCK_MONOTONIC)` via `bench_time_ns()` defined in `bench.h`.
+All methods — qlib, `blas_dense`, `naive_loop`, and all external framework adapters — use `clock_gettime(CLOCK_MONOTONIC)` via `bench_time_ns()` defined in `bench.h`.
 
 ### Memory reporting
 
@@ -277,6 +288,7 @@ All methods report only the **theoretical** state storage footprint, not process
 | `naive_loop` | same as `blas_dense` |
 | QuEST | `dim² × sizeof(double) × 2` (full density matrix, complex double) |
 | Qulacs | `dim² × sizeof(CTYPE)` |
+| `qiskit_aer_dm` | `dim² × sizeof(std::complex<double>)` |
 
 Note: `blas_dense` and `naive_loop` pre-allocate all per-target gate matrices (one full N×N matrix per qubit or qubit-pair) outside the timed loop. At 12 qubits these matrices dominate memory; the reported `memory_bytes` covers only the density matrix, not these auxiliary buffers.
 
@@ -286,9 +298,11 @@ Note: `blas_dense` and `naive_loop` pre-allocate all per-target gate matrices (o
 
 **Qulacs** runs directly in-process. `bench_qulacs()` allocates the density matrix with `malloc` and initialises it with non-trivial values to fault all pages before the timed region, runs warmup + timed rounds, then frees with `free`. No global state; no init/finalize.
 
+**Qiskit-Aer DM** runs directly in-process. `bench_aer_dm()` constructs an `AER::QV::DensityMatrix<double>` (whose internal state buffer is heap-allocated by the constructor), fills its internal buffer with non-trivial values to fault all pages before the timed region, runs warmup + timed rounds, then destroys the object. No global state; no init/finalize. The kernel is the same C++ code executed by the Qiskit `AerSimulator` for `method='density_matrix'` workloads, extracted and compiled without Python infrastructure. Exceptions from C++ are caught at the `extern "C"` boundary; a zero `time_ms` result indicates a failure (e.g., `std::bad_alloc` at large qubit counts).
+
 ## Status
 
-**In Progress.** Single-gate throughput benchmarking is functional for 1Q gates (X, H, Z) and 2Q gates (CX, SWAP). External framework adapters (QuEST, Qulacs) are complete.
+**In Progress.** Single-gate throughput benchmarking is functional for 1Q gates (X, H, Z) and 2Q gates (CX, SWAP). External framework adapters (QuEST, Qulacs, Aer DM) are complete.
 
 Known gaps:
 - Gate matrix construction time is not separated from gate application time.

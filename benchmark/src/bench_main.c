@@ -11,6 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(BENCH_AER_ONLY_MODE) && !defined(WITH_AER_DM)
+#error "BENCH_AER_ONLY_MODE requires WITH_AER_DM to be defined"
+#endif
+
 /*
  * =====================================================================================================================
  * Output functions
@@ -62,9 +66,12 @@ typedef struct {
     double naive_scale;     /* multiply naive speedup by this when naive ran fewer iterations */
     bench_result_t quest;   int has_quest;
     bench_result_t qulacs;  int has_qulacs;
+    bench_result_t aer_dm;  int has_aer_dm;   /* NEW */
 } bench_summary_t;
 
 static void print_speedup_and_memory(const bench_summary_t *s) {
+    if (s->packed.time_ms <= 0.0) return;  /* no valid baseline to compare against */
+
     /* Speedup line */
     printf("  Speedup:");
     int has = 0;
@@ -89,6 +96,10 @@ static void print_speedup_and_memory(const bench_summary_t *s) {
         printf("%s%.1fx vs Qulacs", has ? ", " : " ", s->qulacs.time_ms / s->packed.time_ms);
         has = 1;
     }
+    if (s->has_aer_dm && s->aer_dm.time_ms > 0) {
+        printf("%s%.1fx vs Aer-DM", has ? ", " : " ", s->aer_dm.time_ms / s->packed.time_ms);
+        has = 1;
+    }
     (void)has;
     printf("\n");
 
@@ -99,6 +110,7 @@ static void print_speedup_and_memory(const bench_summary_t *s) {
     if (s->has_naive  && s->naive.memory_bytes  > max_mem) max_mem = s->naive.memory_bytes;
     if (s->has_quest  && s->quest.memory_bytes  > max_mem) max_mem = s->quest.memory_bytes;
     if (s->has_qulacs && s->qulacs.memory_bytes > max_mem) max_mem = s->qulacs.memory_bytes;
+    if (s->has_aer_dm && s->aer_dm.memory_bytes > max_mem) max_mem = s->aer_dm.memory_bytes;
 
     const char *unit  = (max_mem >= 1024 * 1024) ? "MB" : "KB";
     double      scale = (max_mem >= 1024 * 1024) ? 1024.0 * 1024.0 : 1024.0;
@@ -114,6 +126,8 @@ static void print_speedup_and_memory(const bench_summary_t *s) {
         printf(", QuEST=%.1f %s",  (double)s->quest.memory_bytes  / scale, unit);
     if (s->has_qulacs && s->qulacs.memory_bytes > 0)
         printf(", Qulacs=%.1f %s", (double)s->qulacs.memory_bytes / scale, unit);
+    if (s->has_aer_dm && s->aer_dm.memory_bytes > 0)
+        printf(", Aer-DM=%.1f %s", (double)s->aer_dm.memory_bytes / scale, unit);
     if (s->has_dense && s->packed.memory_bytes > 0 && s->dense.memory_bytes > 0) {
         double savings = 100.0 * (1.0 - (double)s->packed.memory_bytes / (double)s->dense.memory_bytes);
         printf(" (packed saves %.0f%%)", savings);
@@ -256,7 +270,9 @@ static const gate_def_2q_t gates_2q[] = {
 #define NUM_2Q_GATES    2
 #define NUM_GATES       (NUM_1Q_GATES + NUM_2Q_GATES)
 #define MAX_QUBIT_CONFIGS 32
-#define NUM_METHODS     6   /* qlib_packed, qlib_tiled, blas, naive, quest, qulacs */
+#define NUM_METHODS     7   /* qlib_packed, qlib_tiled, blas, naive, quest, qulacs, aer_dm */
+/* Note: M_NAIVE (index 3) is excluded from pgfplots output; print_pgfplots_output
+ * uses its own local method list of 6 entries that skips M_NAIVE. */
 
 static const char *all_gate_names[NUM_GATES] = {"X", "H", "Z", "CX", "SWAP"};
 
@@ -279,7 +295,8 @@ typedef struct {
     size_t  memory[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
 } pgfplots_data_t;
 
-enum { M_QLIB = 0, M_QLIB_TILED = 1, M_BLAS = 2, M_NAIVE = 3, M_QUEST = 4, M_QULACS = 5 };
+enum { M_QLIB = 0, M_QLIB_TILED = 1, M_BLAS = 2, M_NAIVE = 3,
+       M_QUEST = 4, M_QULACS = 5, M_AER_DM = 6 };
 
 /*
  * t-distribution critical values for 95% two-tailed confidence interval.
@@ -361,9 +378,9 @@ static int gate_sweep_size(int g, qubit_t qubits) {
 }
 
 static void print_pgfplots_output(const pgfplots_data_t *pgf) {
-    const char *method_names[]   = {"qlib_packed", "qlib_tiled", "blas", "quest", "qulacs"};
-    int         method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS, M_QUEST, M_QULACS};
-    int         num_methods      = 5;
+    const char *method_names[]   = {"qlib_packed", "qlib_tiled", "blas", "quest", "qulacs", "qiskit_aer_dm"};
+    int         method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS, M_QUEST, M_QULACS, M_AER_DM};
+    int         num_methods      = 6;
 
     /* ── Per-gate timing tables (5 tables each: mean, ci95, min, median, cv) ─── */
     for (int g = 0; g < NUM_GATES; ++g) {
@@ -506,6 +523,7 @@ int main(int argc, char *argv[]) {
     } else if (!opts.pgfplots_output) {
         printf("\nMixed State Gate Benchmarks\n");
         printf("===========================\n");
+#ifndef BENCH_AER_ONLY_MODE
         printf("Comparing: qlib packed sparse vs BLAS dense vs naive loop");
 #ifdef WITH_QUEST
         printf(" vs QuEST");
@@ -513,14 +531,27 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QULACS
         printf(" vs Qulacs");
 #endif
+#ifdef WITH_AER_DM
+        printf(" vs Qiskit-Aer-DM");
+#endif
         printf("\n");
+#else /* BENCH_AER_ONLY_MODE */
+#ifdef WITH_AER_DM
+        printf("Comparing: Qiskit-Aer-DM only (bench_aer_only mode)\n");
+#endif
+#endif /* !BENCH_AER_ONLY_MODE */
         printf("Iterations: %d, Warm-up: %d, Runs: %d\n",
                opts.iterations, opts.warmup, opts.runs);
+#ifndef BENCH_AER_ONLY_MODE
 #ifdef WITH_QUEST
         printf("QuEST: enabled\n");
 #endif
 #ifdef WITH_QULACS
         printf("Qulacs: enabled\n");
+#endif
+#endif
+#ifdef WITH_AER_DM
+        printf("Qiskit-Aer-DM: enabled\n");
 #endif
         printf("\n");
     }
@@ -562,6 +593,7 @@ int main(int argc, char *argv[]) {
             bench_summary_t s = {0};
             s.naive_scale = 10.0;  /* naive runs at iterations/10 due to O(N³) cost */
 
+#ifndef BENCH_AER_ONLY_MODE
             s.packed = bench_qlib_packed(qubits, gates[g].name, gates[g].fn,
                                          opts.iterations, opts.warmup, opts.runs);
             s.tiled  = bench_qlib_tiled(qubits, gates[g].name, gates[g].fn,
@@ -590,9 +622,16 @@ int main(int argc, char *argv[]) {
             s.qulacs     = bench_qulacs(qubits, gates[g].name, opts.iterations, opts.warmup, opts.runs);
             s.has_qulacs = (s.qulacs.time_ms > 0);
 #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+
+#ifdef WITH_AER_DM
+            s.aer_dm     = bench_aer_dm(qubits, gates[g].name, opts.iterations, opts.warmup, opts.runs);
+            s.has_aer_dm = (s.aer_dm.time_ms > 0);
+#endif
 
             if (pgf && qi < MAX_QUBIT_CONFIGS) {
-                pgf->runs[qi]                          = opts.runs;
+                pgf->runs[qi] = opts.runs;
+#ifndef BENCH_AER_ONLY_MODE
                 pgf->time_ms[g][qi][M_QLIB]           = s.packed.time_ms;
                 pgf->time_ms[g][qi][M_QLIB_TILED]     = s.tiled.time_ms;
                 pgf->time_ms[g][qi][M_BLAS]            = s.dense.time_ms;
@@ -627,14 +666,22 @@ int main(int argc, char *argv[]) {
                 pgf->time_ms_cv[g][qi][M_QULACS]       = s.qulacs.time_ms_cv;
                 pgf->memory[g][qi][M_QULACS]           = s.qulacs.memory_bytes;
 #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+#ifdef WITH_AER_DM
+                pgf->time_ms[g][qi][M_AER_DM]          = s.aer_dm.time_ms;
+                pgf->time_ms_std[g][qi][M_AER_DM]      = s.aer_dm.time_ms_std;
+                pgf->time_ms_min[g][qi][M_AER_DM]      = s.aer_dm.time_ms_min;
+                pgf->time_ms_median[g][qi][M_AER_DM]   = s.aer_dm.time_ms_median;
+                pgf->time_ms_cv[g][qi][M_AER_DM]       = s.aer_dm.time_ms_cv;
+                pgf->memory[g][qi][M_AER_DM]           = s.aer_dm.memory_bytes;
+#endif
             }
 
             if (opts.csv_output) {
                 int sw1q = (int)qubits;
-                SET_SWEEP(s.packed, sw1q);
-                SET_SWEEP(s.tiled,  sw1q);
-                bench_print_csv(&s.packed);
-                bench_print_csv(&s.tiled);
+#ifndef BENCH_AER_ONLY_MODE
+                SET_SWEEP(s.packed, sw1q); bench_print_csv(&s.packed);
+                SET_SWEEP(s.tiled,  sw1q); bench_print_csv(&s.tiled);
                 if (s.has_dense) { SET_SWEEP(s.dense, sw1q); bench_print_csv(&s.dense); }
                 if (s.has_naive) { SET_SWEEP(s.naive, sw1q); bench_print_csv(&s.naive); }
 #ifdef WITH_QUEST
@@ -643,7 +690,12 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QULACS
                 if (s.has_qulacs) { SET_SWEEP(s.qulacs, sw1q); bench_print_csv(&s.qulacs); }
 #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+#ifdef WITH_AER_DM
+                if (s.has_aer_dm) { SET_SWEEP(s.aer_dm, sw1q); bench_print_csv(&s.aer_dm); }
+#endif
             } else if (!opts.pgfplots_output) {
+#ifndef BENCH_AER_ONLY_MODE
                 bench_print_result(&s.packed, opts.verbose);
                 bench_print_result(&s.tiled,  opts.verbose);
                 if (s.has_dense) bench_print_result(&s.dense, opts.verbose);
@@ -654,7 +706,13 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QULACS
                 if (s.has_qulacs) bench_print_result(&s.qulacs, opts.verbose);
 #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+#ifdef WITH_AER_DM
+                if (s.has_aer_dm) bench_print_result(&s.aer_dm, opts.verbose);
+#endif
+#ifndef BENCH_AER_ONLY_MODE
                 print_speedup_and_memory(&s);
+#endif
             }
         }
 
@@ -666,6 +724,7 @@ int main(int argc, char *argv[]) {
             bench_summary_t s = {0};
             s.naive_scale = 1.0;
 
+#ifndef BENCH_AER_ONLY_MODE
             s.packed = bench_qlib_packed_2q(qubits, gates_2q[g].name, gates_2q[g].fn,
                                             opts.iterations, opts.warmup, opts.runs);
 
@@ -689,10 +748,17 @@ int main(int argc, char *argv[]) {
             s.qulacs     = bench_qulacs(qubits, gates_2q[g].name, opts.iterations, opts.warmup, opts.runs);
             s.has_qulacs = (s.qulacs.time_ms > 0);
 #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+
+#ifdef WITH_AER_DM
+            s.aer_dm     = bench_aer_dm(qubits, gates_2q[g].name, opts.iterations, opts.warmup, opts.runs);
+            s.has_aer_dm = (s.aer_dm.time_ms > 0);
+#endif
 
             int pg = NUM_1Q_GATES + g;
             if (pgf && qi < MAX_QUBIT_CONFIGS) {
                 /* pgf->runs[qi] already written in the 1Q loop for this qubit config */
+#ifndef BENCH_AER_ONLY_MODE
                 pgf->time_ms[pg][qi][M_QLIB]           = s.packed.time_ms;
                 pgf->time_ms[pg][qi][M_QLIB_TILED]     = s.tiled.time_ms;
                 pgf->time_ms[pg][qi][M_BLAS]            = s.dense.time_ms;
@@ -727,12 +793,21 @@ int main(int argc, char *argv[]) {
                 pgf->time_ms_cv[pg][qi][M_QULACS]       = s.qulacs.time_ms_cv;
                 pgf->memory[pg][qi][M_QULACS]           = s.qulacs.memory_bytes;
 #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+#ifdef WITH_AER_DM
+                pgf->time_ms[pg][qi][M_AER_DM]          = s.aer_dm.time_ms;
+                pgf->time_ms_std[pg][qi][M_AER_DM]      = s.aer_dm.time_ms_std;
+                pgf->time_ms_min[pg][qi][M_AER_DM]      = s.aer_dm.time_ms_min;
+                pgf->time_ms_median[pg][qi][M_AER_DM]   = s.aer_dm.time_ms_median;
+                pgf->time_ms_cv[pg][qi][M_AER_DM]       = s.aer_dm.time_ms_cv;
+                pgf->memory[pg][qi][M_AER_DM]           = s.aer_dm.memory_bytes;
+#endif
             }
 
             if (opts.csv_output) {
                 int sw2q = (int)(qubits * (qubits - 1) / 2);
-                SET_SWEEP(s.packed, sw2q);
-                bench_print_csv(&s.packed);
+#ifndef BENCH_AER_ONLY_MODE
+                SET_SWEEP(s.packed, sw2q); bench_print_csv(&s.packed);
                 if (s.has_tiled) { SET_SWEEP(s.tiled, sw2q); bench_print_csv(&s.tiled); }
                 if (s.has_dense) { SET_SWEEP(s.dense, sw2q); bench_print_csv(&s.dense); }
 #ifdef WITH_QUEST
@@ -741,7 +816,12 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QULACS
                 if (s.has_qulacs) { SET_SWEEP(s.qulacs, sw2q); bench_print_csv(&s.qulacs); }
 #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+#ifdef WITH_AER_DM
+                if (s.has_aer_dm) { SET_SWEEP(s.aer_dm, sw2q); bench_print_csv(&s.aer_dm); }
+#endif
             } else if (!opts.pgfplots_output) {
+#ifndef BENCH_AER_ONLY_MODE
                 bench_print_result(&s.packed, opts.verbose);
                 if (s.has_tiled) bench_print_result(&s.tiled,  opts.verbose);
                 if (s.has_dense) bench_print_result(&s.dense,  opts.verbose);
@@ -751,7 +831,13 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_QULACS
                 if (s.has_qulacs) bench_print_result(&s.qulacs, opts.verbose);
 #endif
+#endif /* !BENCH_AER_ONLY_MODE */
+#ifdef WITH_AER_DM
+                if (s.has_aer_dm) bench_print_result(&s.aer_dm, opts.verbose);
+#endif
+#ifndef BENCH_AER_ONLY_MODE
                 print_speedup_and_memory(&s);
+#endif
             }
         }
 
