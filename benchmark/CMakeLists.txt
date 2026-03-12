@@ -89,6 +89,44 @@ if(EXISTS "${QULACS_CSIM_DIR}/update_ops_dm.hpp")
     set(QULACS_FOUND TRUE)
 endif()
 
+# Qiskit-Aer DM — header-only kernel vendored to extern/aer-dm/
+# Vendored from commit: c5841316078b2f141418459faf12e67070888fd7
+set(AER_DM_INCLUDE_DIR "${EXTERN_DIR}/aer-dm/include")
+if(EXISTS "${AER_DM_INCLUDE_DIR}/simulators/density_matrix/densitymatrix.hpp")
+    set(AER_DM_FOUND TRUE)
+endif()
+
+# nlohmann/json — required by Aer's framework/json.hpp
+# Check Homebrew first (macOS), then system paths
+if(APPLE)
+    execute_process(
+        COMMAND brew --prefix nlohmann-json
+        OUTPUT_VARIABLE NLOHMANN_JSON_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+endif()
+find_path(NLOHMANN_JSON_INCLUDE_DIR nlohmann/json.hpp
+    HINTS
+        "${NLOHMANN_JSON_PREFIX}/include"
+        /opt/homebrew/include
+        /usr/local/include
+        /usr/include
+)
+
+if(AER_DM_FOUND)
+    add_library(aer_dm_static INTERFACE)
+    # SYSTEM suppresses vendored-header warnings without leaking -w to consumer TUs
+    target_include_directories(aer_dm_static SYSTEM INTERFACE "${AER_DM_INCLUDE_DIR}")
+    if(NLOHMANN_JSON_INCLUDE_DIR)
+        target_include_directories(aer_dm_static SYSTEM INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
+    else()
+        message(WARNING "nlohmann/json.hpp not found — Aer DM headers will fail to compile. Install with: brew install nlohmann-json")
+    endif()
+    # -march=native is omitted: bench_gate receives it transitively through libq
+    # CXX_STANDARD cannot be set on INTERFACE targets; set it on consuming targets instead
+endif()
+
 #=======================================================================================================================
 # bench_gate - Main mixed state benchmark
 #=======================================================================================================================
@@ -105,6 +143,10 @@ endif()
 
 if(QULACS_FOUND)
     list(APPEND BENCH_MIXED_SRC "${BENCH_SRC_DIR}/bench_qulacs.cpp")
+endif()
+
+if(AER_DM_FOUND)
+    list(APPEND BENCH_MIXED_SRC "${BENCH_SRC_DIR}/bench_aer_dm.cpp")
 endif()
 
 add_executable(bench_gate ${BENCH_MIXED_SRC})
@@ -150,6 +192,17 @@ if(QULACS_FOUND)
     endif()
 endif()
 
+if(AER_DM_FOUND)
+    target_compile_definitions(bench_gate PRIVATE WITH_AER_DM)
+    target_link_libraries(bench_gate PRIVATE aer_dm_static)
+    # Required if Qulacs is absent (Qulacs block already sets CXX_STANDARD 17 when present)
+    set_property(TARGET bench_gate PROPERTY CXX_STANDARD 17)
+    set_property(TARGET bench_gate PROPERTY CXX_STANDARD_REQUIRED ON)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(bench_gate PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+endif()
+
 #=======================================================================================================================
 # Status summary
 #=======================================================================================================================
@@ -157,4 +210,32 @@ endif()
 message(STATUS "Benchmark configuration:")
 message(STATUS "  QuEST:     ${QuEST_FOUND}")
 message(STATUS "  Qulacs:    ${QULACS_FOUND}")
+message(STATUS "  Aer DM:    ${AER_DM_FOUND}")
 message(STATUS "  OpenMP:    ${OpenMP_CXX_FOUND}")
+
+#=======================================================================================================================
+# bench_aer_only — Qiskit-Aer data-collection tool (temporary; delete after data collection)
+#=======================================================================================================================
+if(AER_DM_FOUND)
+    # Same source list as bench_gate — no new source file needed.
+    # BENCH_AER_ONLY_MODE=1 gates out all non-Aer method calls in bench_main.c.
+    add_executable(bench_aer_only ${BENCH_MIXED_SRC})
+    set_target_properties(bench_aer_only PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
+        EXCLUDE_FROM_ALL TRUE
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON
+    )
+    target_include_directories(bench_aer_only PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    )
+    # WITH_AER_DM enables bench_aer_dm() calls; BENCH_AER_ONLY_MODE skips all other methods.
+    target_compile_definitions(bench_aer_only PRIVATE WITH_AER_DM BENCH_AER_ONLY_MODE=1)
+    # q is required: bench_mixed.c and bench_baselines.c reference qlib/BLAS symbols unconditionally.
+    target_link_libraries(bench_aer_only PRIVATE q aer_dm_static)
+    # QuEST and Qulacs omitted: without their WITH_* defines, their .c/.cpp TUs are empty.
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(bench_aer_only PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    message(STATUS "  bench_aer_only: enabled (temporary data-collection tool)")
+endif()

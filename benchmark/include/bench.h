@@ -299,6 +299,19 @@ bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
                             int iterations, int warmup, int runs);
 #endif
 
+#ifdef WITH_AER_DM
+/**
+ * @brief Run Qiskit-Aer density matrix benchmark in-process.
+ *
+ * AER::QV::DensityMatrix<double> has no global state; this is a direct
+ * construct/compute/destruct call. Performs `runs` independent timed rounds
+ * and returns the full statistical summary. Exceptions from C++ code are
+ * caught internally; a zero time_ms result indicates failure.
+ */
+bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
+                            int iterations, int warmup, int runs);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
