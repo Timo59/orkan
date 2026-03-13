@@ -180,7 +180,7 @@ In `bench_circuit`, `sweep_size` is repurposed to hold `n_ops` (gate count of th
 
 **Gate name matching:** `--gate NAME` is a case-insensitive match against the gate name strings in the gate table: `"X"`, `"H"`, `"Z"`, `"CX"`, `"SWAP"` (uses `strcasecmp`).
 
-**Mutual exclusion:** `--per-qubit` and `--pgfplots` are mutually exclusive. Passing both prints an error to stderr and exits with code 1.
+**`--per-qubit --pgfplots` combined mode:** When both flags are set, console and CSV output are suppressed; instead, `pgfplots_perq_data_t` accumulates per-target results and `print_pgfplots_perq_output()` emits all tables at the end. If `--csv` is also set, it is ignored with a warning to stderr. See the Per-Qubit Benchmark section below for full details on the emitted tables.
 
 All values are validated at startup; invalid values print to stderr and exit with code 1. Sweep-mode defaults are defined as `BENCH_DEFAULT_*` macros in `bench.h`. `BENCH_MAX_RUNS = 200` is defined in `bench.h` and used by both the validation check and stats computation.
 
