@@ -295,6 +295,101 @@ typedef struct {
     size_t  memory[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
 } pgfplots_data_t;
 
+/* Maximum number of target positions (1Q: qubits; 2Q: ordered pairs).
+ * Derived from MAX_PAIRS defined in bench.h. */
+#define MAX_TARGETS (2 * MAX_PAIRS)  /* 256 */
+
+/**
+ * Per-target timing result for --per-qubit mode.
+ * Defined here as a forward declaration for perq_cell_from_result().
+ * The full per-qubit benchmark infrastructure (perq_main, bench_*_at functions)
+ * will be added in a subsequent implementation step.
+ */
+typedef struct bench_result_perq {
+    qubit_t    qubits;
+    dim_t      dim;
+    const char *gate_name;
+    const char *method;
+    qubit_t    target;                  /**< Target qubit (q1 for 2Q gates) */
+    qubit_t    target2;                 /**< Second qubit for 2Q gates; QUBIT_NONE for 1Q */
+    int        is_2q;
+    double     time_ms_mean;
+    double     time_ms_std;             /**< Sample stddev (Bessel-corrected) */
+    double     time_ms_min;
+    double     time_ms_median;
+    double     time_ms_cv;
+    double     ops_per_sec;
+    double     time_per_gate_us;        /**< Mean time per gate application (µs) */
+    double     time_per_gate_us_median;
+    double     time_per_gate_us_min;
+    size_t     memory_bytes;
+    int        iterations;
+    int        runs;
+} bench_result_perq_t;
+
+/**
+ * Compact per-target timing record for the pgfplots per-qubit accumulator.
+ *
+ * Stores the 7 values needed by print_pgfplots_perq_output(). No pointer
+ * fields: gate_name/method are implicit in the surrounding index.
+ * memory_bytes is a plain size_t — no dangling-pointer risk.
+ *
+ * CV is scale-invariant (CV(c·X) = CV(X)), so time_ms_cv copied from
+ * bench_result_perq_t equals the CV of per-gate times. No recomputation needed.
+ *
+ * sizeof = 56 bytes on LP64: 5×double(40) + size_t(8) + int(4) + 4 pad.
+ */
+typedef struct {
+    double time_per_gate_us;        /**< Mean per-gate time (µs)   */
+    double time_per_gate_us_median; /**< Median per-gate time (µs) */
+    double time_per_gate_us_min;    /**< Min per-gate time (µs)    */
+    double time_ms_cv;              /**< CV = std/mean × 100 (%)   */
+    double ops_per_sec;             /**< Gate applications/second  */
+    size_t memory_bytes;            /**< State memory footprint    */
+    int    iterations;              /**< Calibrated iters per run  */
+} perq_cell_t;
+
+/**
+ * Accumulator for --per-qubit --pgfplots combined output.
+ *
+ * Dimensions: NUM_GATES × MAX_QUBIT_CONFIGS × NUM_METHODS × MAX_TARGETS.
+ * Heap size: 5×32×7×256×56 ≈ 15.3 MB (cells only; pair arrays add ~6 MB
+ * more if qubit_t is 4 bytes). Allocated via calloc() — all cells start at
+ * zero, which the output function treats as "missing data" (emits nan).
+ *
+ * Gate indexing: gates 0..NUM_1Q_GATES-1 are 1Q (X,H,Z); gates
+ * NUM_1Q_GATES..NUM_GATES-1 are 2Q (CX,SWAP). Matches perq_main() loop order.
+ *
+ * M_NAIVE (index 3): always zero-initialized, never written in per-qubit mode
+ * (naive_loop has no _at variant). print_pgfplots_perq_output() skips it via
+ * method_indices[], matching the pattern in print_pgfplots_output().
+ *
+ * q1s_2q / q2s_2q: pair coordinates for 2Q gates. Needed because perq_cell_t
+ * strips target/target2; required to annotate pair rows in the output tables.
+ * For 1Q gates these arrays remain zero (calloc).
+ */
+typedef struct {
+    qubit_t     qubits[MAX_QUBIT_CONFIGS];   /**< Qubit count per config slot   */
+    int         num_configs;                  /**< Populated qubit-config slots  */
+    int         n_targets[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
+    perq_cell_t cells[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS][MAX_TARGETS];
+    qubit_t     q1s_2q[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS][MAX_TARGETS];
+    qubit_t     q2s_2q[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS][MAX_TARGETS];
+} pgfplots_perq_data_t;
+
+/** Copy timing fields from a bench_result_perq_t into a perq_cell_t. */
+static inline void perq_cell_from_result(perq_cell_t *cell,
+                                          const bench_result_perq_t *r)
+{
+    cell->time_per_gate_us        = r->time_per_gate_us;
+    cell->time_per_gate_us_median = r->time_per_gate_us_median;
+    cell->time_per_gate_us_min    = r->time_per_gate_us_min;
+    cell->time_ms_cv              = r->time_ms_cv;
+    cell->ops_per_sec             = r->ops_per_sec;
+    cell->memory_bytes            = r->memory_bytes;
+    cell->iterations              = r->iterations;
+}
+
 enum { M_QLIB = 0, M_QLIB_TILED = 1, M_BLAS = 2, M_NAIVE = 3,
        M_QUEST = 4, M_QULACS = 5, M_AER_DM = 6 };
 
@@ -491,6 +586,176 @@ static void print_pgfplots_output(const pgfplots_data_t *pgf) {
         printf("%-8u", pgf->qubits[q]);
         for (int m = 0; m < num_methods; ++m) {
             size_t bytes = pgf->memory[0][q][method_indices[m]];
+            if (bytes > 0) printf("  %-14.3f", (double)bytes / (1024.0 * 1024.0));
+            else           printf("  %-14s", "nan");
+        }
+        printf("\n");
+    }
+}
+
+/**
+ * Emit pgfplots-compatible .dat tables for --per-qubit --pgfplots mode.
+ *
+ * For each of NUM_GATES gates: five tables with qubits as the x-axis,
+ * one column per method (6 methods; M_NAIVE excluded). Each row aggregates
+ * over all target positions for that qubit count:
+ *   time_per_gate_us  — arithmetic mean of per-target means
+ *   ci95_per_gate     — all nan (std/runs not stored; saves ~10 MB)
+ *   min_per_gate      — global minimum of per-target time_per_gate_us_min
+ *   median_per_gate   — arithmetic mean of per-target medians
+ *   cv                — arithmetic mean of per-target CVs (scale-invariant)
+ *
+ * Memory table appended at end: one row per qubit-config, MB units.
+ * Missing data (zero cell from calloc) emits literal "nan" string.
+ *
+ * t_crit() is defined earlier in this file; no forward declaration needed.
+ */
+static void print_pgfplots_perq_output(const pgfplots_perq_data_t *pgf)
+{
+    /* Method index mapping — identical to print_pgfplots_output(); M_NAIVE excluded */
+    static const char *method_names[]   = {"qlib_packed", "qlib_tiled", "blas",
+                                            "quest",       "qulacs",     "qiskit_aer_dm"};
+    static const int   method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS,
+                                            M_QUEST, M_QULACS, M_AER_DM};
+    static const int   num_methods      = 6;
+
+    /* Gate names must match the order used when populating pgf->cells[g][...].
+     * Look up the actual gate name arrays used in perq_main() (gates_1q_perq,
+     * gates_2q_perq) and use their .name fields here. */
+
+    for (int g = 0; g < NUM_GATES; ++g) {
+        /* Gate name: use the same static name array as the rest of bench_main.c */
+        static const char *pgf_gate_names[NUM_GATES] = {"X", "H", "Z", "CX", "SWAP"};
+        const char *gname = pgf_gate_names[g];
+
+        /* ── time_per_gate_us: mean over targets ───────────────────────── */
+        printf("# %s time_per_gate_us"
+               " (mean µs/gate application, averaged over target positions)\n", gname);
+        printf("%-8s", "qubits");
+        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
+        printf("\n");
+        for (int q = 0; q < pgf->num_configs; ++q) {
+            printf("%-8u", (unsigned)pgf->qubits[q]);
+            for (int m = 0; m < num_methods; ++m) {
+                int mi = method_indices[m];
+                int nt = pgf->n_targets[g][q][mi];
+                double sum = 0.0; int valid = 0;
+                for (int t = 0; t < nt; ++t) {
+                    double v = pgf->cells[g][q][mi][t].time_per_gate_us;
+                    if (v > 0.0) { sum += v; valid++; }
+                }
+                if (valid > 0) printf("  %-14.6f", sum / valid);
+                else           printf("  %-14s", "nan");
+            }
+            printf("\n");
+        }
+        printf("\n");
+
+        /* ── ci95_per_gate: not available (std not stored) ─────────────── */
+        printf("# %s ci95_per_gate"
+               " (µs/gate) — not available in per-qubit pgfplots mode\n", gname);
+        printf("%-8s", "qubits");
+        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
+        printf("\n");
+        for (int q = 0; q < pgf->num_configs; ++q) {
+            printf("%-8u", (unsigned)pgf->qubits[q]);
+            for (int m = 0; m < num_methods; ++m) printf("  %-14s", "nan");
+            printf("\n");
+        }
+        printf("\n");
+
+        /* ── min_per_gate: global min of per-target mins ───────────────── */
+        printf("# %s min_per_gate"
+               " (µs/gate, minimum over all target positions)\n", gname);
+        printf("%-8s", "qubits");
+        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
+        printf("\n");
+        for (int q = 0; q < pgf->num_configs; ++q) {
+            printf("%-8u", (unsigned)pgf->qubits[q]);
+            for (int m = 0; m < num_methods; ++m) {
+                int mi = method_indices[m];
+                int nt = pgf->n_targets[g][q][mi];
+                double mn = -1.0;
+                for (int t = 0; t < nt; ++t) {
+                    double v = pgf->cells[g][q][mi][t].time_per_gate_us_min;
+                    if (v > 0.0 && (mn < 0.0 || v < mn)) mn = v;
+                }
+                if (mn > 0.0) printf("  %-14.6f", mn);
+                else          printf("  %-14s", "nan");
+            }
+            printf("\n");
+        }
+        printf("\n");
+
+        /* ── median_per_gate: mean of per-target medians ───────────────── */
+        printf("# %s median_per_gate"
+               " (µs/gate, mean of per-target medians)\n", gname);
+        printf("%-8s", "qubits");
+        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
+        printf("\n");
+        for (int q = 0; q < pgf->num_configs; ++q) {
+            printf("%-8u", (unsigned)pgf->qubits[q]);
+            for (int m = 0; m < num_methods; ++m) {
+                int mi = method_indices[m];
+                int nt = pgf->n_targets[g][q][mi];
+                double sum = 0.0; int valid = 0;
+                for (int t = 0; t < nt; ++t) {
+                    double v = pgf->cells[g][q][mi][t].time_per_gate_us_median;
+                    if (v > 0.0) { sum += v; valid++; }
+                }
+                if (valid > 0) printf("  %-14.6f", sum / valid);
+                else           printf("  %-14s", "nan");
+            }
+            printf("\n");
+        }
+        printf("\n");
+
+        /* ── cv: mean of per-target CVs ────────────────────────────────── */
+        /* CV is scale-invariant: CV(total_time) == CV(per_gate_time).     */
+        printf("# %s cv (coefficient of variation, %%, mean of per-target CVs)\n", gname);
+        printf("%-8s", "qubits");
+        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
+        printf("\n");
+        for (int q = 0; q < pgf->num_configs; ++q) {
+            printf("%-8u", (unsigned)pgf->qubits[q]);
+            for (int m = 0; m < num_methods; ++m) {
+                int mi = method_indices[m];
+                int nt = pgf->n_targets[g][q][mi];
+                double sum = 0.0; int valid = 0;
+                for (int t = 0; t < nt; ++t) {
+                    if (pgf->cells[g][q][mi][t].time_per_gate_us > 0.0) {
+                        sum += pgf->cells[g][q][mi][t].time_ms_cv;
+                        valid++;
+                    }
+                }
+                if (valid > 0) printf("  %-14.6f", sum / valid);
+                else           printf("  %-14s", "nan");
+            }
+            printf("\n");
+        }
+        printf("\n");
+
+    } /* gate loop */
+
+    /* ── Memory table ────────────────────────────────────────────────────── */
+    /* Memory is constant across targets for a given (method, qubit count).  */
+    /* Read from the first populated target for gate 0 (X gate).             */
+    printf("# Memory usage (MB)\n");
+    printf("%-8s", "qubits");
+    for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
+    printf("\n");
+    for (int q = 0; q < pgf->num_configs; ++q) {
+        printf("%-8u", (unsigned)pgf->qubits[q]);
+        for (int m = 0; m < num_methods; ++m) {
+            int mi = method_indices[m];
+            int nt = pgf->n_targets[0][q][mi];
+            size_t bytes = 0;
+            for (int t = 0; t < nt; ++t) {
+                if (pgf->cells[0][q][mi][t].memory_bytes > 0) {
+                    bytes = pgf->cells[0][q][mi][t].memory_bytes;
+                    break;
+                }
+            }
             if (bytes > 0) printf("  %-14.3f", (double)bytes / (1024.0 * 1024.0));
             else           printf("  %-14s", "nan");
         }
