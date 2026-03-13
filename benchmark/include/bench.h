@@ -201,19 +201,19 @@ typedef struct bench_result_perq {
 
 /** @brief Command-line options */
 typedef struct bench_options {
-    qubit_t min_qubits;
-    qubit_t max_qubits;
-    int step;
-    int iterations;
-    int warmup;
-    int runs;
-    int csv_output;
-    int pgfplots_output;
-    int verbose;
-    int per_qubit;           /**< Enable per-qubit (per-target) benchmark mode */
-    int runs_explicit;       /**< Non-zero if --runs was specified on the command line */
-    int iterations_explicit; /**< Non-zero if --iterations was specified on the command line */
-    const char *gate_filter; /**< If non-NULL, only benchmark gates whose name matches this string */
+    qubit_t     min_qubits;
+    qubit_t     max_qubits;
+    int         step;
+    int         iterations;
+    int         warmup;
+    int         runs;
+    int         csv_output;
+    int         pgfplots_output;
+    int         verbose;
+    int         per_qubit;          /**< 1 if --per-qubit is set; enables single-target throughput mode */
+    int         runs_explicit;      /**< 1 if --runs was explicitly provided (suppresses per-qubit default override) */
+    int         iterations_explicit;/**< 1 if --iterations was explicitly provided (suppresses per-qubit default override) */
+    const char *gate_filter;        /**< Gate name filter from --gate (NULL = all gates); only used in --per-qubit mode */
 } bench_options_t;
 
 /*

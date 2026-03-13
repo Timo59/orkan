@@ -240,10 +240,13 @@ static void print_usage(const char *prog) {
     printf("  --warmup N       Warm-up iterations before timing, >=0 (default: %d)\n", BENCH_DEFAULT_WARMUP);
     printf("  --runs N         Independent timing runs for statistics, 1..200 (default: %d)\n", BENCH_DEFAULT_RUNS);
     printf("  --csv            Output in CSV format\n");
-    printf("  --pgfplots       Output in pgfplots-compatible .dat format (includes std dev)\n");
+    printf("  --pgfplots       Output pgfplots-compatible .dat tables to stdout.\n"
+           "                   With --per-qubit: per-qubit stats aggregated over targets.\n");
     printf("  --verbose        Show min, median, and memory per result\n");
-    printf("  --per-qubit      Enable per-qubit (per-target) benchmark mode\n");
-    printf("  --gate NAME      Only benchmark the named gate (requires --per-qubit)\n");
+    printf("  --per-qubit      Single-target throughput mode: benchmark each qubit target\n"
+           "                   independently (steady-state, not circuit-representative).\n");
+    printf("  --gate NAME      Restrict --per-qubit run to a single named gate (e.g. X, CX).\n"
+           "                   Has no effect without --per-qubit.\n");
     printf("  --help           Show this help\n");
 }
 
@@ -302,6 +305,18 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
         }
     }
 
+    /* --gate without --per-qubit has no effect in sweep mode; warn the user */
+    if (opts.gate_filter != NULL && !opts.per_qubit) {
+        fprintf(stderr, "warning: --gate has no effect without --per-qubit\n");
+    }
+
+    /* When --per-qubit and --pgfplots are combined, --csv is silently ignored.
+     * Warn so the user does not expect CSV output. */
+    if (opts.per_qubit && opts.pgfplots_output && opts.csv_output) {
+        fprintf(stderr, "warning: --csv is ignored when --per-qubit and --pgfplots "
+                "are both specified\n");
+    }
+
     /* Input validation */
     if (opts.min_qubits < 1 || opts.min_qubits > 30) {
         fprintf(stderr, "error: --min-qubits must be between 1 and 30\n");
@@ -333,17 +348,6 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
     if (opts.per_qubit) {
         if (!opts.runs_explicit)       opts.runs       = BENCH_PQ_DEFAULT_RUNS;
         if (!opts.iterations_explicit) opts.iterations = BENCH_PQ_DEFAULT_ITERATIONS;
-    }
-
-    /* Mutual exclusion: --per-qubit and --pgfplots are incompatible */
-    if (opts.per_qubit && opts.pgfplots_output) {
-        fprintf(stderr, "error: --per-qubit and --pgfplots are mutually exclusive\n");
-        exit(EXIT_FAILURE);
-    }
-
-    /* Warn if --gate is specified without --per-qubit */
-    if (opts.gate_filter != NULL && !opts.per_qubit) {
-        fprintf(stderr, "warning: --gate has no effect without --per-qubit\n");
     }
 
     return opts;
