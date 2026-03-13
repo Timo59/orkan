@@ -151,22 +151,31 @@ static void print_usage(const char *prog) {
     printf("  --warmup N       Warm-up iterations before timing, >=0 (default: %d)\n", BENCH_DEFAULT_WARMUP);
     printf("  --runs N         Independent timing runs for statistics, 1..200 (default: %d)\n", BENCH_DEFAULT_RUNS);
     printf("  --csv            Output in CSV format\n");
-    printf("  --pgfplots       Output in pgfplots-compatible .dat format (includes std dev)\n");
+    printf("  --pgfplots       Output pgfplots-compatible .dat tables to stdout.\n"
+           "                   With --per-qubit: per-qubit stats aggregated over targets.\n");
     printf("  --verbose        Show min, median, and memory per result\n");
+    printf("  --per-qubit      Single-target throughput mode: benchmark each qubit target\n"
+           "                   independently (steady-state, not circuit-representative).\n");
+    printf("  --gate NAME      Restrict --per-qubit run to a single named gate (e.g. X, CX).\n"
+           "                   Has no effect without --per-qubit.\n");
     printf("  --help           Show this help\n");
 }
 
 bench_options_t bench_parse_options(int argc, char *argv[]) {
     bench_options_t opts = {
-        .min_qubits      = BENCH_DEFAULT_MIN_QUBITS,
-        .max_qubits      = BENCH_DEFAULT_MAX_QUBITS,
-        .step            = BENCH_DEFAULT_STEP,
-        .iterations      = BENCH_DEFAULT_ITERATIONS,
-        .warmup          = BENCH_DEFAULT_WARMUP,
-        .runs            = BENCH_DEFAULT_RUNS,
-        .csv_output      = 0,
-        .pgfplots_output = 0,
-        .verbose         = 0
+        .min_qubits          = BENCH_DEFAULT_MIN_QUBITS,
+        .max_qubits          = BENCH_DEFAULT_MAX_QUBITS,
+        .step                = BENCH_DEFAULT_STEP,
+        .iterations          = BENCH_DEFAULT_ITERATIONS,
+        .warmup              = BENCH_DEFAULT_WARMUP,
+        .runs                = BENCH_DEFAULT_RUNS,
+        .csv_output          = 0,
+        .pgfplots_output     = 0,
+        .verbose             = 0,
+        .per_qubit           = 0,
+        .runs_explicit       = 0,
+        .iterations_explicit = 0,
+        .gate_filter         = NULL
     };
 
     for (int i = 1; i < argc; ++i) {
@@ -178,16 +187,22 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
             opts.step        = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--iterations")  == 0 && i + 1 < argc) {
             opts.iterations  = atoi(argv[++i]);
+            opts.iterations_explicit = 1;
         } else if (strcmp(argv[i], "--warmup")      == 0 && i + 1 < argc) {
             opts.warmup      = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--runs")        == 0 && i + 1 < argc) {
             opts.runs        = atoi(argv[++i]);
+            opts.runs_explicit = 1;
         } else if (strcmp(argv[i], "--csv")         == 0) {
             opts.csv_output  = 1;
         } else if (strcmp(argv[i], "--pgfplots")    == 0) {
             opts.pgfplots_output = 1;
         } else if (strcmp(argv[i], "--verbose")     == 0) {
             opts.verbose     = 1;
+        } else if (strcmp(argv[i], "--per-qubit")   == 0) {
+            opts.per_qubit   = 1;
+        } else if (strcmp(argv[i], "--gate")        == 0 && i + 1 < argc) {
+            opts.gate_filter = argv[++i];
         } else if (strcmp(argv[i], "--help")        == 0) {
             print_usage(argv[0]);
             exit(0);
@@ -195,6 +210,18 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
             fprintf(stderr, "error: unrecognized option '%s'\n", argv[i]);
             exit(1);
         }
+    }
+
+    /* --gate without --per-qubit has no effect in sweep mode; warn the user */
+    if (opts.gate_filter != NULL && !opts.per_qubit) {
+        fprintf(stderr, "warning: --gate has no effect without --per-qubit\n");
+    }
+
+    /* When --per-qubit and --pgfplots are combined, --csv is silently ignored.
+     * Warn so the user does not expect CSV output. */
+    if (opts.per_qubit && opts.pgfplots_output && opts.csv_output) {
+        fprintf(stderr, "warning: --csv is ignored when --per-qubit and --pgfplots "
+                "are both specified\n");
     }
 
     /* Input validation */
