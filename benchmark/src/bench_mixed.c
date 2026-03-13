@@ -8,6 +8,7 @@
  */
 
 #include "bench.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -228,4 +229,180 @@ bench_result_t bench_qlib_tiled_2q(qubit_t qubits, const char *gate_name,
         .method       = "qlib_tiled",
     };
     return run_2q_timing(qubits, gate_name, gate_fn, iterations, warmup, runs, &desc);
+}
+
+/*
+ * =====================================================================================================================
+ * Per-qubit (_at) infrastructure
+ * =====================================================================================================================
+ */
+
+/**
+ * @brief Re-fill state->data with random values without re-allocating.
+ *
+ * Uses bench_fill_random() for OS-seeded PRNG; safe to call repeatedly
+ * between timed runs to prevent the optimizer from dead-code-eliminating
+ * the gate computation.
+ */
+static void state_reinit_random(state_t *state) {
+    dim_t len = state_len(state);
+    bench_fill_random(state->data, (size_t)len * sizeof(cplx_t));
+}
+
+/* --- Callback context structs and shims ---------------------------------- */
+
+typedef struct {
+    state_t  *state;
+    void    (*fn)(state_t*, qubit_t);
+    qubit_t   target;
+} cb1q_ctx_t;
+
+static void cb1q(void *ctx) {
+    cb1q_ctx_t *c = (cb1q_ctx_t *)ctx;
+    c->fn(c->state, c->target);
+}
+
+typedef struct {
+    state_t  *state;
+    void    (*fn)(state_t*, qubit_t, qubit_t);
+    qubit_t   q1;
+    qubit_t   q2;
+} cb2q_ctx_t;
+
+static void cb2q(void *ctx) {
+    cb2q_ctx_t *c = (cb2q_ctx_t *)ctx;
+    c->fn(c->state, c->q1, c->q2);
+}
+
+/* --- Internal helpers for the four public _at functions ------------------ */
+
+static bench_result_perq_t run_1q_at(qubit_t qubits, const char *gate_name,
+                                      void (*gate_fn)(state_t*, qubit_t),
+                                      qubit_t target, int iterations, int runs,
+                                      state_t *state, const char *method,
+                                      size_t memory_bytes) {
+    bench_result_perq_t result = {0};
+    result.qubits       = qubits;
+    result.dim          = (dim_t)1 << qubits;
+    result.gate_name    = gate_name;
+    result.method       = method;
+    result.target       = target;
+    result.target2      = QUBIT_NONE;
+    result.is_2q        = 0;
+    result.memory_bytes = memory_bytes;
+
+    assert(runs <= BENCH_MAX_RUNS);
+
+    state_reinit_random(state);
+
+    cb1q_ctx_t ctx = { .state = state, .fn = gate_fn, .target = target };
+    bench_harness_t h = {
+        .call       = cb1q,
+        .ctx        = &ctx,
+        .iterations = iterations,
+        .runs       = runs,
+    };
+
+    double run_times[BENCH_MAX_RUNS];
+    bench_run_timed(&h, run_times, qubits);
+
+    bench_run_stats_t stats = bench_compute_stats(run_times, runs);
+    bench_fill_perq_stats(&result, &stats, iterations);
+    result.runs = runs;
+    return result;
+}
+
+static bench_result_perq_t run_2q_at(qubit_t qubits, const char *gate_name,
+                                      void (*gate_fn)(state_t*, qubit_t, qubit_t),
+                                      qubit_t q1, qubit_t q2, int iterations, int runs,
+                                      state_t *state, const char *method,
+                                      size_t memory_bytes) {
+    bench_result_perq_t result = {0};
+    result.qubits       = qubits;
+    result.dim          = (dim_t)1 << qubits;
+    result.gate_name    = gate_name;
+    result.method       = method;
+    result.target       = q1;
+    result.target2      = q2;
+    result.is_2q        = 1;
+    result.memory_bytes = memory_bytes;
+
+    assert(runs <= BENCH_MAX_RUNS);
+
+    state_reinit_random(state);
+
+    cb2q_ctx_t ctx = { .state = state, .fn = gate_fn, .q1 = q1, .q2 = q2 };
+    bench_harness_t h = {
+        .call       = cb2q,
+        .ctx        = &ctx,
+        .iterations = iterations,
+        .runs       = runs,
+    };
+
+    double run_times[BENCH_MAX_RUNS];
+    bench_run_timed(&h, run_times, qubits);
+
+    bench_run_stats_t stats = bench_compute_stats(run_times, runs);
+    bench_fill_perq_stats(&result, &stats, iterations);
+    result.runs = runs;
+    return result;
+}
+
+/*
+ * =====================================================================================================================
+ * Per-qubit public _at functions
+ * =====================================================================================================================
+ */
+
+bench_result_perq_t bench_qlib_packed_at(qubit_t qubits, const char *gate_name,
+                                          void (*gate_fn)(state_t*, qubit_t),
+                                          qubit_t target, int iterations, int runs,
+                                          state_t *state) {
+    return run_1q_at(qubits, gate_name, gate_fn, target, iterations, runs,
+                     state, "qlib_packed", bench_packed_size(qubits));
+}
+
+bench_result_perq_t bench_qlib_tiled_at(qubit_t qubits, const char *gate_name,
+                                         void (*gate_fn)(state_t*, qubit_t),
+                                         qubit_t target, int iterations, int runs,
+                                         state_t *state) {
+    return run_1q_at(qubits, gate_name, gate_fn, target, iterations, runs,
+                     state, "qlib_tiled", bench_tiled_size(qubits));
+}
+
+bench_result_perq_t bench_qlib_packed_2q_at(qubit_t qubits, const char *gate_name,
+                                              void (*gate_fn)(state_t*, qubit_t, qubit_t),
+                                              qubit_t q1, qubit_t q2, int iterations, int runs,
+                                              state_t *state) {
+    return run_2q_at(qubits, gate_name, gate_fn, q1, q2, iterations, runs,
+                     state, "qlib_packed", bench_packed_size(qubits));
+}
+
+bench_result_perq_t bench_qlib_tiled_2q_at(qubit_t qubits, const char *gate_name,
+                                             void (*gate_fn)(state_t*, qubit_t, qubit_t),
+                                             qubit_t q1, qubit_t q2, int iterations, int runs,
+                                             state_t *state) {
+    return run_2q_at(qubits, gate_name, gate_fn, q1, q2, iterations, runs,
+                     state, "qlib_tiled", bench_tiled_size(qubits));
+}
+
+/*
+ * =====================================================================================================================
+ * build_all_ordered_pairs — all permutations (q1 != q2)
+ * =====================================================================================================================
+ */
+
+int build_all_ordered_pairs(qubit_t qubits, qubit_t *q1s, qubit_t *q2s, int max_pairs) {
+    if (qubits > MAX_QUBITS_FOR_ORDERED_PAIRS) return 0;
+    int n = 0;
+    for (qubit_t i = 0; i < qubits && n < max_pairs; i++) {
+        for (qubit_t j = 0; j < qubits && n < max_pairs; j++) {
+            if (i != j) {
+                q1s[n] = i;
+                q2s[n] = j;
+                n++;
+            }
+        }
+    }
+    return n;
 }

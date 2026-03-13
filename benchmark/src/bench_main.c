@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>   /* strcasecmp — POSIX; available on macOS and Linux */
+#include <math.h>      /* ceil */
 
 #if defined(BENCH_AER_ONLY_MODE) && !defined(WITH_AER_DM)
 #error "BENCH_AER_ONLY_MODE requires WITH_AER_DM to be defined"
@@ -47,6 +49,93 @@ void bench_print_csv(const bench_result_t *result) {
            result->time_ms_median, result->time_ms_cv,
            result->time_per_gate_ms,
            result->ops_per_sec, result->memory_bytes);
+}
+
+/*
+ * =====================================================================================================================
+ * Per-qubit output functions
+ * =====================================================================================================================
+ */
+
+void bench_print_perq_csv_header(FILE *f) {
+    fprintf(f, "qubits,dim,gate,method,runs,iterations,target,target2,is_2q,"
+               "time_ms_mean,time_ms_std,time_ms_min,time_ms_median,time_ms_cv,"
+               "time_per_gate_us,time_per_gate_us_median,time_per_gate_us_min,"
+               "ops_per_sec,memory_bytes\n");
+}
+
+void bench_print_perq_csv(FILE *f, const bench_result_perq_t *results, int n) {
+    for (int i = 0; i < n; i++) {
+        const bench_result_perq_t *r = &results[i];
+        if (r->time_ms_mean <= 0.0) continue;  /* skip failed measurements */
+        fprintf(f, "%u,%lld,%s,%s,%d,%d,%u",
+            (unsigned)r->qubits, (long long)r->dim,
+            r->gate_name, r->method,
+            r->runs, r->iterations, (unsigned)r->target);
+        /* target2: emit -1 for 1Q gates */
+        if (r->target2 == QUBIT_NONE) fprintf(f, ",-1");
+        else                          fprintf(f, ",%u", (unsigned)r->target2);
+        fprintf(f, ",%d", r->is_2q);
+        fprintf(f, ",%.6f,%.6f,%.6f,%.6f,%.4f",
+            r->time_ms_mean, r->time_ms_std, r->time_ms_min,
+            r->time_ms_median, r->time_ms_cv);
+        fprintf(f, ",%.6f,%.6f,%.6f",
+            r->time_per_gate_us, r->time_per_gate_us_median, r->time_per_gate_us_min);
+        fprintf(f, ",%.2f,%zu\n",
+            r->ops_per_sec, r->memory_bytes);
+    }
+}
+
+void bench_print_perq_console(const bench_result_perq_t *results, int n) {
+    if (n <= 0 || results == NULL) return;
+    const bench_result_perq_t *r0 = &results[0];
+    int is_2q = r0->is_2q;
+
+    printf("\n--- %s | %s | %u qubits ---\n",
+        r0->gate_name ? r0->gate_name : "?",
+        r0->method    ? r0->method    : "?",
+        (unsigned)r0->qubits);
+
+    if (!is_2q) {
+        /* 1Q: one row per target */
+        printf("  %-6s  %-12s  %-12s  %-12s  %-8s  %-14s\n",
+            "target", "mean(us/g)", "median(us/g)", "min(us/g)", "CV(%)", "ops/sec");
+        for (int i = 0; i < n; i++) {
+            const bench_result_perq_t *r = &results[i];
+            if (r->time_ms_mean <= 0.0) continue;
+            const char *noisy = (r->time_ms_cv > 50.0) ? " (noisy)" : "";
+            printf("  %-6u  %-12.3f  %-12.3f  %-12.3f  %-8.1f  %-14.0f%s\n",
+                (unsigned)r->target,
+                r->time_per_gate_us, r->time_per_gate_us_median, r->time_per_gate_us_min,
+                r->time_ms_cv, r->ops_per_sec, noisy);
+        }
+    } else {
+        /* 2Q: summary line showing min/mean/max with pair coordinates */
+        double min_us = 1e18, max_us = -1.0, sum_us = 0.0;
+        int count = 0;
+        int min_i = -1, max_i = -1;
+        for (int i = 0; i < n; i++) {
+            const bench_result_perq_t *r = &results[i];
+            if (r->time_ms_mean <= 0.0) continue;
+            double v = r->time_per_gate_us;
+            if (v < min_us) { min_us = v; min_i = i; }
+            if (v > max_us) { max_us = v; max_i = i; }
+            sum_us += v;
+            count++;
+        }
+        if (count > 0) {
+            double mean_us = sum_us / count;
+            printf("  min=%.3f us (q%u,q%u)  mean=%.3f us  max=%.3f us (q%u,q%u)\n",
+                min_us,
+                min_i >= 0 ? (unsigned)results[min_i].target : 0,
+                min_i >= 0 ? (unsigned)results[min_i].target2 : 0,
+                mean_us,
+                max_us,
+                max_i >= 0 ? (unsigned)results[max_i].target : 0,
+                max_i >= 0 ? (unsigned)results[max_i].target2 : 0);
+            printf("  (full per-pair data in CSV)\n");
+        }
+    }
 }
 
 /*
@@ -153,20 +242,26 @@ static void print_usage(const char *prog) {
     printf("  --csv            Output in CSV format\n");
     printf("  --pgfplots       Output in pgfplots-compatible .dat format (includes std dev)\n");
     printf("  --verbose        Show min, median, and memory per result\n");
+    printf("  --per-qubit      Enable per-qubit (per-target) benchmark mode\n");
+    printf("  --gate NAME      Only benchmark the named gate (requires --per-qubit)\n");
     printf("  --help           Show this help\n");
 }
 
 bench_options_t bench_parse_options(int argc, char *argv[]) {
     bench_options_t opts = {
-        .min_qubits      = BENCH_DEFAULT_MIN_QUBITS,
-        .max_qubits      = BENCH_DEFAULT_MAX_QUBITS,
-        .step            = BENCH_DEFAULT_STEP,
-        .iterations      = BENCH_DEFAULT_ITERATIONS,
-        .warmup          = BENCH_DEFAULT_WARMUP,
-        .runs            = BENCH_DEFAULT_RUNS,
-        .csv_output      = 0,
-        .pgfplots_output = 0,
-        .verbose         = 0
+        .min_qubits          = BENCH_DEFAULT_MIN_QUBITS,
+        .max_qubits          = BENCH_DEFAULT_MAX_QUBITS,
+        .step                = BENCH_DEFAULT_STEP,
+        .iterations          = BENCH_DEFAULT_ITERATIONS,
+        .warmup              = BENCH_DEFAULT_WARMUP,
+        .runs                = BENCH_DEFAULT_RUNS,
+        .csv_output          = 0,
+        .pgfplots_output     = 0,
+        .verbose             = 0,
+        .per_qubit           = 0,
+        .runs_explicit       = 0,
+        .iterations_explicit = 0,
+        .gate_filter         = NULL
     };
 
     for (int i = 1; i < argc; ++i) {
@@ -178,10 +273,20 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
             opts.step        = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--iterations")  == 0 && i + 1 < argc) {
             opts.iterations  = atoi(argv[++i]);
+            opts.iterations_explicit = 1;
+            if (opts.iterations == 0) {
+                fprintf(stderr, "error: --iterations must be > 0\n");
+                exit(EXIT_FAILURE);
+            }
         } else if (strcmp(argv[i], "--warmup")      == 0 && i + 1 < argc) {
             opts.warmup      = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--runs")        == 0 && i + 1 < argc) {
             opts.runs        = atoi(argv[++i]);
+            opts.runs_explicit = 1;
+        } else if (strcmp(argv[i], "--per-qubit")   == 0) {
+            opts.per_qubit   = 1;
+        } else if (strcmp(argv[i], "--gate")        == 0 && i + 1 < argc) {
+            opts.gate_filter = argv[++i];
         } else if (strcmp(argv[i], "--csv")         == 0) {
             opts.csv_output  = 1;
         } else if (strcmp(argv[i], "--pgfplots")    == 0) {
@@ -222,6 +327,23 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
     if (opts.runs < 1 || opts.runs > 200) {
         fprintf(stderr, "error: --runs must be between 1 and 200\n");
         exit(1);
+    }
+
+    /* Per-qubit mode: apply default runs/iterations if not explicitly set */
+    if (opts.per_qubit) {
+        if (!opts.runs_explicit)       opts.runs       = BENCH_PQ_DEFAULT_RUNS;
+        if (!opts.iterations_explicit) opts.iterations = BENCH_PQ_DEFAULT_ITERATIONS;
+    }
+
+    /* Mutual exclusion: --per-qubit and --pgfplots are incompatible */
+    if (opts.per_qubit && opts.pgfplots_output) {
+        fprintf(stderr, "error: --per-qubit and --pgfplots are mutually exclusive\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Warn if --gate is specified without --per-qubit */
+    if (opts.gate_filter != NULL && !opts.per_qubit) {
+        fprintf(stderr, "warning: --gate has no effect without --per-qubit\n");
     }
 
     return opts;
@@ -500,12 +622,633 @@ static void print_pgfplots_output(const pgfplots_data_t *pgf) {
 
 /*
  * =====================================================================================================================
+ * Per-qubit benchmark
+ * =====================================================================================================================
+ */
+
+/**
+ * @brief Gate definition for 2Q gates in per-qubit mode.
+ *
+ * Separate from gate_def_2q_t to avoid modifying the existing sweep table.
+ * is_symmetric: 1 = SWAP (unordered pairs via build_all_pairs);
+ *               0 = CX   (ordered pairs via build_all_ordered_pairs).
+ */
+typedef struct {
+    const char *name;
+    void (*fn)(state_t*, qubit_t, qubit_t);
+    const cplx_t *mat;
+    int has_tiled;
+    int is_symmetric;
+} gate_def_2q_perq_t;
+
+/**
+ * @brief Gate definition for 1Q gates in per-qubit mode.
+ *
+ * Adds has_tiled flag; all current 1Q gates have a tiled implementation.
+ */
+typedef struct {
+    const char *name;
+    void (*fn)(state_t*, qubit_t);
+    const cplx_t *mat;
+    int has_tiled;
+} gate_def_1q_perq_t;
+
+/**
+ * @brief Calibrate the number of iterations for one method/gate/qubit combination.
+ *
+ * Uses the minimum run time from the probe result to estimate how many iterations
+ * achieve MIN_MEASUREMENT_MS per run.  The divisor is probe_result->iterations
+ * (the actual number of iterations the probe ran) rather than the nominal
+ * BENCH_PQ_PROBE_ITERS constant, so the calculation is correct when the adaptive
+ * probe cap reduces the probe to 1 iteration for slow gates.
+ * Falls back to BENCH_PQ_FALLBACK_ITERATIONS if the probe rounds to zero.
+ * Caller may override by setting opts->iterations_explicit.
+ *
+ * @param probe_result  Result of a probe run.
+ * @param iters_explicit If non-zero, ignore calibration and use explicit value.
+ * @param explicit_iters Explicit iteration count when iters_explicit != 0.
+ * @return Calibrated iteration count.
+ */
+static int calibrate_iterations(const bench_result_perq_t *probe_result,
+                                 int iters_explicit, int explicit_iters) {
+    if (iters_explicit) return explicit_iters;
+
+    double probe_per_iter_ms = probe_result->time_ms_min / (double)probe_result->iterations;
+    int calibrated;
+    if (probe_per_iter_ms <= 0.0) {
+        calibrated = BENCH_PQ_FALLBACK_ITERATIONS;
+    } else {
+        calibrated = (int)ceil(MIN_MEASUREMENT_MS / probe_per_iter_ms);
+        if (calibrated < 1) calibrated = 1;
+        if (calibrated > BENCH_PQ_MAX_CALIBRATED_ITERATIONS)
+            calibrated = BENCH_PQ_MAX_CALIBRATED_ITERATIONS;
+    }
+    return calibrated;
+}
+
+/**
+ * @brief Per-qubit benchmark: time each gate at every target qubit/pair, for every method.
+ *
+ * Iterates over qubits from opts->min_qubits to opts->max_qubits, runs all
+ * 1Q and 2Q gates, and records per-target timing for each enabled method.
+ * Calibrates iteration count per (gate, qubits, method) combination.
+ */
+static int perq_main(const bench_options_t *opts) {
+    /* Method index assignments — must match the M_* enum in the sweep benchmark */
+    const int m_packed = M_QLIB;
+    const int m_tiled  = M_QLIB_TILED;
+    const int m_blas   = M_BLAS;
+#ifdef WITH_QUEST
+    const int m_quest  = M_QUEST;
+#endif
+#ifdef WITH_QULACS
+    const int m_qulacs = M_QULACS;
+#endif
+#ifdef WITH_AER_DM
+    const int m_aer    = M_AER_DM;
+#endif
+
+    /* Result storage: [NUM_METHODS][MAX_TARGETS] */
+    bench_result_perq_t (*perq)[MAX_TARGETS] = calloc(NUM_METHODS, sizeof(*perq));
+    if (!perq) {
+        fprintf(stderr, "error: calloc failed\n");
+        return EXIT_FAILURE;
+    }
+
+    /* CSV output goes to stdout, same as the sweep benchmark */
+    FILE *csv_f = stdout;
+
+    if (opts->csv_output) {
+        bench_print_perq_csv_header(csv_f);
+    } else {
+        printf("\nPer-Qubit Gate Benchmarks\n");
+        printf("=========================\n");
+        printf("Iterations: calibrated, Runs: %d\n", opts->runs);
+#ifdef WITH_QUEST
+        printf("QuEST: enabled\n");
+#endif
+#ifdef WITH_QULACS
+        printf("Qulacs: enabled\n");
+#endif
+#ifdef WITH_AER_DM
+        printf("Qiskit-Aer-DM: enabled\n");
+#endif
+        printf("\n");
+    }
+
+#ifdef WITH_QUEST
+    bench_quest_init();
+#endif
+
+    int results_count = 0;
+
+    /* 1Q gate table for the per-qubit path */
+    static const gate_def_1q_perq_t gates_1q_perq[] = {
+        {"X", x, XMAT, 1},
+        {"H", h, HMAT, 1},
+        {"Z", z, ZMAT, 1},
+        {NULL, NULL, NULL, 0}
+    };
+
+    /* 2Q gate table for the per-qubit path */
+    static const gate_def_2q_perq_t gates_2q_perq[] = {
+        {"CX",   cx,        CXMAT,   1, 0},   /* ordered pairs (CX is not symmetric) */
+        {"SWAP", swap_gate, SWAPMAT, 1, 1},   /* unordered pairs (SWAP is symmetric) */
+        {NULL, NULL, NULL, 0, 0}
+    };
+
+    for (qubit_t qubits = opts->min_qubits; qubits <= opts->max_qubits;
+         qubits += (qubit_t)opts->step) {
+
+        dim_t  dim       = (dim_t)1 << qubits;
+        int    run_dense = (qubits <= 8);
+        size_t state_bytes = (size_t)dim * (size_t)dim * sizeof(cplx_t);
+
+        /* ── 1Q GATES ──────────────────────────────────────────────────────── */
+
+        for (int g = 0; gates_1q_perq[g].name != NULL; ++g) {
+            const gate_def_1q_perq_t *gd = &gates_1q_perq[g];
+
+            if (opts->gate_filter && strcasecmp(opts->gate_filter, gd->name) != 0)
+                continue;
+
+            results_count++;
+            int n_targets = (int)qubits;
+            memset(perq, 0, NUM_METHODS * sizeof(*perq));
+
+            /* --- qlib packed -------------------------------------------- */
+            {
+                state_t state = {0};
+                state.type = MIXED_PACKED;
+                state_init(&state, qubits, NULL);
+                if (state.data) {
+                    bench_fill_random(state.data,
+                        (size_t)state_len(&state) * sizeof(cplx_t));
+
+                    /* Adaptive probe: single-shot first to detect slow gates */
+                    bench_result_perq_t quick =
+                        bench_qlib_packed_at(qubits, gd->name, gd->fn, 0,
+                                             1, 1, &state);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_qlib_packed_at(qubits, gd->name, gd->fn, 0,
+                                             probe_iters,
+                                             BENCH_PQ_PROBE_RUNS, &state);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (qubit_t tgt = 0; tgt < qubits; tgt++) {
+                        perq[m_packed][tgt] = bench_qlib_packed_at(
+                            qubits, gd->name, gd->fn, tgt,
+                            cal_iters, opts->runs, &state);
+                    }
+                    state_free(&state);
+                }
+            }
+
+            /* --- qlib tiled --------------------------------------------- */
+            if (gd->has_tiled) {
+                state_t state = {0};
+                state.type = MIXED_TILED;
+                state_init(&state, qubits, NULL);
+                if (state.data) {
+                    bench_fill_random(state.data,
+                        (size_t)state_len(&state) * sizeof(cplx_t));
+
+                    bench_result_perq_t quick =
+                        bench_qlib_tiled_at(qubits, gd->name, gd->fn, 0,
+                                            1, 1, &state);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_qlib_tiled_at(qubits, gd->name, gd->fn, 0,
+                                            probe_iters,
+                                            BENCH_PQ_PROBE_RUNS, &state);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (qubit_t tgt = 0; tgt < qubits; tgt++) {
+                        perq[m_tiled][tgt] = bench_qlib_tiled_at(
+                            qubits, gd->name, gd->fn, tgt,
+                            cal_iters, opts->runs, &state);
+                    }
+                    state_free(&state);
+                }
+            }
+
+            /* --- BLAS dense (capped at 8 qubits) ------------------------ */
+            if (run_dense) {
+                size_t rho_bytes = state_bytes;
+                cplx_t *rho = bench_alloc_huge(rho_bytes);
+                if (rho) {
+                    bench_fill_random(rho, rho_bytes);
+
+                    /* Adaptive probe: single-shot first to detect slow gates */
+                    bench_result_perq_t quick =
+                        bench_blas_dense_at(qubits, gd->name, gd->mat, 0,
+                                            1, 1, rho);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_blas_dense_at(qubits, gd->name, gd->mat, 0,
+                                            probe_iters,
+                                            BENCH_PQ_PROBE_RUNS, rho);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (qubit_t tgt = 0; tgt < qubits; tgt++) {
+                        perq[m_blas][tgt] = bench_blas_dense_at(
+                            qubits, gd->name, gd->mat, tgt,
+                            cal_iters, opts->runs, rho);
+                    }
+                    bench_free_huge(rho, rho_bytes);
+                }
+            }
+
+#if defined(WITH_QUEST) && defined(QUEST_H)
+            /* --- QuEST -------------------------------------------------- */
+            {
+                Qureg qureg = createDensityQureg((int)qubits);
+                initDebugState(qureg);
+
+                bench_result_perq_t quick =
+                    bench_quest_at(qubits, gd->name, 0, 1, 1, &qureg);
+                int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                  ? 1 : BENCH_PQ_PROBE_ITERS;
+                bench_result_perq_t probe =
+                    bench_quest_at(qubits, gd->name, 0,
+                                   probe_iters,
+                                   BENCH_PQ_PROBE_RUNS, &qureg);
+                int cal_iters = calibrate_iterations(&probe,
+                                    opts->iterations_explicit,
+                                    opts->iterations);
+
+                for (qubit_t tgt = 0; tgt < qubits; tgt++) {
+                    perq[m_quest][tgt] = bench_quest_at(
+                        qubits, gd->name, tgt,
+                        cal_iters, opts->runs, &qureg);
+                }
+                destroyQureg(qureg);
+            }
+#endif /* WITH_QUEST && QUEST_H */
+
+#ifdef WITH_QULACS
+            /* --- Qulacs ------------------------------------------------- */
+            {
+                size_t rho_bytes = state_bytes;
+                void *rho = bench_alloc_huge(rho_bytes);
+                if (rho) {
+                    bench_fill_random(rho, rho_bytes);
+
+                    bench_result_perq_t quick =
+                        bench_qulacs_at(qubits, gd->name, 0, 1, 1, rho);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_qulacs_at(qubits, gd->name, 0,
+                                        probe_iters,
+                                        BENCH_PQ_PROBE_RUNS, rho);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (qubit_t tgt = 0; tgt < qubits; tgt++) {
+                        perq[m_qulacs][tgt] = bench_qulacs_at(
+                            qubits, gd->name, tgt,
+                            cal_iters, opts->runs, rho);
+                    }
+                    bench_free_huge(rho, rho_bytes);
+                }
+            }
+#endif /* WITH_QULACS */
+
+#ifdef WITH_AER_DM
+            /* --- Qiskit-Aer DM ------------------------------------------ */
+            {
+                void *dm = bench_aer_dm_alloc(qubits);
+                if (dm) {
+                    bench_aer_dm_reinit(dm, qubits);
+
+                    bench_result_perq_t quick =
+                        bench_aer_dm_at(qubits, gd->name, 0, 1, 1, dm);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_aer_dm_at(qubits, gd->name, 0,
+                                        probe_iters,
+                                        BENCH_PQ_PROBE_RUNS, dm);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (qubit_t tgt = 0; tgt < qubits; tgt++) {
+                        perq[m_aer][tgt] = bench_aer_dm_at(
+                            qubits, gd->name, tgt,
+                            cal_iters, opts->runs, dm);
+                    }
+                    bench_aer_dm_free(dm);
+                }
+            }
+#endif /* WITH_AER_DM */
+
+            /* Output results for this gate × qubit count */
+            if (opts->csv_output) {
+                for (int m = 0; m < NUM_METHODS; m++)
+                    bench_print_perq_csv(csv_f, perq[m], n_targets);
+            } else {
+                for (int m = 0; m < NUM_METHODS; m++) {
+                    /* Skip methods that produced no results */
+                    int has_results = 0;
+                    for (int t = 0; t < n_targets; t++) {
+                        if (perq[m][t].time_ms_mean > 0.0) { has_results = 1; break; }
+                    }
+                    if (!has_results) continue;
+                    bench_print_perq_console(perq[m], n_targets);
+                }
+            }
+        } /* 1Q gate loop */
+
+        /* ── 2Q GATES ──────────────────────────────────────────────────────── */
+
+        for (int g = 0; gates_2q_perq[g].name != NULL; ++g) {
+            const gate_def_2q_perq_t *gd = &gates_2q_perq[g];
+
+            if (opts->gate_filter && strcasecmp(opts->gate_filter, gd->name) != 0)
+                continue;
+
+            /* Build the pair list */
+            qubit_t q1s[MAX_PAIRS], q2s[MAX_PAIRS];
+            int n_pairs;
+            if (gd->is_symmetric) {
+                /* SWAP: unordered pairs (q1 < q2) */
+                n_pairs = build_all_pairs(qubits, q1s, q2s);
+            } else {
+                /* CX: ordered pairs (q1 != q2, all permutations) */
+                n_pairs = build_all_ordered_pairs(qubits, q1s, q2s, MAX_PAIRS);
+            }
+
+            if (n_pairs <= 0) {
+                fprintf(stderr, "warning: %s on %u qubits: no pairs, skipping\n",
+                        gd->name, (unsigned)qubits);
+                continue;
+            }
+            if (n_pairs > MAX_TARGETS) {
+                fprintf(stderr, "warning: %s on %u qubits: %d pairs exceed MAX_TARGETS=%d, skipping\n",
+                        gd->name, (unsigned)qubits, n_pairs, MAX_TARGETS);
+                continue;
+            }
+
+            results_count++;
+            memset(perq, 0, NUM_METHODS * sizeof(*perq));
+
+            /* --- qlib packed -------------------------------------------- */
+            {
+                state_t state = {0};
+                state.type = MIXED_PACKED;
+                state_init(&state, qubits, NULL);
+                if (state.data) {
+                    bench_fill_random(state.data,
+                        (size_t)state_len(&state) * sizeof(cplx_t));
+
+                    bench_result_perq_t quick =
+                        bench_qlib_packed_2q_at(qubits, gd->name, gd->fn,
+                                                q1s[0], q2s[0],
+                                                1, 1, &state);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_qlib_packed_2q_at(qubits, gd->name, gd->fn,
+                                                q1s[0], q2s[0],
+                                                probe_iters,
+                                                BENCH_PQ_PROBE_RUNS, &state);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (int p = 0; p < n_pairs; p++) {
+                        perq[m_packed][p] = bench_qlib_packed_2q_at(
+                            qubits, gd->name, gd->fn,
+                            q1s[p], q2s[p],
+                            cal_iters, opts->runs, &state);
+                    }
+                    state_free(&state);
+                }
+            }
+
+            /* --- qlib tiled --------------------------------------------- */
+            if (gd->has_tiled) {
+                state_t state = {0};
+                state.type = MIXED_TILED;
+                state_init(&state, qubits, NULL);
+                if (state.data) {
+                    bench_fill_random(state.data,
+                        (size_t)state_len(&state) * sizeof(cplx_t));
+
+                    bench_result_perq_t quick =
+                        bench_qlib_tiled_2q_at(qubits, gd->name, gd->fn,
+                                               q1s[0], q2s[0],
+                                               1, 1, &state);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_qlib_tiled_2q_at(qubits, gd->name, gd->fn,
+                                               q1s[0], q2s[0],
+                                               probe_iters,
+                                               BENCH_PQ_PROBE_RUNS, &state);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (int p = 0; p < n_pairs; p++) {
+                        perq[m_tiled][p] = bench_qlib_tiled_2q_at(
+                            qubits, gd->name, gd->fn,
+                            q1s[p], q2s[p],
+                            cal_iters, opts->runs, &state);
+                    }
+                    state_free(&state);
+                }
+            }
+
+            /* --- BLAS dense (capped at 8 qubits) ------------------------ */
+            if (run_dense) {
+                size_t rho_bytes = state_bytes;
+                cplx_t *rho = bench_alloc_huge(rho_bytes);
+                if (rho) {
+                    bench_fill_random(rho, rho_bytes);
+
+                    bench_result_perq_t quick =
+                        bench_blas_dense_2q_at(qubits, gd->name, gd->mat,
+                                               q1s[0], q2s[0],
+                                               1, 1, rho);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_blas_dense_2q_at(qubits, gd->name, gd->mat,
+                                               q1s[0], q2s[0],
+                                               probe_iters,
+                                               BENCH_PQ_PROBE_RUNS, rho);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (int p = 0; p < n_pairs; p++) {
+                        perq[m_blas][p] = bench_blas_dense_2q_at(
+                            qubits, gd->name, gd->mat,
+                            q1s[p], q2s[p],
+                            cal_iters, opts->runs, rho);
+                    }
+                    bench_free_huge(rho, rho_bytes);
+                }
+            }
+
+#if defined(WITH_QUEST) && defined(QUEST_H)
+            /* --- QuEST -------------------------------------------------- */
+            {
+                Qureg qureg = createDensityQureg((int)qubits);
+                initDebugState(qureg);
+
+                bench_result_perq_t quick =
+                    bench_quest_2q_at(qubits, gd->name,
+                                      q1s[0], q2s[0],
+                                      1, 1, &qureg);
+                int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                  ? 1 : BENCH_PQ_PROBE_ITERS;
+                bench_result_perq_t probe =
+                    bench_quest_2q_at(qubits, gd->name,
+                                      q1s[0], q2s[0],
+                                      probe_iters,
+                                      BENCH_PQ_PROBE_RUNS, &qureg);
+                int cal_iters = calibrate_iterations(&probe,
+                                    opts->iterations_explicit,
+                                    opts->iterations);
+
+                for (int p = 0; p < n_pairs; p++) {
+                    perq[m_quest][p] = bench_quest_2q_at(
+                        qubits, gd->name,
+                        q1s[p], q2s[p],
+                        cal_iters, opts->runs, &qureg);
+                }
+                destroyQureg(qureg);
+            }
+#endif /* WITH_QUEST && QUEST_H */
+
+#ifdef WITH_QULACS
+            /* --- Qulacs ------------------------------------------------- */
+            {
+                size_t rho_bytes = state_bytes;
+                void *rho = bench_alloc_huge(rho_bytes);
+                if (rho) {
+                    bench_fill_random(rho, rho_bytes);
+
+                    bench_result_perq_t quick =
+                        bench_qulacs_2q_at(qubits, gd->name,
+                                           q1s[0], q2s[0],
+                                           1, 1, rho);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_qulacs_2q_at(qubits, gd->name,
+                                           q1s[0], q2s[0],
+                                           probe_iters,
+                                           BENCH_PQ_PROBE_RUNS, rho);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (int p = 0; p < n_pairs; p++) {
+                        perq[m_qulacs][p] = bench_qulacs_2q_at(
+                            qubits, gd->name,
+                            q1s[p], q2s[p],
+                            cal_iters, opts->runs, rho);
+                    }
+                    bench_free_huge(rho, rho_bytes);
+                }
+            }
+#endif /* WITH_QULACS */
+
+#ifdef WITH_AER_DM
+            /* --- Qiskit-Aer DM ------------------------------------------ */
+            {
+                void *dm = bench_aer_dm_alloc(qubits);
+                if (dm) {
+                    bench_aer_dm_reinit(dm, qubits);
+
+                    bench_result_perq_t quick =
+                        bench_aer_dm_2q_at(qubits, gd->name,
+                                           q1s[0], q2s[0],
+                                           1, 1, dm);
+                    int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
+                                      ? 1 : BENCH_PQ_PROBE_ITERS;
+                    bench_result_perq_t probe =
+                        bench_aer_dm_2q_at(qubits, gd->name,
+                                           q1s[0], q2s[0],
+                                           probe_iters,
+                                           BENCH_PQ_PROBE_RUNS, dm);
+                    int cal_iters = calibrate_iterations(&probe,
+                                        opts->iterations_explicit,
+                                        opts->iterations);
+
+                    for (int p = 0; p < n_pairs; p++) {
+                        perq[m_aer][p] = bench_aer_dm_2q_at(
+                            qubits, gd->name,
+                            q1s[p], q2s[p],
+                            cal_iters, opts->runs, dm);
+                    }
+                    bench_aer_dm_free(dm);
+                }
+            }
+#endif /* WITH_AER_DM */
+
+            /* Output results for this gate × qubit count */
+            if (opts->csv_output) {
+                for (int m = 0; m < NUM_METHODS; m++)
+                    bench_print_perq_csv(csv_f, perq[m], n_pairs);
+            } else {
+                for (int m = 0; m < NUM_METHODS; m++) {
+                    /* Skip methods that produced no results */
+                    int has_results = 0;
+                    for (int t = 0; t < n_pairs; t++) {
+                        if (perq[m][t].time_ms_mean > 0.0) { has_results = 1; break; }
+                    }
+                    if (!has_results) continue;
+                    bench_print_perq_console(perq[m], n_pairs);
+                }
+            }
+        } /* 2Q gate loop */
+
+    } /* qubits loop */
+
+#ifdef WITH_QUEST
+    bench_quest_cleanup();
+#endif
+
+    if (results_count == 0 && opts->gate_filter) {
+        fprintf(stderr, "warning: no results — gate '%s' not found\n",
+                opts->gate_filter);
+        free(perq);
+        return EXIT_FAILURE;
+    }
+
+    free(perq);
+    return 0;
+}
+
+/*
+ * =====================================================================================================================
  * Main
  * =====================================================================================================================
  */
 
 int main(int argc, char *argv[]) {
     bench_options_t opts = bench_parse_options(argc, argv);
+
+    if (opts.per_qubit) {
+        return perq_main(&opts);
+    }
 
     /* Allocate pgfplots storage only when --pgfplots is requested */
     pgfplots_data_t *pgf = NULL;
