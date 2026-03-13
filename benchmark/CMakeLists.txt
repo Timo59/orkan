@@ -239,3 +239,77 @@ if(AER_DM_FOUND)
     endif()
     message(STATUS "  bench_aer_only: enabled (temporary data-collection tool)")
 endif()
+
+#=======================================================================================================================
+# bench_circuit - Circuit-level benchmark
+#=======================================================================================================================
+
+set(BENCH_CIRCUIT_SRC
+        "${BENCH_SRC_DIR}/bench_circuit_main.c"
+        "${BENCH_SRC_DIR}/bench_circuit.c"
+        "${BENCH_SRC_DIR}/bench_circuit_qlib.c"
+)
+
+if(QuEST_FOUND)
+    list(APPEND BENCH_CIRCUIT_SRC "${BENCH_SRC_DIR}/bench_circuit_quest.c")
+endif()
+
+if(QULACS_FOUND)
+    list(APPEND BENCH_CIRCUIT_SRC "${BENCH_SRC_DIR}/bench_circuit_qulacs.cpp")
+endif()
+
+if(AER_DM_FOUND)
+    list(APPEND BENCH_CIRCUIT_SRC "${BENCH_SRC_DIR}/bench_circuit_aer_dm.cpp")
+endif()
+
+add_executable(bench_circuit ${BENCH_CIRCUIT_SRC})
+
+set_target_properties(bench_circuit PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
+    EXCLUDE_FROM_ALL TRUE
+)
+
+target_include_directories(bench_circuit
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+
+# q target provides qlib gates, state, and transitive BLAS/OpenMP dependencies.
+target_link_libraries(bench_circuit
+        PRIVATE
+            q
+)
+
+if(QuEST_FOUND)
+    target_compile_definitions(bench_circuit PRIVATE WITH_QUEST)
+    target_include_directories(bench_circuit PRIVATE
+        ${QuEST_INCLUDE_DIR}
+        ${EXTERN_DIR}/QuEST/build  # For generated config.h
+    )
+    target_link_libraries(bench_circuit PRIVATE ${QuEST_LIBRARY})
+endif()
+
+if(QULACS_FOUND)
+    target_compile_definitions(bench_circuit PRIVATE WITH_QULACS)
+    target_include_directories(bench_circuit PRIVATE
+        ${QULACS_INCLUDE_DIR}
+    )
+    target_link_libraries(bench_circuit PRIVATE csim_static)
+    set_property(TARGET bench_circuit PROPERTY CXX_STANDARD 17)
+    set_property(TARGET bench_circuit PROPERTY CXX_STANDARD_REQUIRED ON)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(bench_circuit PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+endif()
+
+if(AER_DM_FOUND)
+    target_compile_definitions(bench_circuit PRIVATE WITH_AER_DM)
+    target_link_libraries(bench_circuit PRIVATE aer_dm_static)
+    set_property(TARGET bench_circuit PROPERTY CXX_STANDARD 17)
+    set_property(TARGET bench_circuit PROPERTY CXX_STANDARD_REQUIRED ON)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(bench_circuit PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+endif()
+
+message(STATUS "  bench_circuit: enabled (circuit-level benchmarks)")
