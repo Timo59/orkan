@@ -955,12 +955,21 @@ static int calibrate_iterations(const bench_result_perq_t *probe_result,
     return calibrated;
 }
 
+/*
+ * =====================================================================================================================
+ * Per-qubit benchmark orchestration
+ * =====================================================================================================================
+ */
+
 /**
  * @brief Per-qubit benchmark: time each gate at every target qubit/pair, for every method.
  *
  * Iterates over qubits from opts->min_qubits to opts->max_qubits, runs all
  * 1Q and 2Q gates, and records per-target timing for each enabled method.
  * Calibrates iteration count per (gate, qubits, method) combination.
+ * When opts->pgfplots_output is set, accumulates results into a
+ * pgfplots_perq_data_t and emits them via print_pgfplots_perq_output()
+ * at the end instead of printing per-gate console/CSV output.
  */
 static int perq_main(const bench_options_t *opts) {
     /* Method index assignments — must match the M_* enum in the sweep benchmark */
@@ -984,12 +993,24 @@ static int perq_main(const bench_options_t *opts) {
         return EXIT_FAILURE;
     }
 
+    /* Allocate pgfplots accumulator when --pgfplots is requested */
+    pgfplots_perq_data_t *pgfq = NULL;
+    if (opts->pgfplots_output) {
+        pgfq = calloc(1, sizeof(pgfplots_perq_data_t));
+        if (!pgfq) {
+            fprintf(stderr, "error: calloc failed for pgfplots_perq_data_t\n");
+            free(perq);
+            return EXIT_FAILURE;
+        }
+    }
+
     /* CSV output goes to stdout, same as the sweep benchmark */
     FILE *csv_f = stdout;
 
-    if (opts->csv_output) {
+    /* Emit header — suppressed when accumulating for pgfplots */
+    if (opts->csv_output && !opts->pgfplots_output) {
         bench_print_perq_csv_header(csv_f);
-    } else {
+    } else if (!opts->pgfplots_output) {
         printf("\nPer-Qubit Gate Benchmarks\n");
         printf("=========================\n");
         printf("Iterations: calibrated, Runs: %d\n", opts->runs);
@@ -1004,12 +1025,14 @@ static int perq_main(const bench_options_t *opts) {
 #endif
         printf("\n");
     }
+    /* pgfplots mode: emit nothing until print_pgfplots_perq_output() */
 
 #ifdef WITH_QUEST
     bench_quest_init();
 #endif
 
     int results_count = 0;
+    int qi = 0;  /* qubit-config index for pgfq accumulation */
 
     /* 1Q gate table for the per-qubit path */
     static const gate_def_1q_perq_t gates_1q_perq[] = {
@@ -1032,6 +1055,12 @@ static int perq_main(const bench_options_t *opts) {
         dim_t  dim       = (dim_t)1 << qubits;
         int    run_dense = (qubits <= 8);
         size_t state_bytes = (size_t)dim * (size_t)dim * sizeof(cplx_t);
+
+        /* Register qubit count in pgfq accumulator */
+        if (pgfq && qi < MAX_QUBIT_CONFIGS) {
+            pgfq->qubits[qi] = qubits;
+            pgfq->num_configs = qi + 1;
+        }
 
         /* ── 1Q GATES ──────────────────────────────────────────────────────── */
 
@@ -1115,7 +1144,6 @@ static int perq_main(const bench_options_t *opts) {
                 if (rho) {
                     bench_fill_random(rho, rho_bytes);
 
-                    /* Adaptive probe: single-shot first to detect slow gates */
                     bench_result_perq_t quick =
                         bench_blas_dense_at(qubits, gd->name, gd->mat, 0,
                                             1, 1, rho);
@@ -1224,8 +1252,19 @@ static int perq_main(const bench_options_t *opts) {
             }
 #endif /* WITH_AER_DM */
 
-            /* Output results for this gate × qubit count */
-            if (opts->csv_output) {
+            /* Output / accumulate results for this 1Q gate × qubit count */
+            if (opts->pgfplots_output) {
+                /* Accumulate into pgfq; emit deferred via print_pgfplots_perq_output() */
+                if (pgfq && qi < MAX_QUBIT_CONFIGS) {
+                    for (int m = 0; m < NUM_METHODS; m++) {
+                        pgfq->n_targets[g][qi][m] = n_targets;
+                        for (int t = 0; t < n_targets && t < MAX_TARGETS; t++) {
+                            if (perq[m][t].time_ms_mean > 0.0)
+                                perq_cell_from_result(&pgfq->cells[g][qi][m][t], &perq[m][t]);
+                        }
+                    }
+                }
+            } else if (opts->csv_output) {
                 for (int m = 0; m < NUM_METHODS; m++)
                     bench_print_perq_csv(csv_f, perq[m], n_targets);
             } else {
@@ -1472,8 +1511,23 @@ static int perq_main(const bench_options_t *opts) {
             }
 #endif /* WITH_AER_DM */
 
-            /* Output results for this gate × qubit count */
-            if (opts->csv_output) {
+            /* Output / accumulate results for this 2Q gate × qubit count */
+            if (opts->pgfplots_output) {
+                /* Accumulate into pgfq; emit deferred via print_pgfplots_perq_output() */
+                if (pgfq && qi < MAX_QUBIT_CONFIGS) {
+                    int pg = NUM_1Q_GATES + g;  /* 2Q gate index offset */
+                    for (int m = 0; m < NUM_METHODS; m++) {
+                        pgfq->n_targets[pg][qi][m] = n_pairs;
+                        for (int t = 0; t < n_pairs && t < MAX_TARGETS; t++) {
+                            if (perq[m][t].time_ms_mean > 0.0) {
+                                perq_cell_from_result(&pgfq->cells[pg][qi][m][t], &perq[m][t]);
+                                pgfq->q1s_2q[pg][qi][m][t] = q1s[t];
+                                pgfq->q2s_2q[pg][qi][m][t] = q2s[t];
+                            }
+                        }
+                    }
+                }
+            } else if (opts->csv_output) {
                 for (int m = 0; m < NUM_METHODS; m++)
                     bench_print_perq_csv(csv_f, perq[m], n_pairs);
             } else {
@@ -1489,6 +1543,10 @@ static int perq_main(const bench_options_t *opts) {
             }
         } /* 2Q gate loop */
 
+        /* Advance qubit-config index for pgfq */
+        if (pgfq && qi < MAX_QUBIT_CONFIGS)
+            qi++;
+
     } /* qubits loop */
 
 #ifdef WITH_QUEST
@@ -1498,8 +1556,16 @@ static int perq_main(const bench_options_t *opts) {
     if (results_count == 0 && opts->gate_filter) {
         fprintf(stderr, "warning: no results — gate '%s' not found\n",
                 opts->gate_filter);
+        free(pgfq);
         free(perq);
         return EXIT_FAILURE;
+    }
+
+    /* Emit pgfplots output now that all data is accumulated */
+    if (pgfq) {
+        print_pgfplots_perq_output(pgfq);
+        free(pgfq);
+        pgfq = NULL;
     }
 
     free(perq);
