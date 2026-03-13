@@ -65,15 +65,19 @@ typedef struct bench_result {
 
 /** @brief Command-line options */
 typedef struct bench_options {
-    qubit_t min_qubits;
-    qubit_t max_qubits;
-    int step;
-    int iterations;
-    int warmup;
-    int runs;
-    int csv_output;
-    int pgfplots_output;
-    int verbose;
+    qubit_t     min_qubits;
+    qubit_t     max_qubits;
+    int         step;
+    int         iterations;
+    int         warmup;
+    int         runs;
+    int         csv_output;
+    int         pgfplots_output;
+    int         verbose;
+    int         per_qubit;          /**< 1 if --per-qubit is set; enables single-target throughput mode */
+    int         runs_explicit;      /**< 1 if --runs was explicitly provided (suppresses per-qubit default override) */
+    int         iterations_explicit;/**< 1 if --iterations was explicitly provided (suppresses per-qubit default override) */
+    const char *gate_filter;        /**< Gate name filter from --gate (NULL = all gates); only used in --per-qubit mode */
 } bench_options_t;
 
 /*
