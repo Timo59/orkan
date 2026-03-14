@@ -17,10 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/mman.h>
-#if !defined(__APPLE__) && !defined(__FreeBSD__)
-#include <sys/random.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,15 +42,8 @@ extern "C" {
  * =====================================================================================================================
  */
 
-static inline void bench_timing_barrier(void) {
-#if defined(__aarch64__)
-    __asm__ volatile("isb" ::: "memory");
-#elif defined(__x86_64__)
-    __asm__ volatile("lfence" ::: "memory");
-#else
-    __asm__ volatile("" ::: "memory");  /* compiler barrier only */
-#endif
-}
+/** @brief Emit a CPU/compiler barrier to prevent reordering across timing points. */
+void bench_timing_barrier(void);
 
 /*
  * =====================================================================================================================
@@ -68,42 +57,7 @@ static inline void bench_timing_barrier(void) {
  * Uses xoshiro256** expansion from a splitmix64-seeded state. Safe to call from
  * both C and C++ translation units (operates on raw uint8_t* bytes only).
  */
-static inline void bench_fill_random(void *buf, size_t n) {
-    /* Seed one uint64_t from OS entropy */
-    uint64_t seed;
-#if defined(__APPLE__) || defined(__FreeBSD__)
-    arc4random_buf(&seed, sizeof(seed));
-#else
-    /* Linux: requires <sys/random.h> (glibc >= 2.25) */
-    getrandom(&seed, sizeof(seed), 0);
-#endif
-
-    /* Expand seed via splitmix64 into 4 x uint64 xoshiro256** state */
-    uint64_t z;
-    z = (seed += 0x9e3779b97f4a7c15ULL); z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL; uint64_t s0 = z ^ (z >> 31);
-    z = (seed += 0x9e3779b97f4a7c15ULL); z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL; uint64_t s1 = z ^ (z >> 31);
-    z = (seed += 0x9e3779b97f4a7c15ULL); z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL; uint64_t s2 = z ^ (z >> 31);
-    z = (seed += 0x9e3779b97f4a7c15ULL); z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL; uint64_t s3 = z ^ (z >> 31);
-
-    /* xoshiro256** bulk fill — 8 bytes per step */
-    uint8_t *p = (uint8_t *)buf;
-    size_t remaining = n;
-    while (remaining >= 8) {
-        uint64_t r = s1 * 5; r = ((r << 7) | (r >> 57)) * 9;
-        memcpy(p, &r, 8); p += 8; remaining -= 8;
-        uint64_t t = s1 << 17;
-        s2 ^= s0; s3 ^= s1; s1 ^= s2; s0 ^= s3; s2 ^= t;
-        s3 = (s3 << 45) | (s3 >> 19);
-    }
-    if (remaining > 0) {
-        uint64_t r = s1 * 5; r = ((r << 7) | (r >> 57)) * 9;
-        memcpy(p, &r, remaining);
-    }
-}
+void bench_fill_random(void *buf, size_t n);
 
 /*
  * =====================================================================================================================
@@ -165,7 +119,9 @@ typedef void (*bench_gate_cb_t)(void *ctx);
  * collapsing repeated invocations across loop iterations.
  */
 typedef struct {
-    volatile bench_gate_cb_t call;  /**< Opaque callback — volatile prevents devirtualization */
+    volatile bench_gate_cb_t call;  /**< Opaque callback — volatile forces a fresh load of the
+                                     *   function pointer on every iteration, preventing the
+                                     *   compiler from hoisting or caching the value across calls */
     void    *ctx;                   /**< Backend context passed to call() */
     int      iterations;            /**< Gate applications per timed run (> 0) */
     int      runs;                  /**< Number of independent timed runs (1..BENCH_MAX_RUNS) */
@@ -315,27 +271,7 @@ static inline bench_run_stats_t bench_compute_stats(const double *times, int n) 
  * @param qubits Number of qubits — controls warmup batch size.
  * @return 0 on success.
  */
-static inline int bench_run_timed(const bench_harness_t *h, double *out, int qubits) {
-    int warmup_batch = (qubits <= 4) ? 128 : (qubits <= 7) ? 16 : (qubits <= 10) ? 4 : 1;
-
-    uint64_t wt0 = bench_time_ns();
-    do {
-        for (int wb = 0; wb < warmup_batch; ++wb)
-            h->call(h->ctx);
-    } while (bench_ns_to_ms(bench_time_ns() - wt0) < BENCH_PQ_WARMUP_MS);
-
-    for (int r = 0; r < h->runs; ++r) {
-        bench_timing_barrier();
-        uint64_t t0 = bench_time_ns();
-        bench_timing_barrier();
-        for (int i = 0; i < h->iterations; ++i) {
-            h->call(h->ctx);
-        }
-        bench_timing_barrier();
-        out[r] = bench_ns_to_ms(bench_time_ns() - t0);
-    }
-    return 0;
-}
+int bench_run_timed(const bench_harness_t *h, double *out, int qubits);
 
 /**
  * @brief Populate per-qubit timing stats in `r` from a bench_run_stats_t.
@@ -347,21 +283,9 @@ static inline int bench_run_timed(const bench_harness_t *h, double *out, int qub
  * @param s          Statistics computed by bench_compute_stats().
  * @param iterations Gate applications per timed run (used to derive per-gate times).
  */
-static inline void bench_fill_perq_stats(bench_result_perq_t *r,
-                                          const bench_run_stats_t *s,
-                                          int iterations) {
-    r->time_ms_mean   = s->mean;
-    r->time_ms_std    = s->std_dev;
-    r->time_ms_min    = s->min;
-    r->time_ms_median = s->median;
-    r->time_ms_cv     = s->cv;
-    r->ops_per_sec    = (s->mean > 0.0) ? ((double)iterations / s->mean) * 1000.0 : 0.0;
-    r->time_per_gate_us        = (iterations > 0) ? (s->mean   / iterations) * 1000.0 : 0.0;
-    r->time_per_gate_us_median = (iterations > 0) ? (s->median / iterations) * 1000.0 : 0.0;
-    r->time_per_gate_us_min    = (iterations > 0) ? (s->min    / iterations) * 1000.0 : 0.0;
-    r->iterations = iterations;
-    r->runs       = 0;  /* bench_run_stats_t carries no n field; caller must set r->runs */
-}
+void bench_fill_perq_stats(bench_result_perq_t *r,
+                            const bench_run_stats_t *s,
+                            int iterations);
 
 /*
  * =====================================================================================================================
@@ -396,26 +320,7 @@ static inline size_t bench_tiled_size(qubit_t qubits) {
  * with MADV_HUGEPAGE. On macOS the same threshold triggers MAP_ANONYMOUS|MAP_PRIVATE
  * (no explicit huge-page hint available). Smaller allocations fall back to malloc.
  */
-static inline void *bench_alloc_huge(size_t n) {
-#if defined(__linux__)
-    if (n >= BENCH_HUGEPAGE_THRESHOLD) {
-        void *p = mmap(NULL, n, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-        if (p != MAP_FAILED) {
-            madvise(p, n, MADV_HUGEPAGE);
-            return p;
-        }
-    }
-    return malloc(n);
-#elif defined(__APPLE__)
-    if (n >= BENCH_HUGEPAGE_THRESHOLD) {
-        void *p = mmap(NULL, n, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-        if (p != MAP_FAILED) return p;
-    }
-    return malloc(n);
-#else
-    return malloc(n);
-#endif
-}
+void *bench_alloc_huge(size_t n);
 
 /**
  * @brief Free memory previously allocated with bench_alloc_huge().
@@ -423,17 +328,7 @@ static inline void *bench_alloc_huge(size_t n) {
  * Must be called with the same `n` passed to bench_alloc_huge(); large allocations
  * that used mmap are released with munmap, others with free.
  */
-static inline void bench_free_huge(void *p, size_t n) {
-#if defined(__linux__) || defined(__APPLE__)
-    if (n >= BENCH_HUGEPAGE_THRESHOLD && p != NULL) {
-        munmap(p, n);
-        return;
-    }
-#else
-    (void)n;
-#endif
-    free(p);
-}
+void bench_free_huge(void *p, size_t n);
 
 /*
  * =====================================================================================================================
@@ -441,9 +336,15 @@ static inline void bench_free_huge(void *p, size_t n) {
  * =====================================================================================================================
  */
 
-/** @brief Maximum number of qubit pairs supported by build_all_pairs(). Sufficient for up to 16 qubits. */
-#define MAX_PAIRS 128
-#define MAX_TARGETS                       (2 * MAX_PAIRS)  /**< 256 */
+/**
+ * @brief Maximum number of qubit pairs supported by build_all_pairs() and build_all_ordered_pairs().
+ *
+ * Unordered pairs (build_all_pairs): n*(n-1)/2 — at 16 qubits that is 120 pairs.
+ * Ordered pairs (build_all_ordered_pairs): n*(n-1) — at 16 qubits that is 240 pairs.
+ * MAX_PAIRS=256 covers both cases up to and including 16 qubits.
+ */
+#define MAX_PAIRS 256
+#define MAX_TARGETS                       (2 * MAX_PAIRS)  /**< 512; covers all 1Q targets and 2Q pairs up to 16 qubits */
 
 /**
  * @brief Build all ordered qubit pairs (q1 < q2) for an n-qubit system.
