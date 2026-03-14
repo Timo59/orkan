@@ -132,6 +132,7 @@ endif()
 #=======================================================================================================================
 
 set(BENCH_MIXED_SRC
+        "${BENCH_SRC_DIR}/bench_util.c"
         "${BENCH_SRC_DIR}/bench_mixed.c"
         "${BENCH_SRC_DIR}/bench_baselines.c"
         "${BENCH_SRC_DIR}/bench_main.c"
@@ -248,6 +249,7 @@ set(BENCH_CIRCUIT_SRC
         "${BENCH_SRC_DIR}/bench_circuit_main.c"
         "${BENCH_SRC_DIR}/bench_circuit.c"
         "${BENCH_SRC_DIR}/bench_circuit_qlib.c"
+        "${BENCH_SRC_DIR}/bench_util.c"
 )
 
 if(QuEST_FOUND)

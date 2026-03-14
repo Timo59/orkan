@@ -18,6 +18,7 @@
 
 #include <csim/update_ops_dm.hpp>
 #include <csim/type.hpp>
+#include <cassert>
 #include <cstdlib>
 #include <cstring>
 
@@ -149,6 +150,142 @@ bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
     }
 
     std::free(rho);
+    return result;
+}
+
+/*
+ * =====================================================================================================================
+ * Per-qubit _at variants — callback context types (file-local)
+ * =====================================================================================================================
+ */
+
+struct qulacs_cb1q_ctx {
+    void (*fn)(UINT, CTYPE*, ITYPE);
+    UINT   target;
+    CTYPE *rho;
+    ITYPE  dim;
+};
+static void qulacs_cb1q(void *ctx) {
+    auto *c = static_cast<qulacs_cb1q_ctx*>(ctx);
+    c->fn(c->target, c->rho, c->dim);
+}
+
+struct qulacs_cb2q_ctx {
+    void (*fn)(UINT, UINT, CTYPE*, ITYPE);
+    UINT   q1, q2;
+    CTYPE *rho;
+    ITYPE  dim;
+};
+static void qulacs_cb2q(void *ctx) {
+    auto *c = static_cast<qulacs_cb2q_ctx*>(ctx);
+    c->fn(c->q1, c->q2, c->rho, c->dim);
+}
+
+/**
+ * @brief Per-qubit Qulacs 1Q benchmark: time a single gate application at one target qubit.
+ *
+ * @param qubits     Number of qubits in the system.
+ * @param gate_name  Gate identifier ("X", "H", or "Z").
+ * @param target     Target qubit index.
+ * @param iterations Gate applications per timed run.
+ * @param runs       Number of independent timed runs (1..BENCH_MAX_RUNS).
+ * @param rho        Allocated density matrix buffer (dim*dim CTYPE elements).
+ *                   Re-initialised with random data before the warmup.
+ */
+bench_result_perq_t bench_qulacs_at(qubit_t qubits, const char *gate_name,
+                                     qubit_t target, int iterations, int runs, void *rho) {
+    bench_result_perq_t result = {0};
+    result.qubits    = qubits;
+    result.dim       = (dim_t)1 << qubits;
+    result.gate_name = gate_name;
+    result.method    = "qulacs";
+    result.target    = target;
+    result.target2   = QUBIT_NONE;
+    result.is_2q     = 0;
+
+    ITYPE  dim     = static_cast<ITYPE>(1) << qubits;
+    CTYPE *rho_ptr = static_cast<CTYPE*>(rho);
+
+    /* Resolve gate name to 1Q csim function pointer */
+    void (*fn)(UINT, CTYPE*, ITYPE) = nullptr;
+    if (std::strcmp(gate_name, "X") == 0) {
+        fn = dm_X_gate;
+    } else if (std::strcmp(gate_name, "H") == 0) {
+        fn = dm_H_gate;
+    } else if (std::strcmp(gate_name, "Z") == 0) {
+        fn = dm_Z_gate;
+    }
+    if (!fn) return result;
+
+    /* Re-initialise the state with random data before warmup */
+    bench_fill_random(rho_ptr, static_cast<size_t>(dim) * static_cast<size_t>(dim) * sizeof(CTYPE));
+
+    /* Build harness and run */
+    qulacs_cb1q_ctx ctx = { fn, static_cast<UINT>(target), rho_ptr, dim };
+    bench_harness_t h   = { qulacs_cb1q, &ctx, iterations, runs };
+
+    assert(runs <= BENCH_MAX_RUNS);
+    double run_times[BENCH_MAX_RUNS];
+    bench_run_timed(&h, run_times, (int)qubits);
+
+    bench_run_stats_t stats = bench_compute_stats(run_times, runs);
+    bench_fill_perq_stats(&result, &stats, iterations);
+    result.runs         = runs;
+    result.memory_bytes = static_cast<size_t>(dim) * static_cast<size_t>(dim) * sizeof(CTYPE);
+    return result;
+}
+
+/**
+ * @brief Per-qubit Qulacs 2Q benchmark: time a single gate application at one (q1, q2) pair.
+ *
+ * @param qubits     Number of qubits in the system.
+ * @param gate_name  Gate identifier ("CX" or "SWAP").
+ * @param q1         Control/first qubit index.
+ * @param q2         Target/second qubit index.
+ * @param iterations Gate applications per timed run.
+ * @param runs       Number of independent timed runs (1..BENCH_MAX_RUNS).
+ * @param rho        Allocated density matrix buffer (dim*dim CTYPE elements).
+ *                   Re-initialised with random data before the warmup.
+ */
+bench_result_perq_t bench_qulacs_2q_at(qubit_t qubits, const char *gate_name,
+                                        qubit_t q1, qubit_t q2,
+                                        int iterations, int runs, void *rho) {
+    bench_result_perq_t result = {0};
+    result.qubits    = qubits;
+    result.dim       = (dim_t)1 << qubits;
+    result.gate_name = gate_name;
+    result.method    = "qulacs";
+    result.target    = q1;
+    result.target2   = q2;
+    result.is_2q     = 1;
+
+    ITYPE  dim     = static_cast<ITYPE>(1) << qubits;
+    CTYPE *rho_ptr = static_cast<CTYPE*>(rho);
+
+    /* Resolve gate name to 2Q csim function pointer */
+    void (*fn)(UINT, UINT, CTYPE*, ITYPE) = nullptr;
+    if (std::strcmp(gate_name, "CX") == 0) {
+        fn = dm_CNOT_gate;
+    } else if (std::strcmp(gate_name, "SWAP") == 0) {
+        fn = dm_SWAP_gate;
+    }
+    if (!fn) return result;
+
+    /* Re-initialise the state with random data before warmup */
+    bench_fill_random(rho_ptr, static_cast<size_t>(dim) * static_cast<size_t>(dim) * sizeof(CTYPE));
+
+    /* Build harness and run */
+    qulacs_cb2q_ctx ctx = { fn, static_cast<UINT>(q1), static_cast<UINT>(q2), rho_ptr, dim };
+    bench_harness_t h   = { qulacs_cb2q, &ctx, iterations, runs };
+
+    assert(runs <= BENCH_MAX_RUNS);
+    double run_times[BENCH_MAX_RUNS];
+    bench_run_timed(&h, run_times, (int)qubits);
+
+    bench_run_stats_t stats = bench_compute_stats(run_times, runs);
+    bench_fill_perq_stats(&result, &stats, iterations);
+    result.runs         = runs;
+    result.memory_bytes = static_cast<size_t>(dim) * static_cast<size_t>(dim) * sizeof(CTYPE);
     return result;
 }
 

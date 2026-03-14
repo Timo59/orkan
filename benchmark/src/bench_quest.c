@@ -23,8 +23,12 @@
 
 #ifdef WITH_QUEST
 
-#include "bench.h"
+/* quest.h must precede bench.h: bench.h's WITH_QUEST block declares
+ * bench_quest_at / bench_quest_2q_at using Qureg, so the type must be
+ * visible before bench.h is parsed. */
 #include "quest/include/quest.h"
+#include "bench.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -148,6 +152,134 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
     }
 
     destroyQureg(rho);
+    return result;
+}
+
+/* ---------------------------------------------------------------------------
+ * Callback context types for the per-qubit harness
+ * ---------------------------------------------------------------------------*/
+
+typedef struct {
+    Qureg qureg;
+    void (*fn)(Qureg, int);
+    int target;
+} quest_cb1q_ctx_t;
+
+static void quest_cb1q(void *ctx) {
+    quest_cb1q_ctx_t *c = ctx;
+    c->fn(c->qureg, c->target);
+}
+
+typedef struct {
+    Qureg qureg;
+    void (*fn)(Qureg, int, int);
+    int q1;
+    int q2;
+} quest_cb2q_ctx_t;
+
+static void quest_cb2q(void *ctx) {
+    quest_cb2q_ctx_t *c = ctx;
+    c->fn(c->qureg, c->q1, c->q2);
+}
+
+/**
+ * @brief Per-qubit QuEST 1Q benchmark: time a single gate on a fixed target qubit.
+ *
+ * The caller owns and pre-allocates *qureg. State is re-initialised with
+ * initDebugState before warmup to ensure all pages are touched. Uses the
+ * bench_harness_t / bench_run_timed infrastructure for warmup and timing.
+ */
+bench_result_perq_t bench_quest_at(qubit_t qubits, const char *gate_name,
+    qubit_t target, int iterations, int runs, Qureg *qureg)
+{
+    bench_result_perq_t result = {0};
+    result.qubits    = qubits;
+    result.dim       = (dim_t)1 << qubits;
+    result.gate_name = gate_name;
+    result.method    = "quest";
+    result.target    = target;
+    result.target2   = QUBIT_NONE;
+    result.is_2q     = 0;
+
+    /* Resolve gate name to function pointer */
+    void (*fn)(Qureg, int) = NULL;
+    if (strcmp(gate_name, "X") == 0) {
+        fn = applyPauliX;
+    } else if (strcmp(gate_name, "H") == 0) {
+        fn = applyHadamard;
+    } else if (strcmp(gate_name, "Z") == 0) {
+        fn = applyPauliZ;
+    }
+
+    if (!fn) {
+        return result;
+    }
+
+    initDebugState(*qureg);
+
+    quest_cb1q_ctx_t ctx = { *qureg, fn, (int)target };
+    bench_harness_t h = { quest_cb1q, &ctx, iterations, runs };
+
+    double run_times[BENCH_MAX_RUNS];
+    assert(runs <= BENCH_MAX_RUNS);
+    bench_run_timed(&h, run_times, (int)qubits);
+
+    bench_run_stats_t stats = bench_compute_stats(run_times, runs);
+    bench_fill_perq_stats(&result, &stats, iterations);
+    result.runs = runs;
+
+    dim_t dim = (dim_t)1 << qubits;
+    result.memory_bytes = (size_t)dim * (size_t)dim * sizeof(double) * 2;
+
+    return result;
+}
+
+/**
+ * @brief Per-qubit QuEST 2Q benchmark: time a single gate on a fixed (q1, q2) pair.
+ *
+ * For CX: q1=control, q2=target, matching applyControlledPauliX(qureg, control, target).
+ * The caller owns and pre-allocates *qureg.
+ */
+bench_result_perq_t bench_quest_2q_at(qubit_t qubits, const char *gate_name,
+    qubit_t q1, qubit_t q2, int iterations, int runs, Qureg *qureg)
+{
+    bench_result_perq_t result = {0};
+    result.qubits    = qubits;
+    result.dim       = (dim_t)1 << qubits;
+    result.gate_name = gate_name;
+    result.method    = "quest";
+    result.target    = q1;
+    result.target2   = q2;
+    result.is_2q     = 1;
+
+    /* Resolve gate name to function pointer */
+    void (*fn)(Qureg, int, int) = NULL;
+    if (strcmp(gate_name, "CX") == 0) {
+        fn = applyControlledPauliX;
+    } else if (strcmp(gate_name, "SWAP") == 0) {
+        fn = applySwap;
+    }
+
+    if (!fn) {
+        return result;
+    }
+
+    initDebugState(*qureg);
+
+    quest_cb2q_ctx_t ctx = { *qureg, fn, (int)q1, (int)q2 };
+    bench_harness_t h = { quest_cb2q, &ctx, iterations, runs };
+
+    double run_times[BENCH_MAX_RUNS];
+    assert(runs <= BENCH_MAX_RUNS);
+    bench_run_timed(&h, run_times, (int)qubits);
+
+    bench_run_stats_t stats = bench_compute_stats(run_times, runs);
+    bench_fill_perq_stats(&result, &stats, iterations);
+    result.runs = runs;
+
+    dim_t dim = (dim_t)1 << qubits;
+    result.memory_bytes = (size_t)dim * (size_t)dim * sizeof(double) * 2;
+
     return result;
 }
 
