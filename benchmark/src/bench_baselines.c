@@ -10,6 +10,7 @@
  */
 
 #include "bench.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -407,5 +408,103 @@ bench_result_t bench_blas_dense_2q(qubit_t qubits, const char *gate_name,
     free(rho);
     for (int p = 0; p < num_pairs; ++p) free(U[p]);
     free(U);
+    return result;
+}
+
+/*
+ * =====================================================================================================================
+ * Per-qubit (_at) benchmark implementations
+ * =====================================================================================================================
+ */
+
+typedef struct {
+    dim_t   dim;
+    cplx_t *U;    /* full gate matrix, pre-built */
+    cplx_t *rho;  /* density matrix state */
+    cplx_t *tmp;  /* scratch buffer */
+} blas_cb_ctx_t;
+
+static void blas_cb(void *ctx) {
+    blas_cb_ctx_t *c = ctx;
+    apply_uruh_blas(c->dim, c->U, c->rho, c->tmp);
+}
+
+bench_result_perq_t bench_blas_dense_at(qubit_t qubits, const char *gate_name,
+    const cplx_t gate_mat[4],
+    qubit_t target, int iterations, int runs, cplx_t *rho)
+{
+    bench_result_perq_t result = {0};
+    result.qubits   = qubits;
+    result.dim      = (dim_t)1 << qubits;
+    result.gate_name = gate_name;
+    result.method   = "blas_dense";
+    result.target   = target;
+    result.target2  = QUBIT_NONE;
+    result.is_2q    = 0;
+
+    dim_t dim = result.dim;
+
+    cplx_t *U = build_full_gate_matrix(qubits, gate_mat, target);
+    if (!U) return result;
+
+    cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
+    if (!tmp) { free(U); return result; }
+
+    bench_fill_random(rho, dim * dim * sizeof(cplx_t));
+
+    blas_cb_ctx_t ctx = {dim, U, rho, tmp};
+    bench_harness_t h = {blas_cb, &ctx, iterations, runs};
+
+    double run_times[BENCH_MAX_RUNS];
+    assert(runs <= BENCH_MAX_RUNS);
+    bench_run_timed(&h, run_times, qubits);
+
+    bench_run_stats_t stats = bench_compute_stats(run_times, runs);
+    bench_fill_perq_stats(&result, &stats, iterations);
+    result.runs         = runs;
+    result.memory_bytes = dim * dim * sizeof(cplx_t);
+
+    free(U);
+    free(tmp);
+    return result;
+}
+
+bench_result_perq_t bench_blas_dense_2q_at(qubit_t qubits, const char *gate_name,
+    const cplx_t gate_mat[16],
+    qubit_t q1, qubit_t q2, int iterations, int runs, cplx_t *rho)
+{
+    bench_result_perq_t result = {0};
+    result.qubits    = qubits;
+    result.dim       = (dim_t)1 << qubits;
+    result.gate_name = gate_name;
+    result.method    = "blas_dense";
+    result.target    = q1;
+    result.target2   = q2;
+    result.is_2q     = 1;
+
+    dim_t dim = result.dim;
+
+    cplx_t *U = build_full_gate_matrix_2q(qubits, gate_mat, q1, q2);
+    if (!U) return result;
+
+    cplx_t *tmp = malloc(dim * dim * sizeof(cplx_t));
+    if (!tmp) { free(U); return result; }
+
+    bench_fill_random(rho, dim * dim * sizeof(cplx_t));
+
+    blas_cb_ctx_t ctx = {dim, U, rho, tmp};
+    bench_harness_t h = {blas_cb, &ctx, iterations, runs};
+
+    double run_times[BENCH_MAX_RUNS];
+    assert(runs <= BENCH_MAX_RUNS);
+    bench_run_timed(&h, run_times, qubits);
+
+    bench_run_stats_t stats = bench_compute_stats(run_times, runs);
+    bench_fill_perq_stats(&result, &stats, iterations);
+    result.runs         = runs;
+    result.memory_bytes = dim * dim * sizeof(cplx_t);
+
+    free(U);
+    free(tmp);
     return result;
 }

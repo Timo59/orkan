@@ -13,6 +13,10 @@
 #include <math.h>
 #include <time.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,6 +35,48 @@ extern "C" {
 #define BENCH_DEFAULT_WARMUP        100
 #define BENCH_DEFAULT_RUNS          10   /**< Independent timing runs per (gate, qubits, method) */
 #define BENCH_MAX_RUNS              200  /**< Hard upper bound on --runs; shared with bench_compute_stats */
+
+/*
+ * =====================================================================================================================
+ * Timing serialization barrier
+ * =====================================================================================================================
+ */
+
+/** @brief Emit a CPU/compiler barrier to prevent reordering across timing points. */
+void bench_timing_barrier(void);
+
+/*
+ * =====================================================================================================================
+ * Random fill helper
+ * =====================================================================================================================
+ */
+
+/**
+ * @brief Fill `n` bytes at `buf` with pseudo-random data seeded from OS entropy.
+ *
+ * Uses xoshiro256** expansion from a splitmix64-seeded state. Safe to call from
+ * both C and C++ translation units (operates on raw uint8_t* bytes only).
+ */
+void bench_fill_random(void *buf, size_t n);
+
+/*
+ * =====================================================================================================================
+ * Per-qubit benchmark constants
+ * =====================================================================================================================
+ */
+
+/* Per-qubit benchmark constants */
+#define BENCH_PQ_DEFAULT_RUNS              15      /**< 15 gives honest CI */
+#define BENCH_PQ_DEFAULT_ITERATIONS       100      /**< overridden by calibration */
+#define BENCH_PQ_PROBE_ITERS              100      /**< iterations in each probe run */
+#define BENCH_PQ_PROBE_RUNS               5        /**< runs for calibration probe; take minimum */
+#define BENCH_PQ_WARMUP_MS               100.0     /**< minimum warmup duration in ms */
+#define MIN_MEASUREMENT_MS                1.0      /**< minimum timed run duration to target */
+#define BENCH_PQ_FALLBACK_ITERATIONS      10000    /**< when probe rounds to 0 ns */
+#define BENCH_PQ_MAX_CALIBRATED_ITERATIONS 1000000
+#define QUBIT_NONE                        ((qubit_t)-1)    /**< max value of qubit_t */
+#define MAX_QUBITS_FOR_ORDERED_PAIRS      16
+#define BENCH_HUGEPAGE_THRESHOLD          ((size_t)1 << 30)
 
 /*
  * =====================================================================================================================
@@ -63,17 +109,67 @@ typedef struct bench_result {
     int    runs;                /**< Number of independent timing runs */
 } bench_result_t;
 
+/** @brief Opaque gate callback type for the per-qubit harness */
+typedef void (*bench_gate_cb_t)(void *ctx);
+
+/**
+ * @brief Timed-run harness: encapsulates a callback, its context, and loop counts.
+ *
+ * `call` is declared volatile to prevent the compiler from devirtualizing or
+ * collapsing repeated invocations across loop iterations.
+ */
+typedef struct {
+    volatile bench_gate_cb_t call;  /**< Opaque callback — volatile forces a fresh load of the
+                                     *   function pointer on every iteration, preventing the
+                                     *   compiler from hoisting or caching the value across calls */
+    void    *ctx;                   /**< Backend context passed to call() */
+    int      iterations;            /**< Gate applications per timed run (> 0) */
+    int      runs;                  /**< Number of independent timed runs (1..BENCH_MAX_RUNS) */
+} bench_harness_t;
+
+/**
+ * @brief Per-qubit benchmark result for a single (gate, qubits, target, method) configuration.
+ *
+ * Extends bench_result_t with per-gate microsecond timings and explicit target qubit fields,
+ * enabling per-position analysis of gate application cost.
+ */
+typedef struct bench_result_perq {
+    qubit_t    qubits;
+    dim_t      dim;
+    const char *gate_name;
+    const char *method;
+    qubit_t    target;           /**< Target qubit (q1 for 2Q gates) */
+    qubit_t    target2;          /**< Second qubit for 2Q gates; QUBIT_NONE for 1Q */
+    int        is_2q;
+    double     time_ms_mean;
+    double     time_ms_std;      /**< Sample stddev (Bessel-corrected); honest n=15 */
+    double     time_ms_min;
+    double     time_ms_median;
+    double     time_ms_cv;
+    double     ops_per_sec;
+    double     time_per_gate_us;        /**< mean time per gate application (microseconds) */
+    double     time_per_gate_us_median;
+    double     time_per_gate_us_min;
+    size_t     memory_bytes;
+    int        iterations;
+    int        runs;
+} bench_result_perq_t;
+
 /** @brief Command-line options */
 typedef struct bench_options {
-    qubit_t min_qubits;
-    qubit_t max_qubits;
-    int step;
-    int iterations;
-    int warmup;
-    int runs;
-    int csv_output;
-    int pgfplots_output;
-    int verbose;
+    qubit_t     min_qubits;
+    qubit_t     max_qubits;
+    int         step;
+    int         iterations;
+    int         warmup;
+    int         runs;
+    int         csv_output;
+    int         pgfplots_output;
+    int         verbose;
+    int         per_qubit;          /**< 1 if --per-qubit is set; enables single-target throughput mode */
+    int         runs_explicit;      /**< 1 if --runs was explicitly provided (suppresses per-qubit default override) */
+    int         iterations_explicit;/**< 1 if --iterations was explicitly provided (suppresses per-qubit default override) */
+    const char *gate_filter;        /**< Gate name filter from --gate (NULL = all gates); only used in --per-qubit mode */
 } bench_options_t;
 
 /*
@@ -119,50 +215,34 @@ typedef struct {
  * @param n      Number of runs (K); must be >= 1
  * @return       Populated bench_run_stats_t
  */
-static inline bench_run_stats_t bench_compute_stats(const double *times, int n) {
-    /* Mean and minimum */
-    double sum = 0.0;
-    double mn  = times[0];
-    for (int i = 0; i < n; ++i) {
-        sum += times[i];
-        if (times[i] < mn) mn = times[i];
-    }
-    double mean = sum / n;
+bench_run_stats_t bench_compute_stats(const double *times, int n);
 
-    /* Sample standard deviation (Bessel's correction: divide by n-1) */
-    double var = 0.0;
-    for (int i = 0; i < n; ++i) {
-        double d = times[i] - mean;
-        var += d * d;
-    }
-    double std_dev = (n > 1) ? sqrt(var / (n - 1)) : 0.0;
-    double cv = (mean > 0.0) ? (std_dev / mean) * 100.0 : 0.0;
+/**
+ * @brief Execute a warmed-up timed benchmark using a bench_harness_t.
+ *
+ * Warms up by invoking the callback until BENCH_PQ_WARMUP_MS has elapsed,
+ * then records `h->runs` independent timing samples into `out` (ms each).
+ *
+ * @param h      Populated harness (call, ctx, iterations, runs).
+ * @param out    Output array of at least h->runs doubles (run times in ms).
+ * @param qubits Number of qubits — controls warmup batch size.
+ * @return 0 on success.
+ */
+int bench_run_timed(const bench_harness_t *h, double *out, int qubits);
 
-    /*
-     * Median: insertion-sort a stack copy.
-     * n is bounded by the --runs validation (max 200), so stack allocation is safe.
-     */
-    double sorted[200];
-    int cnt = (n < 200) ? n : 200;
-    for (int i = 0; i < cnt; ++i) sorted[i] = times[i];
-    for (int i = 1; i < cnt; ++i) {
-        double key = sorted[i];
-        int j = i - 1;
-        while (j >= 0 && sorted[j] > key) { sorted[j + 1] = sorted[j]; --j; }
-        sorted[j + 1] = key;
-    }
-    double median = (cnt % 2 == 0)
-        ? (sorted[cnt / 2 - 1] + sorted[cnt / 2]) / 2.0
-        : sorted[cnt / 2];
-
-    bench_run_stats_t s;
-    s.mean    = mean;
-    s.std_dev = std_dev;
-    s.min     = mn;
-    s.median  = median;
-    s.cv      = cv;
-    return s;
-}
+/**
+ * @brief Populate per-qubit timing stats in `r` from a bench_run_stats_t.
+ *
+ * Note: bench_run_stats_t carries no run-count field; callers must set r->runs
+ * separately after this call.
+ *
+ * @param r          Destination result struct (timing fields populated on return).
+ * @param s          Statistics computed by bench_compute_stats().
+ * @param iterations Gate applications per timed run (used to derive per-gate times).
+ */
+void bench_fill_perq_stats(bench_result_perq_t *r,
+                            const bench_run_stats_t *s,
+                            int iterations);
 
 /*
  * =====================================================================================================================
@@ -190,20 +270,44 @@ static inline size_t bench_tiled_size(qubit_t qubits) {
     return (size_t)(n_tile_pairs * TILE_SIZE) * sizeof(cplx_t);
 }
 
+/**
+ * @brief Allocate `n` bytes, using mmap + huge-page hints for large allocations.
+ *
+ * On Linux, allocations >= BENCH_HUGEPAGE_THRESHOLD use MAP_ANONYMOUS|MAP_PRIVATE
+ * with MADV_HUGEPAGE. On macOS the same threshold triggers MAP_ANONYMOUS|MAP_PRIVATE
+ * (no explicit huge-page hint available). Smaller allocations fall back to malloc.
+ */
+void *bench_alloc_huge(size_t n);
+
+/**
+ * @brief Free memory previously allocated with bench_alloc_huge().
+ *
+ * Must be called with the same `n` passed to bench_alloc_huge(); large allocations
+ * that used mmap are released with munmap, others with free.
+ */
+void bench_free_huge(void *p, size_t n);
+
 /*
  * =====================================================================================================================
  * Shared pair-building utility (implemented in bench_mixed.c)
  * =====================================================================================================================
  */
 
-/** @brief Maximum number of qubit pairs supported by build_all_pairs(). Sufficient for up to 16 qubits. */
-#define MAX_PAIRS 128
+/**
+ * @brief Maximum number of qubit pairs supported by build_all_pairs() and build_all_ordered_pairs().
+ *
+ * Unordered pairs (build_all_pairs): n*(n-1)/2 — at 16 qubits that is 120 pairs.
+ * Ordered pairs (build_all_ordered_pairs): n*(n-1) — at 16 qubits that is 240 pairs.
+ * MAX_PAIRS=256 covers both cases up to and including 16 qubits.
+ */
+#define MAX_PAIRS 256
+#define MAX_TARGETS                       (2 * MAX_PAIRS)  /**< 512; covers all 1Q targets and 2Q pairs up to 16 qubits */
 
 /**
  * @brief Build all ordered qubit pairs (q1 < q2) for an n-qubit system.
  *
  * Writes up to MAX_PAIRS pairs into q1_out/q2_out. Returns the number of pairs written.
- * Asserts that qubits*(qubits-1)/2 <= MAX_PAIRS; callers must not pass qubits > 16.
+ * Fills pairs until max_pairs is reached and returns the count; callers must not pass qubits > 16.
  */
 int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
 
@@ -311,6 +415,98 @@ bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
 bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
                             int iterations, int warmup, int runs);
 #endif
+
+/*
+ * =====================================================================================================================
+ * Per-qubit benchmark functions — _at variants (bench_mixed.c / bench_baselines.c)
+ * =====================================================================================================================
+ */
+
+/* qlib backends (bench_mixed.c) */
+bench_result_perq_t bench_qlib_packed_at(qubit_t qubits, const char *gate_name,
+    void (*gate_fn)(state_t*, qubit_t),
+    qubit_t target, int iterations, int runs, state_t *state);
+
+bench_result_perq_t bench_qlib_tiled_at(qubit_t qubits, const char *gate_name,
+    void (*gate_fn)(state_t*, qubit_t),
+    qubit_t target, int iterations, int runs, state_t *state);
+
+bench_result_perq_t bench_qlib_packed_2q_at(qubit_t qubits, const char *gate_name,
+    void (*gate_fn)(state_t*, qubit_t, qubit_t),
+    qubit_t q1, qubit_t q2, int iterations, int runs, state_t *state);
+
+bench_result_perq_t bench_qlib_tiled_2q_at(qubit_t qubits, const char *gate_name,
+    void (*gate_fn)(state_t*, qubit_t, qubit_t),
+    qubit_t q1, qubit_t q2, int iterations, int runs, state_t *state);
+
+/* BLAS baseline (bench_baselines.c) */
+bench_result_perq_t bench_blas_dense_at(qubit_t qubits, const char *gate_name,
+    const cplx_t gate_mat[4],
+    qubit_t target, int iterations, int runs, cplx_t *rho);
+
+bench_result_perq_t bench_blas_dense_2q_at(qubit_t qubits, const char *gate_name,
+    const cplx_t gate_mat[16],
+    qubit_t q1, qubit_t q2, int iterations, int runs, cplx_t *rho);
+
+#if defined(WITH_QUEST) && defined(QUEST_H) && !defined(__cplusplus)
+/* Exposed only when quest/include/quest.h has been included first (defines
+ * QUEST_H and Qureg) and we are not in a C++ TU (QuEST v4 headers produce
+ * overload-resolution errors in C++ when included transitively). */
+bench_result_perq_t bench_quest_at(qubit_t qubits, const char *gate_name,
+    qubit_t target, int iterations, int runs, Qureg *qureg);
+
+bench_result_perq_t bench_quest_2q_at(qubit_t qubits, const char *gate_name,
+    qubit_t q1, qubit_t q2, int iterations, int runs, Qureg *qureg);
+#endif /* WITH_QUEST && QUEST_H && !__cplusplus */
+
+#ifdef WITH_QULACS
+bench_result_perq_t bench_qulacs_at(qubit_t qubits, const char *gate_name,
+    qubit_t target, int iterations, int runs, void *rho);
+
+bench_result_perq_t bench_qulacs_2q_at(qubit_t qubits, const char *gate_name,
+    qubit_t q1, qubit_t q2, int iterations, int runs, void *rho);
+#endif
+
+#ifdef WITH_AER_DM
+bench_result_perq_t bench_aer_dm_at(qubit_t qubits, const char *gate_name,
+    qubit_t target, int iterations, int runs, void *dm);
+
+bench_result_perq_t bench_aer_dm_2q_at(qubit_t qubits, const char *gate_name,
+    qubit_t q1, qubit_t q2, int iterations, int runs, void *dm);
+
+void *bench_aer_dm_alloc(qubit_t qubits);
+void  bench_aer_dm_reinit(void *dm, qubit_t qubits);
+void  bench_aer_dm_free(void *dm);
+#endif
+
+/*
+ * =====================================================================================================================
+ * Per-qubit pair-building utility
+ * =====================================================================================================================
+ */
+
+/**
+ * @brief Build all ordered qubit pairs (q1 != q2, all permutations) for an n-qubit system.
+ *
+ * Writes up to max_pairs pairs into q1s/q2s. Returns the number of pairs written.
+ * Callers must not pass qubits > MAX_QUBITS_FOR_ORDERED_PAIRS.
+ */
+int build_all_ordered_pairs(qubit_t qubits, qubit_t *q1s, qubit_t *q2s, int max_pairs);
+
+/*
+ * =====================================================================================================================
+ * Per-qubit output functions (implemented in bench_main.c)
+ * =====================================================================================================================
+ */
+
+/** @brief Print CSV header for per-qubit benchmark results */
+void bench_print_perq_csv_header(FILE *f);
+
+/** @brief Print per-qubit benchmark results as CSV rows */
+void bench_print_perq_csv(FILE *f, const bench_result_perq_t *results, int n);
+
+/** @brief Print per-qubit benchmark results to console */
+void bench_print_perq_console(const bench_result_perq_t *results, int n);
 
 #ifdef __cplusplus
 }

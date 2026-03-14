@@ -29,7 +29,8 @@ benchmark/
     ├── bench_circuit_qlib.c    # qlib packed/tiled circuit runners + context alloc/free
     ├── bench_circuit_quest.c   # QuEST circuit runner + context alloc/free (WITH_QUEST only)
     ├── bench_circuit_qulacs.cpp# Qulacs circuit runner + context alloc/free (WITH_QULACS only)
-    └── bench_circuit_aer_dm.cpp# Aer-DM circuit runner + context alloc/free (WITH_AER_DM only)
+    ├── bench_circuit_aer_dm.cpp# Aer-DM circuit runner + context alloc/free (WITH_AER_DM only)
+    └── bench_util.c            # Shared utilities: timing barrier, RNG, statistics, timed-run harness, huge-page allocator
 ```
 
 `README.md` and `CIRCUIT_PLAN.md` are developer convenience files. This spec is the authoritative reference.
@@ -167,10 +168,10 @@ In `bench_circuit`, `sweep_size` is repurposed to hold `n_ops` (gate count of th
 | `--iterations N` | 1000 (sweep) / 100 (per-qubit) | ≥1 | Gate calls per timed run; overridden by per-qubit calibration |
 | `--warmup N` | 100 | ≥0 | Untimed warm-up iterations before each run series (sweep mode only; per-qubit uses time-based warmup) |
 | `--runs N` | 10 (sweep) / 15 (per-qubit) | 1–200 | Independent timing runs per measurement tuple |
-| `--per-qubit` | off | — | Enable per-qubit (per-target) benchmark mode |
-| `--gate NAME` | (all gates) | Gate name string | Restrict to a single named gate; only meaningful with `--per-qubit` |
+| `--per-qubit` | off | — | Single-target throughput mode: benchmark each qubit target independently |
+| `--gate NAME` | all | gate name | Restrict `--per-qubit` run to one named gate (e.g. `X`, `CX`); no effect without `--per-qubit` |
 | `--csv` | off | — | Emit CSV to stdout (format differs between modes; see Output Formats) |
-| `--pgfplots` | off | — | Five normalized timing tables per gate + one memory table; stdout (sweep mode only) |
+| `--pgfplots` | off | — | Five normalized timing tables per gate + one memory table; stdout. Combined with `--per-qubit`: emits per-target .dat tables aggregated over targets. |
 | `--verbose` | off | — | Append min, median, and memory bytes to each console result line (sweep mode only) |
 | `--help` | — | — | Print usage and exit |
 
@@ -180,7 +181,7 @@ In `bench_circuit`, `sweep_size` is repurposed to hold `n_ops` (gate count of th
 
 **Gate name matching:** `--gate NAME` is a case-insensitive match against the gate name strings in the gate table: `"X"`, `"H"`, `"Z"`, `"CX"`, `"SWAP"` (uses `strcasecmp`).
 
-**Mutual exclusion:** `--per-qubit` and `--pgfplots` are mutually exclusive. Passing both prints an error to stderr and exits with code 1.
+**`--per-qubit --pgfplots` combined mode:** When both flags are set, console and CSV output are suppressed; instead, `pgfplots_perq_data_t` accumulates per-target results and `print_pgfplots_perq_output()` emits all tables at the end. If `--csv` is also set, it is ignored with a warning to stderr. See the Per-Qubit Benchmark section below for full details on the emitted tables.
 
 All values are validated at startup; invalid values print to stderr and exit with code 1. Sweep-mode defaults are defined as `BENCH_DEFAULT_*` macros in `bench.h`. `BENCH_MAX_RUNS = 200` is defined in `bench.h` and used by both the validation check and stats computation.
 
@@ -694,6 +695,36 @@ State allocations at or above `BENCH_HUGEPAGE_THRESHOLD = 1 GB` use `bench_alloc
 **Qulacs** has no global state or init/finalize. `bench_circuit_qulacs.cpp` uses the low-level `csim` `dm_*_gate` functions directly, bypassing the higher-level `cppsim` gate object layer.
 
 **Aer-DM** has no global state. The `bench_circuit_aer_dm.cpp` adapter precomputes fixed-gate matrices (`H`, `X`, `Z`, `CX`) once per benchmark call. Rotation gates (`Rx`, `Ry`, `Rz`) construct their 2×2 matrices per operation because angles vary per gate instance. C++ exceptions are caught at the `extern "C"` boundary; a zero `time_ms` result indicates failure (e.g., `std::bad_alloc` at large qubit counts).
+
+## Per-Qubit Benchmark
+
+`--per-qubit` mode measures steady-state single-target throughput: it applies the same gate to the same fixed target qubit many times on a single state that is re-initialized before each target's warmup phase. This is a deliberate isolation measurement that exposes whether gate cost depends on target position in the memory layout of each representation. It is **not** circuit-representative throughput; do not compare `time_per_gate_us` (per-qubit mode, µs) directly to `time_per_gate_ms` (sweep mode, ms) without qualification.
+
+### CLI Reference
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--per-qubit` | off | Enables single-target throughput mode |
+| `--gate NAME` | all gates | Restricts run to one named gate; no effect without `--per-qubit` |
+| `--runs N` | `BENCH_PQ_DEFAULT_RUNS` | Override auto-default for per-qubit mode |
+| `--iterations N` | `BENCH_PQ_DEFAULT_ITERATIONS` | Override auto-default for per-qubit mode |
+
+**`--pgfplots` with `--per-qubit`:** Supported. Emits pgfplots `.dat` tables to stdout with qubit count as x-axis. Each row aggregates timing over all target positions: `time_per_gate_us` and `median_per_gate` are means over targets; `min_per_gate` is the global minimum over targets; `ci95_per_gate` is the mean of per-target CI95 half-widths, computed as `t_crit(runs-1) × std / sqrt(runs)` per target. If `--csv` is also set, it is ignored with a warning to stderr.
+
+### Known Limitations
+
+| ID | Description |
+|----|-------------|
+| L1 | **State initialization differs between backends.** qlib and BLAS use `bench_fill_random()`; Qulacs and Aer-DM use `std::mt19937_64`. QuEST's `initDebugState` produces a deterministic state unrelated to the others. At low qubit counts where the matrix fits in L1/L2 cache, different data values can affect SIMD fast-paths. Accept this for cross-framework comparison; document it when citing. |
+| L2 | **Measurement semantics vs. circuit workloads.** Per-qubit `time_per_gate_us` is not directly comparable to sweep `time_per_gate_ms`. The sweep benchmark is a better proxy for circuit-like workloads. |
+| L3 | **Bandwidth not reported.** The `theoretical_bw_gbs` field is removed because the formula `2 * memory_bytes / time_per_gate` is wrong by different factors for each backend. If bandwidth analysis is needed, measure it with STREAM on the same hardware and compare independently. |
+| L4 | **NUMA and thread affinity.** On multi-socket machines, target-qubit cost differences may reflect NUMA topology, not representation cost. Use `numactl --interleave=all` on Linux for publication results. Not applicable on Apple Silicon. |
+| L5 | **No IQR outlier filtering.** With 15 runs, IQR trimming is feasible but not implemented. A `(noisy)` flag at CV > 50% is the only outlier indicator. |
+| L6 | **Variable iteration counts across methods.** Per-qubit mode calibrates once per (gate, qubits, method). Different methods will have different `iterations` counts. Use `time_per_gate_us` (not total run time) for all cross-method comparisons. |
+| L7 | **Calibration-on-target-0 bias.** The probe runs on target 0 only. For packed storage representations, gates on higher-index targets touch more of the state buffer, so the calibrated iteration count may be too high for high targets. Runs for high-index targets will be shorter in wall time than runs for target 0. |
+| L8 | **No IQR outlier filtering in pgfplots mode.** CI95 is computed from std dev and run count stored in `perq_cell_t`; outlier trimming is not applied. Use `--per-qubit --csv` for full per-target statistical detail. |
+
+## Status
 
 ### Reproducibility
 
