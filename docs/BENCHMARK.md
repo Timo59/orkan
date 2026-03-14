@@ -130,7 +130,7 @@ In `bench_circuit`, `sweep_size` is repurposed to hold `n_ops` (gate count of th
 
 **`bench_run_timed()`** — public `static inline` function in `bench.h`. Standard timing harness used by all `_at` adapter implementations. Takes a `const bench_harness_t *h`, an output array `double *out` of at least `h->runs` elements, and `int qubits` (controls warmup batch size). Performs time-based warmup (until `BENCH_PQ_WARMUP_MS` has elapsed), then records `h->runs` independent timing samples in milliseconds.
 
-**`bench_fill_perq_stats()`** — public `static inline` function in `bench.h`. Signature: `void bench_fill_perq_stats(bench_result_perq_t *r, const bench_run_stats_t *s, int iterations)`. Populates all timing fields of `*r` from a completed `bench_run_stats_t` and the gate application count. Because `bench_run_stats_t` carries no run-count field, callers must set `r->runs` separately after calling this function. This is the canonical pattern that every `_at` adapter implementation must follow: call `bench_run_timed()` to collect samples, `bench_compute_stats()` to summarize them, `bench_fill_perq_stats()` to populate the result, then set `r->runs` explicitly.
+**`bench_fill_perq_stats()`** — public function in `bench_util.c`. Signature: `void bench_fill_perq_stats(bench_result_perq_t *r, const bench_run_stats_t *s, int iterations, int runs)`. Populates all timing fields of `*r` from a completed `bench_run_stats_t`, the gate application count, and the run count. This is the canonical pattern that every `_at` adapter implementation must follow: call `bench_run_timed()` to collect samples, `bench_compute_stats()` to summarize them, then `bench_fill_perq_stats()` to populate the result.
 
 ### CLI Reference (bench_gate)
 
@@ -767,8 +767,8 @@ All constants are defined in `bench.h`.
 | `BENCH_PQ_FALLBACK_ITERATIONS` | 10000 | Both | Fallback iteration count when probe elapsed time rounds to 0 ns |
 | `BENCH_PQ_MAX_CALIBRATED_ITERATIONS` | 1,000,000 | Both | Upper bound on calibrated iteration count |
 | `QUBIT_NONE` | `(qubit_t)-1` | bench_gate per-qubit | Sentinel for absent second qubit in 1Q gate results |
-| `MAX_PAIRS` | 128 | bench_gate | Maximum unordered pairs for `build_all_pairs()`; sufficient for ≤16 qubits |
-| `MAX_TARGETS` | 256 | bench_gate per-qubit | `2 × MAX_PAIRS`; upper bound on per-qubit result array size |
+| `MAX_PAIRS` | 256 | bench_gate | Maximum unordered/ordered pairs for `build_all_pairs()` / `build_all_ordered_pairs()`; covers 16×15 = 240 ordered pairs |
+| `MAX_TARGETS` | 512 | bench_gate per-qubit | `2 × MAX_PAIRS`; upper bound on per-qubit result array size |
 | `MAX_QUBITS_FOR_ORDERED_PAIRS` | 16 | bench_gate per-qubit | Maximum qubit count accepted by `build_all_ordered_pairs()` |
 | `BENCH_HUGEPAGE_THRESHOLD` | `1 << 30` (1 GB) | Both | Size above which `bench_alloc_huge()` requests huge-page-backed memory |
 
