@@ -333,8 +333,7 @@ bench_result_perq_t bench_aer_dm_at(qubit_t qubits, const char *gate_name,
         bench_run_timed(&h, run_times, (int)qubits);
 
         bench_run_stats_t stats = bench_compute_stats(run_times, clamped_runs);
-        bench_fill_perq_stats(&result, &stats, iterations);
-        result.runs         = clamped_runs;
+        bench_fill_perq_stats(&result, &stats, iterations, clamped_runs);
         result.memory_bytes = ((size_t)1 << qubits) * ((size_t)1 << qubits)
                               * sizeof(std::complex<double>);
     } catch (const std::exception &e) {
@@ -396,8 +395,7 @@ bench_result_perq_t bench_aer_dm_2q_at(qubit_t qubits, const char *gate_name,
         bench_run_timed(&h, run_times, (int)qubits);
 
         bench_run_stats_t stats = bench_compute_stats(run_times, clamped_runs);
-        bench_fill_perq_stats(&result, &stats, iterations);
-        result.runs         = clamped_runs;
+        bench_fill_perq_stats(&result, &stats, iterations, clamped_runs);
         result.memory_bytes = ((size_t)1 << qubits) * ((size_t)1 << qubits)
                               * sizeof(std::complex<double>);
     } catch (const std::exception &e) {

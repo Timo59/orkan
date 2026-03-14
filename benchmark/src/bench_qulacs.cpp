@@ -229,8 +229,7 @@ bench_result_perq_t bench_qulacs_at(qubit_t qubits, const char *gate_name,
     bench_run_timed(&h, run_times, (int)qubits);
 
     bench_run_stats_t stats = bench_compute_stats(run_times, runs);
-    bench_fill_perq_stats(&result, &stats, iterations);
-    result.runs         = runs;
+    bench_fill_perq_stats(&result, &stats, iterations, runs);
     result.memory_bytes = static_cast<size_t>(dim) * static_cast<size_t>(dim) * sizeof(CTYPE);
     return result;
 }
@@ -283,8 +282,7 @@ bench_result_perq_t bench_qulacs_2q_at(qubit_t qubits, const char *gate_name,
     bench_run_timed(&h, run_times, (int)qubits);
 
     bench_run_stats_t stats = bench_compute_stats(run_times, runs);
-    bench_fill_perq_stats(&result, &stats, iterations);
-    result.runs         = runs;
+    bench_fill_perq_stats(&result, &stats, iterations, runs);
     result.memory_bytes = static_cast<size_t>(dim) * static_cast<size_t>(dim) * sizeof(CTYPE);
     return result;
 }

@@ -23,9 +23,9 @@
 
 #ifdef WITH_QUEST
 
-/* quest.h must precede bench.h: bench.h's WITH_QUEST block declares
- * bench_quest_at / bench_quest_2q_at using Qureg, so the type must be
- * visible before bench.h is parsed. */
+/* quest.h must precede bench.h: this translation unit defines functions
+ * that take Qureg* parameters (bench_quest_at, bench_quest_2q_at), so the
+ * Qureg type must be visible before bench.h is parsed. */
 #include "quest/include/quest.h"
 #include "bench.h"
 #include <assert.h>
@@ -98,8 +98,8 @@ bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
         return result;
     }
 
-    double run_times[200];  /* bounded by --runs validation (max 200) */
-    int cnt = (runs < 200) ? runs : 200;
+    double run_times[BENCH_MAX_RUNS];
+    int cnt = (runs < BENCH_MAX_RUNS) ? runs : BENCH_MAX_RUNS;
 
     if (gate_fn_1q) {
         /* Single-qubit gate: `runs` independent timed rounds */
@@ -225,8 +225,7 @@ bench_result_perq_t bench_quest_at(qubit_t qubits, const char *gate_name,
     bench_run_timed(&h, run_times, (int)qubits);
 
     bench_run_stats_t stats = bench_compute_stats(run_times, runs);
-    bench_fill_perq_stats(&result, &stats, iterations);
-    result.runs = runs;
+    bench_fill_perq_stats(&result, &stats, iterations, runs);
 
     dim_t dim = (dim_t)1 << qubits;
     result.memory_bytes = (size_t)dim * (size_t)dim * sizeof(double) * 2;
@@ -274,8 +273,7 @@ bench_result_perq_t bench_quest_2q_at(qubit_t qubits, const char *gate_name,
     bench_run_timed(&h, run_times, (int)qubits);
 
     bench_run_stats_t stats = bench_compute_stats(run_times, runs);
-    bench_fill_perq_stats(&result, &stats, iterations);
-    result.runs = runs;
+    bench_fill_perq_stats(&result, &stats, iterations, runs);
 
     dim_t dim = (dim_t)1 << qubits;
     result.memory_bytes = (size_t)dim * (size_t)dim * sizeof(double) * 2;
