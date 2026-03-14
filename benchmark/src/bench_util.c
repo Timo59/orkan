@@ -165,7 +165,7 @@ int bench_run_timed(const bench_harness_t *h, double *out, int qubits) {
 
 void bench_fill_perq_stats(bench_result_perq_t *r,
                             const bench_run_stats_t *s,
-                            int iterations) {
+                            int iterations, int runs) {
     r->time_ms_mean   = s->mean;
     r->time_ms_std    = s->std_dev;
     r->time_ms_min    = s->min;
@@ -176,7 +176,7 @@ void bench_fill_perq_stats(bench_result_perq_t *r,
     r->time_per_gate_us_median = (iterations > 0) ? (s->median / iterations) * 1000.0 : 0.0;
     r->time_per_gate_us_min    = (iterations > 0) ? (s->min    / iterations) * 1000.0 : 0.0;
     r->iterations = iterations;
-    r->runs       = 0;  /* bench_run_stats_t carries no n field; caller must set r->runs */
+    r->runs       = runs;
 }
 
 /* =====================================================================================================================

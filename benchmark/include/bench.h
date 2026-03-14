@@ -233,16 +233,14 @@ int bench_run_timed(const bench_harness_t *h, double *out, int qubits);
 /**
  * @brief Populate per-qubit timing stats in `r` from a bench_run_stats_t.
  *
- * Note: bench_run_stats_t carries no run-count field; callers must set r->runs
- * separately after this call.
- *
- * @param r          Destination result struct (timing fields populated on return).
+ * @param r          Destination result struct (all timing fields and runs populated on return).
  * @param s          Statistics computed by bench_compute_stats().
  * @param iterations Gate applications per timed run (used to derive per-gate times).
+ * @param runs       Number of timed runs; written to r->runs.
  */
 void bench_fill_perq_stats(bench_result_perq_t *r,
                             const bench_run_stats_t *s,
-                            int iterations);
+                            int iterations, int runs);
 
 /*
  * =====================================================================================================================
@@ -472,7 +470,8 @@ bench_result_perq_t bench_blas_dense_2q_at(qubit_t qubits, const char *gate_name
 /* bench_quest_at / bench_quest_2q_at are intentionally NOT declared here.
  * They take a Qureg* parameter and are only callable from bench_quest.c
  * (which includes quest.h first).  External callers use the higher-level
- * bench_quest_perq_1q / bench_quest_perq_2q wrappers declared below. */
+ * bench_quest_perq_1q / bench_quest_perq_2q wrappers declared in the
+ * WITH_QUEST block above. */
 
 #ifdef WITH_QULACS
 bench_result_perq_t bench_qulacs_at(qubit_t qubits, const char *gate_name,

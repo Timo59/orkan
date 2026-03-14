@@ -460,8 +460,7 @@ bench_result_perq_t bench_blas_dense_at(qubit_t qubits, const char *gate_name,
     bench_run_timed(&h, run_times, qubits);
 
     bench_run_stats_t stats = bench_compute_stats(run_times, runs);
-    bench_fill_perq_stats(&result, &stats, iterations);
-    result.runs         = runs;
+    bench_fill_perq_stats(&result, &stats, iterations, runs);
     result.memory_bytes = dim * dim * sizeof(cplx_t);
 
     free(U);
@@ -500,8 +499,7 @@ bench_result_perq_t bench_blas_dense_2q_at(qubit_t qubits, const char *gate_name
     bench_run_timed(&h, run_times, qubits);
 
     bench_run_stats_t stats = bench_compute_stats(run_times, runs);
-    bench_fill_perq_stats(&result, &stats, iterations);
-    result.runs         = runs;
+    bench_fill_perq_stats(&result, &stats, iterations, runs);
     result.memory_bytes = dim * dim * sizeof(cplx_t);
 
     free(U);

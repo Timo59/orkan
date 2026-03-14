@@ -453,8 +453,7 @@ typedef struct {
  * Accumulator for --per-qubit --pgfplots combined output.
  *
  * Dimensions: NUM_GATES × MAX_QUBIT_CONFIGS × NUM_METHODS × MAX_TARGETS.
- * Heap size: cells 5×32×7×512×64 = 36.7 MB; q1s_2q+q2s_2q 2×5×32×7×512×1
- * = 1.1 MB (qubit_t is unsigned char); n_targets negligible. Total ≈ 37.9 MB.
+ * Heap size: cells 5×32×7×512×64 = 36.7 MB; n_targets negligible. Total ≈ 36.7 MB.
  * Allocated via calloc() — all cells start at zero, which the output function
  * treats as "missing data" (emits nan).
  *
@@ -464,18 +463,12 @@ typedef struct {
  * M_NAIVE (index 3): always zero-initialized, never written in per-qubit mode
  * (naive_loop has no _at variant). print_pgfplots_perq_output() skips it via
  * method_indices[], matching the pattern in print_pgfplots_output().
- *
- * q1s_2q / q2s_2q: pair coordinates for 2Q gates. Needed because perq_cell_t
- * strips target/target2; required to annotate pair rows in the output tables.
- * For 1Q gates these arrays remain zero (calloc).
  */
 typedef struct {
     qubit_t     qubits[MAX_QUBIT_CONFIGS];   /**< Qubit count per config slot   */
     int         num_configs;                  /**< Populated qubit-config slots  */
     int         n_targets[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
     perq_cell_t cells[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS][MAX_TARGETS];
-    qubit_t     q1s_2q[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS][MAX_TARGETS];
-    qubit_t     q2s_2q[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS][MAX_TARGETS];
 } pgfplots_perq_data_t;
 
 /** Copy timing fields from a bench_result_perq_t into a perq_cell_t. */
@@ -1496,8 +1489,6 @@ static int perq_main(const bench_options_t *opts) {
                         for (int t = 0; t < n_pairs && t < MAX_TARGETS; t++) {
                             if (perq[m][t].time_ms_mean > 0.0) {
                                 perq_cell_from_result(&pgfq->cells[pg][qi][m][t], &perq[m][t]);
-                                pgfq->q1s_2q[pg][qi][m][t] = q1s[t];
-                                pgfq->q2s_2q[pg][qi][m][t] = q2s[t];
                             }
                         }
                     }
