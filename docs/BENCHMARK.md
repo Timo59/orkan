@@ -721,7 +721,7 @@ State allocations at or above `BENCH_HUGEPAGE_THRESHOLD = 1 GB` use `bench_alloc
 | L5 | **No IQR outlier filtering.** With 15 runs, IQR trimming is feasible but not implemented. A `(noisy)` flag at CV > 50% is the only outlier indicator. |
 | L6 | **Variable iteration counts across methods.** Per-qubit mode calibrates once per (gate, qubits, method). Different methods will have different `iterations` counts. Use `time_per_gate_us` (not total run time) for all cross-method comparisons. |
 | L7 | **Calibration-on-target-0 bias.** The probe runs on target 0 only. For packed storage representations, gates on higher-index targets touch more of the state buffer, so the calibrated iteration count may be too high for high targets. Runs for high-index targets will be shorter in wall time than runs for target 0. |
-| L8 | **Per-qubit pgfplots CI95 is not available.** The ci95_per_gate column is emitted as `nan` in `--per-qubit --pgfplots` mode. Storing per-cell std would require an additional ~10 MB in the accumulator. Use `--per-qubit --csv` for full statistical detail including per-target CI95. |
+| L8 | **No IQR outlier filtering in pgfplots mode.** CI95 is computed from std dev and run count stored in `perq_cell_t`; outlier trimming is not applied. Use `--per-qubit --csv` for full per-target statistical detail. |
 
 ## Status
 
