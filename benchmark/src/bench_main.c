@@ -966,15 +966,7 @@ static int calibrate_iterations(const bench_result_perq_t *probe_result,
  * while sharing identical probe/calibrate/measure logic.
  */
 
-/** @brief Callback type for 1Q per-qubit benchmark functions. */
-typedef bench_result_perq_t (*perq_bench_1q_fn)(
-    qubit_t qubits, const char *gate_name,
-    qubit_t target, int iterations, int runs, void *state);
-
-/** @brief Callback type for 2Q per-qubit benchmark functions. */
-typedef bench_result_perq_t (*perq_bench_2q_fn)(
-    qubit_t qubits, const char *gate_name,
-    qubit_t q1, qubit_t q2, int iterations, int runs, void *state);
+/* perq_bench_1q_fn and perq_bench_2q_fn typedefs are defined in bench.h */
 
 /**
  * @brief Probe, calibrate, and measure all targets for one 1Q backend.
@@ -988,10 +980,10 @@ typedef bench_result_perq_t (*perq_bench_2q_fn)(
  * @param runs       Number of timing runs for the final measurement.
  * @param out        Output array: out[tgt] is populated for tgt in [0, qubits).
  */
-static void perq_run_1q(qubit_t qubits, const char *gate_name,
-                         perq_bench_1q_fn fn, void *state,
-                         int iters_explicit, int explicit_iters, int runs,
-                         bench_result_perq_t *out)
+void perq_run_1q(qubit_t qubits, const char *gate_name,
+                 perq_bench_1q_fn fn, void *state,
+                 int iters_explicit, int explicit_iters, int runs,
+                 bench_result_perq_t *out)
 {
     bench_result_perq_t quick = fn(qubits, gate_name, 0, 1, 1, state);
     int probe_iters = (quick.time_per_gate_us / 1000.0 >= MIN_MEASUREMENT_MS)
@@ -1019,11 +1011,11 @@ static void perq_run_1q(qubit_t qubits, const char *gate_name,
  * @param runs       Number of timing runs for the final measurement.
  * @param out        Output array: out[p] is populated for p in [0, n_pairs).
  */
-static void perq_run_2q(qubit_t qubits, const char *gate_name,
-                         perq_bench_2q_fn fn, void *state,
-                         const qubit_t *q1s, const qubit_t *q2s, int n_pairs,
-                         int iters_explicit, int explicit_iters, int runs,
-                         bench_result_perq_t *out)
+void perq_run_2q(qubit_t qubits, const char *gate_name,
+                 perq_bench_2q_fn fn, void *state,
+                 const qubit_t *q1s, const qubit_t *q2s, int n_pairs,
+                 int iters_explicit, int explicit_iters, int runs,
+                 bench_result_perq_t *out)
 {
     bench_result_perq_t quick = fn(qubits, gate_name,
                                    q1s[0], q2s[0], 1, 1, state);
@@ -1112,20 +1104,7 @@ static bench_result_perq_t perq_wrap_blas_2q(
     return bench_blas_dense_2q_at(qubits, name, c->mat, q1, q2, iters, runs, c->rho);
 }
 
-#if defined(WITH_QUEST) && defined(QUEST_H)
-/* ─── QuEST 1Q — ctx IS a Qureg* ─────────────────────────────────────────── */
-static bench_result_perq_t perq_wrap_quest_1q(
-    qubit_t qubits, const char *name, qubit_t tgt, int iters, int runs, void *ctx)
-{
-    return bench_quest_at(qubits, name, tgt, iters, runs, (Qureg *)ctx);
-}
-/* ─── QuEST 2Q ───────────────────────────────────────────────────────────── */
-static bench_result_perq_t perq_wrap_quest_2q(
-    qubit_t qubits, const char *name, qubit_t q1, qubit_t q2, int iters, int runs, void *ctx)
-{
-    return bench_quest_2q_at(qubits, name, q1, q2, iters, runs, (Qureg *)ctx);
-}
-#endif /* WITH_QUEST && QUEST_H */
+/* QuEST trampolines live in bench_quest.c — no Qureg type needed here. */
 
 #ifdef WITH_QULACS
 /* ─── Qulacs 1Q — ctx IS the rho pointer ─────────────────────────────────── */
@@ -1178,7 +1157,7 @@ static int perq_main(const bench_options_t *opts) {
     const int m_packed = M_QLIB;
     const int m_tiled  = M_QLIB_TILED;
     const int m_blas   = M_BLAS;
-#if defined(WITH_QUEST) && defined(QUEST_H)
+#ifdef WITH_QUEST
     const int m_quest  = M_QUEST;
 #endif
 #ifdef WITH_QULACS
@@ -1322,17 +1301,12 @@ static int perq_main(const bench_options_t *opts) {
                 }
             }
 
-#if defined(WITH_QUEST) && defined(QUEST_H)
+#ifdef WITH_QUEST
             /* --- QuEST -------------------------------------------------- */
-            {
-                Qureg qureg = createDensityQureg((int)qubits);
-                initDebugState(qureg);
-                perq_run_1q(qubits, gd->name, perq_wrap_quest_1q, &qureg,
-                            opts->iterations_explicit, opts->iterations,
-                            opts->runs, perq[m_quest]);
-                destroyQureg(qureg);
-            }
-#endif /* WITH_QUEST && QUEST_H */
+            bench_quest_perq_1q(qubits, gd->name,
+                                opts->iterations_explicit, opts->iterations,
+                                opts->runs, perq[m_quest]);
+#endif /* WITH_QUEST */
 
 #ifdef WITH_QULACS
             /* --- Qulacs ------------------------------------------------- */
@@ -1473,18 +1447,13 @@ static int perq_main(const bench_options_t *opts) {
                 }
             }
 
-#if defined(WITH_QUEST) && defined(QUEST_H)
+#ifdef WITH_QUEST
             /* --- QuEST -------------------------------------------------- */
-            {
-                Qureg qureg = createDensityQureg((int)qubits);
-                initDebugState(qureg);
-                perq_run_2q(qubits, gd->name, perq_wrap_quest_2q, &qureg,
-                            q1s, q2s, n_pairs,
-                            opts->iterations_explicit, opts->iterations,
-                            opts->runs, perq[m_quest]);
-                destroyQureg(qureg);
-            }
-#endif /* WITH_QUEST && QUEST_H */
+            bench_quest_perq_2q(qubits, gd->name,
+                                q1s, q2s, n_pairs,
+                                opts->iterations_explicit, opts->iterations,
+                                opts->runs, perq[m_quest]);
+#endif /* WITH_QUEST */
 
 #ifdef WITH_QULACS
             /* --- Qulacs ------------------------------------------------- */
