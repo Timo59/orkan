@@ -249,6 +249,7 @@ set(BENCH_CIRCUIT_SRC
         "${BENCH_SRC_DIR}/bench_circuit_main.c"
         "${BENCH_SRC_DIR}/bench_circuit.c"
         "${BENCH_SRC_DIR}/bench_circuit_qlib.c"
+        "${BENCH_SRC_DIR}/bench_util.c"
 )
 
 if(QuEST_FOUND)

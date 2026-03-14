@@ -215,50 +215,7 @@ typedef struct {
  * @param n      Number of runs (K); must be >= 1
  * @return       Populated bench_run_stats_t
  */
-static inline bench_run_stats_t bench_compute_stats(const double *times, int n) {
-    /* Mean and minimum */
-    double sum = 0.0;
-    double mn  = times[0];
-    for (int i = 0; i < n; ++i) {
-        sum += times[i];
-        if (times[i] < mn) mn = times[i];
-    }
-    double mean = sum / n;
-
-    /* Sample standard deviation (Bessel's correction: divide by n-1) */
-    double var = 0.0;
-    for (int i = 0; i < n; ++i) {
-        double d = times[i] - mean;
-        var += d * d;
-    }
-    double std_dev = (n > 1) ? sqrt(var / (n - 1)) : 0.0;
-    double cv = (mean > 0.0) ? (std_dev / mean) * 100.0 : 0.0;
-
-    /*
-     * Median: insertion-sort a stack copy.
-     * n is bounded by the --runs validation (max 200), so stack allocation is safe.
-     */
-    double sorted[BENCH_MAX_RUNS];
-    int cnt = (n < BENCH_MAX_RUNS) ? n : BENCH_MAX_RUNS;
-    for (int i = 0; i < cnt; ++i) sorted[i] = times[i];
-    for (int i = 1; i < cnt; ++i) {
-        double key = sorted[i];
-        int j = i - 1;
-        while (j >= 0 && sorted[j] > key) { sorted[j + 1] = sorted[j]; --j; }
-        sorted[j + 1] = key;
-    }
-    double median = (cnt % 2 == 0)
-        ? (sorted[cnt / 2 - 1] + sorted[cnt / 2]) / 2.0
-        : sorted[cnt / 2];
-
-    bench_run_stats_t s;
-    s.mean    = mean;
-    s.std_dev = std_dev;
-    s.min     = mn;
-    s.median  = median;
-    s.cv      = cv;
-    return s;
-}
+bench_run_stats_t bench_compute_stats(const double *times, int n);
 
 /**
  * @brief Execute a warmed-up timed benchmark using a bench_harness_t.

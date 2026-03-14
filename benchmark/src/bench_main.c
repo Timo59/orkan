@@ -453,9 +453,10 @@ typedef struct {
  * Accumulator for --per-qubit --pgfplots combined output.
  *
  * Dimensions: NUM_GATES × MAX_QUBIT_CONFIGS × NUM_METHODS × MAX_TARGETS.
- * Heap size: 5×32×7×512×64 ≈ 35.7 MB (cells only; pair arrays add ~7 MB
- * more if qubit_t is 4 bytes). Allocated via calloc() — all cells start at
- * zero, which the output function treats as "missing data" (emits nan).
+ * Heap size: cells 5×32×7×512×64 = 36.7 MB; q1s_2q+q2s_2q 2×5×32×7×512×1
+ * = 1.1 MB (qubit_t is unsigned char); n_targets negligible. Total ≈ 37.9 MB.
+ * Allocated via calloc() — all cells start at zero, which the output function
+ * treats as "missing data" (emits nan).
  *
  * Gate indexing: gates 0..NUM_1Q_GATES-1 are 1Q (X,H,Z); gates
  * NUM_1Q_GATES..NUM_GATES-1 are 2Q (CX,SWAP). Matches perq_main() loop order.
@@ -1177,7 +1178,7 @@ static int perq_main(const bench_options_t *opts) {
     const int m_packed = M_QLIB;
     const int m_tiled  = M_QLIB_TILED;
     const int m_blas   = M_BLAS;
-#ifdef WITH_QUEST
+#if defined(WITH_QUEST) && defined(QUEST_H)
     const int m_quest  = M_QUEST;
 #endif
 #ifdef WITH_QULACS
