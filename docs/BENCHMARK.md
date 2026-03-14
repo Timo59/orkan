@@ -29,7 +29,8 @@ benchmark/
     ├── bench_circuit_qlib.c    # qlib packed/tiled circuit runners + context alloc/free
     ├── bench_circuit_quest.c   # QuEST circuit runner + context alloc/free (WITH_QUEST only)
     ├── bench_circuit_qulacs.cpp# Qulacs circuit runner + context alloc/free (WITH_QULACS only)
-    └── bench_circuit_aer_dm.cpp# Aer-DM circuit runner + context alloc/free (WITH_AER_DM only)
+    ├── bench_circuit_aer_dm.cpp# Aer-DM circuit runner + context alloc/free (WITH_AER_DM only)
+    └── bench_util.c            # Shared utilities: timing barrier, RNG, statistics, timed-run harness, huge-page allocator
 ```
 
 `README.md` and `CIRCUIT_PLAN.md` are developer convenience files. This spec is the authoritative reference.
@@ -708,7 +709,7 @@ State allocations at or above `BENCH_HUGEPAGE_THRESHOLD = 1 GB` use `bench_alloc
 | `--runs N` | `BENCH_PQ_DEFAULT_RUNS` | Override auto-default for per-qubit mode |
 | `--iterations N` | `BENCH_PQ_DEFAULT_ITERATIONS` | Override auto-default for per-qubit mode |
 
-**`--pgfplots` with `--per-qubit`:** Supported. Emits pgfplots `.dat` tables to stdout with qubit count as x-axis. Each row aggregates timing over all target positions: `time_per_gate_us` and `median_per_gate` are means over targets; `min_per_gate` is the global minimum over targets; `ci95_per_gate` is emitted as `nan` (per-cell std is not stored). If `--csv` is also set, it is ignored with a warning to stderr.
+**`--pgfplots` with `--per-qubit`:** Supported. Emits pgfplots `.dat` tables to stdout with qubit count as x-axis. Each row aggregates timing over all target positions: `time_per_gate_us` and `median_per_gate` are means over targets; `min_per_gate` is the global minimum over targets; `ci95_per_gate` is the mean of per-target CI95 half-widths, computed as `t_crit(runs-1) × std / sqrt(runs)` per target. If `--csv` is also set, it is ignored with a warning to stderr.
 
 ### Known Limitations
 
