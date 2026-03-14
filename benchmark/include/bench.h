@@ -390,6 +390,27 @@ void bench_quest_cleanup(void);
  */
 bench_result_t bench_quest(qubit_t qubits, const char *gate_name,
                            int iterations, int warmup, int runs);
+
+/**
+ * @brief Per-qubit QuEST 1Q benchmark: probe-calibrate-measure all target qubits.
+ *
+ * Creates and destroys a Qureg internally. Writes qubits results to out[0..qubits-1].
+ * Requires bench_quest_init() to have been called.
+ */
+void bench_quest_perq_1q(qubit_t qubits, const char *gate_name,
+                          int iters_explicit, int explicit_iters, int runs,
+                          bench_result_perq_t *out);
+
+/**
+ * @brief Per-qubit QuEST 2Q benchmark: probe-calibrate-measure all qubit pairs.
+ *
+ * Creates and destroys a Qureg internally. Writes n_pairs results to out[0..n_pairs-1].
+ * Requires bench_quest_init() to have been called.
+ */
+void bench_quest_perq_2q(qubit_t qubits, const char *gate_name,
+                          const qubit_t *q1s, const qubit_t *q2s, int n_pairs,
+                          int iters_explicit, int explicit_iters, int runs,
+                          bench_result_perq_t *out);
 #endif
 
 #ifdef WITH_QULACS
@@ -448,16 +469,10 @@ bench_result_perq_t bench_blas_dense_2q_at(qubit_t qubits, const char *gate_name
     const cplx_t gate_mat[16],
     qubit_t q1, qubit_t q2, int iterations, int runs, cplx_t *rho);
 
-#if defined(WITH_QUEST) && defined(QUEST_H) && !defined(__cplusplus)
-/* Exposed only when quest/include/quest.h has been included first (defines
- * QUEST_H and Qureg) and we are not in a C++ TU (QuEST v4 headers produce
- * overload-resolution errors in C++ when included transitively). */
-bench_result_perq_t bench_quest_at(qubit_t qubits, const char *gate_name,
-    qubit_t target, int iterations, int runs, Qureg *qureg);
-
-bench_result_perq_t bench_quest_2q_at(qubit_t qubits, const char *gate_name,
-    qubit_t q1, qubit_t q2, int iterations, int runs, Qureg *qureg);
-#endif /* WITH_QUEST && QUEST_H && !__cplusplus */
+/* bench_quest_at / bench_quest_2q_at are intentionally NOT declared here.
+ * They take a Qureg* parameter and are only callable from bench_quest.c
+ * (which includes quest.h first).  External callers use the higher-level
+ * bench_quest_perq_1q / bench_quest_perq_2q wrappers declared below. */
 
 #ifdef WITH_QULACS
 bench_result_perq_t bench_qulacs_at(qubit_t qubits, const char *gate_name,
@@ -478,6 +493,47 @@ void *bench_aer_dm_alloc(qubit_t qubits);
 void  bench_aer_dm_reinit(void *dm, qubit_t qubits);
 void  bench_aer_dm_free(void *dm);
 #endif
+
+/*
+ * =====================================================================================================================
+ * Per-qubit probe–calibrate–measure helpers (implemented in bench_main.c)
+ * =====================================================================================================================
+ */
+
+/** @brief Callback type for 1Q per-qubit benchmark functions. */
+typedef bench_result_perq_t (*perq_bench_1q_fn)(
+    qubit_t qubits, const char *gate_name,
+    qubit_t target, int iterations, int runs, void *state);
+
+/** @brief Callback type for 2Q per-qubit benchmark functions. */
+typedef bench_result_perq_t (*perq_bench_2q_fn)(
+    qubit_t qubits, const char *gate_name,
+    qubit_t q1, qubit_t q2, int iterations, int runs, void *state);
+
+/**
+ * @brief Probe, calibrate, and measure all targets for one 1Q backend.
+ *
+ * Performs a quick single-shot probe, a multi-run calibration probe, then
+ * measures all targets in [0, qubits) using the calibrated iteration count.
+ * Results are written to out[0..qubits-1].
+ */
+void perq_run_1q(qubit_t qubits, const char *gate_name,
+                 perq_bench_1q_fn fn, void *state,
+                 int iters_explicit, int explicit_iters, int runs,
+                 bench_result_perq_t *out);
+
+/**
+ * @brief Probe, calibrate, and measure all pairs for one 2Q backend.
+ *
+ * Performs a quick single-shot probe on pairs[0], a multi-run calibration probe,
+ * then measures all n_pairs using the calibrated iteration count.
+ * Results are written to out[0..n_pairs-1].
+ */
+void perq_run_2q(qubit_t qubits, const char *gate_name,
+                 perq_bench_2q_fn fn, void *state,
+                 const qubit_t *q1s, const qubit_t *q2s, int n_pairs,
+                 int iters_explicit, int explicit_iters, int runs,
+                 bench_result_perq_t *out);
 
 /*
  * =====================================================================================================================

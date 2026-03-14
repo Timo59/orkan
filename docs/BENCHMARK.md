@@ -21,7 +21,7 @@ benchmark/
     ├── bench_mixed.c           # qlib adapters (packed/tiled, 1Q and 2Q) + build_all_pairs() + build_all_ordered_pairs()
     ├── bench_baselines.c       # BLAS/naive baselines: gate matrices, bench_blas_dense/naive_loop/blas_dense_2q
     ├── bench_main.c            # bench_gate orchestration: gate tables, CLI parsing, output formatting, main()
-    ├── bench_quest.c           # bench_gate QuEST adapter (WITH_QUEST only)
+    ├── bench_quest.c           # bench_gate QuEST adapter: sweep + per-qubit (WITH_QUEST only); owns all Qureg lifecycle code so bench_main.c never needs quest.h
     ├── bench_qulacs.cpp        # bench_gate Qulacs adapter (WITH_QULACS only)
     ├── bench_aer_dm.cpp        # bench_gate Qiskit-Aer DM adapter (WITH_AER_DM only)
     ├── bench_circuit.c         # Circuit lifecycle, append helpers, QAOA/VQE-HEA/QV constructors
@@ -316,13 +316,22 @@ bench_result_perq_t bench_blas_dense_2q_at(qubit_t qubits, const char *gate_name
     qubit_t q1, qubit_t q2, int iterations, int runs, cplx_t *rho);
 ```
 
-**QuEST (`bench_quest.c` — exposed only when `WITH_QUEST` is defined and `quest/include/quest.h` has been included before `bench.h` in the same C translation unit; C++ inclusion is not supported due to QuEST v4 header incompatibilities that cause overload-resolution errors when included transitively):**
-```c
-bench_result_perq_t bench_quest_at(qubit_t qubits, const char *gate_name,
-    qubit_t target, int iterations, int runs, Qureg *qureg);
+**QuEST (`bench_quest.c` — `WITH_QUEST` only):**
 
-bench_result_perq_t bench_quest_2q_at(qubit_t qubits, const char *gate_name,
-    qubit_t q1, qubit_t q2, int iterations, int runs, Qureg *qureg);
+The per-qubit public API exposed in `bench.h` uses opaque state management: `bench_quest_perq_1q` and `bench_quest_perq_2q` create and destroy a `Qureg` internally, so callers in `bench_main.c` never need `Qureg` or `quest.h` in scope. This avoids QuEST v4 header C++ incompatibilities when `quest.h` is included transitively.
+
+The lower-level `bench_quest_at` / `bench_quest_2q_at` functions (which take an explicit `Qureg*`) remain internal to `bench_quest.c` and are not declared in `bench.h`.
+
+```c
+/* Probe-calibrate-measure loop over all targets — Qureg managed internally */
+void bench_quest_perq_1q(qubit_t qubits, const char *gate_name,
+                          int iters_explicit, int explicit_iters, int runs,
+                          bench_result_perq_t *out);
+
+void bench_quest_perq_2q(qubit_t qubits, const char *gate_name,
+                          const qubit_t *q1s, const qubit_t *q2s, int n_pairs,
+                          int iters_explicit, int explicit_iters, int runs,
+                          bench_result_perq_t *out);
 ```
 
 **Qulacs (`bench_qulacs.cpp` — `WITH_QULACS` only):**

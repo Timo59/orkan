@@ -283,4 +283,62 @@ bench_result_perq_t bench_quest_2q_at(qubit_t qubits, const char *gate_name,
     return result;
 }
 
+/* ---------------------------------------------------------------------------
+ * Trampolines for perq_run_1q / perq_run_2q
+ *
+ * perq_run_1q/2q take a perq_bench_1q_fn/2q_fn callback with signature:
+ *   bench_result_perq_t cb(qubits, name, target/q1, [q2,] iters, runs, void *ctx)
+ * where ctx is an opaque pointer.  For QuEST the ctx IS a Qureg*.
+ * ---------------------------------------------------------------------------*/
+
+static bench_result_perq_t perq_wrap_quest_1q(
+    qubit_t qubits, const char *name, qubit_t tgt, int iters, int runs, void *ctx)
+{
+    return bench_quest_at(qubits, name, tgt, iters, runs, (Qureg *)ctx);
+}
+
+static bench_result_perq_t perq_wrap_quest_2q(
+    qubit_t qubits, const char *name, qubit_t q1, qubit_t q2, int iters, int runs, void *ctx)
+{
+    return bench_quest_2q_at(qubits, name, q1, q2, iters, runs, (Qureg *)ctx);
+}
+
+/**
+ * @brief Per-qubit QuEST 1Q benchmark: probe-calibrate-measure all target qubits.
+ *
+ * Creates and destroys a Qureg internally so bench_main.c never needs Qureg in scope.
+ * Writes qubits results to out[0..qubits-1].
+ * Requires bench_quest_init() to have been called.
+ */
+void bench_quest_perq_1q(qubit_t qubits, const char *gate_name,
+                          int iters_explicit, int explicit_iters, int runs,
+                          bench_result_perq_t *out)
+{
+    Qureg qureg = createDensityQureg((int)qubits);
+    initDebugState(qureg);
+    perq_run_1q(qubits, gate_name, perq_wrap_quest_1q, &qureg,
+                iters_explicit, explicit_iters, runs, out);
+    destroyQureg(qureg);
+}
+
+/**
+ * @brief Per-qubit QuEST 2Q benchmark: probe-calibrate-measure all qubit pairs.
+ *
+ * Creates and destroys a Qureg internally so bench_main.c never needs Qureg in scope.
+ * Writes n_pairs results to out[0..n_pairs-1].
+ * Requires bench_quest_init() to have been called.
+ */
+void bench_quest_perq_2q(qubit_t qubits, const char *gate_name,
+                          const qubit_t *q1s, const qubit_t *q2s, int n_pairs,
+                          int iters_explicit, int explicit_iters, int runs,
+                          bench_result_perq_t *out)
+{
+    Qureg qureg = createDensityQureg((int)qubits);
+    initDebugState(qureg);
+    perq_run_2q(qubits, gate_name, perq_wrap_quest_2q, &qureg,
+                q1s, q2s, n_pairs,
+                iters_explicit, explicit_iters, runs, out);
+    destroyQureg(qureg);
+}
+
 #endif /* WITH_QUEST */
