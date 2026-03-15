@@ -64,7 +64,7 @@ static void init_maximally_mixed(Qureg rho) {
  * @brief Apply a single circuit operation to a QuEST density matrix.
  *
  * Gate name mapping (circuit_gate_t -> QuEST v4 function):
- *   GATE_H  -> applyHadamard(qureg, target)
+ *   CIRCUIT_GATE_H  -> applyHadamard(qureg, target)
  *   GATE_X  -> applyPauliX(qureg, target)
  *   GATE_Z  -> applyPauliZ(qureg, target)
  *   GATE_RX -> applyRotateX(qureg, target, angle)
@@ -74,7 +74,7 @@ static void init_maximally_mixed(Qureg rho) {
  */
 static void apply_circuit_op_quest(Qureg rho, const circuit_op_t *op) {
     switch (op->gate_type) {
-        case GATE_H:   applyHadamard(rho, (int)op->q0);                         break;
+        case CIRCUIT_GATE_H:   applyHadamard(rho, (int)op->q0);                         break;
         case GATE_X:   applyPauliX(rho, (int)op->q0);                           break;
         case GATE_Z:   applyPauliZ(rho, (int)op->q0);                           break;
         case GATE_RX:  applyRotateX(rho, (int)op->q0, op->angle);               break;
@@ -101,6 +101,30 @@ static void run_circuit_quest(Qureg rho, const circuit_t *c) {
     for (int i = 0; i < c->n_ops; ++i) {
         apply_circuit_op_quest(rho, &c->ops[i]);
     }
+}
+
+/*
+ * =====================================================================================================================
+ * QuEST environment lifecycle
+ * =====================================================================================================================
+ */
+
+/**
+ * @brief Initialise the QuEST environment.  Must be called once before any Qureg is created.
+ *
+ * Defined here (rather than in bench_quest.c) so that bench_circuit does not need to link
+ * the full gate-level benchmark infrastructure from bench_quest.c.
+ */
+void bench_quest_init(void) {
+    initQuESTEnv();
+}
+
+/**
+ * @brief Finalise the QuEST environment.  Must be called once at program exit after all
+ * Quregs have been destroyed.
+ */
+void bench_quest_cleanup(void) {
+    finalizeQuESTEnv();
 }
 
 /*

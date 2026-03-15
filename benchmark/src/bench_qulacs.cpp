@@ -57,7 +57,7 @@ bench_result_t bench_qulacs(qubit_t qubits, const char *gate_name,
     }
 
     /*
-     * Fill with random values to match qlib and BLAS baselines.
+     * Fill with random values to match qlib and BLAS baseline.
      * A computational basis state (e.g. |0><0|) leaves Z and CX effectively
      * as no-ops throughout the benchmark, making those timings meaningless.
      * Random initialisation also faults all pages before timing begins.

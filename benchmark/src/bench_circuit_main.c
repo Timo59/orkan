@@ -181,62 +181,23 @@ static bench_circuit_options_t parse_options(int argc, char *argv[]) {
 
 /*
  * =====================================================================================================================
- * Runner wrappers for calibrate_iterations (runner_fn signature)
- * =====================================================================================================================
- */
-
-static void qlib_packed_runner(const circuit_t *c, void *ctx, int iterations) {
-    (void)ctx;  /* bench_circuit_qlib_packed allocates its own state internally */
-    bench_circuit_qlib_packed(c, iterations, 0, 1);
-}
-
-static void qlib_tiled_runner(const circuit_t *c, void *ctx, int iterations) {
-    (void)ctx;  /* bench_circuit_qlib_tiled allocates its own state internally */
-    bench_circuit_qlib_tiled(c, iterations, 0, 1);
-}
-
-/*
- * =====================================================================================================================
- * Iteration calibration
+ * Iteration calibration helper (shared across all backends)
  * =====================================================================================================================
  */
 
 /**
- * @brief Calibrate the number of iterations so each timed run lasts at least MIN_MEASUREMENT_MS.
+ * @brief Compute calibrated iterations from a minimum probe time.
  *
- * Runs BENCH_PQ_PROBE_ITERS iterations for BENCH_PQ_PROBE_RUNS probe rounds, takes the minimum
- * probe time, then scales to target MIN_MEASUREMENT_MS. Clamps result to
- * [1, BENCH_PQ_MAX_CALIBRATED_ITERATIONS].
+ * Given the minimum observed time (in ms) for BENCH_PQ_PROBE_ITERS iterations, returns
+ * the iteration count needed so each timed run lasts at least MIN_MEASUREMENT_MS.
+ * Clamps result to [1, BENCH_PQ_MAX_CALIBRATED_ITERATIONS].
  */
-static int calibrate_iterations(const circuit_t *c, runner_fn fn, void *ctx) {
-    double min_probe_ms = 1e30;
-
-    for (int r = 0; r < BENCH_PQ_PROBE_RUNS; ++r) {
-        bench_timing_barrier();
-        uint64_t t0 = bench_time_ns();
-        bench_timing_barrier();
-
-        fn(c, ctx, BENCH_PQ_PROBE_ITERS);
-
-        bench_timing_barrier();
-        double elapsed_ms = bench_ns_to_ms(bench_time_ns() - t0);
-        if (elapsed_ms < min_probe_ms) min_probe_ms = elapsed_ms;
-    }
-
-    /* If probe rounds to effectively zero, use fallback */
-    if (min_probe_ms < 1e-6) {
-        return BENCH_PQ_FALLBACK_ITERATIONS;
-    }
-
-    /* Scale: we want total_ms >= MIN_MEASUREMENT_MS
-     * probe ran BENCH_PQ_PROBE_ITERS iterations in min_probe_ms
-     * target_iters = ceil(MIN_MEASUREMENT_MS / min_probe_ms * BENCH_PQ_PROBE_ITERS) */
-    double iters_needed = (MIN_MEASUREMENT_MS / min_probe_ms) * (double)BENCH_PQ_PROBE_ITERS;
-    int result = (int)ceil(iters_needed);
-
+static int iters_from_probe_ms(double min_probe_ms) {
+    if (min_probe_ms < 1e-6) return BENCH_PQ_FALLBACK_ITERATIONS;
+    double needed = (MIN_MEASUREMENT_MS / min_probe_ms) * (double)BENCH_PQ_PROBE_ITERS;
+    int result = (int)ceil(needed);
     if (result < 1) result = 1;
     if (result > BENCH_PQ_MAX_CALIBRATED_ITERATIONS) result = BENCH_PQ_MAX_CALIBRATED_ITERATIONS;
-
     return result;
 }
 
@@ -348,7 +309,7 @@ static void verify_correctness(const circuit_t *c) {
             for (int op = 0; op < c->n_ops; ++op) {
                 const circuit_op_t *o = &c->ops[op];
                 switch (o->gate_type) {
-                    case GATE_H:  h(&s, o->q0);              break;
+                    case CIRCUIT_GATE_H:  h(&s, o->q0);              break;
                     case GATE_X:  x(&s, o->q0);              break;
                     case GATE_Z:  z(&s, o->q0);              break;
                     case GATE_RX: rx(&s, o->q0, o->angle);   break;
@@ -386,7 +347,7 @@ static void verify_correctness(const circuit_t *c) {
             for (int op = 0; op < c->n_ops; ++op) {
                 const circuit_op_t *o = &c->ops[op];
                 switch (o->gate_type) {
-                    case GATE_H:  h(&s, o->q0);              break;
+                    case CIRCUIT_GATE_H:  h(&s, o->q0);              break;
                     case GATE_X:  x(&s, o->q0);              break;
                     case GATE_Z:  z(&s, o->q0);              break;
                     case GATE_RX: rx(&s, o->q0, o->angle);   break;
@@ -427,7 +388,7 @@ static void verify_correctness(const circuit_t *c) {
         for (int op = 0; op < c->n_ops; ++op) {
             const circuit_op_t *o = &c->ops[op];
             switch (o->gate_type) {
-                case GATE_H:  applyHadamard(rho, (int)o->q0);                          break;
+                case CIRCUIT_GATE_H:  applyHadamard(rho, (int)o->q0);                          break;
                 case GATE_X:  applyPauliX(rho, (int)o->q0);                            break;
                 case GATE_Z:  applyPauliZ(rho, (int)o->q0);                            break;
                 case GATE_RX: applyRotateX(rho, (int)o->q0, o->angle);                 break;
@@ -521,13 +482,12 @@ static void run_all_methods(const circuit_t *c, const bench_circuit_options_t *o
     {
         int iters = opts->iterations_explicit;
         if (iters == 0) {
-            qlib_circuit_ctx_t *ctx = qlib_circuit_ctx_alloc(c->n_qubits, MIXED_PACKED);
-            if (ctx) {
-                iters = calibrate_iterations(c, qlib_packed_runner, ctx);
-                qlib_circuit_ctx_free(ctx);
-            } else {
-                iters = BENCH_PQ_FALLBACK_ITERATIONS;
+            double min_probe_ms = 1e30;
+            for (int p = 0; p < BENCH_PQ_PROBE_RUNS; ++p) {
+                bench_result_t probe = bench_circuit_qlib_packed(c, BENCH_PQ_PROBE_ITERS, 0, 1);
+                if (probe.time_ms < min_probe_ms) min_probe_ms = probe.time_ms;
             }
+            iters = iters_from_probe_ms(min_probe_ms);
         }
         bench_result_t r = bench_circuit_qlib_packed(c, iters, warmup, runs);
         if (opts->csv_output) print_csv_row(&r);
@@ -540,13 +500,12 @@ static void run_all_methods(const circuit_t *c, const bench_circuit_options_t *o
     {
         int iters = opts->iterations_explicit;
         if (iters == 0) {
-            qlib_circuit_ctx_t *ctx = qlib_circuit_ctx_alloc(c->n_qubits, MIXED_TILED);
-            if (ctx) {
-                iters = calibrate_iterations(c, qlib_tiled_runner, ctx);
-                qlib_circuit_ctx_free(ctx);
-            } else {
-                iters = BENCH_PQ_FALLBACK_ITERATIONS;
+            double min_probe_ms = 1e30;
+            for (int p = 0; p < BENCH_PQ_PROBE_RUNS; ++p) {
+                bench_result_t probe = bench_circuit_qlib_tiled(c, BENCH_PQ_PROBE_ITERS, 0, 1);
+                if (probe.time_ms < min_probe_ms) min_probe_ms = probe.time_ms;
             }
+            iters = iters_from_probe_ms(min_probe_ms);
         }
         bench_result_t r = bench_circuit_qlib_tiled(c, iters, warmup, runs);
         if (opts->csv_output) print_csv_row(&r);
@@ -559,21 +518,12 @@ static void run_all_methods(const circuit_t *c, const bench_circuit_options_t *o
     {
         int iters = opts->iterations_explicit;
         if (iters == 0) {
-            /* QuEST headers are not available in this C TU; calibrate via
-             * the bench function itself (runs 1 timed run with probe iters). */
             double min_probe_ms = 1e30;
             for (int p = 0; p < BENCH_PQ_PROBE_RUNS; ++p) {
                 bench_result_t probe = bench_circuit_quest(c, BENCH_PQ_PROBE_ITERS, 0, 1);
                 if (probe.time_ms < min_probe_ms) min_probe_ms = probe.time_ms;
             }
-            if (min_probe_ms < 1e-6) {
-                iters = BENCH_PQ_FALLBACK_ITERATIONS;
-            } else {
-                double needed = (MIN_MEASUREMENT_MS / min_probe_ms) * (double)BENCH_PQ_PROBE_ITERS;
-                iters = (int)ceil(needed);
-                if (iters < 1) iters = 1;
-                if (iters > BENCH_PQ_MAX_CALIBRATED_ITERATIONS) iters = BENCH_PQ_MAX_CALIBRATED_ITERATIONS;
-            }
+            iters = iters_from_probe_ms(min_probe_ms);
         }
         bench_result_t r = bench_circuit_quest(c, iters, warmup, runs);
         if (opts->csv_output) print_csv_row(&r);
@@ -587,20 +537,12 @@ static void run_all_methods(const circuit_t *c, const bench_circuit_options_t *o
     {
         int iters = opts->iterations_explicit;
         if (iters == 0) {
-            /* Calibrate via the bench function's own timing */
             double min_probe_ms = 1e30;
             for (int p = 0; p < BENCH_PQ_PROBE_RUNS; ++p) {
                 bench_result_t probe = bench_circuit_qulacs(c, BENCH_PQ_PROBE_ITERS, 0, 1);
                 if (probe.time_ms < min_probe_ms) min_probe_ms = probe.time_ms;
             }
-            if (min_probe_ms < 1e-6) {
-                iters = BENCH_PQ_FALLBACK_ITERATIONS;
-            } else {
-                double needed = (MIN_MEASUREMENT_MS / min_probe_ms) * (double)BENCH_PQ_PROBE_ITERS;
-                iters = (int)ceil(needed);
-                if (iters < 1) iters = 1;
-                if (iters > BENCH_PQ_MAX_CALIBRATED_ITERATIONS) iters = BENCH_PQ_MAX_CALIBRATED_ITERATIONS;
-            }
+            iters = iters_from_probe_ms(min_probe_ms);
         }
         bench_result_t r = bench_circuit_qulacs(c, iters, warmup, runs);
         if (opts->csv_output) print_csv_row(&r);
@@ -614,20 +556,12 @@ static void run_all_methods(const circuit_t *c, const bench_circuit_options_t *o
     {
         int iters = opts->iterations_explicit;
         if (iters == 0) {
-            /* Calibrate via the bench function's own timing */
             double min_probe_ms = 1e30;
             for (int p = 0; p < BENCH_PQ_PROBE_RUNS; ++p) {
                 bench_result_t probe = bench_circuit_aer_dm(c, BENCH_PQ_PROBE_ITERS, 0, 1);
                 if (probe.time_ms < min_probe_ms) min_probe_ms = probe.time_ms;
             }
-            if (min_probe_ms < 1e-6) {
-                iters = BENCH_PQ_FALLBACK_ITERATIONS;
-            } else {
-                double needed = (MIN_MEASUREMENT_MS / min_probe_ms) * (double)BENCH_PQ_PROBE_ITERS;
-                iters = (int)ceil(needed);
-                if (iters < 1) iters = 1;
-                if (iters > BENCH_PQ_MAX_CALIBRATED_ITERATIONS) iters = BENCH_PQ_MAX_CALIBRATED_ITERATIONS;
-            }
+            iters = iters_from_probe_ms(min_probe_ms);
         }
         bench_result_t r = bench_circuit_aer_dm(c, iters, warmup, runs);
         if (opts->csv_output) print_csv_row(&r);

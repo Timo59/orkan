@@ -39,9 +39,8 @@ struct aer_dm_cb_ctx {
     gate_kind_t                     gate_kind;
     int                             q1;
     int                             q2;
-    /* Pre-built vectorized matrices for gates that lack direct named methods */
+    /* Pre-built vectorized matrix for H gate (no direct named method) */
     AER::cvector_t                  h_vec;
-    AER::cvector_t                  z_vec;
     /* Cached reg_t objects to avoid per-call heap allocation */
     AER::reg_t                      q1_reg;
     AER::reg_t                      q2_reg;
@@ -57,7 +56,7 @@ static void aer_dm_cb(void *ctx) {
         c->dm->apply_unitary_matrix(c->q1_reg, c->h_vec);
         break;
     case BK_Z:
-        c->dm->apply_unitary_matrix(c->q1_reg, c->z_vec);
+        c->dm->apply_phase(static_cast<AER::uint_t>(c->q1), {-1.0, 0.0});
         break;
     case BK_CX:
         c->dm->apply_cnot(static_cast<AER::uint_t>(c->q1),
@@ -111,7 +110,6 @@ bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
 
         /* Precompute vectorized matrices for gates that lack direct methods */
         AER::cvector_t h_vec;
-        AER::cvector_t z_vec;
 
         /* Fix 1: resolve gate type once before warmup/timing loops — no strcmp in hot path */
         gate_kind_t gate_kind = resolve_gate_kind(gate_name);
@@ -122,12 +120,7 @@ bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
         if (gate_kind == BK_H) {
             h_vec = AER::Utils::vectorize_matrix(AER::Linalg::Matrix::H);
         }
-        if (gate_kind == BK_Z) {
-            AER::cmatrix_t z_mat(2, 2);
-            z_mat(0, 0) = {1, 0}; z_mat(0, 1) = {0, 0};
-            z_mat(1, 0) = {0, 0}; z_mat(1, 1) = {-1, 0};
-            z_vec = AER::Utils::vectorize_matrix(z_mat);
-        }
+        /* Z gate uses apply_phase directly; no z_vec needed */
 
         bool is_1q = (gate_kind == BK_X || gate_kind == BK_H || gate_kind == BK_Z);
         bool is_2q = (gate_kind == BK_CX || gate_kind == BK_SWAP);
@@ -152,7 +145,7 @@ bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
                     dm.apply_unitary_matrix(qubit_regs[t], h_vec);
                     break;
                 case BK_Z:
-                    dm.apply_unitary_matrix(qubit_regs[t], z_vec);
+                    dm.apply_phase(static_cast<AER::uint_t>(t), {-1.0, 0.0});
                     break;
                 default:
                     break;
@@ -171,7 +164,7 @@ bench_result_t bench_aer_dm(qubit_t qubits, const char *gate_name,
                             dm.apply_unitary_matrix(qubit_regs[t], h_vec);
                             break;
                         case BK_Z:
-                            dm.apply_unitary_matrix(qubit_regs[t], z_vec);
+                            dm.apply_phase(static_cast<AER::uint_t>(t), {-1.0, 0.0});
                             break;
                         default:
                             break;
@@ -313,12 +306,7 @@ bench_result_perq_t bench_aer_dm_at(qubit_t qubits, const char *gate_name,
         if (gate_kind == BK_H)
             ctx.h_vec = AER::Utils::vectorize_matrix(AER::Linalg::Matrix::H);
 
-        if (gate_kind == BK_Z) {
-            AER::cmatrix_t z_mat(2, 2);
-            z_mat(0, 0) = {1, 0}; z_mat(0, 1) = {0, 0};
-            z_mat(1, 0) = {0, 0}; z_mat(1, 1) = {-1, 0};
-            ctx.z_vec = AER::Utils::vectorize_matrix(z_mat);
-        }
+        /* Z gate uses apply_phase in aer_dm_cb; no z_vec needed */
 
         int clamped_runs = (runs > BENCH_MAX_RUNS) ? BENCH_MAX_RUNS : runs;
 
@@ -380,7 +368,7 @@ bench_result_perq_t bench_aer_dm_2q_at(qubit_t qubits, const char *gate_name,
         ctx.q2        = static_cast<int>(q2);
         ctx.q1_reg    = AER::reg_t{static_cast<AER::uint_t>(q1)};
         ctx.q2_reg    = AER::reg_t{static_cast<AER::uint_t>(q2)};
-        /* h_vec / z_vec unused for 2Q gates */
+        /* h_vec unused for 2Q gates */
 
         int clamped_runs = (runs > BENCH_MAX_RUNS) ? BENCH_MAX_RUNS : runs;
 

@@ -19,7 +19,7 @@ benchmark/
 │   └── bench_circuit.h         # Circuit abstraction (circuit_gate_t, circuit_op_t, circuit_t), runner typedef, context structs, circuit constructors, runner declarations
 └── src/
     ├── bench_mixed.c           # qlib adapters (packed/tiled, 1Q and 2Q) + build_all_pairs() + build_all_ordered_pairs()
-    ├── bench_baselines.c       # BLAS/naive baselines: gate matrices, bench_blas_dense/naive_loop/blas_dense_2q
+    ├── bench_baselines.c       # BLAS/naive baseline: gate matrices, bench_blas_dense/naive_loop/blas_dense_2q
     ├── bench_main.c            # bench_gate orchestration: gate tables, CLI parsing, output formatting, main()
     ├── bench_quest.c           # bench_gate QuEST adapter: sweep + per-qubit (WITH_QUEST only); owns all Qureg lifecycle code so bench_main.c never needs quest.h
     ├── bench_qulacs.cpp        # bench_gate Qulacs adapter (WITH_QULACS only)

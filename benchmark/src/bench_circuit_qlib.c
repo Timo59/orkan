@@ -31,7 +31,7 @@
  */
 static inline void apply_op(state_t *s, const circuit_op_t *op) {
     switch (op->gate_type) {
-        case GATE_H:  h(s, op->q0);              break;
+        case CIRCUIT_GATE_H:  h(s, op->q0);              break;
         case GATE_X:  x(s, op->q0);              break;
         case GATE_Z:  z(s, op->q0);              break;
         case GATE_RX: rx(s, op->q0, op->angle);  break;
