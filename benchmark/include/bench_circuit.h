@@ -31,7 +31,7 @@ extern "C" {
  * prints to stderr in debug builds for unimplemented gate types.
  */
 typedef enum {
-    GATE_H  = 0,
+    CIRCUIT_GATE_H  = 0,  /* renamed: GATE_H conflicts with gate.h include guard */
     GATE_X  = 1,
     GATE_Z  = 2,
     GATE_RX = 3,

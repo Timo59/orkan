@@ -11,7 +11,7 @@
  * part of what we measure — it is not a benchmark artifact.
  *
  * Fixed gates (H, X, Z, CX) use precomputed vectorized matrices or direct
- * apply methods where available.
+ * apply methods where available. Z uses apply_phase(q, -1).
  */
 
 #include "simulators/density_matrix/densitymatrix.hpp"
@@ -30,7 +30,6 @@
 struct aer_dm_precomp {
     AER::cvector_t h_vec;
     AER::cvector_t x_vec;
-    AER::cvector_t z_vec;
     AER::cvector_t cx_vec;
 };
 
@@ -46,11 +45,7 @@ static aer_dm_precomp build_precomp(void) {
     x_mat(1, 0) = {1, 0}; x_mat(1, 1) = {0, 0};
     p.x_vec = AER::Utils::vectorize_matrix(x_mat);
 
-    /* Z gate: [[1,0],[0,-1]] */
-    AER::cmatrix_t z_mat(2, 2);
-    z_mat(0, 0) = {1, 0}; z_mat(0, 1) = {0, 0};
-    z_mat(1, 0) = {0, 0}; z_mat(1, 1) = {-1, 0};
-    p.z_vec = AER::Utils::vectorize_matrix(z_mat);
+    /* Z gate uses apply_phase directly; no precomp needed */
 
     /* CX gate: 4x4 matrix
      * [[1,0,0,0],[0,0,0,1],[0,0,1,0],[0,1,0,0]] */
@@ -75,7 +70,7 @@ static inline void apply_circuit_op_aer_dm(AER::QV::DensityMatrix<double> &dm,
                                             const circuit_op_t *op,
                                             const aer_dm_precomp &pre) {
     switch (op->gate_type) {
-    case GATE_H: {
+    case CIRCUIT_GATE_H: {
         const AER::reg_t reg = {static_cast<AER::uint_t>(op->q0)};
         dm.apply_unitary_matrix(reg, pre.h_vec);
         break;
@@ -85,8 +80,7 @@ static inline void apply_circuit_op_aer_dm(AER::QV::DensityMatrix<double> &dm,
         break;
     }
     case GATE_Z: {
-        const AER::reg_t reg = {static_cast<AER::uint_t>(op->q0)};
-        dm.apply_unitary_matrix(reg, pre.z_vec);
+        dm.apply_phase(static_cast<AER::uint_t>(op->q0), {-1.0, 0.0});
         break;
     }
     case GATE_RX: {

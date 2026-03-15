@@ -127,7 +127,7 @@ circuit_t circuit_qaoa_p1(int n, double gamma, double beta)
 
     /* Layer 1: Hadamard on all qubits */
     for (int q = 0; q < n; ++q) {
-        if (circuit_append_1q(&c, GATE_H, (qubit_t)q) != 0) { c.n_ops = 0; return c; }
+        if (circuit_append_1q(&c, CIRCUIT_GATE_H, (qubit_t)q) != 0) { c.n_ops = 0; return c; }
     }
 
     /* Layer 2: ZZ interactions on cycle edges (i, (i+1) mod n) */

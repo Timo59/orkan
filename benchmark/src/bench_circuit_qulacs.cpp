@@ -42,12 +42,12 @@
  */
 static void apply_circuit_op_qulacs(const circuit_op_t *op, CTYPE *rho, ITYPE dim) {
     switch (op->gate_type) {
-        case GATE_H:   dm_H_gate(static_cast<UINT>(op->q0), rho, dim); break;
+        case CIRCUIT_GATE_H:   dm_H_gate(static_cast<UINT>(op->q0), rho, dim); break;
         case GATE_X:   dm_X_gate(static_cast<UINT>(op->q0), rho, dim); break;
         case GATE_Z:   dm_Z_gate(static_cast<UINT>(op->q0), rho, dim); break;
-        case GATE_RX:  dm_RX_gate(static_cast<UINT>(op->q0), op->angle, rho, dim); break;
-        case GATE_RY:  dm_RY_gate(static_cast<UINT>(op->q0), op->angle, rho, dim); break;
-        case GATE_RZ:  dm_RZ_gate(static_cast<UINT>(op->q0), op->angle, rho, dim); break;
+        case GATE_RX:  dm_RX_gate(static_cast<UINT>(op->q0), -op->angle, rho, dim); break;
+        case GATE_RY:  dm_RY_gate(static_cast<UINT>(op->q0), -op->angle, rho, dim); break;
+        case GATE_RZ:  dm_RZ_gate(static_cast<UINT>(op->q0), -op->angle, rho, dim); break;
         case GATE_CX:  dm_CNOT_gate(static_cast<UINT>(op->q0), static_cast<UINT>(op->q1),
                                      rho, dim); break;
         default:

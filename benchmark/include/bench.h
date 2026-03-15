@@ -311,7 +311,7 @@ int build_all_pairs(qubit_t qubits, qubit_t *q1_out, qubit_t *q2_out);
 
 /*
  * =====================================================================================================================
- * Benchmark functions — single-qubit gates (qlib: bench_mixed.c; baselines: bench_baselines.c)
+ * Benchmark functions — single-qubit gates (qlib: bench_mixed.c; baseline: bench_baselines.c)
  * =====================================================================================================================
  */
 
@@ -333,7 +333,7 @@ bench_result_t bench_naive_loop(qubit_t qubits, const char *gate_name,
 
 /*
  * =====================================================================================================================
- * Benchmark functions — two-qubit gates (qlib: bench_mixed.c; baselines: bench_baselines.c)
+ * Benchmark functions — two-qubit gates (qlib: bench_mixed.c; baseline: bench_baselines.c)
  * =====================================================================================================================
  */
 
