@@ -241,7 +241,8 @@ static void print_usage(const char *prog) {
     printf("  --runs N         Independent timing runs for statistics, 1..200 (default: %d)\n", BENCH_DEFAULT_RUNS);
     printf("  --csv            Output in CSV format\n");
     printf("  --pgfplots       Output pgfplots-compatible .dat tables to stdout.\n"
-           "                   With --per-qubit: per-qubit stats aggregated over targets.\n");
+           "                   With --per-qubit: one block per (gate, qubit-count) with\n"
+           "                   rows indexed by target qubit (1Q) or pair label (2Q).\n");
     printf("  --verbose        Show min, median, and memory per result\n");
     printf("  --per-qubit      Single-target throughput mode: benchmark each qubit target\n"
            "                   independently (steady-state, not circuit-representative).\n");
@@ -689,199 +690,14 @@ static void print_pgfplots_output(const pgfplots_data_t *pgf) {
     }
 }
 
-/**
- * Emit pgfplots-compatible .dat tables for --per-qubit --pgfplots mode.
- *
- * For each of NUM_GATES gates: five tables with qubits as the x-axis,
- * one column per method (6 methods; M_NAIVE excluded). Each row aggregates
- * over all target positions for that qubit count:
- *   time_per_gate_us  — arithmetic mean of per-target means
- *   ci95_per_gate     — mean of per-target CI95 half-widths (µs/gate)
- *   min_per_gate      — global minimum of per-target time_per_gate_us_min
- *   median_per_gate   — arithmetic mean of per-target medians
- *   cv                — arithmetic mean of per-target CVs (scale-invariant)
- *
- * Memory table appended at end: one row per qubit-config, MB units.
- * Missing data (zero cell from calloc) emits literal "nan" string.
- *
- * t_crit() is defined earlier in this file; no forward declaration needed.
- */
-static void print_pgfplots_perq_output(const pgfplots_perq_data_t *pgf)
-{
-    /* Method index mapping — identical to print_pgfplots_output(); M_NAIVE excluded */
-    static const char *method_names[]   = {"qlib_packed", "qlib_tiled", "blas",
-                                            "quest",       "qulacs",     "qiskit_aer_dm"};
-    static const int   method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS,
-                                            M_QUEST, M_QULACS, M_AER_DM};
-    static const int   num_methods      = 6;
-
-    /* Gate names must match the order used when populating pgf->cells[g][...].
-     * Look up the actual gate name arrays used in perq_main() (gates_1q_perq,
-     * gates_2q_perq) and use their .name fields here. */
-
-    for (int g = 0; g < NUM_GATES; ++g) {
-        const char *gname = all_gate_names[g];
-
-        /* ── time_per_gate_us: mean over targets ───────────────────────── */
-        printf("# %s time_per_gate_us"
-               " (mean µs/gate application, averaged over target positions)\n", gname);
-        printf("%-8s", "qubits");
-        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
-        printf("\n");
-        for (int q = 0; q < pgf->num_configs; ++q) {
-            printf("%-8u", (unsigned)pgf->qubits[q]);
-            for (int m = 0; m < num_methods; ++m) {
-                int mi = method_indices[m];
-                int nt = pgf->n_targets[g][q][mi];
-                double sum = 0.0; int valid = 0;
-                for (int t = 0; t < nt; ++t) {
-                    double v = pgf->cells[g][q][mi][t].time_per_gate_us;
-                    if (v > 0.0) { sum += v; valid++; }
-                }
-                if (valid > 0) printf("  %-14.6f", sum / valid);
-                else           printf("  %-14s", "nan");
-            }
-            printf("\n");
-        }
-        printf("\n");
-
-        /* ── ci95_per_gate: mean of per-target CI95 half-widths ──────── */
-        /* CI95 = t_crit(runs-1) * std_dev / sqrt(runs), then normalize  */
-        /* to per-gate-us units via the same iterations factor.           */
-        printf("# %s ci95_per_gate"
-               " (µs/gate, mean of per-target 95%% CI half-widths)\n", gname);
-        printf("%-8s", "qubits");
-        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
-        printf("\n");
-        for (int q = 0; q < pgf->num_configs; ++q) {
-            printf("%-8u", (unsigned)pgf->qubits[q]);
-            for (int m = 0; m < num_methods; ++m) {
-                int mi = method_indices[m];
-                int nt = pgf->n_targets[g][q][mi];
-                double sum = 0.0; int valid = 0;
-                for (int t = 0; t < nt; ++t) {
-                    const perq_cell_t *c = &pgf->cells[g][q][mi][t];
-                    int   runs_t = c->runs;
-                    int   iters  = c->iterations;
-                    double std_t = c->time_ms_std;
-                    if (c->time_per_gate_us > 0.0 && runs_t >= 2 && iters > 0) {
-                        double tc   = t_crit(runs_t - 1);
-                        /* Convert ms std → per-gate µs std, then CI95 half-width */
-                        double ci95 = tc * (std_t / sqrt((double)runs_t))
-                                      / (double)iters * 1000.0;
-                        sum += ci95; valid++;
-                    }
-                }
-                if (valid > 0) printf("  %-14.6f", sum / valid);
-                else           printf("  %-14s", "nan");
-            }
-            printf("\n");
-        }
-        printf("\n");
-
-        /* ── min_per_gate: global min of per-target mins ───────────────── */
-        printf("# %s min_per_gate"
-               " (µs/gate, minimum over all target positions)\n", gname);
-        printf("%-8s", "qubits");
-        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
-        printf("\n");
-        for (int q = 0; q < pgf->num_configs; ++q) {
-            printf("%-8u", (unsigned)pgf->qubits[q]);
-            for (int m = 0; m < num_methods; ++m) {
-                int mi = method_indices[m];
-                int nt = pgf->n_targets[g][q][mi];
-                double mn = -1.0;
-                for (int t = 0; t < nt; ++t) {
-                    double v = pgf->cells[g][q][mi][t].time_per_gate_us_min;
-                    if (v > 0.0 && (mn < 0.0 || v < mn)) mn = v;
-                }
-                if (mn > 0.0) printf("  %-14.6f", mn);
-                else          printf("  %-14s", "nan");
-            }
-            printf("\n");
-        }
-        printf("\n");
-
-        /* ── median_per_gate: mean of per-target medians ───────────────── */
-        printf("# %s median_per_gate"
-               " (µs/gate, mean of per-target medians)\n", gname);
-        printf("%-8s", "qubits");
-        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
-        printf("\n");
-        for (int q = 0; q < pgf->num_configs; ++q) {
-            printf("%-8u", (unsigned)pgf->qubits[q]);
-            for (int m = 0; m < num_methods; ++m) {
-                int mi = method_indices[m];
-                int nt = pgf->n_targets[g][q][mi];
-                double sum = 0.0; int valid = 0;
-                for (int t = 0; t < nt; ++t) {
-                    double v = pgf->cells[g][q][mi][t].time_per_gate_us_median;
-                    if (v > 0.0) { sum += v; valid++; }
-                }
-                if (valid > 0) printf("  %-14.6f", sum / valid);
-                else           printf("  %-14s", "nan");
-            }
-            printf("\n");
-        }
-        printf("\n");
-
-        /* ── cv: mean of per-target CVs ────────────────────────────────── */
-        /* CV is scale-invariant: CV(total_time) == CV(per_gate_time).     */
-        printf("# %s cv (coefficient of variation, %%, mean of per-target CVs)\n", gname);
-        printf("%-8s", "qubits");
-        for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
-        printf("\n");
-        for (int q = 0; q < pgf->num_configs; ++q) {
-            printf("%-8u", (unsigned)pgf->qubits[q]);
-            for (int m = 0; m < num_methods; ++m) {
-                int mi = method_indices[m];
-                int nt = pgf->n_targets[g][q][mi];
-                double sum = 0.0; int valid = 0;
-                for (int t = 0; t < nt; ++t) {
-                    if (pgf->cells[g][q][mi][t].time_per_gate_us > 0.0) {
-                        sum += pgf->cells[g][q][mi][t].time_ms_cv;
-                        valid++;
-                    }
-                }
-                if (valid > 0) printf("  %-14.6f", sum / valid);
-                else           printf("  %-14s", "nan");
-            }
-            printf("\n");
-        }
-        printf("\n");
-
-    } /* gate loop */
-
-    /* ── Memory table ────────────────────────────────────────────────────── */
-    /* Memory is constant across targets for a given (method, qubit count).  */
-    /* Read from the first populated target for gate 0 (X gate).             */
-    printf("# Memory usage (MB)\n");
-    printf("%-8s", "qubits");
-    for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
-    printf("\n");
-    for (int q = 0; q < pgf->num_configs; ++q) {
-        printf("%-8u", (unsigned)pgf->qubits[q]);
-        for (int m = 0; m < num_methods; ++m) {
-            int mi = method_indices[m];
-            int nt = pgf->n_targets[0][q][mi];
-            size_t bytes = 0;
-            for (int t = 0; t < nt; ++t) {
-                if (pgf->cells[0][q][mi][t].memory_bytes > 0) {
-                    bytes = pgf->cells[0][q][mi][t].memory_bytes;
-                    break;
-                }
-            }
-            if (bytes > 0) printf("  %-14.3f", (double)bytes / (1024.0 * 1024.0));
-            else           printf("  %-14s", "nan");
-        }
-        printf("\n");
-    }
-}
-
 /*
  * =====================================================================================================================
- * Per-qubit benchmark
+ * Per-qubit gate table types and file-scope tables
  * =====================================================================================================================
+ *
+ * Defined here (before print_pgfplots_perq_output) so the output function can
+ * access .is_symmetric directly, eliminating the is_symmetric_2q[] mirror array.
+ * perq_main() references these same file-scope tables instead of local copies.
  */
 
 /**
@@ -910,6 +726,288 @@ typedef struct {
     const cplx_t *mat;
     int has_tiled;
 } gate_def_1q_perq_t;
+
+/* File-scope gate tables — shared between perq_main() and print_pgfplots_perq_output(). */
+static const gate_def_1q_perq_t gates_1q_perq[] = {
+    {"X", x, XMAT, 1},
+    {"H", h, HMAT, 1},
+    {"Z", z, ZMAT, 1},
+    {NULL, NULL, NULL, 0}
+};
+
+static const gate_def_2q_perq_t gates_2q_perq[] = {
+    {"CX",   cx,        CXMAT,   1, 0},   /* ordered pairs (CX is not symmetric) */
+    {"SWAP", swap_gate, SWAPMAT, 1, 1},   /* unordered pairs (SWAP is symmetric) */
+    {NULL, NULL, NULL, 0, 0}
+};
+
+/**
+ * Emit pgfplots-compatible .dat tables for --per-qubit --pgfplots mode.
+ *
+ * Structure: one block of five tables per (gate, qubit_count) combination.
+ * Within each block the x-axis is the target position:
+ *   - 1Q gates: integer target qubit index (0..qubits-1)
+ *   - 2Q gates: string label "q1_q2" for the pair
+ * Columns: one per method (6 methods; M_NAIVE excluded).
+ *
+ * Bug fixes applied here:
+ *  1. Per-target rows emitted (not averaged away): one row per target/pair per
+ *     qubit count, so the x-axis varies over target position, not qubit count.
+ *  2. Gates with no data are skipped entirely (avoids all-nan tables when
+ *     --gate X filters to a single gate).
+ *  3. Memory table scans all gate indices for data rather than hardcoding g=0.
+ *
+ * Pair reconstruction for 2Q gates: SWAP uses unordered pairs (build_all_pairs
+ * ordering: q1<q2 outer loop), CX uses ordered pairs (build_all_ordered_pairs:
+ * all i!=j). We reconstruct the label from t without calling those functions by
+ * iterating the same nested loop inline, which keeps this output-only function
+ * self-contained and allocation-free.
+ *
+ * t_crit() is defined earlier in this file; no forward declaration needed.
+ */
+
+/**
+ * @brief Reconstruct the pair (q1, q2) for pair index t in a 2Q gate sweep.
+ *
+ * Mirrors the ordering produced by build_all_pairs (is_symmetric=1) and
+ * build_all_ordered_pairs (is_symmetric=0).
+ *
+ * @param qubits       Number of qubits.
+ * @param t            Pair index (0-based).
+ * @param is_symmetric 1 = unordered pairs (SWAP), 0 = ordered pairs (CX).
+ * @param q1_out       Receives first qubit of the pair.
+ * @param q2_out       Receives second qubit of the pair.
+ * @return 1 if the pair was found, 0 if t is out of range.
+ */
+static int reconstruct_pair(qubit_t qubits, int t, int is_symmetric,
+                             qubit_t *q1_out, qubit_t *q2_out)
+{
+    int idx = 0;
+    if (is_symmetric) {
+        /* build_all_pairs: q1 < q2 */
+        for (qubit_t q1 = 0; q1 < qubits; q1++) {
+            for (qubit_t q2 = q1 + 1; q2 < qubits; q2++) {
+                if (idx == t) { *q1_out = q1; *q2_out = q2; return 1; }
+                idx++;
+            }
+        }
+    } else {
+        /* build_all_ordered_pairs: all i != j */
+        for (qubit_t i = 0; i < qubits; i++) {
+            for (qubit_t j = 0; j < qubits; j++) {
+                if (i == j) continue;
+                if (idx == t) { *q1_out = i; *q2_out = j; return 1; }
+                idx++;
+            }
+        }
+    }
+    return 0;
+}
+
+/**
+ * @brief Check whether gate g has any populated data in the accumulator.
+ *
+ * Returns 1 if any cell in pgf->cells[g][...][...][...] has a positive
+ * time_per_gate_us, indicating real measurements were stored.
+ */
+static int gate_has_data(const pgfplots_perq_data_t *pgf, int g)
+{
+    for (int q = 0; q < pgf->num_configs; ++q) {
+        for (int m = 0; m < NUM_METHODS; ++m) {
+            int nt = pgf->n_targets[g][q][m];
+            for (int t = 0; t < nt; ++t) {
+                if (pgf->cells[g][q][m][t].time_per_gate_us > 0.0)
+                    return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+/* ── Per-qubit pgfplots table field selector ──────────────────────────────── */
+typedef enum {
+    PERQ_FIELD_TIME,    /* time_per_gate_us (mean) */
+    PERQ_FIELD_CI95,    /* 95% CI half-width */
+    PERQ_FIELD_MIN,     /* time_per_gate_us_min */
+    PERQ_FIELD_MEDIAN,  /* time_per_gate_us_median */
+    PERQ_FIELD_CV       /* time_ms_cv */
+} perq_field_t;
+
+/*
+ * emit_perq_table — emit one .dat block for a single (gate, qubit_count, field).
+ *
+ * Encapsulates the label column, pair reconstruction, assert, and field
+ * extraction so print_pgfplots_perq_output() calls this 5 times instead of
+ * repeating ~50 lines per field.
+ *
+ * Label column width: 14 characters (%-14s / %-14u), matching the method
+ * column width.  Pair labels are formatted into a small stack buffer so
+ * double-digit qubit indices stay aligned.
+ */
+static void emit_perq_table(const pgfplots_perq_data_t *pgf,
+                             const char *gname, int g, int q,
+                             int nt, int is_2q, int is_sym,
+                             perq_field_t field,
+                             const char *header_suffix,
+                             const char * const *method_names,
+                             const int *method_indices, int num_methods)
+{
+    qubit_t qubits = pgf->qubits[q];
+
+    printf("# %s %uq %s\n", gname, (unsigned)qubits, header_suffix);
+    printf("%-14s", is_2q ? "pair" : "target");
+    for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
+    printf("\n");
+
+    for (int t = 0; t < nt; ++t) {
+        /* Print row label */
+        if (is_2q) {
+            qubit_t q1 = 0, q2 = 0;
+            if (!reconstruct_pair(qubits, t, is_sym, &q1, &q2)) abort();
+            char buf[32];
+            snprintf(buf, sizeof(buf), "q%u_q%u", (unsigned)q1, (unsigned)q2);
+            printf("%-14s", buf);
+        } else {
+            printf("%-14u", (unsigned)t);
+        }
+
+        /* Print one value per method */
+        for (int m = 0; m < num_methods; ++m) {
+            int mi = method_indices[m];
+            const perq_cell_t *c = &pgf->cells[g][q][mi][t];
+            double val = 0.0;
+            int    have = 0;
+
+            switch (field) {
+            case PERQ_FIELD_TIME:
+                val  = c->time_per_gate_us;
+                have = (val > 0.0);
+                break;
+            case PERQ_FIELD_CI95:
+                if (c->time_per_gate_us > 0.0 && c->runs >= 2 && c->iterations > 0) {
+                    double tc = t_crit(c->runs - 1);
+                    val  = tc * (c->time_ms_std / sqrt((double)c->runs))
+                           / (double)c->iterations * 1000.0;
+                    have = 1;
+                }
+                break;
+            case PERQ_FIELD_MIN:
+                val  = c->time_per_gate_us_min;
+                have = (val > 0.0);
+                break;
+            case PERQ_FIELD_MEDIAN:
+                val  = c->time_per_gate_us_median;
+                have = (val > 0.0);
+                break;
+            case PERQ_FIELD_CV:
+                val  = c->time_ms_cv;
+                have = (c->time_per_gate_us > 0.0);
+                break;
+            }
+
+            if (have) printf("  %-14.6f", val);
+            else      printf("  %-14s", "nan");
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+static void print_pgfplots_perq_output(const pgfplots_perq_data_t *pgf)
+{
+    /* Method index mapping — identical to print_pgfplots_output(); M_NAIVE excluded */
+    static const char *method_names[]   = {"qlib_packed", "qlib_tiled", "blas",
+                                            "quest",       "qulacs",     "qiskit_aer_dm"};
+    static const int   method_indices[] = {M_QLIB, M_QLIB_TILED, M_BLAS,
+                                            M_QUEST, M_QULACS, M_AER_DM};
+    static const int   num_methods      = (int)(sizeof(method_indices) / sizeof(method_indices[0]));
+
+    for (int g = 0; g < NUM_GATES; ++g) {
+
+        /* Bug 2 fix: skip gates with no data (e.g. when --gate X filters output) */
+        if (!gate_has_data(pgf, g))
+            continue;
+
+        const char *gname  = all_gate_names[g];
+        int         is_2q  = (g >= NUM_1Q_GATES);
+        int         g2     = g - NUM_1Q_GATES;   /* 2Q gate index; valid only when is_2q */
+        /* Item 1: read .is_symmetric directly from the file-scope table; no mirror array. */
+        int         is_sym = is_2q ? gates_2q_perq[g2].is_symmetric : 0;
+
+        /*
+         * Bug 1 fix: emit one block per (gate, qubit_count).
+         * Within each block, rows are indexed by target position (x-axis),
+         * and columns are methods.  This preserves per-target variation instead
+         * of averaging it away.
+         */
+        for (int q = 0; q < pgf->num_configs; ++q) {
+            /* Determine n_targets for this (gate, qubit_config) from the first
+             * method that has data.  All methods should agree on n_targets. */
+            int nt = 0;
+            for (int m = 0; m < NUM_METHODS && nt == 0; ++m)
+                nt = pgf->n_targets[g][q][m];
+            if (nt == 0)
+                continue;  /* no data for this qubit count — skip block */
+
+            /* Items 2–4: one call per field; pair-label width, assert, and
+             * value extraction are all handled inside emit_perq_table(). */
+            emit_perq_table(pgf, gname, g, q, nt, is_2q, is_sym,
+                            PERQ_FIELD_TIME,
+                            "time_per_gate_us (\xc2\xb5s/gate application per target)",
+                            method_names, method_indices, num_methods);
+            emit_perq_table(pgf, gname, g, q, nt, is_2q, is_sym,
+                            PERQ_FIELD_CI95,
+                            "ci95_per_gate (\xc2\xb5s/gate, 95% CI half-width per target)",
+                            method_names, method_indices, num_methods);
+            emit_perq_table(pgf, gname, g, q, nt, is_2q, is_sym,
+                            PERQ_FIELD_MIN,
+                            "min_per_gate (\xc2\xb5s/gate, minimum run per target)",
+                            method_names, method_indices, num_methods);
+            emit_perq_table(pgf, gname, g, q, nt, is_2q, is_sym,
+                            PERQ_FIELD_MEDIAN,
+                            "median_per_gate (\xc2\xb5s/gate, median run per target)",
+                            method_names, method_indices, num_methods);
+            emit_perq_table(pgf, gname, g, q, nt, is_2q, is_sym,
+                            PERQ_FIELD_CV,
+                            "cv (coefficient of variation, % per target)",
+                            method_names, method_indices, num_methods);
+
+        } /* qubit-config loop */
+    } /* gate loop */
+
+    /* ── Memory table ────────────────────────────────────────────────────── */
+    /* Memory is constant across targets for a given (method, qubit count).  */
+    /* Bug 3 fix: scan all gate indices for the first one with data rather   */
+    /* than hardcoding g=0, so --gate CX works correctly.                    */
+    printf("# Memory usage (MB)\n");
+    printf("%-8s", "qubits");
+    for (int m = 0; m < num_methods; ++m) printf("  %-14s", method_names[m]);
+    printf("\n");
+    for (int q = 0; q < pgf->num_configs; ++q) {
+        printf("%-8u", (unsigned)pgf->qubits[q]);
+        for (int m = 0; m < num_methods; ++m) {
+            int mi = method_indices[m];
+            size_t bytes = 0;
+            /* Scan all gates for the first populated cell with memory data */
+            for (int g = 0; g < NUM_GATES && bytes == 0; ++g) {
+                int nt = pgf->n_targets[g][q][mi];
+                for (int t = 0; t < nt && bytes == 0; ++t) {
+                    if (pgf->cells[g][q][mi][t].memory_bytes > 0)
+                        bytes = pgf->cells[g][q][mi][t].memory_bytes;
+                }
+            }
+            if (bytes > 0) printf("  %-14.3f", (double)bytes / (1024.0 * 1024.0));
+            else           printf("  %-14s", "nan");
+        }
+        printf("\n");
+    }
+}
+
+/*
+ * =====================================================================================================================
+ * Per-qubit benchmark
+ * =====================================================================================================================
+ */
 
 /**
  * @brief Calibrate the number of iterations for one method/gate/qubit combination.
@@ -1208,20 +1306,9 @@ static int perq_main(const bench_options_t *opts) {
     int results_count = 0;
     int qi = 0;  /* qubit-config index for pgfq accumulation */
 
-    /* 1Q gate table for the per-qubit path */
-    static const gate_def_1q_perq_t gates_1q_perq[] = {
-        {"X", x, XMAT, 1},
-        {"H", h, HMAT, 1},
-        {"Z", z, ZMAT, 1},
-        {NULL, NULL, NULL, 0}
-    };
-
-    /* 2Q gate table for the per-qubit path */
-    static const gate_def_2q_perq_t gates_2q_perq[] = {
-        {"CX",   cx,        CXMAT,   1, 0},   /* ordered pairs (CX is not symmetric) */
-        {"SWAP", swap_gate, SWAPMAT, 1, 1},   /* unordered pairs (SWAP is symmetric) */
-        {NULL, NULL, NULL, 0, 0}
-    };
+    /* gates_1q_perq[] and gates_2q_perq[] are defined at file scope above
+     * print_pgfplots_perq_output() so the output function can access .is_symmetric
+     * directly without a separate mirror array. */
 
     for (qubit_t qubits = opts->min_qubits; qubits <= opts->max_qubits;
          qubits += (qubit_t)opts->step) {
