@@ -718,7 +718,9 @@ State allocations at or above `BENCH_HUGEPAGE_THRESHOLD = 1 GB` use `bench_alloc
 | `--runs N` | `BENCH_PQ_DEFAULT_RUNS` | Override auto-default for per-qubit mode |
 | `--iterations N` | `BENCH_PQ_DEFAULT_ITERATIONS` | Override auto-default for per-qubit mode |
 
-**`--pgfplots` with `--per-qubit`:** Supported. Emits pgfplots `.dat` tables to stdout with qubit count as x-axis. Each row aggregates timing over all target positions: `time_per_gate_us` and `median_per_gate` are means over targets; `min_per_gate` is the global minimum over targets; `ci95_per_gate` is the mean of per-target CI95 half-widths, computed as `t_crit(runs-1) × std / sqrt(runs)` per target. If `--csv` is also set, it is ignored with a warning to stderr.
+**`--pgfplots` with `--per-qubit`:** Supported. Emits pgfplots `.dat` tables to stdout. Results are grouped by `(gate, qubit_count)`: within each block the x-axis is target position (1Q: integer qubit index; 2Q: `q1_q2` pair label), not qubit count. Five table types are emitted per block: `time_per_gate_us` (mean), `ci95_per_gate` (95% CI half-width, `t_crit(runs-1) × std / sqrt(runs) / iters × 1000`), `min_per_gate`, `median_per_gate`, and `cv`. Label and method columns are all 14 characters wide. If `--csv` is also set, it is ignored with a warning to stderr.
+
+**Implementation:** `print_pgfplots_perq_output()` calls `emit_perq_table()` five times (once per field). Gate symmetry (`is_symmetric`) is read directly from the file-scope `gates_2q_perq[]` table. Pair reconstruction is handled by `reconstruct_pair()`, whose return value is asserted at each call site.
 
 ### Known Limitations
 
