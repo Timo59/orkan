@@ -119,6 +119,11 @@ void bench_init_hermitian_tiled(cplx_t *data, qubit_t qubits) {
 
 /* =====================================================================
  * Huge-page memory utilities
+ *
+ * TODO: Currently unused.  To activate, allocate with bench_alloc_huge()
+ * and pass the buffer to state_init().  Requires a matching deallocation
+ * path — state_free() currently calls free(), which is undefined for
+ * mmap-backed memory.
  * ===================================================================== */
 
 void *bench_alloc_huge(size_t n) {

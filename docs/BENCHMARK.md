@@ -62,16 +62,16 @@ bench_gate <GATE> [OPTIONS]
 
 ### 4.2 Options
 
-| Flag             | Default   | Description                                             |
-|------------------|-----------|---------------------------------------------------------|
-| `--par <float>`  | —         | Gate parameter (radians). **Mandatory** for RX/RY/RZ.   |
-| `--min-qubits`   | `2`       | Minimum number of qubits in sweep                       |
-| `--max-qubits`   | `8`       | Maximum number of qubits in sweep                       |
-| `--samples`      | `10`      | Number of timed blocks (each yields one sample)          |
-| `--iterations`   | `100`     | Number of repetitions within each timed block            |
-| `--warm-up`      | `3`       | Number of warm-up iterations (discarded)                 |
-| `--per-qubit`    | off       | Report per-qubit-position statistics                     |
-| `--output`       | `console` | Output format: `console`, `csv`, `pgfplots`              |
+| Flag             | Default   | Range              | Description                                             |
+|------------------|-----------|--------------------|---------------------------------------------------------|
+| `--par <float>`  | —         | —                  | Gate parameter (radians). **Mandatory** for RX/RY/RZ.   |
+| `--min-qubits`   | `2`       | 0–30, ≥ gate qubits | Minimum number of qubits in sweep                     |
+| `--max-qubits`   | `8`       | 0–30, ≥ min-qubits | Maximum number of qubits in sweep                      |
+| `--samples`      | `10`      | 1–1024             | Number of timed blocks (each yields one sample)          |
+| `--iterations`   | `100`     | ≥ 1                | Number of repetitions within each timed block            |
+| `--warm-up`      | `3`       | ≥ 0                | Number of warm-up iterations (discarded)                 |
+| `--per-qubit`    | off       | —                  | Report per-qubit-position statistics                     |
+| `--output`       | `console` | —                  | Output format: `console`, `csv`, `pgfplots`              |
 
 ### 4.3 Exit Codes
 
@@ -91,10 +91,11 @@ Unavailable backends (not built) are **not** errors — they silently produce `n
 ### 5.1 State Initialisation
 
 Each backend receives a randomly initialised **Hermitian** matrix of dimension
-2^n x 2^n.  Hermiticity is the only constraint — it is required by qlib's symmetric
-storage formats.  No positive semi-definiteness or trace constraint is imposed; all
-competitors (QuEST, Qulacs, Qiskit Aer) accept arbitrary complex matrices and perform
-pure `ρ → UρU†` linear algebra without validating the input.
+2^n x 2^n in its respective memory layout.  Hermiticity is the only constraint — it
+is required by qlib's symmetric storage formats.  No positive semi-definiteness or
+trace constraint is imposed; all competitors (QuEST, Qulacs, Qiskit Aer) accept
+arbitrary complex matrices and perform pure `ρ → UρU†` linear algebra without
+validating the input.
 
 Initialisation is **not** timed.  The state is **not** re-initialised between
 iterations; gates are applied to an evolving state throughout warm-up and timed runs.
@@ -194,7 +195,7 @@ depends on the backend's storage format:
 
 | Backend        | touch\_bytes formula                                     |
 |----------------|----------------------------------------------------------|
-| qlib\_tiled    | `2 * n_tile_pairs * TILE_SIZE * sizeof(cplx_t)`          |
+| qlib\_tiled    | `2 * n_tile_pairs * TILE_SIZE * sizeof(cplx_t)` (see below) |
 | qlib\_packed   | `2 * dim * (dim + 1) / 2 * sizeof(cplx_t)`               |
 | BLAS           | `2 * 4^n * sizeof(cplx_t)`                               |
 | QuEST          | `2 * 4^n * sizeof(cplx_t)`                               |
@@ -204,6 +205,12 @@ depends on the backend's storage format:
 where `sizeof(cplx_t) = 16` bytes, `dim = 2^n`, `TILE_SIZE = TILE_DIM^2`,
 `n_tile_pairs = n_tiles * (n_tiles + 1) / 2`, and the factor of 2 accounts for
 one read and one write per element.
+
+**qlib\_tiled small-state special case:** When `qubits < LOG_TILE_DIM`, the entire
+density matrix fits inside a single diagonal tile.  The tile storage is padded to
+`TILE_DIM x TILE_DIM`, but the kernel only reads and writes the `dim x dim` upper-left
+submatrix (the rest is zero padding).  In this case `touch_bytes = 2 * dim * dim *
+sizeof(cplx_t)` instead of the tile-pair formula.
 
 The qlib backends report **lower** `touch_bytes` than competitors because they
 exploit Hermitian symmetry.  This is intentional: timing columns provide the direct
@@ -346,7 +353,8 @@ No source file exceeds 500 lines of well-documented code.
 |--------------------------------|---------------------------------------------|----------|
 | `benchmark/src/bench_main.c`   | CLI parsing, gate dispatch, orchestration   | C        |
 | `benchmark/src/bench_run.c`    | Timing loop (aggregate & per-qubit modes)   | C        |
-| `benchmark/src/bench_stats.c`  | Mean, median, min, percentile CI, bandwidth | C        |
+| `benchmark/src/bench_result.c` | Mean, median, min, percentile CI, bandwidth | C        |
+| `benchmark/src/bench_util.c`   | PRNG, Hermitian init helpers, huge-page alloc | C        |
 | `benchmark/src/bench_qlib.c`   | qlib\_tiled and qlib\_packed wrappers       | C        |
 | `benchmark/src/bench_blas.c`   | BLAS baseline (Kronecker + zgemm)           | C        |
 | `benchmark/src/bench_quest.c`  | QuEST density-matrix wrapper                | C        |
@@ -356,36 +364,36 @@ No source file exceeds 500 lines of well-documented code.
 | `benchmark/src/bench_csv.c`    | CSV output formatter                        | C        |
 | `benchmark/src/bench_pgfplots.c`| PGFplots output formatter                  | C        |
 | `benchmark/include/bench.h`    | Shared types, constants, function decls     | C        |
-| `benchmark/include/bench_stats.h` | Statistics API                           | C        |
+| `benchmark/include/bench_result.h` | Result type and statistics API           | C        |
 
 ### 9.1 Build Integration
 
-The benchmark is built when `BUILD_BENCHMARKS=ON`.  CMake detects availability of
-QuEST, Qulacs, and Qiskit Aer at configure time and sets preprocessor defines:
-
-```cmake
-option(BUILD_BENCHMARKS "Build benchmark targets" OFF)
-
-if(BUILD_BENCHMARKS)
-    # Always available
-    # bench_main.c, bench_run.c, bench_stats.c, bench_qlib.c,
-    # bench_blas.c, bench_console.c, bench_csv.c, bench_pgfplots.c
-
-    # Conditional
-    if(TARGET QuEST)
-        target_compile_definitions(bench_gate PRIVATE HAVE_QUEST)
-    endif()
-    if(TARGET qulacs)
-        target_compile_definitions(bench_gate PRIVATE HAVE_QULACS)
-    endif()
-    if(TARGET aer)
-        target_compile_definitions(bench_gate PRIVATE HAVE_AER)
-    endif()
-endif()
-```
+The root `CMakeLists.txt` defines `option(BUILD_BENCHMARKS … OFF)`.  When enabled,
+it adds the `benchmark/` subdirectory.  The benchmark's own `CMakeLists.txt` requires
+a Release build (`CMAKE_BUILD_TYPE STREQUAL "Release"`) and returns early otherwise.
+The `bench_gate` target is marked `EXCLUDE_FROM_ALL` — it must be built explicitly
+(e.g. `cmake --build --preset release --target bench_gate`).
 
 Backend wrappers are guarded by `#ifdef HAVE_QUEST` / `HAVE_QULACS` / `HAVE_AER`.
 When a backend is not available, its wrapper returns `nan` for all measurements.
+
+#### 9.1.1 QuEST
+
+Detected via `find_path` (for `quest/include/quest.h`) and `find_library`.  Searched
+in `extern/QuEST`, `$QuEST_DIR`, and standard system paths.  Sets `HAVE_QUEST` and
+links the found library directly.
+
+#### 9.1.2 Qulacs
+
+Built from source as a `csim_static` static library from the submodule at
+`extern/qulacs/src/csim/`.  Requires Eigen3 headers.  Sets `HAVE_QULACS`.  Links
+OpenMP when available.
+
+#### 9.1.3 Qiskit Aer
+
+Header-only density-matrix kernel vendored to `extern/aer-dm/`.  Requires
+`nlohmann/json.hpp` (searched via Homebrew and standard paths).  Sets `HAVE_AER`.
+Links OpenMP when available.
 
 ---
 
