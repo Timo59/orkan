@@ -92,6 +92,7 @@ set(BENCH_GATE_SRC
     "${BENCH_SRC_DIR}/bench_result.c"
     "${BENCH_SRC_DIR}/bench_util.c"
     "${BENCH_SRC_DIR}/bench_qlib.c"
+    "${BENCH_SRC_DIR}/bench_blas.c"
     "${BENCH_SRC_DIR}/bench_console.c"
     "${BENCH_SRC_DIR}/bench_csv.c"
     "${BENCH_SRC_DIR}/bench_pgfplots.c"

@@ -6,45 +6,54 @@
 #include "bench.h"
 
 /* =====================================================================
- * Context: state + resolved gate function pointer
+ * Context: state + resolved apply function
  * ===================================================================== */
 
+typedef void (*qlib_apply_fn)(void *ctx, const qubit_t *pos);
+
 typedef struct {
-    state_t *state;
-    union {
-        void (*fn_1q)(state_t*, qubit_t);
-        void (*fn_1q_par)(state_t*, qubit_t, double);
-        void (*fn_2q)(state_t*, qubit_t, qubit_t);
-        void (*fn_3q)(state_t*, qubit_t, qubit_t, qubit_t);
-    };
-    double par;
-    int    gate_qubits;
-    int    has_par;
+    state_t       *state;
+    qlib_apply_fn  apply;
+    double         par;
 } qlib_ctx_t;
+
+/* =====================================================================
+ * Per-gate apply functions — zero branching in hot path
+ * ===================================================================== */
+
+static void apply_x(void *c, const qubit_t *p)   { x(((qlib_ctx_t*)c)->state, p[0]); }
+static void apply_y(void *c, const qubit_t *p)   { y(((qlib_ctx_t*)c)->state, p[0]); }
+static void apply_z(void *c, const qubit_t *p)   { z(((qlib_ctx_t*)c)->state, p[0]); }
+static void apply_h(void *c, const qubit_t *p)   { h(((qlib_ctx_t*)c)->state, p[0]); }
+static void apply_s(void *c, const qubit_t *p)   { s(((qlib_ctx_t*)c)->state, p[0]); }
+static void apply_t(void *c, const qubit_t *p)   { t(((qlib_ctx_t*)c)->state, p[0]); }
+static void apply_rx(void *c, const qubit_t *p)  { qlib_ctx_t *q = (qlib_ctx_t*)c; rx(q->state, p[0], q->par); }
+static void apply_ry(void *c, const qubit_t *p)  { qlib_ctx_t *q = (qlib_ctx_t*)c; ry(q->state, p[0], q->par); }
+static void apply_rz(void *c, const qubit_t *p)  { qlib_ctx_t *q = (qlib_ctx_t*)c; rz(q->state, p[0], q->par); }
+static void apply_cx(void *c, const qubit_t *p)  { cx(((qlib_ctx_t*)c)->state, p[0], p[1]); }
+static void apply_cy(void *c, const qubit_t *p)  { cy(((qlib_ctx_t*)c)->state, p[0], p[1]); }
+static void apply_cz(void *c, const qubit_t *p)  { cz(((qlib_ctx_t*)c)->state, p[0], p[1]); }
+static void apply_ccx(void *c, const qubit_t *p) { ccx(((qlib_ctx_t*)c)->state, p[0], p[1], p[2]); }
 
 /* =====================================================================
  * Gate resolution — called once at init
  * ===================================================================== */
 
-static void qlib_resolve_gate(qlib_ctx_t *ctx, bench_gate_id_t gate, double par) {
-    ctx->par = par;
-    ctx->has_par = 0;
-    ctx->gate_qubits = bench_gate_table[gate].n_qubits;
-
+static qlib_apply_fn qlib_resolve_gate(bench_gate_id_t gate) {
     switch (gate) {
-    case BG_X:   ctx->fn_1q = x;  break;
-    case BG_Y:   ctx->fn_1q = y;  break;
-    case BG_Z:   ctx->fn_1q = z;  break;
-    case BG_H:   ctx->fn_1q = h;  break;
-    case BG_S:   ctx->fn_1q = s;  break;
-    case BG_T:   ctx->fn_1q = t;  break;
-    case BG_RX:  ctx->fn_1q_par = rx;  ctx->has_par = 1; break;
-    case BG_RY:  ctx->fn_1q_par = ry;  ctx->has_par = 1; break;
-    case BG_RZ:  ctx->fn_1q_par = rz;  ctx->has_par = 1; break;
-    case BG_CX:  ctx->fn_2q = cx;  break;
-    case BG_CY:  ctx->fn_2q = cy;  break;
-    case BG_CZ:  ctx->fn_2q = cz;  break;
-    case BG_CCX: ctx->fn_3q = ccx; break;
+    case BG_X:   return apply_x;
+    case BG_Y:   return apply_y;
+    case BG_Z:   return apply_z;
+    case BG_H:   return apply_h;
+    case BG_S:   return apply_s;
+    case BG_T:   return apply_t;
+    case BG_RX:  return apply_rx;
+    case BG_RY:  return apply_ry;
+    case BG_RZ:  return apply_rz;
+    case BG_CX:  return apply_cx;
+    case BG_CY:  return apply_cy;
+    case BG_CZ:  return apply_cz;
+    case BG_CCX: return apply_ccx;
     default:
         fprintf(stderr, "bench_qlib: unknown gate id %d\n", (int)gate);
         abort();
@@ -52,21 +61,12 @@ static void qlib_resolve_gate(qlib_ctx_t *ctx, bench_gate_id_t gate, double par)
 }
 
 /* =====================================================================
- * Apply — branches on arity and parametrised flag (both constant
- * for the lifetime of a benchmark run, so branch prediction is perfect)
+ * Apply — single indirect call, zero branching
  * ===================================================================== */
 
 static void qlib_apply(void *ctx, const qubit_t *pos) {
     qlib_ctx_t *c = (qlib_ctx_t *)ctx;
-    switch (c->gate_qubits) {
-    case 1:
-        if (c->has_par) c->fn_1q_par(c->state, pos[0], c->par);
-        else            c->fn_1q(c->state, pos[0]);
-        break;
-    case 2: c->fn_2q(c->state, pos[0], pos[1]); break;
-    case 3: c->fn_3q(c->state, pos[0], pos[1], pos[2]); break;
-    default: __builtin_unreachable();
-    }
+    c->apply(ctx, pos);
 }
 
 /* =====================================================================
@@ -93,7 +93,8 @@ static void *qlib_tiled_init(qubit_t qubits, bench_gate_id_t gate, double par) {
     state_init(c->state, qubits, NULL);
     if (!c->state->data) { free(c->state); free(c); return NULL; }
     bench_init_hermitian_tiled(c->state->data, qubits);
-    qlib_resolve_gate(c, gate, par);
+    c->par = par;
+    c->apply = qlib_resolve_gate(gate);
     return c;
 }
 
@@ -137,7 +138,8 @@ static void *qlib_packed_init(qubit_t qubits, bench_gate_id_t gate, double par) 
     state_init(c->state, qubits, NULL);
     if (!c->state->data) { free(c->state); free(c); return NULL; }
     bench_init_hermitian_packed(c->state->data, qubits);
-    qlib_resolve_gate(c, gate, par);
+    c->par = par;
+    c->apply = qlib_resolve_gate(gate);
     return c;
 }
 
