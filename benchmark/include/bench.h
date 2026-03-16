@@ -101,6 +101,16 @@ extern bench_backend_t bench_backends[BACKEND_COUNT];
 /** Individual backend vtables — defined in their respective source files */
 extern const bench_backend_t qlib_tiled_backend;
 extern const bench_backend_t qlib_packed_backend;
+extern const bench_backend_t blas_backend;
+#ifdef HAVE_QUEST
+extern const bench_backend_t quest_backend;
+#endif
+#ifdef HAVE_QULACS
+extern const bench_backend_t qulacs_backend;
+#endif
+#ifdef HAVE_AER
+extern const bench_backend_t aer_backend;
+#endif
 
 /* =====================================================================
  * CLI options

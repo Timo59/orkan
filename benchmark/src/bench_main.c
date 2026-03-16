@@ -71,14 +71,25 @@ static void init_backends(void) {
     bench_backends[BACKEND_QLIB_TILED]  = qlib_tiled_backend;
     bench_backends[BACKEND_QLIB_PACKED] = qlib_packed_backend;
 
-    bench_backends[BACKEND_BLAS]    = stub;
-    bench_backends[BACKEND_BLAS].name = "BLAS";
-    bench_backends[BACKEND_QUEST]   = stub;
+    bench_backends[BACKEND_BLAS] = blas_backend;
+#ifdef HAVE_QUEST
+    bench_backends[BACKEND_QUEST] = quest_backend;
+#else
+    bench_backends[BACKEND_QUEST]    = stub;
     bench_backends[BACKEND_QUEST].name = "QuEST";
-    bench_backends[BACKEND_QULACS]  = stub;
+#endif
+#ifdef HAVE_QULACS
+    bench_backends[BACKEND_QULACS] = qulacs_backend;
+#else
+    bench_backends[BACKEND_QULACS]    = stub;
     bench_backends[BACKEND_QULACS].name = "Qulacs";
-    bench_backends[BACKEND_AER]     = stub;
+#endif
+#ifdef HAVE_AER
+    bench_backends[BACKEND_AER] = aer_backend;
+#else
+    bench_backends[BACKEND_AER]      = stub;
     bench_backends[BACKEND_AER].name = "Qiskit Aer";
+#endif
 }
 
 /* =====================================================================
