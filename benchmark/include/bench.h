@@ -351,7 +351,114 @@ bench_result_t bench_blas_dense_2q(qubit_t qubits, const char *gate_name,
 
 /*
  * =====================================================================================================================
- * Output functions and CLI parsing (implemented in bench_main.c)
+ * Shared output constants, types, and enums
+ * =====================================================================================================================
+ */
+
+#define NUM_1Q_GATES    3
+#define NUM_2Q_GATES    2
+#define NUM_GATES       (NUM_1Q_GATES + NUM_2Q_GATES)
+#define MAX_QUBIT_CONFIGS 32
+#define NUM_METHODS     7   /* qlib_packed, qlib_tiled, blas, naive, quest, qulacs, aer_dm */
+
+enum { M_QLIB = 0, M_QLIB_TILED = 1, M_BLAS = 2, M_NAIVE = 3,
+       M_QUEST = 4, M_QULACS = 5, M_AER_DM = 6 };
+
+/** @brief Gate name array — definition in bench_main.c */
+extern const char *all_gate_names[NUM_GATES];
+
+typedef struct {
+    bench_result_t packed;
+    bench_result_t tiled;   int has_tiled;
+    bench_result_t dense;   int has_dense;
+    bench_result_t naive;   int has_naive;
+    double naive_scale;     /* multiply naive speedup by this when naive ran fewer iterations */
+    bench_result_t quest;   int has_quest;
+    bench_result_t qulacs;  int has_qulacs;
+    bench_result_t aer_dm;  int has_aer_dm;
+} bench_summary_t;
+
+typedef struct {
+    qubit_t qubits[MAX_QUBIT_CONFIGS];
+    int     num_configs;
+    int     iterations;                                                /**< Gate calls per timed run (shared across methods) */
+    double  time_ms[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];        /**< Mean time (ms) */
+    double  time_ms_std[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];    /**< Std dev (ms) for error bars */
+    double  time_ms_min[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];    /**< Min time (ms) */
+    double  time_ms_median[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS]; /**< Median time (ms) */
+    double  time_ms_cv[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];     /**< CV = std/mean × 100 (%) */
+    int     runs[MAX_QUBIT_CONFIGS];                                   /**< Number of timing runs (may vary; stored per qubit-config) */
+    size_t  memory[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
+} pgfplots_data_t;
+
+/**
+ * Compact per-target timing record for the pgfplots per-qubit accumulator.
+ */
+typedef struct {
+    double time_per_gate_us;        /**< Mean per-gate time (µs)                       */
+    double time_per_gate_us_median; /**< Median per-gate time (µs)                     */
+    double time_per_gate_us_min;    /**< Min per-gate time (µs)                        */
+    double time_ms_cv;              /**< CV = std/mean × 100 (%)                       */
+    double ops_per_sec;             /**< Gate applications/second                      */
+    double time_ms_std;             /**< Sample std dev across runs (ms), for CI95     */
+    size_t memory_bytes;            /**< State memory footprint                        */
+    int    iterations;              /**< Calibrated iters per run                      */
+    int    runs;                    /**< Number of timing runs (for CI95 denominator)  */
+} perq_cell_t;
+
+/**
+ * Accumulator for --per-qubit --pgfplots combined output.
+ */
+typedef struct {
+    qubit_t     qubits[MAX_QUBIT_CONFIGS];   /**< Qubit count per config slot   */
+    int         num_configs;                  /**< Populated qubit-config slots  */
+    int         n_targets[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS];
+    perq_cell_t cells[NUM_GATES][MAX_QUBIT_CONFIGS][NUM_METHODS][MAX_TARGETS];
+} pgfplots_perq_data_t;
+
+/** Copy timing fields from a bench_result_perq_t into a perq_cell_t. */
+static inline void perq_cell_from_result(perq_cell_t *cell,
+                                          const bench_result_perq_t *r)
+{
+    cell->time_per_gate_us        = r->time_per_gate_us;
+    cell->time_per_gate_us_median = r->time_per_gate_us_median;
+    cell->time_per_gate_us_min    = r->time_per_gate_us_min;
+    cell->time_ms_cv              = r->time_ms_cv;
+    cell->ops_per_sec             = r->ops_per_sec;
+    cell->time_ms_std             = r->time_ms_std;
+    cell->memory_bytes            = r->memory_bytes;
+    cell->iterations              = r->iterations;
+    cell->runs                    = r->runs;
+}
+
+/**
+ * @brief Gate definition for 2Q gates in per-qubit mode.
+ */
+typedef struct {
+    const char *name;
+    void (*fn)(state_t*, qubit_t, qubit_t);
+    const cplx_t *mat;
+    int has_tiled;
+    int is_symmetric;
+} gate_def_2q_perq_t;
+
+/**
+ * @brief Gate definition for 1Q gates in per-qubit mode.
+ */
+typedef struct {
+    const char *name;
+    void (*fn)(state_t*, qubit_t);
+    const cplx_t *mat;
+    int has_tiled;
+} gate_def_1q_perq_t;
+
+/** @brief Per-qubit gate tables — definitions in bench_main.c */
+extern const gate_def_1q_perq_t gates_1q_perq[];
+extern const gate_def_2q_perq_t gates_2q_perq[];
+
+/*
+ * =====================================================================================================================
+ * Output functions (bench_csv.c, bench_console.c, bench_pgfplots.c)
  * =====================================================================================================================
  */
 
@@ -363,6 +470,27 @@ void bench_print_csv(const bench_result_t *result);
 
 /** @brief Print CSV header */
 void bench_print_csv_header(void);
+
+/** @brief Print speedup and memory summary to console */
+void print_speedup_and_memory(const bench_summary_t *s);
+
+/** @brief Look up t critical value for given degrees of freedom (df = runs - 1). */
+double t_crit(int df);
+
+/** @brief Compute sweep_size for a gate at a given qubit count. */
+int gate_sweep_size(int g, qubit_t qubits);
+
+/** @brief Emit pgfplots .dat tables for sweep benchmark. */
+void print_pgfplots_output(const pgfplots_data_t *pgf);
+
+/** @brief Emit pgfplots .dat tables for per-qubit benchmark. */
+void print_pgfplots_perq_output(const pgfplots_perq_data_t *pgf);
+
+/*
+ * =====================================================================================================================
+ * CLI parsing (implemented in bench_main.c)
+ * =====================================================================================================================
+ */
 
 /** @brief Parse command-line options */
 bench_options_t bench_parse_options(int argc, char *argv[]);
@@ -550,7 +678,7 @@ int build_all_ordered_pairs(qubit_t qubits, qubit_t *q1s, qubit_t *q2s, int max_
 
 /*
  * =====================================================================================================================
- * Per-qubit output functions (implemented in bench_main.c)
+ * Per-qubit output functions (bench_csv.c, bench_console.c)
  * =====================================================================================================================
  */
 

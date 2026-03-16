@@ -20,7 +20,10 @@ benchmark/
 └── src/
     ├── bench_mixed.c           # qlib adapters (packed/tiled, 1Q and 2Q) + build_all_pairs() + build_all_ordered_pairs()
     ├── bench_baselines.c       # BLAS/naive baseline: gate matrices, bench_blas_dense/naive_loop/blas_dense_2q
-    ├── bench_main.c            # bench_gate orchestration: gate tables, CLI parsing, output formatting, main()
+    ├── bench_main.c            # bench_gate orchestration: gate tables, CLI parsing, per-qubit calibration/trampolines, main()
+    ├── bench_csv.c             # CSV output formatters (sweep + per-qubit)
+    ├── bench_console.c         # Console output formatters (sweep + per-qubit) + speedup/memory summary
+    ├── bench_pgfplots.c        # pgfplots .dat output formatters (sweep + per-qubit) + t_crit table
     ├── bench_quest.c           # bench_gate QuEST adapter: sweep + per-qubit (WITH_QUEST only); owns all Qureg lifecycle code so bench_main.c never needs quest.h
     ├── bench_qulacs.cpp        # bench_gate Qulacs adapter (WITH_QULACS only)
     ├── bench_aer_dm.cpp        # bench_gate Qiskit-Aer DM adapter (WITH_AER_DM only)
