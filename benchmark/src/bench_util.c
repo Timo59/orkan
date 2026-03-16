@@ -1,52 +1,23 @@
 /**
  * @file bench_util.c
- * @brief Non-inline benchmark utility implementations.
- *
- * Contains implementations for functions declared in bench.h that are too
- * large to inline: bench_timing_barrier, bench_fill_random, bench_compute_stats,
- * bench_run_timed, bench_fill_perq_stats, bench_alloc_huge, and bench_free_huge.
+ * @brief Non-inline benchmark utilities: PRNG fill, Hermitian init, huge-page allocator.
  */
 
 #include "bench.h"
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <sys/mman.h>
 #if !defined(__APPLE__) && !defined(__FreeBSD__)
 #include <sys/random.h>
 #endif
 
-/* =====================================================================================================================
- * Timing serialization barrier
- * =====================================================================================================================
- */
-
-void bench_timing_barrier(void) {
-#if defined(__aarch64__)
-    __asm__ volatile("isb" ::: "memory");
-#elif defined(__x86_64__)
-    __asm__ volatile("lfence" ::: "memory");
-#else
-    __asm__ volatile("" ::: "memory");  /* compiler barrier only */
-#endif
-}
-
-/* =====================================================================================================================
- * Random fill helper
- * =====================================================================================================================
- */
+/* =====================================================================
+ * Random fill — xoshiro256** seeded from OS entropy
+ * ===================================================================== */
 
 void bench_fill_random(void *buf, size_t n) {
-    /* Seed one uint64_t from OS entropy */
     uint64_t seed;
 #if defined(__APPLE__) || defined(__FreeBSD__)
     arc4random_buf(&seed, sizeof(seed));
 #else
-    /* Linux: requires <sys/random.h> (glibc >= 2.25).
-     * getrandom() can return -1 on error (EINTR, ENOSYS) or fewer bytes than
-     * requested (though for <= 256 bytes it is guaranteed atomic). Fall back
-     * to a time-based seed if the call fails. */
     if (getrandom(&seed, sizeof(seed), 0) != (ssize_t)sizeof(seed)) {
         struct timespec ts;
         clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -54,7 +25,7 @@ void bench_fill_random(void *buf, size_t n) {
     }
 #endif
 
-    /* Expand seed via splitmix64 into 4 x uint64 xoshiro256** state */
+    /* Expand seed via splitmix64 into xoshiro256** state */
     uint64_t z;
     z = (seed += 0x9e3779b97f4a7c15ULL); z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
     z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL; uint64_t s0 = z ^ (z >> 31);
@@ -65,139 +36,113 @@ void bench_fill_random(void *buf, size_t n) {
     z = (seed += 0x9e3779b97f4a7c15ULL); z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
     z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL; uint64_t s3 = z ^ (z >> 31);
 
-    /* xoshiro256** bulk fill — 8 bytes per step */
     uint8_t *p = (uint8_t *)buf;
     size_t remaining = n;
     while (remaining >= 8) {
-        uint64_t r = s1 * 5; r = ((r << 7) | (r >> 57)) * 9;
-        memcpy(p, &r, 8); p += 8; remaining -= 8;
+        uint64_t r = s1 * 5;
+        r = ((r << 7) | (r >> 57)) * 9;
+        memcpy(p, &r, 8);
+        p += 8;
+        remaining -= 8;
         uint64_t t = s1 << 17;
         s2 ^= s0; s3 ^= s1; s1 ^= s2; s0 ^= s3; s2 ^= t;
         s3 = (s3 << 45) | (s3 >> 19);
     }
     if (remaining > 0) {
-        uint64_t r = s1 * 5; r = ((r << 7) | (r >> 57)) * 9;
+        uint64_t r = s1 * 5;
+        r = ((r << 7) | (r >> 57)) * 9;
         memcpy(p, &r, remaining);
     }
 }
 
-/* =====================================================================================================================
- * Statistical helpers
- * =====================================================================================================================
- */
+/* =====================================================================
+ * Hermitian random initialisation
+ * ===================================================================== */
 
-bench_run_stats_t bench_compute_stats(const double *times, int n) {
-    /* Mean and minimum */
-    double sum = 0.0;
-    double mn  = times[0];
-    for (int i = 0; i < n; ++i) {
-        sum += times[i];
-        if (times[i] < mn) mn = times[i];
+void bench_init_hermitian_dense(cplx_t *rho, dim_t dim) {
+    /* Fill entire matrix with random data */
+    bench_fill_random(rho, (size_t)dim * (size_t)dim * sizeof(cplx_t));
+
+    /* Enforce Hermiticity: lower triangle stays, upper = conj(lower), diag real */
+    for (dim_t i = 0; i < dim; ++i) {
+        SETIMAG(rho[i * dim + i], 0.0);
+        for (dim_t j = i + 1; j < dim; ++j)
+            rho[i * dim + j] = conj(rho[j * dim + i]);
     }
-    double mean = sum / n;
-
-    /* Sample standard deviation (Bessel's correction: divide by n-1) */
-    double var = 0.0;
-    for (int i = 0; i < n; ++i) {
-        double d = times[i] - mean;
-        var += d * d;
-    }
-    double std_dev = (n > 1) ? sqrt(var / (n - 1)) : 0.0;
-    double cv = (mean > 0.0) ? (std_dev / mean) * 100.0 : 0.0;
-
-    /*
-     * Median: insertion-sort a stack copy.
-     * n is bounded by the --runs validation (max 200), so stack allocation is safe.
-     */
-    double sorted[BENCH_MAX_RUNS];
-    int cnt = (n < BENCH_MAX_RUNS) ? n : BENCH_MAX_RUNS;
-    for (int i = 0; i < cnt; ++i) sorted[i] = times[i];
-    for (int i = 1; i < cnt; ++i) {
-        double key = sorted[i];
-        int j = i - 1;
-        while (j >= 0 && sorted[j] > key) { sorted[j + 1] = sorted[j]; --j; }
-        sorted[j + 1] = key;
-    }
-    double median = (cnt % 2 == 0)
-        ? (sorted[cnt / 2 - 1] + sorted[cnt / 2]) / 2.0
-        : sorted[cnt / 2];
-
-    bench_run_stats_t s;
-    s.mean    = mean;
-    s.std_dev = std_dev;
-    s.min     = mn;
-    s.median  = median;
-    s.cv      = cv;
-    return s;
 }
 
-/* =====================================================================================================================
- * Timed run harness
- * =====================================================================================================================
- */
+void bench_init_hermitian_packed(cplx_t *data, qubit_t qubits) {
+    dim_t dim = (dim_t)1 << qubits;
+    size_t len = (size_t)dim * ((size_t)dim + 1) / 2;
 
-int bench_run_timed(const bench_harness_t *h, double *out, int qubits) {
-    int warmup_batch = (qubits <= 4) ? 128 : (qubits <= 7) ? 16 : (qubits <= 10) ? 4 : 1;
+    /* Fill packed lower-triangle storage with random data */
+    bench_fill_random(data, len * sizeof(cplx_t));
 
-    uint64_t wt0 = bench_time_ns();
-    do {
-        for (int wb = 0; wb < warmup_batch; ++wb)
-            h->call(h->ctx);
-    } while (bench_ns_to_ms(bench_time_ns() - wt0) < BENCH_PQ_WARMUP_MS);
+    /* Zero imaginary part of diagonal elements.
+     * In LAPACK column-major packed lower triangle, diagonal element (i,i)
+     * is at index: i*(2*dim - i + 1)/2  (the first element of column i). */
+    for (dim_t i = 0; i < dim; ++i) {
+        size_t idx = (size_t)i * (2 * (size_t)dim - (size_t)i + 1) / 2;
+        SETIMAG(data[idx], 0.0);
+    }
+}
 
-    for (int r = 0; r < h->runs; ++r) {
-        bench_timing_barrier();
-        uint64_t t0 = bench_time_ns();
-        bench_timing_barrier();
-        for (int i = 0; i < h->iterations; ++i) {
-            h->call(h->ctx);
+void bench_init_hermitian_tiled(cplx_t *data, qubit_t qubits) {
+    dim_t dim = (dim_t)1 << qubits;
+    dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+    size_t n_tile_pairs = (size_t)(n_tiles * (n_tiles + 1) / 2);
+
+    /* Fill all tile storage with random data */
+    bench_fill_random(data, n_tile_pairs * TILE_SIZE * sizeof(cplx_t));
+
+    /* Enforce Hermiticity within each diagonal tile.
+     * Diagonal tile k (tile-row == tile-col == k) starts at offset
+     * k*(k+1)/2 * TILE_SIZE.  Within the tile, elements are row-major:
+     * element (lr, lc) is at tile_base + lr * TILE_DIM + lc.
+     *
+     * The tile represents a TILE_DIM × TILE_DIM submatrix on the main
+     * diagonal of the full matrix, so it must itself be Hermitian:
+     *   - (lr, lc) with lr > lc: keep random value (lower triangle)
+     *   - (lr, lc) with lr < lc: set to conj of (lc, lr)
+     *   - (lr, lr): zero imaginary part */
+    for (dim_t k = 0; k < n_tiles; ++k) {
+        size_t tile_off = (size_t)(k * (k + 1) / 2) * TILE_SIZE;
+        cplx_t *tile = data + tile_off;
+
+        for (int lr = 0; lr < TILE_DIM; ++lr) {
+            SETIMAG(tile[lr * TILE_DIM + lr], 0.0);
+            for (int lc = lr + 1; lc < TILE_DIM; ++lc)
+                tile[lr * TILE_DIM + lc] = conj(tile[lc * TILE_DIM + lr]);
         }
-        bench_timing_barrier();
-        out[r] = bench_ns_to_ms(bench_time_ns() - t0);
     }
-    return 0;
 }
 
-/* =====================================================================================================================
- * Per-qubit stats fill
- * =====================================================================================================================
- */
-
-void bench_fill_perq_stats(bench_result_perq_t *r,
-                            const bench_run_stats_t *s,
-                            int iterations, int runs) {
-    r->time_ms_mean   = s->mean;
-    r->time_ms_std    = s->std_dev;
-    r->time_ms_min    = s->min;
-    r->time_ms_median = s->median;
-    r->time_ms_cv     = s->cv;
-    r->ops_per_sec    = (s->mean > 0.0) ? ((double)iterations / s->mean) * 1000.0 : 0.0;
-    r->time_per_gate_us        = (iterations > 0) ? (s->mean   / iterations) * 1000.0 : 0.0;
-    r->time_per_gate_us_median = (iterations > 0) ? (s->median / iterations) * 1000.0 : 0.0;
-    r->time_per_gate_us_min    = (iterations > 0) ? (s->min    / iterations) * 1000.0 : 0.0;
-    r->iterations = iterations;
-    r->runs       = runs;
-}
-
-/* =====================================================================================================================
+/* =====================================================================
  * Huge-page memory utilities
- * =====================================================================================================================
- */
+ * ===================================================================== */
 
 void *bench_alloc_huge(size_t n) {
 #if defined(__linux__)
     if (n >= BENCH_HUGEPAGE_THRESHOLD) {
-        void *p = mmap(NULL, n, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-        if (p != MAP_FAILED) {
-            madvise(p, n, MADV_HUGEPAGE);
-            return p;
+        void *p = mmap(NULL, n, PROT_READ | PROT_WRITE,
+                       MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+        if (p == MAP_FAILED) {
+            fprintf(stderr, "bench: mmap failed for %zu bytes\n", n);
+            abort();
         }
+        madvise(p, n, MADV_HUGEPAGE);
+        return p;
     }
     return malloc(n);
 #elif defined(__APPLE__)
     if (n >= BENCH_HUGEPAGE_THRESHOLD) {
-        void *p = mmap(NULL, n, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-        if (p != MAP_FAILED) return p;
+        void *p = mmap(NULL, n, PROT_READ | PROT_WRITE,
+                       MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+        if (p == MAP_FAILED) {
+            fprintf(stderr, "bench: mmap failed for %zu bytes\n", n);
+            abort();
+        }
+        return p;
     }
     return malloc(n);
 #else
