@@ -292,10 +292,22 @@ int main(int argc, char *argv[]) {
             if (opts.output == FMT_CONSOLE) {
                 bench_print_console_perq(q, gate, &opts, per_backend, n_pos, gq);
             } else if (opts.output == FMT_CSV) {
-                for (int b = 0; b < BACKEND_COUNT; ++b)
-                    if (per_backend[b])
+                for (int b = 0; b < BACKEND_COUNT; ++b) {
+                    if (per_backend[b]) {
                         bench_print_csv_perq(q, (bench_backend_id_t)b,
                                              per_backend[b], n_pos, gq);
+                    } else {
+                        /* Emit nan rows with correct positions */
+                        for (int p = 0; p < n_pos; ++p) {
+                            const qubit_t *pos = &positions[p * gq];
+                            printf("%d,%s,", (int)q, bench_backends[b].name);
+                            if (gq == 1)      printf("%d,", (int)pos[0]);
+                            else if (gq == 2) printf("%d,%d,", (int)pos[0], (int)pos[1]);
+                            else              printf("%d,%d,%d,", (int)pos[0], (int)pos[1], (int)pos[2]);
+                            printf("nan,nan,nan,nan,nan,nan\n");
+                        }
+                    }
+                }
             } else if (opts.output == FMT_PGFPLOTS) {
                 bench_print_pgfplots_perq(gate, &opts, q,
                                           per_backend, n_pos, gq);
