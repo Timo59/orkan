@@ -129,7 +129,8 @@ typedef struct {
     qubit_t         min_qubits;   /**< Default: 2 */
     qubit_t         max_qubits;   /**< Default: 8 */
     int             samples;      /**< Default: 10 */
-    int             iterations;   /**< Default: 100 */
+    int             iterations;   /**< Default: 100; auto-tuned per qubit count if not set */
+    int             iterations_explicit; /**< 1 if --iterations was given on CLI */
     int             warm_up;      /**< Default: 3 */
     int             per_qubit;    /**< 0 or 1 */
     bench_fmt_t     output;

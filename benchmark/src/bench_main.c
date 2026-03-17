@@ -122,6 +122,7 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
         .max_qubits = 8,
         .samples = 10,
         .iterations = 100,
+        .iterations_explicit = 0,
         .warm_up = 3,
         .per_qubit = 0,
         .output = FMT_CONSOLE
@@ -157,6 +158,7 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
             opts.samples = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--iterations") == 0 && i + 1 < argc) {
             opts.iterations = atoi(argv[++i]);
+            opts.iterations_explicit = 1;
         } else if (strcmp(argv[i], "--warm-up") == 0 && i + 1 < argc) {
             opts.warm_up = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--per-qubit") == 0) {
@@ -212,6 +214,23 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
 }
 
 /* =====================================================================
+ * Auto-tuned iteration count per qubit count
+ *
+ * Targets a timed-block duration of ~1 ms (1000x CLOCK_MONOTONIC
+ * resolution).  Calibrated on Apple M2 Pro; other machines may
+ * overshoot or undershoot, but the order of magnitude is right.
+ * ===================================================================== */
+
+static int auto_iterations(qubit_t q) {
+    static const int table[] = {
+     /* 0      1      2      3      4      5      6     7    8    9   10   11 */
+        10000, 10000, 10000, 10000, 10000, 10000, 1000, 500, 200, 100, 50, 20
+    };
+    if (q < (qubit_t)(sizeof table / sizeof table[0])) return table[q];
+    return 10;
+}
+
+/* =====================================================================
  * Main
  * ===================================================================== */
 
@@ -234,6 +253,9 @@ int main(int argc, char *argv[]) {
     bench_result_t agg_all[BENCH_MAX_QUBIT_CONFIGS][BACKEND_COUNT];
 
     for (qubit_t q = opts.min_qubits; q <= opts.max_qubits; ++q) {
+        if (!opts.iterations_explicit)
+            opts.iterations = auto_iterations(q);
+
         int qi = q - opts.min_qubits;
         qubit_list[qi] = q;
         int n_pos = bench_gen_positions(q, gq, positions);
