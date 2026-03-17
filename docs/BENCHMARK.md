@@ -73,6 +73,29 @@ bench_gate <GATE> [OPTIONS]
 | `--per-qubit`    | off       | —                  | Report per-qubit-position statistics                     |
 | `--output`       | `console` | —                  | Output format: `console`, `csv`, `pgfplots`              |
 
+#### Iteration Tuning Guide
+
+The `--iterations` parameter exists to push the timed block above clock resolution
+noise (`CLOCK_MONOTONIC` has 1 us resolution on macOS).  At high qubit counts a
+single gate application already takes milliseconds, making large iteration counts
+wasteful.  The table below shows recommended minimum iterations per qubit count,
+targeting a timed-block duration of at least 1 ms (1000x clock resolution):
+
+| Qubits | Iterations | Rationale |
+|--------|-----------|-----------|
+| 2-4 | 5000 | Fastest backends need many reps to exceed clock noise |
+| 5 | 1000 | |
+| 6 | 200 | |
+| 7 | 50 | |
+| 8 | 10 | |
+| 9 | 4 | |
+| 10 | 2 | |
+| 11+ | 1 | Single gate application already takes 4+ ms |
+
+Using this schedule instead of a flat `--iterations 100` reduces the total wall-clock
+time for a full 2-14 qubit H-gate sweep from ~6-22 hours to ~6 minutes while
+improving measurement accuracy at low qubit counts.
+
 ### 4.3 Exit Codes
 
 | Code | Condition                                        |
