@@ -2,7 +2,7 @@
  * @file bench_blas.c
  * @brief BLAS baseline: ρ' = UρU† via zgemm, pre-computed Kronecker matrices.
  *
- * Capped at 8 qubits.  Above 8, returns unavailable.
+ * Capped at 10 qubits.  Above 10, returns unavailable.
  */
 
 #include "bench.h"
@@ -15,7 +15,7 @@
     #include <cblas.h>
 #endif
 
-#define BLAS_MAX_QUBITS 8
+#define BLAS_MAX_QUBITS 10
 #define S2 0.7071067811865475
 
 /* =====================================================================
