@@ -143,6 +143,66 @@ if(AER_DM_FOUND)
 endif()
 
 # ======================================================================
+# bench_kraus — Kraus channel throughput benchmark
+# ======================================================================
+
+set(BENCH_KRAUS_SRC
+    "${BENCH_SRC_DIR}/bench_kraus_main.c"
+    "${BENCH_SRC_DIR}/bench_kraus_chan.c"
+    "${BENCH_SRC_DIR}/bench_kraus_run.c"
+    "${BENCH_SRC_DIR}/bench_kraus_blas.c"
+    "${BENCH_SRC_DIR}/bench_result.c"
+    "${BENCH_SRC_DIR}/bench_util.c"
+    "${BENCH_SRC_DIR}/bench_console.c"
+    "${BENCH_SRC_DIR}/bench_csv.c"
+    "${BENCH_SRC_DIR}/bench_pgfplots.c"
+)
+
+if(QuEST_FOUND)
+    list(APPEND BENCH_KRAUS_SRC "${BENCH_SRC_DIR}/bench_kraus_quest.c")
+endif()
+if(QULACS_FOUND)
+    list(APPEND BENCH_KRAUS_SRC "${BENCH_SRC_DIR}/bench_kraus_qulacs.cpp")
+endif()
+if(AER_DM_FOUND)
+    list(APPEND BENCH_KRAUS_SRC "${BENCH_SRC_DIR}/bench_kraus_aer.cpp")
+endif()
+
+add_executable(bench_kraus ${BENCH_KRAUS_SRC})
+set_target_properties(bench_kraus PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
+    EXCLUDE_FROM_ALL TRUE)
+target_include_directories(bench_kraus PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(bench_kraus PRIVATE q)
+
+if(QuEST_FOUND)
+    target_compile_definitions(bench_kraus PRIVATE HAVE_QUEST)
+    target_include_directories(bench_kraus PRIVATE ${QuEST_INCLUDE_DIR} ${EXTERN_DIR}/QuEST/build)
+    target_link_libraries(bench_kraus PRIVATE ${QuEST_LIBRARY})
+endif()
+
+if(QULACS_FOUND)
+    target_compile_definitions(bench_kraus PRIVATE HAVE_QULACS)
+    target_include_directories(bench_kraus PRIVATE ${QULACS_INCLUDE_DIR})
+    target_link_libraries(bench_kraus PRIVATE csim_static)
+    set_property(TARGET bench_kraus PROPERTY CXX_STANDARD 17)
+    set_property(TARGET bench_kraus PROPERTY CXX_STANDARD_REQUIRED ON)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(bench_kraus PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+endif()
+
+if(AER_DM_FOUND)
+    target_compile_definitions(bench_kraus PRIVATE HAVE_AER)
+    target_link_libraries(bench_kraus PRIVATE aer_dm_static)
+    set_property(TARGET bench_kraus PROPERTY CXX_STANDARD 17)
+    set_property(TARGET bench_kraus PROPERTY CXX_STANDARD_REQUIRED ON)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(bench_kraus PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+endif()
+
+# ======================================================================
 # Status summary
 # ======================================================================
 

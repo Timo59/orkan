@@ -10,6 +10,9 @@
 #include <complex>
 #include <cstdio>
 #include <cstdlib>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #include "bench.h"
 
@@ -106,6 +109,9 @@ static void *aer_init(qubit_t qubits, bench_gate_id_t gate, double par) {
         ctx = new aer_ctx_t{};  /* value-init: dm=nullptr, apply=nullptr */
         ctx->dm = new AER::QV::DensityMatrix<double>(qubits);
         ctx->dm->initialize();
+#ifdef _OPENMP
+        ctx->dm->set_omp_threads(omp_get_max_threads());
+#endif
         ctx->par = par;
 
         /* Random Hermitian init */
