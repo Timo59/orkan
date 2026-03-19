@@ -15,7 +15,7 @@ outputting results in console, CSV, or PGFplots format.
 |---|----------------|----------|---------------------------------------|------------------------------|
 | 1 | qlib\_tiled    | C        | Tiled Hermitian (lower-triangle tiles)| Always available             |
 | 2 | qlib\_packed   | C        | Packed Hermitian (column-major lower) | Always available             |
-| 3 | BLAS baseline  | C        | Full 2^n x 2^n dense matrix           | Max 8 qubits; `nan` above   |
+| 3 | BLAS baseline  | C        | Full 2^n x 2^n dense matrix           | Max 10 qubits; `nan` above  |
 | 4 | QuEST          | C        | Flat vector of 4^n `complex<double>`  | Built if found by CMake      |
 | 5 | Qulacs         | C++      | Flat vector of 4^n `complex<double>`  | Built if found by CMake      |
 | 6 | Qiskit Aer     | C++      | Flat vector of 4^n `complex<double>`  | Built if found by CMake      |
@@ -262,8 +262,8 @@ G_full = I_{2^a} (x) G (x) I_{2^b}
 All such matrices (and their conjugate transposes) are generated before the timing
 loop begins.
 
-**Cap**: BLAS is benchmarked only for qubit counts <= 8.  Above 8, it is skipped and
-`nan` is printed for all its columns.
+**Cap**: BLAS is benchmarked only for qubit counts <= 10.  Above 10, it is skipped
+and `nan` is printed for all its columns.
 
 ---
 
@@ -368,9 +368,98 @@ For 3-qubit gates, rows use `c1  c2  target`.
 
 ---
 
-## 9. File Organisation
+## 9. Kraus Channel Benchmark (`bench_kraus`)
+
+A separate executable benchmarking quantum channel (Kraus map) application on
+density matrices.  Measures the full operation `ρ → Σ_k A_k ρ A_k†` for
+predefined noise channels across the same competitor backends.
+
+### 9.1 Channels
+
+| Channel       | Qubits | Operators | Parameter | Kraus Operators |
+|---------------|--------|-----------|-----------|-----------------|
+| `Depolarize`  | 1      | 4         | p (prob)  | `{√(1-p) I, √(p/3) X, √(p/3) Y, √(p/3) Z}` |
+
+The channel parser is case-insensitive.  Default parameter: `p = 0.1`.
+
+### 9.2 Backends
+
+Four of the six gate-benchmark backends participate.  The two qlib backends are
+unavailable (no Kraus kernel yet) and print `nan`.
+
+| # | Backend        | Strategy | Cap | Notes |
+|---|----------------|----------|-----|-------|
+| 1 | BLAS baseline  | Kronecker-expand each operator to full N×N, then 2K zgemm + accumulate | 10 qubits | Pre-computes Kronecker products per position |
+| 2 | QuEST          | Pre-built superoperator via `createKrausMap`/`setKrausMap`, applied by `mixKrausMap` | None | Superop built once at init |
+| 3 | Qulacs         | Manual iterate-and-sum: copy ρ, apply `dm_single_qubit_dense_matrix_gate`, accumulate via `dm_state_add` | 10 qubits | No native Kraus API at csim level |
+| 4 | Qiskit Aer     | Pre-built superoperator via `kraus_superop` + `vectorize_matrix`, applied by `apply_superop_matrix` | None | Superop built once at init |
+
+**Fairness**: Each backend does what it would do per-application in production.
+QuEST and Aer pre-build superoperators at init (not timed); BLAS pre-builds
+Kronecker-expanded matrices at init (not timed); Qulacs copies small operator
+matrices at init.  Only the `apply` call is timed.
+
+### 9.3 Command-Line Interface
+
+```
+bench_kraus [OPTIONS]
+```
+
+| Flag             | Default       | Description                                             |
+|------------------|---------------|---------------------------------------------------------|
+| `--channel`      | `depolarize`  | Channel name from the channel table                     |
+| `--par <float>`  | `0.1`         | Channel parameter                                       |
+| `--min-qubits`   | `2`           | Minimum system size                                     |
+| `--max-qubits`   | `10`          | Maximum system size                                     |
+| `--samples`      | `10`          | Timed blocks                                            |
+| `--iterations`   | auto-tuned    | Repetitions per block                                   |
+| `--warm-up`      | `3`           | Warm-up iterations                                      |
+| `--per-qubit`    | off           | Report per-position statistics                          |
+| `--output`       | `console`     | Output format: `console`, `csv`, `pgfplots`             |
+
+### 9.4 Measurement Methodology
+
+Identical to the gate benchmark (Section 5): same two-level timing, same position
+sweep, same statistics computation.  Position generation uses the channel's target
+qubit count (1 for depolarizing → n positions).
+
+### 9.5 Kraus-Specific Files
+
+| File | Responsibility | Language |
+|------|----------------|----------|
+| `benchmark/include/bench_kraus.h` | Channel table, Kraus backend vtable, run declarations | C |
+| `benchmark/src/bench_kraus_main.c` | CLI parsing, backend table, orchestration | C |
+| `benchmark/src/bench_kraus_chan.c` | Analytic Kraus operator construction | C |
+| `benchmark/src/bench_kraus_run.c` | Timing loop + position generation | C |
+| `benchmark/src/bench_kraus_blas.c` | BLAS Kraus backend | C |
+| `benchmark/src/bench_kraus_quest.c` | QuEST Kraus backend | C |
+| `benchmark/src/bench_kraus_qulacs.cpp` | Qulacs Kraus backend | C++ |
+| `benchmark/src/bench_kraus_aer.cpp` | Qiskit Aer Kraus backend | C++ |
+
+The Kraus benchmark reuses the gate benchmark's formatter source files
+(`bench_console.c`, `bench_csv.c`, `bench_pgfplots.c`), result computation
+(`bench_result.c`), and utilities (`bench_util.c`) by compiling them into the
+`bench_kraus` target.  No gate benchmark source files are modified.
+
+### 9.6 Build Integration
+
+The `bench_kraus` target is defined in `benchmark/CMakeLists.txt` alongside
+`bench_gate`.  It is `EXCLUDE_FROM_ALL` and must be built explicitly:
+
+```
+cmake --build --preset release --target bench_kraus
+```
+
+Same conditional compilation pattern as `bench_gate`: `HAVE_QUEST`, `HAVE_QULACS`,
+`HAVE_AER` guard the competitor backends.
+
+---
+
+## 10. File Organisation
 
 No source file exceeds 500 lines of well-documented code.
+
+### Gate Benchmark (`bench_gate`)
 
 | File                           | Responsibility                              | Language |
 |--------------------------------|---------------------------------------------|----------|
@@ -389,30 +478,46 @@ No source file exceeds 500 lines of well-documented code.
 | `benchmark/include/bench.h`    | Shared types, constants, function decls     | C        |
 | `benchmark/include/bench_result.h` | Result type and statistics API           | C        |
 
-### 9.1 Build Integration
+### Kraus Benchmark (`bench_kraus`)
+
+| File                                  | Responsibility                        | Language |
+|---------------------------------------|---------------------------------------|----------|
+| `benchmark/include/bench_kraus.h`     | Channel table, Kraus vtable, run decls | C       |
+| `benchmark/src/bench_kraus_main.c`    | CLI parsing, orchestration            | C        |
+| `benchmark/src/bench_kraus_chan.c`     | Analytic Kraus operator construction  | C        |
+| `benchmark/src/bench_kraus_run.c`     | Timing loop + position generation     | C        |
+| `benchmark/src/bench_kraus_blas.c`    | BLAS Kraus backend                    | C        |
+| `benchmark/src/bench_kraus_quest.c`   | QuEST Kraus backend                   | C        |
+| `benchmark/src/bench_kraus_qulacs.cpp`| Qulacs Kraus backend                  | C++      |
+| `benchmark/src/bench_kraus_aer.cpp`   | Qiskit Aer Kraus backend              | C++      |
+
+Shared files compiled into both targets: `bench_result.c`, `bench_util.c`,
+`bench_console.c`, `bench_csv.c`, `bench_pgfplots.c`.
+
+### 10.1 Build Integration
 
 The root `CMakeLists.txt` defines `option(BUILD_BENCHMARKS … OFF)`.  When enabled,
 it adds the `benchmark/` subdirectory.  The benchmark's own `CMakeLists.txt` requires
 a Release build (`CMAKE_BUILD_TYPE STREQUAL "Release"`) and returns early otherwise.
-The `bench_gate` target is marked `EXCLUDE_FROM_ALL` — it must be built explicitly
-(e.g. `cmake --build --preset release --target bench_gate`).
+Both `bench_gate` and `bench_kraus` targets are marked `EXCLUDE_FROM_ALL` — they must
+be built explicitly (e.g. `cmake --build --preset release --target bench_gate`).
 
 Backend wrappers are guarded by `#ifdef HAVE_QUEST` / `HAVE_QULACS` / `HAVE_AER`.
 When a backend is not available, its wrapper returns `nan` for all measurements.
 
-#### 9.1.1 QuEST
+#### 10.1.1 QuEST
 
 Detected via `find_path` (for `quest/include/quest.h`) and `find_library`.  Searched
 in `extern/QuEST`, `$QuEST_DIR`, and standard system paths.  Sets `HAVE_QUEST` and
 links the found library directly.
 
-#### 9.1.2 Qulacs
+#### 10.1.2 Qulacs
 
 Built from source as a `csim_static` static library from the submodule at
 `extern/qulacs/src/csim/`.  Requires Eigen3 headers.  Sets `HAVE_QULACS`.  Links
 OpenMP when available.
 
-#### 9.1.3 Qiskit Aer
+#### 10.1.3 Qiskit Aer
 
 Header-only density-matrix kernel vendored to `extern/aer-dm/`.  Requires
 `nlohmann/json.hpp` (searched via Homebrew and standard paths).  Sets `HAVE_AER`.
@@ -420,7 +525,7 @@ Links OpenMP when available.
 
 ---
 
-## 10. Fairness Invariants
+## 11. Fairness Invariants
 
 1. **Same initial state**: All backends receive the same randomly initialised density
    matrix for each qubit count (seeded identically where possible).
