@@ -9,6 +9,7 @@ set(UNITY_SRC "${unity_SOURCE_DIR}/src")
 
 # Set source directories
 set(STATE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/state")
+set(CHANNEL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/channel")
 set(GATE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/gate")
 set(UTILITY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/utility")
 
@@ -119,3 +120,38 @@ target_link_libraries(test_circuit
             q
 )
 add_test(NAME test_circuit COMMAND test_circuit)
+
+#=======================================================================================================================
+# test_channel
+#=======================================================================================================================
+
+set(TEST_CHANNEL_SRC
+        "${CHANNEL_DIR}/test_channel.c"
+        "${CHANNEL_DIR}/test_channel_superop.c"
+        "${CHANNEL_DIR}/test_channel_packed.c"
+        "${CHANNEL_DIR}/test_channel_tiled.c"
+        "${UTILITY_DIR}/test_pure_states.c"
+        "${UTILITY_DIR}/test_mixed_states.c"
+        "${UTILITY_DIR}/test_mixed_utils.c"
+        "${UTILITY_DIR}/linalg.c"
+        "${UTILITY_DIR}/gatemat.c"
+        "${UNITY_SRC}/unity.c"
+)
+
+add_executable(test_channel ${TEST_CHANNEL_SRC})
+target_compile_definitions(test_channel
+        PRIVATE
+            UNITY_INCLUDE_DOUBLE
+            UNITY_SUPPORT_64
+            LOG_TILE_DIM=${LOG_TILE_DIM}
+)
+target_include_directories(test_channel
+        PRIVATE
+            ${UNITY_SRC}
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+target_link_libraries(test_channel
+        PRIVATE
+            q
+)
+add_test(NAME test_channel COMMAND test_channel)

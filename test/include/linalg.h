@@ -51,6 +51,8 @@ cplx_t* zmv(unsigned n, const cplx_t *m, const cplx_t *v);
  */
 cplx_t* zumu(unsigned n, const cplx_t *u, const cplx_t *m);
 
+cplx_t* zsumu(unsigned n, unsigned r, const cplx_t **u, const cplx_t *m);
+
 /*
  * @brief   Returns the Kronecker product of the k-by-l matrix A with the m-by-n matrix B.
  *

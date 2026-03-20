@@ -78,6 +78,41 @@ cplx_t* zumu(const unsigned n, const cplx_t *u, const cplx_t *m) {
 }
 
 
+cplx_t* zsumu(const unsigned n, const unsigned r, const cplx_t **u, const cplx_t *m) {
+  cplx_t *out = NULL, *tmp = NULL;
+
+  // Allocate memory for temporary matrix
+  if (!((tmp = malloc(n * n * sizeof(*tmp))))) {
+    fprintf(stderr, "zumu(): tmp allocation failed\n");
+    return tmp;
+  }
+
+  // Allocate memory for the output (zero-initialized for accumulation)
+  if (!((out = calloc(n * n, sizeof(*out))))) {
+    fprintf(stderr, "zsumu(): out allocation failed\n");
+    free(tmp);
+    return out;
+  }
+
+  // Define multipliers
+  const dim_t N = (dim_t) n;
+  const cplx_t ONE = 1.0 + I*0.0;
+  const cplx_t ZERO = 0.0 + I*0.0;
+
+  for (unsigned i = 0; i < r; ++i) {
+    // Step 1: tmp = U * M
+    cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, N, N, N, &ONE, u[i], N, m, N, &ZERO, tmp, N);
+
+    // Step 2: out += tmp * U† = U * M * U†
+    cblas_zgemm(CblasColMajor, CblasNoTrans, CblasConjTrans, N, N, N, &ONE, tmp, N, u[i], N, &ONE, out, N);
+  }
+
+  free(tmp);
+
+  return out;
+}
+
+
 cplx_t* zkron(const unsigned k, const unsigned l, const cplx_t A[],
              const unsigned m, const unsigned n, const cplx_t B[]) {
     // Allocate memory for the Kronecker product matrix
