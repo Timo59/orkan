@@ -8,6 +8,13 @@ set(STATE_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/state/state_tiled.c"
 )
 
+# Collect channel module source files
+set(CHANNEL_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/channel/channel.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/channel/channel_packed.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/channel/channel_tiled.c"
+)
+
 # Collect packed gate sources (one file per gate)
 file(GLOB GATE_PACKED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_*.c")
 
@@ -17,6 +24,7 @@ file(GLOB GATE_TILED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_
 # Collect all source files
 set(Q_SOURCES
         ${STATE_SOURCES}
+        ${CHANNEL_SOURCES}
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate_pure.c"
         ${GATE_PACKED_SOURCES}
@@ -68,6 +76,7 @@ install(FILES
     ${INCLUDE_DIR}/qlib.h
     ${INCLUDE_DIR}/q_types.h
     ${INCLUDE_DIR}/state.h
+    ${INCLUDE_DIR}/channel.h
     ${INCLUDE_DIR}/gate.h
     ${INCLUDE_DIR}/circ.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
