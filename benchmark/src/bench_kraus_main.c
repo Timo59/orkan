@@ -17,21 +17,23 @@
 static const bench_kraus_backend_t *kraus_backends[KRAUS_BACKEND_COUNT];
 
 static void init_kraus_backends(void) {
-    kraus_backends[0] = &kraus_blas_backend;
+    kraus_backends[0] = &kraus_qlib_tiled_backend;
+    kraus_backends[1] = &kraus_qlib_packed_backend;
+    kraus_backends[2] = &kraus_blas_backend;
 #ifdef HAVE_QUEST
-    kraus_backends[1] = &kraus_quest_backend;
-#else
-    kraus_backends[1] = NULL;
-#endif
-#ifdef HAVE_QULACS
-    kraus_backends[2] = &kraus_qulacs_backend;
-#else
-    kraus_backends[2] = NULL;
-#endif
-#ifdef HAVE_AER
-    kraus_backends[3] = &kraus_aer_backend;
+    kraus_backends[3] = &kraus_quest_backend;
 #else
     kraus_backends[3] = NULL;
+#endif
+#ifdef HAVE_QULACS
+    kraus_backends[4] = &kraus_qulacs_backend;
+#else
+    kraus_backends[4] = NULL;
+#endif
+#ifdef HAVE_AER
+    kraus_backends[5] = &kraus_aer_backend;
+#else
+    kraus_backends[5] = NULL;
 #endif
 }
 
@@ -79,21 +81,23 @@ static void init_formatter_backends(void) {
  * Mapping: BACKEND_COUNT slots -> KRAUS_BACKEND_COUNT slots
  *
  * gate backend enum          kraus index
- * BACKEND_QLIB_TILED  (0)    -1  (unavailable)
- * BACKEND_QLIB_PACKED (1)    -1  (unavailable)
- * BACKEND_BLAS        (2)     0
- * BACKEND_QUEST       (3)     1
- * BACKEND_QULACS      (4)     2
- * BACKEND_AER         (5)     3
+ * BACKEND_QLIB_TILED  (0)     0
+ * BACKEND_QLIB_PACKED (1)     1
+ * BACKEND_BLAS        (2)     2
+ * BACKEND_QUEST       (3)     3
+ * BACKEND_QULACS      (4)     4
+ * BACKEND_AER         (5)     5
  * ===================================================================== */
 
 static int backend_to_kraus(int b) {
     switch (b) {
-    case BACKEND_BLAS:    return 0;
-    case BACKEND_QUEST:   return 1;
-    case BACKEND_QULACS:  return 2;
-    case BACKEND_AER:     return 3;
-    default:              return -1;
+    case BACKEND_QLIB_TILED:  return 0;
+    case BACKEND_QLIB_PACKED: return 1;
+    case BACKEND_BLAS:        return 2;
+    case BACKEND_QUEST:       return 3;
+    case BACKEND_QULACS:      return 4;
+    case BACKEND_AER:         return 5;
+    default:                  return -1;
     }
 }
 
@@ -113,7 +117,9 @@ static void usage(const char *prog) {
         "  --iterations <N>  Repetitions per block (default: auto)\n"
         "  --warm-up <N>     Warm-up iterations (default: 3)\n"
         "  --per-qubit       Report per-position statistics\n"
-        "  --output <FMT>    console, csv, pgfplots (default: console)\n",
+        "  --output <FMT>    console, csv, pgfplots (default: console)\n"
+        "  --backends <LIST> Comma-separated backends to run (default: all)\n"
+        "                    Names: qlib_tiled,qlib_packed,BLAS,QuEST,Qulacs,\"Qiskit Aer\"\n",
         prog);
     exit(1);
 }
@@ -135,7 +141,8 @@ static bench_options_t parse_kraus_options(int argc, char *argv[]) {
         .iterations_explicit = 0,
         .warm_up = 3,
         .per_qubit = 0,
-        .output = FMT_CONSOLE
+        .output = FMT_CONSOLE,
+        .backend_mask = ~0u
     };
     parsed_channel = BC_DEPOLARIZE;
 
@@ -178,6 +185,26 @@ static bench_options_t parse_kraus_options(int argc, char *argv[]) {
             else if (strcasecmp(argv[i], "csv") == 0)       opts.output = FMT_CSV;
             else if (strcasecmp(argv[i], "pgfplots") == 0)  opts.output = FMT_PGFPLOTS;
             else { fprintf(stderr, "Error: unknown format '%s'\n", argv[i]); exit(1); }
+        } else if (strcmp(argv[i], "--backends") == 0 && i + 1 < argc) {
+            opts.backend_mask = 0;
+            char buf[256];
+            strncpy(buf, argv[++i], sizeof(buf) - 1);
+            buf[sizeof(buf) - 1] = '\0';
+            for (char *tok = strtok(buf, ","); tok; tok = strtok(NULL, ",")) {
+                int found = 0;
+                for (int b = 0; b < BACKEND_COUNT; ++b) {
+                    if (kraus_backend_names[b] &&
+                        strcasecmp(tok, kraus_backend_names[b]) == 0) {
+                        opts.backend_mask |= (1u << b);
+                        found = 1;
+                        break;
+                    }
+                }
+                if (!found) {
+                    fprintf(stderr, "Error: unknown backend '%s'\n", tok);
+                    exit(1);
+                }
+            }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(argv[0]);
         } else {
@@ -263,7 +290,8 @@ int main(int argc, char *argv[]) {
 
             for (int b = 0; b < BACKEND_COUNT; ++b) {
                 int ki = backend_to_kraus(b);
-                if (ki < 0 || !kraus_backends[ki] ||
+                if (!(opts.backend_mask & (1u << b)) ||
+                    ki < 0 || !kraus_backends[ki] ||
                     !kraus_backends[ki]->available(q)) {
                     results[b] = bench_result_nan();
                     continue;
@@ -288,7 +316,8 @@ int main(int argc, char *argv[]) {
 
             for (int b = 0; b < BACKEND_COUNT; ++b) {
                 int ki = backend_to_kraus(b);
-                if (ki < 0 || !kraus_backends[ki] ||
+                if (!(opts.backend_mask & (1u << b)) ||
+                    ki < 0 || !kraus_backends[ki] ||
                     !kraus_backends[ki]->available(q)) {
                     alloc_results[b] = NULL;
                     per_backend[b] = NULL;

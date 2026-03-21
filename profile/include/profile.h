@@ -233,7 +233,7 @@ static inline prof_result_t prof_run_1q(
     }
 
     /* Allocate and initialize state to |+>^n (nonzero everywhere) */
-    state_t state;
+    state_t state = {0};
     state.type = stype;
     state_plus(&state, qubits);
     r.data_bytes = (size_t)state_len(&state) * sizeof(cplx_t);

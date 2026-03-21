@@ -134,6 +134,7 @@ typedef struct {
     int             warm_up;      /**< Default: 3 */
     int             per_qubit;    /**< 0 or 1 */
     bench_fmt_t     output;
+    unsigned        backend_mask; /**< bitmask: bit b set = run backend b; ~0u = all */
 } bench_options_t;
 
 /** @brief Parse command-line arguments into options.  Exits on error. */

@@ -32,3 +32,16 @@ target_include_directories(profile_h_tiled PRIVATE
 )
 
 target_link_libraries(profile_h_tiled PRIVATE q)
+
+# --- profile_channel_tiled ---
+add_executable(profile_channel_tiled "${PROF_SRC_DIR}/profile_channel_tiled.c")
+
+set_target_properties(profile_channel_tiled PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/profile"
+)
+
+target_include_directories(profile_channel_tiled PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+
+target_link_libraries(profile_channel_tiled PRIVATE q)

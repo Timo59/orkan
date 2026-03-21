@@ -108,7 +108,9 @@ static void usage(const char *prog) {
         "  --iterations <N>  Repetitions per block (default: 100)\n"
         "  --warm-up <N>     Warm-up iterations (default: 3)\n"
         "  --per-qubit       Report per-position statistics\n"
-        "  --output <FMT>    console, csv, pgfplots (default: console)\n",
+        "  --output <FMT>    console, csv, pgfplots (default: console)\n"
+        "  --backends <LIST> Comma-separated backends to run (default: all)\n"
+        "                    Names: qlib_tiled,qlib_packed,BLAS,QuEST,Qulacs,\"Qiskit Aer\"\n",
         prog);
     exit(1);
 }
@@ -125,7 +127,8 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
         .iterations_explicit = 0,
         .warm_up = 3,
         .per_qubit = 0,
-        .output = FMT_CONSOLE
+        .output = FMT_CONSOLE,
+        .backend_mask = ~0u
     };
 
     if (argc < 2) usage(argv[0]);
@@ -169,6 +172,26 @@ bench_options_t bench_parse_options(int argc, char *argv[]) {
             else if (strcasecmp(argv[i], "csv") == 0)       opts.output = FMT_CSV;
             else if (strcasecmp(argv[i], "pgfplots") == 0)  opts.output = FMT_PGFPLOTS;
             else { fprintf(stderr, "Error: unknown output format '%s'\n", argv[i]); exit(1); }
+        } else if (strcmp(argv[i], "--backends") == 0 && i + 1 < argc) {
+            opts.backend_mask = 0;
+            char buf[256];
+            strncpy(buf, argv[++i], sizeof(buf) - 1);
+            buf[sizeof(buf) - 1] = '\0';
+            for (char *tok = strtok(buf, ","); tok; tok = strtok(NULL, ",")) {
+                int found = 0;
+                for (int b = 0; b < BACKEND_COUNT; ++b) {
+                    if (bench_backends[b].name &&
+                        strcasecmp(tok, bench_backends[b].name) == 0) {
+                        opts.backend_mask |= (1u << b);
+                        found = 1;
+                        break;
+                    }
+                }
+                if (!found) {
+                    fprintf(stderr, "Error: unknown backend '%s'\n", tok);
+                    exit(1);
+                }
+            }
         } else {
             fprintf(stderr, "Error: unknown option '%s'\n", argv[i]);
             exit(1);
@@ -264,7 +287,8 @@ int main(int argc, char *argv[]) {
             bench_result_t results[BACKEND_COUNT];
 
             for (int b = 0; b < BACKEND_COUNT; ++b) {
-                if (!bench_backends[b].available(q)) {
+                if (!(opts.backend_mask & (1u << b)) ||
+                    !bench_backends[b].available(q)) {
                     results[b] = bench_result_nan();
                     continue;
                 }
@@ -287,7 +311,8 @@ int main(int argc, char *argv[]) {
             const bench_pos_result_t *per_backend[BACKEND_COUNT];
 
             for (int b = 0; b < BACKEND_COUNT; ++b) {
-                if (!bench_backends[b].available(q)) {
+                if (!(opts.backend_mask & (1u << b)) ||
+                    !bench_backends[b].available(q)) {
                     alloc_results[b] = NULL;
                     per_backend[b] = NULL;
                     continue;

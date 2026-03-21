@@ -52,7 +52,7 @@ target_include_directories(q
             "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled"
 )
 target_compile_definitions(q
-        PRIVATE
+        PUBLIC
             LOG_TILE_DIM=${LOG_TILE_DIM}
 )
 if(DEFINED OMP_THRESHOLD)
