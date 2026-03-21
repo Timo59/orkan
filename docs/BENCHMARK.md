@@ -384,18 +384,19 @@ The channel parser is case-insensitive.  Default parameter: `p = 0.1`.
 
 ### 9.2 Backends
 
-Four of the six gate-benchmark backends participate.  The two qlib backends are
-unavailable (no Kraus kernel yet) and print `nan`.
+All six gate-benchmark backends participate.
 
 | # | Backend        | Strategy | Cap | Notes |
 |---|----------------|----------|-----|-------|
-| 1 | BLAS baseline  | Kronecker-expand each operator to full N×N, then 2K zgemm + accumulate | 10 qubits | Pre-computes Kronecker products per position |
-| 2 | QuEST          | Pre-built superoperator via `createKrausMap`/`setKrausMap`, applied by `mixKrausMap` | None | Superop built once at init |
-| 3 | Qulacs         | Manual iterate-and-sum: copy ρ, apply `dm_single_qubit_dense_matrix_gate`, accumulate via `dm_state_add` | 10 qubits | No native Kraus API at csim level |
-| 4 | Qiskit Aer     | Pre-built superoperator via `kraus_superop` + `vectorize_matrix`, applied by `apply_superop_matrix` | None | Superop built once at init |
+| 1 | qlib\_tiled    | Pre-built superoperator via `kraus_to_superop`, applied by `channel_1q` on tiled Hermitian storage | None | Superop built once at init |
+| 2 | qlib\_packed   | Pre-built superoperator via `kraus_to_superop`, applied by `channel_1q` on packed Hermitian storage | None | Superop built once at init |
+| 3 | BLAS baseline  | Kronecker-expand each operator to full N×N, then 2K zgemm + accumulate | 10 qubits | Pre-computes Kronecker products per position |
+| 4 | QuEST          | Pre-built superoperator via `createKrausMap`/`setKrausMap`, applied by `mixKrausMap` | None | Superop built once at init |
+| 5 | Qulacs         | Manual iterate-and-sum: copy ρ, apply `dm_single_qubit_dense_matrix_gate`, accumulate via `dm_state_add` | 10 qubits | No native Kraus API at csim level |
+| 6 | Qiskit Aer     | Pre-built superoperator via `kraus_superop` + `vectorize_matrix`, applied by `apply_superop_matrix` | None | Superop built once at init |
 
 **Fairness**: Each backend does what it would do per-application in production.
-QuEST and Aer pre-build superoperators at init (not timed); BLAS pre-builds
+qlib, QuEST and Aer pre-build superoperators at init (not timed); BLAS pre-builds
 Kronecker-expanded matrices at init (not timed); Qulacs copies small operator
 matrices at init.  Only the `apply` call is timed.
 
@@ -431,6 +432,7 @@ qubit count (1 for depolarizing → n positions).
 | `benchmark/src/bench_kraus_main.c` | CLI parsing, backend table, orchestration | C |
 | `benchmark/src/bench_kraus_chan.c` | Analytic Kraus operator construction | C |
 | `benchmark/src/bench_kraus_run.c` | Timing loop + position generation | C |
+| `benchmark/src/bench_kraus_qlib.c` | qlib\_tiled and qlib\_packed Kraus backends | C |
 | `benchmark/src/bench_kraus_blas.c` | BLAS Kraus backend | C |
 | `benchmark/src/bench_kraus_quest.c` | QuEST Kraus backend | C |
 | `benchmark/src/bench_kraus_qulacs.cpp` | Qulacs Kraus backend | C++ |
@@ -486,6 +488,7 @@ No source file exceeds 500 lines of well-documented code.
 | `benchmark/src/bench_kraus_main.c`    | CLI parsing, orchestration            | C        |
 | `benchmark/src/bench_kraus_chan.c`     | Analytic Kraus operator construction  | C        |
 | `benchmark/src/bench_kraus_run.c`     | Timing loop + position generation     | C        |
+| `benchmark/src/bench_kraus_qlib.c`    | qlib\_tiled and qlib\_packed backends | C        |
 | `benchmark/src/bench_kraus_blas.c`    | BLAS Kraus backend                    | C        |
 | `benchmark/src/bench_kraus_quest.c`   | QuEST Kraus backend                   | C        |
 | `benchmark/src/bench_kraus_qulacs.cpp`| Qulacs Kraus backend                  | C++      |
