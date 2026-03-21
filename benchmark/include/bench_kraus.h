@@ -63,8 +63,10 @@ typedef struct {
     int   (*available)(qubit_t sys_qubits);
 } bench_kraus_backend_t;
 
-#define KRAUS_BACKEND_COUNT 4
+#define KRAUS_BACKEND_COUNT 6
 
+extern const bench_kraus_backend_t kraus_qlib_tiled_backend;
+extern const bench_kraus_backend_t kraus_qlib_packed_backend;
 extern const bench_kraus_backend_t kraus_blas_backend;
 
 #ifdef HAVE_QUEST
