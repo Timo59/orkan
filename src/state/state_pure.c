@@ -9,7 +9,7 @@
  * where a_i = <i|psi> is the amplitude for computational basis state |i>
  */
 
-#include "state.h"
+#include "state_internal.h"
 #include "utils.h"
 
 #include <assert.h>

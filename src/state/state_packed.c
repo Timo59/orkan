@@ -19,7 +19,7 @@
  * Reference: thesis sec4.tex (Eq 6-10, Alg 5)
  */
 
-#include "state.h"
+#include "state_internal.h"
 #include "index.h"
 #include "utils.h"
 
@@ -40,7 +40,7 @@ idx_t state_packed_len(qubit_t qubits) {
      * To avoid overflow in dim*(dim+1), we compute (dim/2)*(dim+1) since
      * dim = 2^qubits is always even for qubits >= 1.
      *
-     * idx_t is int64_t so overflow is not reachable in practice
+     * idx_t is uint64_t so overflow is not reachable in practice
      * (memory is exhausted long before 62 qubits).
      */
     assert(qubits < sizeof(idx_t) * 8 - 1);  /* Prevent dim overflow */

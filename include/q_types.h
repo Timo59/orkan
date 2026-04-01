@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef QTYPES_H
 #define QTYPES_H
 
@@ -51,6 +49,15 @@ typedef uint64_t                    idx_t;      // Index/dimension type (unsigne
 
 /*
  * =====================================================================================================================
+ * Tile configuration (LOG_TILE_DIM is set by CMake via -DLOG_TILE_DIM=N)
+ * =====================================================================================================================
+ */
+
+#define TILE_DIM  (1 << LOG_TILE_DIM)
+#define TILE_SIZE (TILE_DIM * TILE_DIM)
+
+/*
+ * =====================================================================================================================
  * Macros
  * =====================================================================================================================
  */
@@ -65,8 +72,6 @@ typedef uint64_t                    idx_t;      // Index/dimension type (unsigne
 #define SWAP(a, b, T)           do { T q; q = *(a); *(a) = *(b); *(b) = q; } while(0)
 #define POW2(a, T)              (((T)1) << (a))
 
-#define SETREAL(a, b)           (*((double*) &(a)) = (b))
-#define SETIMAG(a, b)           (*(((double*) &(a)) + 1) = (b))
 
 #ifdef __cplusplus
 }

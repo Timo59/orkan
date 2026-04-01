@@ -21,18 +21,6 @@ extern "C" {
 
 /*
  * =====================================================================================================================
- * Constants - Tile configuration (compile-time via CMake)
- * =====================================================================================================================
- */
-
-#ifndef LOG_TILE_DIM
-#define LOG_TILE_DIM 5
-#endif
-#define TILE_DIM  (1 << LOG_TILE_DIM)
-#define TILE_SIZE (TILE_DIM * TILE_DIM)
-
-/*
- * =====================================================================================================================
  * Type definitions
  * =====================================================================================================================
  */
@@ -45,9 +33,6 @@ typedef enum state_type {
     MIXED_PACKED,   /* Mixed state: packed lower-triangular column-major storage */
     MIXED_TILED     /* Mixed state: tiled lower-triangular storage for cache efficiency */
 } state_type_t;
-
-/* Backward compatibility alias - DEPRECATED, use MIXED_PACKED instead */
-#define MIXED MIXED_PACKED
 
 /*
  * @brief   Structure for multi-qubit quantum state
@@ -147,109 +132,6 @@ cplx_t state_get(const state_t *state, idx_t row, idx_t col);
  * @param[in]       val     Value to set
  */
 void state_set(state_t *state, idx_t row, idx_t col, cplx_t val);
-
-/*
- * =====================================================================================================================
- * Type-specific implementations - PURE
- * =====================================================================================================================
- */
-
-/*
- * @brief   Compute storage length for a pure state: 2^qubits
- */
-idx_t state_pure_len(qubit_t qubits);
-
-/*
- * @brief   Initialize a pure state to |+>^n
- */
-void state_pure_plus(state_t *state, qubit_t qubits);
-
-/*
- * @brief   Get amplitude at index row
- */
-cplx_t state_pure_get(const state_t *state, idx_t row);
-
-/*
- * @brief   Set amplitude at index row
- */
-void state_pure_set(state_t *state, idx_t row, cplx_t val);
-
-/*
- * @brief   Print pure state information
- */
-void state_pure_print(const state_t *state);
-
-/*
- * =====================================================================================================================
- * Type-specific implementations - MIXED_PACKED
- * =====================================================================================================================
- */
-
-/*
- * @brief   Compute storage length for packed format: dim*(dim+1)/2
- */
-idx_t state_packed_len(qubit_t qubits);
-
-/*
- * @brief   Initialize a packed state to the |+><+|^n density matrix
- *
- * All matrix elements equal 1/2^n.
- */
-void state_packed_plus(state_t *state, qubit_t qubits);
-
-/*
- * @brief   Get element (row, col) from packed density matrix
- */
-cplx_t state_packed_get(const state_t *state, idx_t row, idx_t col);
-
-/*
- * @brief   Set element (row, col) in packed density matrix
- */
-void state_packed_set(state_t *state, idx_t row, idx_t col, cplx_t val);
-
-/*
- * @brief   Print packed state information
- */
-void state_packed_print(const state_t *state);
-
-/*
- * =====================================================================================================================
- * Type-specific implementations - MIXED_TILED
- *
- * WARNING: Intra-tile layout is row-major, NOT column-major like LAPACK packed.
- * Do NOT pass tile pointers to LAPACK routines expecting column-major storage.
- * =====================================================================================================================
- */
-
-/*
- * @brief   Compute storage length for tiled format
- *
- * Storage = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE
- * where n_tiles = ceil(2^qubits / TILE_DIM)
- */
-idx_t state_tiled_len(qubit_t qubits);
-
-/*
- * @brief   Initialize a tiled state to the |+><+|^n density matrix
- *
- * All matrix elements equal 1/2^n (consistent with state_packed_plus).
- */
-void state_tiled_plus(state_t *state, qubit_t qubits);
-
-/*
- * @brief   Get element (row, col) from tiled density matrix
- */
-cplx_t state_tiled_get(const state_t *state, idx_t row, idx_t col);
-
-/*
- * @brief   Set element (row, col) in tiled density matrix
- */
-void state_tiled_set(state_t *state, idx_t row, idx_t col, cplx_t val);
-
-/*
- * @brief   Print tiled state information
- */
-void state_tiled_print(const state_t *state);
 
 #ifdef __cplusplus
 }

@@ -25,7 +25,7 @@
  * Reference: thesis sec4.tex
  */
 
-#include "state.h"
+#include "state_internal.h"
 #include "index.h"
 #include "utils.h"
 

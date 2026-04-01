@@ -113,7 +113,7 @@ set_target_properties(bench_gate PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
     EXCLUDE_FROM_ALL TRUE)
 target_include_directories(bench_gate PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(bench_gate PRIVATE q blas_compiler_flags)
+target_link_libraries(bench_gate PRIVATE ${PROJECT_NAME_LOWER} blas_compiler_flags)
 
 if(QuEST_FOUND)
     target_compile_definitions(bench_gate PRIVATE HAVE_QUEST)
@@ -174,7 +174,7 @@ set_target_properties(bench_kraus PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
     EXCLUDE_FROM_ALL TRUE)
 target_include_directories(bench_kraus PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(bench_kraus PRIVATE q blas_compiler_flags)
+target_link_libraries(bench_kraus PRIVATE ${PROJECT_NAME_LOWER} blas_compiler_flags)
 
 if(QuEST_FOUND)
     target_compile_definitions(bench_kraus PRIVATE HAVE_QUEST)
