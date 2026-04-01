@@ -1,7 +1,7 @@
 # Dependencies.cmake - Handle all external dependencies
 
-# Option to use system OpenBLAS (must have ILP64 support)
-option(USE_SYSTEM_OPENBLAS "Use system OpenBLAS instead of bundled (must have ILP64 support)" OFF)
+# Option to use system OpenBLAS (LP64; only used by tests/benchmarks for small matrices)
+option(USE_SYSTEM_OPENBLAS "Use system OpenBLAS instead of bundled" OFF)
 
 # BLAS/LAPACK configuration
 if(APPLE)
@@ -17,27 +17,24 @@ if(APPLE)
 elseif(UNIX)
     # Linux: Bundle OpenBLAS with ILP64 by default
     if(USE_SYSTEM_OPENBLAS)
-        message(STATUS "Using system OpenBLAS (ILP64 support required)")
-        message(WARNING
-            "You have enabled USE_SYSTEM_OPENBLAS. This requires OpenBLAS built with INTERFACE64=1.\n"
-            "If you encounter issues, rebuild with: cmake -DUSE_SYSTEM_OPENBLAS=OFF ..")
+        message(STATUS "Using system OpenBLAS (LP64)")
 
         # Try to find system OpenBLAS
         find_library(OPENBLAS_LIB
-            NAMES openblas64 openblas
+            NAMES openblas
             PATHS /usr/lib /usr/local/lib /opt/OpenBLAS/lib
-            DOC "OpenBLAS library with ILP64 support"
+            DOC "OpenBLAS library"
         )
 
         if(NOT OPENBLAS_LIB)
             message(FATAL_ERROR
                 "System OpenBLAS not found. Either:\n"
                 "  1. Install: sudo apt install libopenblas-dev\n"
-                "  2. Build with: cmake -DUSE_SYSTEM_OPENBLAS=OFF .. (uses bundled OpenBLAS)")
+                "  2. Build with: cmake -DUSE_SYSTEM_OPENBLAS=OFF .. (uses bundled ILP64 OpenBLAS)")
         endif()
 
         message(STATUS "Found OpenBLAS: ${OPENBLAS_LIB}")
-        set(QSIM_BLAS_COMPILE_DEFINITIONS OPENBLAS_USE64BITINT)
+        set(QSIM_BLAS_COMPILE_DEFINITIONS "")
         set(QSIM_BLAS_LIBRARIES ${OPENBLAS_LIB})
         set(QSIM_BLAS_INCLUDE_DIRS "/usr/include" "/usr/local/include")
 
