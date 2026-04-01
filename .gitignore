@@ -33,10 +33,3 @@
 **/cmake-build-*
 **/build
 
-# Keep old code only locally
-**/archive
-
-# Under construction
-/gate/
-**/internal
-**/meas

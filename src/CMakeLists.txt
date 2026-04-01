@@ -61,7 +61,6 @@ endif()
 target_link_libraries(q
         PUBLIC
             ${PROJECT_COMPILER_FLAGS}
-            blas_compiler_flags
             omp_compiler_flags
 )
 

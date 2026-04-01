@@ -82,6 +82,7 @@ target_include_directories(test_gate
 target_link_libraries(test_gate
         PRIVATE
             q
+            blas_compiler_flags
 )
 add_test(NAME test_gate COMMAND test_gate)
 
@@ -118,6 +119,7 @@ target_include_directories(test_circuit
 target_link_libraries(test_circuit
         PRIVATE
             q
+            blas_compiler_flags
 )
 add_test(NAME test_circuit COMMAND test_circuit)
 
@@ -153,5 +155,6 @@ target_include_directories(test_channel
 target_link_libraries(test_channel
         PRIVATE
             q
+            blas_compiler_flags
 )
 add_test(NAME test_channel COMMAND test_channel)
