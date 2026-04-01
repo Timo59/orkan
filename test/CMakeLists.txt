@@ -43,6 +43,7 @@ target_include_directories(test_state
 target_link_libraries(test_state
         PRIVATE
             ${PROJECT_NAME_LOWER}
+            $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lm>
 )
 add_test(NAME test_state COMMAND test_state)
 
@@ -87,6 +88,7 @@ target_link_libraries(test_gate
         PRIVATE
             ${PROJECT_NAME_LOWER}
             blas_compiler_flags
+            $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lm>
 )
 add_test(NAME test_gate COMMAND test_gate)
 
@@ -160,5 +162,6 @@ target_link_libraries(test_channel
         PRIVATE
             ${PROJECT_NAME_LOWER}
             blas_compiler_flags
+            $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lm>
 )
 add_test(NAME test_channel COMMAND test_channel)
