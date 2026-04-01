@@ -2,6 +2,27 @@
 
 #include "gate.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
+/*
+ * =====================================================================================================================
+ * Error handling
+ * =====================================================================================================================
+ *
+ * GATE_VALIDATE calls exit() on failure. This is a deliberate design choice for a
+ * scientific computing library where correctness is paramount: passing an out-of-range
+ * qubit index or null pointer indicates a programming error (not a recoverable runtime
+ * condition), and continuing would silently produce wrong simulation results.
+ */
+
+#define GATE_VALIDATE(cond, msg) do {                           \
+    if (!(cond)) {                                              \
+        fprintf(stderr, "qlib: gate: %s\n", (msg));            \
+        exit(EXIT_FAILURE);                                     \
+    }                                                           \
+} while(0)
+
 /*
  * =====================================================================================================================
  * Pure state gate implementations (gate_pure.c)

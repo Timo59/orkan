@@ -8,9 +8,18 @@
 // This avoids per-qubit gate dispatch and enables vectorized traversal.
 
 #include "circ.h"
-#include "gate.h"       /* GATE_VALIDATE */
+#include "gate.h"
 
-#include <string.h>     /* strlen */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define GATE_VALIDATE(cond, msg) do {                           \
+    if (!(cond)) {                                              \
+        fprintf(stderr, "qlib: gate: %s\n", (msg));            \
+        exit(EXIT_FAILURE);                                     \
+    }                                                           \
+} while(0)
 
 /*
  * =====================================================================================================================
