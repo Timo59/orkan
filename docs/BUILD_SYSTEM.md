@@ -7,21 +7,22 @@ Shared build infrastructure for QSim. Per-module build details are in their resp
 ## File Hierarchy
 
 ```
-CMakeLists.txt            Root orchestrator
-CMakePresets.json         Preset definitions (debug / release)
+CMakeLists.txt                Root orchestrator
+CMakePresets.json             Preset definitions (debug / release)
 cmake/
-├── PlatformConfig.cmake  OS detection and platform-specific settings
-├── Dependencies.cmake    BLAS/LAPACK resolution (tests/benchmarks only)
-└── CompilerFlags.cmake   Interface libraries for compiler flags
+├── PlatformConfig.cmake      OS detection and platform-specific settings
+├── Dependencies.cmake        BLAS/LAPACK resolution (tests/benchmarks only)
+├── CompilerFlags.cmake       Compiler flags interface library, OpenMP detection
+└── QSimConfig.cmake.in       Package config template for find_package(QSim)
 src/
-├── CMakeLists.txt        Library target (shared)
-└── internal/             Internal headers (index.h, utils.h) — not installed
-test/CMakeLists.txt       Unity test framework; test executables
-benchmark/CMakeLists.txt  Benchmark executables; auto-detects QuEST, Qulacs, Aer
-profile/CMakeLists.txt    Micro-profiling executables
+├── CMakeLists.txt            Library target, install rules, package config generation
+└── internal/                 Internal headers (index.h, utils.h) — not installed
+test/CMakeLists.txt           Unity test framework; test executables
+benchmark/CMakeLists.txt      Benchmark executables; auto-detects QuEST, Qulacs, Aer
+profile/CMakeLists.txt        Micro-profiling executables
 tools/
-└── verify_ilp64.c        Standalone utility to validate ILP64 BLAS ABI
-extern/                   Third-party sources (benchmark only): QuEST, qulacs, aer-dm
+└── verify_ilp64.c            Standalone utility to validate ILP64 BLAS ABI
+extern/                       Third-party sources (benchmark only): QuEST, qulacs, aer-dm
 ```
 
 ---
@@ -82,27 +83,59 @@ All target names are derived from the project name (`PROJECT_NAME_LOWER`).
 
 ---
 
-## Interface Libraries (cmake/CompilerFlags.cmake)
+## Compiler Flags (cmake/CompilerFlags.cmake)
 
-| Library | Purpose | Linked by |
-|---|---|---|
-| `QSim_compiler_flags` | `-fno-strict-aliasing`, `-O0` (Debug), `-march=native` (Release), `-lm` (Linux) | Library (PUBLIC) |
-| `blas_compiler_flags` | BLAS compile definitions, include dirs, link libraries | Tests, benchmarks (PRIVATE) |
-| `omp_compiler_flags` | OpenMP flags and libraries | Library (PUBLIC) |
+### QSim_compiler_flags (interface library, linked PRIVATE)
+
+Build-time flags not propagated to consumers:
+
+| Flag | Condition |
+|---|---|
+| `-fno-strict-aliasing` | Always |
+| `-O0` | Debug only |
+| `-march=native` | Release only |
+| `-lm` | Linux only |
+
+### blas_compiler_flags (interface library)
+
+Forwards BLAS compile definitions, include directories, and link libraries from `Dependencies.cmake`. Linked by test and benchmark targets only.
+
+### OpenMP
+
+`CompilerFlags.cmake` finds OpenMP (with Homebrew hints on macOS) via `find_package(OpenMP)`. The library target links `OpenMP::OpenMP_C` directly (PUBLIC), so consumers inherit the OpenMP dependency transitively.
 
 ---
 
-## Install
+## Install and Package Config
 
 ```bash
+cmake --preset release
+cmake --build --preset release
 cmake --install cmake-build-release --prefix /usr/local
 ```
 
 Installs:
 - `lib/libqsim.{so,dylib}` with versioning (SOVERSION from `PROJECT_VERSION_MAJOR`)
-- `include/${PROJECT_NAME_LOWER}/` containing: `qlib.h`, `q_types.h`, `state.h`, `gate.h`, `channel.h`
+- `include/qsim/` containing: `qlib.h`, `q_types.h`, `state.h`, `gate.h`, `channel.h`
+- `lib/cmake/qsim/` containing: `QSimConfig.cmake`, `QSimConfigVersion.cmake`, `QSimTargets.cmake`
 
-Users include headers as `#include <qsim/qlib.h>`. The subdirectory name is derived from the project name.
+### Using the installed library
+
+```cmake
+find_package(QSim 1.0 REQUIRED)
+add_executable(myapp main.c)
+target_link_libraries(myapp QSim::qsim)
+```
+
+```c
+#include <qsim/qlib.h>
+```
+
+The package config file handles transitive dependencies: when `ENABLE_OPENMP` was ON at build time, `find_package(QSim)` automatically calls `find_dependency(OpenMP)` (with Homebrew hints on macOS).
+
+Version compatibility uses `SameMajorVersion` — version 1.2 satisfies a request for 1.0, but 2.0 does not.
+
+### Verified install
 
 The `verified_install` target runs all tests before installing:
 ```bash
@@ -113,7 +146,7 @@ cmake --build cmake-build-debug --target verified_install
 
 ## Platform Notes
 
-| Platform | BLAS | OpenMP | Position-independent code |
+| Platform | BLAS (tests only) | OpenMP | Notes |
 |---|---|---|---|
 | macOS | Apple Accelerate (ILP64 native) | Homebrew `libomp` required | `CMAKE_MACOSX_RPATH=1` |
 | Linux | FetchContent OpenBLAS with ILP64 | System package | `CMAKE_POSITION_INDEPENDENT_CODE=ON` |
