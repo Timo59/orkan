@@ -29,12 +29,12 @@ set(Q_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate_pure.c"
         ${GATE_PACKED_SOURCES}
         ${GATE_TILED_SOURCES}
-        "${CMAKE_CURRENT_SOURCE_DIR}/circ/pauli.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/circ/pauli_pure.c"
 )
 
 # Include directory
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
+
+include(GNUInstallDirs)
 
 # Create library target
 add_library(${PROJECT_NAME_LOWER} SHARED ${Q_SOURCES})
@@ -72,7 +72,6 @@ if(ENABLE_OPENMP AND TARGET OpenMP::OpenMP_C)
 endif()
 
 # Install rules
-include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 # Install library and register export set
@@ -91,7 +90,7 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}
 )
 
-# Install CMake targets file (provides QSim::qsim imported target)
+# Install CMake targets file (provides Reif::reif imported target)
 install(EXPORT ${PROJECT_NAME}Targets
     NAMESPACE ${PROJECT_NAME}::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_LOWER}

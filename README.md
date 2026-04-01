@@ -1,6 +1,6 @@
-# QSim
+# Reif
 
-A quantum computer simulator library written in C17 for representing, manipulating, and simulating quantum states. Supports pure states (statevectors) and mixed states (density matrices) with three storage backends optimised for different use cases.
+A fast quantum state simulator written in C17. Supports pure states (statevectors) and mixed states (density matrices) with three storage backends optimised for different use cases.
 
 ## Features
 
@@ -20,6 +20,13 @@ A quantum computer simulator library written in C17 for representing, manipulati
 - OpenMP (optional): Homebrew `libomp` on macOS, system package on Linux
 
 ## Building
+
+```bash
+cmake -B build
+cmake --build build
+```
+
+Or using presets:
 
 ```bash
 cmake --preset release
@@ -44,20 +51,20 @@ cmake --build --preset release
 cmake --install cmake-build-release --prefix /usr/local
 ```
 
-## Using QSim in your project
+## Using Reif in your project
 
 After installation, add to your `CMakeLists.txt`:
 
 ```cmake
-find_package(QSim 1.0 REQUIRED)
+find_package(Reif 0.1 REQUIRED)
 add_executable(myapp main.c)
-target_link_libraries(myapp QSim::qsim)
+target_link_libraries(myapp Reif::reif)
 ```
 
 Minimal example:
 
 ```c
-#include <qsim/qlib.h>
+#include <reif/qlib.h>
 #include <stdio.h>
 
 int main(void) {
@@ -95,7 +102,7 @@ cmake/            CMake modules and package config template
 
 ## Benchmarks
 
-Benchmarks compare QSim against QuEST, Qulacs, and Qiskit-Aer on single-gate and Kraus channel throughput. Build with:
+Benchmarks compare Reif against QuEST, Qulacs, and Qiskit-Aer on single-gate and Kraus channel throughput. Build with:
 
 ```bash
 cmake --preset release -DBUILD_BENCHMARKS=ON
