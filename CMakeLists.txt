@@ -74,8 +74,10 @@ endif()
 # Platform detection and compiler setup
 include(cmake/PlatformConfig.cmake)
 
-# Find dependencies
-include(cmake/Dependencies.cmake)
+# Find dependencies (BLAS only needed for tests/benchmarks, not the library itself)
+if(BUILD_TESTS OR BUILD_BENCHMARKS)
+    include(cmake/Dependencies.cmake)
+endif()
 
 # Create compiler flags interface library
 include(cmake/CompilerFlags.cmake)
