@@ -4,10 +4,11 @@
     {
       "name": "debug",
       "displayName": "Debug",
-      "description": "Debug build: LOG_TILE_DIM=3 (8x8 tiles), required for test coverage of multi-tile code paths",
+      "description": "Debug build with tests: LOG_TILE_DIM=3 (8x8 tiles) for multi-tile test coverage",
       "binaryDir": "${sourceDir}/cmake-build-debug",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_TESTS": "ON"
       }
     },
     {
@@ -16,7 +17,8 @@
       "description": "Release build: LOG_TILE_DIM=5 (32x32 tiles), cache-optimal for production",
       "binaryDir": "${sourceDir}/cmake-build-release",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTS": "OFF"
       }
     }
   ],

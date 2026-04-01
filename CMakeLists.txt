@@ -9,8 +9,8 @@ project(QSim
 
 # Default to Debug if no build type specified (single-config generators only)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (Debug, Release, RelWithDebInfo)" FORCE)
-    message(STATUS "No build type specified, defaulting to Debug")
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type (Debug, Release, RelWithDebInfo)" FORCE)
+    message(STATUS "No build type specified, defaulting to Release")
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
@@ -41,7 +41,7 @@ string(TOLOWER "${PROJECT_NAME}" PROJECT_NAME_LOWER)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Options
-option(BUILD_TESTS "Build tests" ON)
+option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer for memory debugging" OFF)
 option(ENABLE_OPENMP "Enable OpenMP parallelization" ON)
