@@ -8,10 +8,6 @@
  */
 #include "state.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-
 /*
  * =====================================================================================================================
  * C++ check
@@ -21,15 +17,13 @@
 extern "C" {
 #endif
 
-
-
 /*
  * =====================================================================================================================
  * Kraus representation type
  * =====================================================================================================================
  *
- * kraus_t is a struct storing the Kraus representation of a quantum channel acting on n_qubits qubits as a
- * concatenation of the n_terms Kraus matrices in row-major format
+ * kraus_t stores the Kraus representation of a quantum channel acting on n_qubits qubits
+ * as a concatenation of the n_terms Kraus matrices in row-major format.
  */
 typedef struct {
   qubit_t n_qubits;
@@ -42,20 +36,13 @@ typedef struct {
  * Superoperator matrix representation type
  * =====================================================================================================================
  *
- * superop_t is a struct storing the superoperator matrix representation of a quantum channel acting on n_qubits qubits
- * in row-major format
+ * superop_t stores the superoperator matrix of a quantum channel acting on n_qubits qubits
+ * in row-major format.
  */
 typedef struct {
   qubit_t n_qubits;
   cplx_t* data;
 } superop_t;
-
-/*
- * Minimum dimension to enable OpenMP parallelization (avoid thread overhead for small systems)
- */
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
 
 /*
  * =====================================================================================================================
@@ -84,4 +71,3 @@ void channel_1q(state_t *state, const superop_t *sop, qubit_t target);
 #endif
 
 #endif // CHANNEL_H
-

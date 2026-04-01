@@ -1,6 +1,10 @@
 #include "channel.h"
 #include "index.h"
 
+#ifndef OMP_THRESHOLD
+#define OMP_THRESHOLD 512
+#endif
+
 /*
  * Preload 4x4 superoperator into 32 real-valued locals.
  * Captures from sop pointer; produces _s0r.._s15r, _s0i.._s15i.
