@@ -1,0 +1,32 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# OpenMP is a transitive dependency when the library was built with it
+if(@ENABLE_OPENMP@)
+    # Apple Clang does not ship OpenMP; provide Homebrew hints
+    if(APPLE)
+        find_program(_QSIM_BREW brew)
+        if(_QSIM_BREW)
+            execute_process(
+                COMMAND ${_QSIM_BREW} --prefix libomp
+                OUTPUT_VARIABLE _QSIM_LIBOMP_PREFIX
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+            )
+            if(_QSIM_LIBOMP_PREFIX)
+                set(OpenMP_C_FLAGS   "-Xpreprocessor -fopenmp")
+                set(OpenMP_C_LIB_NAMES   "omp")
+                set(OpenMP_omp_LIBRARY "${_QSIM_LIBOMP_PREFIX}/lib/libomp.dylib")
+                list(APPEND CMAKE_PREFIX_PATH "${_QSIM_LIBOMP_PREFIX}")
+            endif()
+        endif()
+        unset(_QSIM_BREW)
+        unset(_QSIM_LIBOMP_PREFIX)
+    endif()
+    find_dependency(OpenMP COMPONENTS C)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+
+check_required_components(@PROJECT_NAME@)
