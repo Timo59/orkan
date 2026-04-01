@@ -99,14 +99,14 @@ static void *qlib_tiled_init(qubit_t qubits, bench_gate_id_t gate, double par) {
 }
 
 static size_t qlib_tiled_touch_bytes(qubit_t qubits) {
-    dim_t dim = (dim_t)1 << qubits;
+    idx_t dim = (idx_t)1 << qubits;
     if (qubits < LOG_TILE_DIM) {
         /* State fits in a single diagonal tile — gate touches all
          * dim x dim elements within the tile, not the full
          * TILE_DIM x TILE_DIM padded storage. */
         return 2 * (size_t)dim * (size_t)dim * sizeof(cplx_t);
     }
-    dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+    idx_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
     size_t n_tile_pairs = (size_t)n_tiles * (n_tiles + 1) / 2;
     return 2 * n_tile_pairs * TILE_SIZE * sizeof(cplx_t);
 }
@@ -144,7 +144,7 @@ static void *qlib_packed_init(qubit_t qubits, bench_gate_id_t gate, double par) 
 }
 
 static size_t qlib_packed_touch_bytes(qubit_t qubits) {
-    dim_t dim = (dim_t)1 << qubits;
+    idx_t dim = (idx_t)1 << qubits;
     return 2 * ((size_t)dim * (dim + 1) / 2) * sizeof(cplx_t);
 }
 

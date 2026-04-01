@@ -47,7 +47,7 @@ typedef enum {
 
 typedef unsigned char               qubit_t;    // Qubit identifier
 typedef double _Complex             cplx_t;     // Complex double (C99, ABI-compatible with all BLAS vendors)
-typedef int64_t                     dim_t;      // State/matrix dimension (ILP64: 64-bit to handle dim^2 > 2^31)
+typedef uint64_t                    idx_t;      // Index/dimension type (unsigned 64-bit for bitwise ops and dim^2 > 2^31)
 
 /*
  * =====================================================================================================================

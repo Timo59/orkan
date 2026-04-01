@@ -18,6 +18,7 @@
  */
 
 #include "gate.h"
+#include "index.h"
 #include <complex.h>
 
 #ifdef _OPENMP
@@ -29,28 +30,28 @@
 #endif
 
 void cx_packed(state_t * restrict state, const qubit_t control, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     const qubit_t hi = (control > target) ? control : target;
     const qubit_t lo = (control < target) ? control : target;
-    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
-    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+    const idx_t incr_ctrl = (idx_t)1 << control;
+    const idx_t incr_tgt = (idx_t)1 << target;
     cplx_t * restrict data = state->data;
-    const gate_idx_t quarter_dim = dim >> 2;
+    const idx_t quarter_dim = dim >> 2;
 
     #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t bc = 0; bc < quarter_dim; ++bc) {
-        const gate_idx_t c00 = insertBits2_0(bc, lo, hi);
-        const gate_idx_t c01 = c00 | incr_tgt, c10 = c00 | incr_ctrl, c11 = c10 | incr_tgt;
+    for (idx_t bc = 0; bc < quarter_dim; ++bc) {
+        const idx_t c00 = insertBits2_0(bc, lo, hi);
+        const idx_t c01 = c00 | incr_tgt, c10 = c00 | incr_ctrl, c11 = c10 | incr_tgt;
 
         /* Precompute offsets of columns */
-        gate_idx_t offset_c00 = c00 * (2 * dim - c00 + 1) / 2;
-        gate_idx_t offset_c01 = c01 * (2 * dim - c01 + 1) / 2;
-        gate_idx_t offset_c10 = c10 * (2 * dim - c10 + 1) / 2;
-        gate_idx_t offset_c11 = c11 * (2 * dim - c11 + 1) / 2;
+        idx_t offset_c00 = c00 * (2 * dim - c00 + 1) / 2;
+        idx_t offset_c01 = c01 * (2 * dim - c01 + 1) / 2;
+        idx_t offset_c10 = c10 * (2 * dim - c10 + 1) / 2;
+        idx_t offset_c11 = c11 * (2 * dim - c11 + 1) / 2;
 
-        for (gate_idx_t br = bc; br < quarter_dim; ++br) {
-            const gate_idx_t r00 = insertBits2_0(br, lo, hi);
-            const gate_idx_t r01 = r00 | incr_tgt, r10 = r00 | incr_ctrl, r11 = r10 | incr_tgt;
+        for (idx_t br = bc; br < quarter_dim; ++br) {
+            const idx_t r00 = insertBits2_0(br, lo, hi);
+            const idx_t r01 = r00 | incr_tgt, r10 = r00 | incr_ctrl, r11 = r10 | incr_tgt;
 
             /* Pair A: (r10,c00) <-> (r11,c00) — always lower tri; plain swap */
             cplx_t tmp = data[(r10 - c00) + offset_c00];

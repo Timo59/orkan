@@ -55,14 +55,14 @@ static void *kraus_aer_init(qubit_t sys_qubits, int n_ops,
     try {
         ctx = new kraus_aer_ctx_t{};
 
-        dim_t d = static_cast<dim_t>(1) << tgt_qubits;
+        idx_t d = static_cast<idx_t>(1) << tgt_qubits;
 
         /* Build Aer matrix objects from our flat row-major operators */
         std::vector<AER::cmatrix_t> kmats(n_ops);
         for (int k = 0; k < n_ops; ++k) {
             kmats[k] = AER::cmatrix_t(d, d);
-            for (dim_t i = 0; i < d; ++i)
-                for (dim_t j = 0; j < d; ++j) {
+            for (idx_t i = 0; i < d; ++i)
+                for (idx_t j = 0; j < d; ++j) {
                     const auto *src = reinterpret_cast<const std::complex<double> *>(
                         &ops[k * d * d + i * d + j]);
                     kmats[k](i, j) = *src;
@@ -86,7 +86,7 @@ static void *kraus_aer_init(qubit_t sys_qubits, int n_ops,
 #endif
         bench_init_hermitian_dense(
             reinterpret_cast<cplx_t *>(ctx->dm->data()),
-            static_cast<dim_t>(1) << sys_qubits);
+            static_cast<idx_t>(1) << sys_qubits);
 
         return ctx;
     } catch (...) {

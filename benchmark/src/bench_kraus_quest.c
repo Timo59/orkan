@@ -54,7 +54,7 @@ static void *kraus_quest_init(qubit_t sys_qubits, int n_ops,
                               int tgt_qubits, const cplx_t *ops) {
     quest_ensure_env();
 
-    dim_t d = (dim_t)1 << tgt_qubits;
+    idx_t d = (idx_t)1 << tgt_qubits;
 
     kraus_quest_ctx_t *ctx = malloc(sizeof(kraus_quest_ctx_t));
     if (!ctx) return NULL;
@@ -62,7 +62,7 @@ static void *kraus_quest_init(qubit_t sys_qubits, int n_ops,
 
     ctx->qureg = createDensityQureg((int)sys_qubits);
     bench_init_hermitian_dense((cplx_t *)ctx->qureg.cpuAmps,
-                                (dim_t)1 << sys_qubits);
+                                (idx_t)1 << sys_qubits);
 
     /* Build KrausMap and populate from our flat row-major operators */
     ctx->map = createKrausMap(tgt_qubits, n_ops);
@@ -71,9 +71,9 @@ static void *kraus_quest_init(qubit_t sys_qubits, int n_ops,
     qcomp ***matrices = malloc((size_t)n_ops * sizeof(qcomp **));
     for (int k = 0; k < n_ops; ++k) {
         matrices[k] = malloc((size_t)d * sizeof(qcomp *));
-        for (dim_t i = 0; i < d; ++i) {
+        for (idx_t i = 0; i < d; ++i) {
             matrices[k][i] = malloc((size_t)d * sizeof(qcomp));
-            for (dim_t j = 0; j < d; ++j)
+            for (idx_t j = 0; j < d; ++j)
                 matrices[k][i][j] = (qcomp)ops[k * d * d + i * d + j];
         }
     }
@@ -81,7 +81,7 @@ static void *kraus_quest_init(qubit_t sys_qubits, int n_ops,
 
     /* Free temporary pointer structure */
     for (int k = 0; k < n_ops; ++k) {
-        for (dim_t i = 0; i < d; ++i)
+        for (idx_t i = 0; i < d; ++i)
             free(matrices[k][i]);
         free(matrices[k]);
     }

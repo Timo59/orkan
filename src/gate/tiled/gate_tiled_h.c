@@ -26,10 +26,10 @@
 #include "gate_tiled.h"
 
 void h_tiled(state_t *state, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t n_tiles = (dim + TILE_DIM - (gate_idx_t)1) >> LOG_TILE_DIM;
-    const gate_idx_t dim_tile = dim < TILE_DIM ? dim : TILE_DIM;
-    const gate_idx_t incr = (gate_idx_t)1 << target;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t n_tiles = (dim + TILE_DIM - (idx_t)1) >> LOG_TILE_DIM;
+    const idx_t dim_tile = dim < TILE_DIM ? dim : TILE_DIM;
+    const idx_t incr = (idx_t)1 << target;
     cplx_t * restrict data = state->data;
 
     if (target < LOG_TILE_DIM) {
@@ -38,23 +38,23 @@ void h_tiled(state_t *state, const qubit_t target) {
          * Tiles store full TILE_DIM x TILE_DIM data (including diagonal tiles),
          * so all elements are directly accessible without conjugation logic.
          */
-        const gate_idx_t n_base = dim_tile >> 1;
+        const idx_t n_base = dim_tile >> 1;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t tr = 0; tr < n_tiles; ++tr) {
-            for (gate_idx_t tc = 0; tc <= tr; ++tc) {
-                gate_idx_t offset_tile = (tr * (tr + 1) / 2 + tc) * TILE_SIZE;
+        for (idx_t tr = 0; tr < n_tiles; ++tr) {
+            for (idx_t tc = 0; tc <= tr; ++tc) {
+                idx_t offset_tile = (tr * (tr + 1) / 2 + tc) * TILE_SIZE;
 
-                for (gate_idx_t br = 0; br < n_base; ++br) {
-                    const gate_idx_t r0 = insertBit0(br, target);
-                    const gate_idx_t r1 = r0 | incr;
+                for (idx_t br = 0; br < n_base; ++br) {
+                    const idx_t r0 = insertBit0(br, target);
+                    const idx_t r1 = r0 | incr;
 
-                    const gate_idx_t offset_r0 = r0 * TILE_DIM + offset_tile;
-                    const gate_idx_t offset_r1 = r1 * TILE_DIM + offset_tile;
+                    const idx_t offset_r0 = r0 * TILE_DIM + offset_tile;
+                    const idx_t offset_r1 = r1 * TILE_DIM + offset_tile;
 
-                    for (gate_idx_t bc = 0; bc < n_base; ++bc) {
-                        const gate_idx_t c0 = insertBit0(bc, target);
-                        const gate_idx_t c1 = c0 | incr;
+                    for (idx_t bc = 0; bc < n_base; ++bc) {
+                        const idx_t c0 = insertBit0(bc, target);
+                        const idx_t c1 = c0 | incr;
 
                         cplx_t v00 = data[c0 + offset_r0];
                         cplx_t v01 = data[c1 + offset_r0];
@@ -77,38 +77,38 @@ void h_tiled(state_t *state, const qubit_t target) {
          * Enumerate tile-row pairs (tr0, tr1) and tile-col pairs (tc0, tc1)
          * where bit target_tile differs.
          */
-        const gate_idx_t n_base = n_tiles >> 1;
+        const idx_t n_base = n_tiles >> 1;
         const qubit_t target_tile = target - LOG_TILE_DIM;
-        const gate_idx_t incr_tile = (gate_idx_t)1 << target_tile;
+        const idx_t incr_tile = (idx_t)1 << target_tile;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t btr = 0; btr < n_base; ++btr) {
-            const gate_idx_t tr0 = insertBit0(btr, target_tile);
-            const gate_idx_t tr1 = tr0 | incr_tile;
+        for (idx_t btr = 0; btr < n_base; ++btr) {
+            const idx_t tr0 = insertBit0(btr, target_tile);
+            const idx_t tr1 = tr0 | incr_tile;
 
-            for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                const gate_idx_t tc0 = insertBit0(btc, target_tile);
-                const gate_idx_t tc1 = tc0 | incr_tile;
+            for (idx_t btc = 0; btc <= btr; ++btc) {
+                const idx_t tc0 = insertBit0(btc, target_tile);
+                const idx_t tc1 = tc0 | incr_tile;
 
-                const gate_idx_t offset_t00 = (tr0 * (tr0 + 1) / 2 + tc0) * TILE_SIZE;
-                const gate_idx_t offset_t10 = (tr1 * (tr1 + 1) / 2 + tc0) * TILE_SIZE;
-                const gate_idx_t offset_t11 = (tr1 * (tr1 + 1) / 2 + tc1) * TILE_SIZE;
+                const idx_t offset_t00 = (tr0 * (tr0 + 1) / 2 + tc0) * TILE_SIZE;
+                const idx_t offset_t10 = (tr1 * (tr1 + 1) / 2 + tc0) * TILE_SIZE;
+                const idx_t offset_t11 = (tr1 * (tr1 + 1) / 2 + tc1) * TILE_SIZE;
 
                 if (tr0 > tc1) {
                     /*
                      * Sub-case a: all 4 tiles stored directly in lower triangle.
                      * T(tr0,tc1) is stored as-is since tr0 > tc1.
                      */
-                    const gate_idx_t offset_t01 = (tr0 * (tr0 + 1) / 2 + tc1) * TILE_SIZE;
+                    const idx_t offset_t01 = (tr0 * (tr0 + 1) / 2 + tc1) * TILE_SIZE;
 
-                    for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                    for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
                         cplx_t * restrict row00 = data + lr * TILE_DIM + offset_t00;
                         cplx_t * restrict row01 = data + lr * TILE_DIM + offset_t01;
                         cplx_t * restrict row10 = data + lr * TILE_DIM + offset_t10;
                         cplx_t * restrict row11 = data + lr * TILE_DIM + offset_t11;
 
                         #pragma clang loop vectorize(enable)
-                        for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                        for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                             cplx_t v00 = row00[lc];
                             cplx_t v01 = row01[lc];
                             cplx_t v10 = row10[lc];
@@ -129,14 +129,14 @@ void h_tiled(state_t *state, const qubit_t target) {
                      *   Read:  rho01 = conj(stored[lc,lr])
                      *   Write: stored[lc,lr] = conj(new_rho01)
                      */
-                    const gate_idx_t offset_t01 = (tc1 * (tc1 + 1) / 2 + tr0) * TILE_SIZE;
+                    const idx_t offset_t01 = (tc1 * (tc1 + 1) / 2 + tr0) * TILE_SIZE;
 
-                    for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                        const gate_idx_t idx00 = lr * TILE_DIM + offset_t00;
-                        const gate_idx_t idx10 = lr * TILE_DIM + offset_t10;
-                        const gate_idx_t idx11 = lr * TILE_DIM + offset_t11;
+                    for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                        const idx_t idx00 = lr * TILE_DIM + offset_t00;
+                        const idx_t idx10 = lr * TILE_DIM + offset_t10;
+                        const idx_t idx11 = lr * TILE_DIM + offset_t11;
 
-                        for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                        for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                             cplx_t v00 = data[idx00 + lc];
                             cplx_t v01 = conj(data[lr + lc * TILE_DIM + offset_t01]);
                             cplx_t v10 = data[idx10 + lc];
@@ -167,12 +167,12 @@ void h_tiled(state_t *state, const qubit_t target) {
                      * so final value is new10 (no conjugation on diag_block).
                      */
 
-                    for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                        const gate_idx_t idx00 = lr * TILE_DIM + offset_t00;
-                        const gate_idx_t idx10 = lr * TILE_DIM + offset_t10;
-                        const gate_idx_t idx11 = lr * TILE_DIM + offset_t11;
+                    for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                        const idx_t idx00 = lr * TILE_DIM + offset_t00;
+                        const idx_t idx10 = lr * TILE_DIM + offset_t10;
+                        const idx_t idx11 = lr * TILE_DIM + offset_t11;
 
-                        for (gate_idx_t lc = 0; lc <= lr; ++lc) {
+                        for (idx_t lc = 0; lc <= lr; ++lc) {
                             cplx_t v00 = data[idx00 + lc];
                             cplx_t v10 = data[idx10 + lc];
                             cplx_t v11 = data[idx11 + lc];

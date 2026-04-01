@@ -108,7 +108,7 @@ static void *kraus_qulacs_init(qubit_t sys_qubits, int n_ops,
     if (!ctx->rho || !ctx->scratch || !ctx->acc) goto fail;
 
     bench_init_hermitian_dense(
-        reinterpret_cast<cplx_t *>(ctx->rho), static_cast<dim_t>(dim));
+        reinterpret_cast<cplx_t *>(ctx->rho), static_cast<idx_t>(dim));
 
     /* Copy Kraus operators (row-major, matching Qulacs convention) */
     ctx->ops = static_cast<CTYPE *>(

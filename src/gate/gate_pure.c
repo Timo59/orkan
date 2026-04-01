@@ -1,6 +1,7 @@
 // gate_pure.c - Quantum gates for pure states (Hilbert space vectors)
 
 #include "gate.h"
+#include "index.h"
 
 #include <math.h>
 
@@ -34,14 +35,14 @@
  */
 #define TRAVERSE_PURE_1Q(state, target, PAIR_OP)                               \
 do {                                                                           \
-    const gate_idx_t dim = (gate_idx_t)1 << (state)->qubits;                   \
-    const gate_idx_t stride = (gate_idx_t)1 << (target);                       \
-    const gate_idx_t step = (gate_idx_t)1 << ((target) + 1);                   \
+    const idx_t dim = (idx_t)1 << (state)->qubits;                   \
+    const idx_t stride = (idx_t)1 << (target);                       \
+    const idx_t step = (idx_t)1 << ((target) + 1);                   \
     cplx_t *data = (state)->data;                                              \
                                                                                \
     _Pragma("omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)")           \
-    for (gate_idx_t i = 0; i < dim; i += step) {                               \
-        for (gate_idx_t j = 0; j < stride; ++j) {                              \
+    for (idx_t i = 0; i < dim; i += step) {                               \
+        for (idx_t j = 0; j < stride; ++j) {                              \
             cplx_t *a = data + i + j;                                          \
             cplx_t *b = data + i + j + stride;                                 \
             PAIR_OP(a, b);                                                     \
@@ -282,25 +283,25 @@ void rz_pure(state_t *state, const qubit_t target, const double theta) {
  * This is a "zero-flop" gate requiring only conditional memory swaps.
  */
 void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     cplx_t *restrict data = state->data;
 
     // Determine which qubit index is lower/higher for bit insertion
     qubit_t lo = (control < target) ? control : target;
     qubit_t hi = (control < target) ? target : control;
 
-    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
-    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
-    const gate_idx_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
+    const idx_t incr_ctrl = (idx_t)1 << control;
+    const idx_t incr_tgt = (idx_t)1 << target;
+    const idx_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
 
     #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t k = 0; k < n_base; ++k) {
+    for (idx_t k = 0; k < n_base; ++k) {
         // Insert 0 bits at positions lo and hi to get base index
-        const gate_idx_t base = insertBits2_0(k, lo, hi);
+        const idx_t base = insertBits2_0(k, lo, hi);
 
         // Only swap when control=1: swap |ctrl=1,tgt=0> <-> |ctrl=1,tgt=1>
-        const gate_idx_t idx_c1_t0 = base | incr_ctrl;           // control=1, target=0
-        const gate_idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt; // control=1, target=1
+        const idx_t idx_c1_t0 = base | incr_ctrl;           // control=1, target=0
+        const idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt; // control=1, target=1
 
         cplx_t tmp = data[idx_c1_t0];
         data[idx_c1_t0] = data[idx_c1_t1];
@@ -316,22 +317,22 @@ void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
  * This is a "zero-flop" gate requiring only swaps and sign/component shuffles.
  */
 void cy_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     cplx_t *restrict data = state->data;
 
     qubit_t lo = (control < target) ? control : target;
     qubit_t hi = (control < target) ? target : control;
 
-    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
-    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
-    const gate_idx_t n_base = dim >> 2;
+    const idx_t incr_ctrl = (idx_t)1 << control;
+    const idx_t incr_tgt = (idx_t)1 << target;
+    const idx_t n_base = dim >> 2;
 
     #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t k = 0; k < n_base; ++k) {
-        const gate_idx_t base = insertBits2_0(k, lo, hi);
+    for (idx_t k = 0; k < n_base; ++k) {
+        const idx_t base = insertBits2_0(k, lo, hi);
 
-        const gate_idx_t idx_c1_t0 = base | incr_ctrl;
-        const gate_idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt;
+        const idx_t idx_c1_t0 = base | incr_ctrl;
+        const idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt;
 
         // Y gate: a' = -i*b, b' = i*a
         double a_re = creal(data[idx_c1_t0]), a_im = cimag(data[idx_c1_t0]);
@@ -348,22 +349,22 @@ void cy_pure(state_t *state, const qubit_t control, const qubit_t target) {
  * This is a "zero-flop" gate requiring only a sign flip.
  */
 void cz_pure(state_t *state, const qubit_t control, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     cplx_t *restrict data = state->data;
 
     qubit_t lo = (control < target) ? control : target;
     qubit_t hi = (control < target) ? target : control;
 
-    const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
-    const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
-    const gate_idx_t n_base = dim >> 2;
+    const idx_t incr_ctrl = (idx_t)1 << control;
+    const idx_t incr_tgt = (idx_t)1 << target;
+    const idx_t n_base = dim >> 2;
 
     #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t k = 0; k < n_base; ++k) {
-        const gate_idx_t base = insertBits2_0(k, lo, hi);
+    for (idx_t k = 0; k < n_base; ++k) {
+        const idx_t base = insertBits2_0(k, lo, hi);
 
         // Negate amplitude where both control=1 and target=1
-        const gate_idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt;
+        const idx_t idx_c1_t1 = base | incr_ctrl | incr_tgt;
         data[idx_c1_t1] = -data[idx_c1_t1];
     }
 }
@@ -375,22 +376,22 @@ void cz_pure(state_t *state, const qubit_t control, const qubit_t target) {
  * This is a zero-flop gate requiring only memory swaps, no arithmetic.
  */
 void swap_pure(state_t *state, const qubit_t q1, const qubit_t q2) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     cplx_t *restrict data = state->data;
 
     const qubit_t lo = (q1 < q2) ? q1 : q2;
     const qubit_t hi = (q1 < q2) ? q2 : q1;
-    const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
-    const gate_idx_t incr_hi = (gate_idx_t)1 << hi;
-    const gate_idx_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
+    const idx_t incr_lo = (idx_t)1 << lo;
+    const idx_t incr_hi = (idx_t)1 << hi;
+    const idx_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
 
     #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t k = 0; k < n_base; ++k) {
-        const gate_idx_t base = insertBits2_0(k, lo, hi);
+    for (idx_t k = 0; k < n_base; ++k) {
+        const idx_t base = insertBits2_0(k, lo, hi);
 
         // Swap |q1=0,q2=1> <-> |q1=1,q2=0>
-        const gate_idx_t idx01 = base | incr_lo;
-        const gate_idx_t idx10 = base | incr_hi;
+        const idx_t idx01 = base | incr_lo;
+        const idx_t idx10 = base | incr_hi;
         cplx_t tmp = data[idx01];
         data[idx01] = data[idx10];
         data[idx10] = tmp;
@@ -405,7 +406,7 @@ void swap_pure(state_t *state, const qubit_t q1, const qubit_t q2) {
  * conditional memory swaps.
  */
 void ccx_pure(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     cplx_t *restrict data = state->data;
 
     // Sort qubit positions into lo < med < hi for bit insertion
@@ -415,19 +416,19 @@ void ccx_pure(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qu
     if (q[0] > q[1]) { qubit_t t = q[0]; q[0] = q[1]; q[1] = t; }
     const qubit_t lo = q[0], med = q[1], hi = q[2];
 
-    const gate_idx_t incr_ctrl1 = (gate_idx_t)1 << ctrl1;
-    const gate_idx_t incr_ctrl2 = (gate_idx_t)1 << ctrl2;
-    const gate_idx_t incr_tgt   = (gate_idx_t)1 << target;
-    const gate_idx_t n_base = dim >> 3;  // dim / 8: iterate over indices with all three bits = 0
+    const idx_t incr_ctrl1 = (idx_t)1 << ctrl1;
+    const idx_t incr_ctrl2 = (idx_t)1 << ctrl2;
+    const idx_t incr_tgt   = (idx_t)1 << target;
+    const idx_t n_base = dim >> 3;  // dim / 8: iterate over indices with all three bits = 0
 
     #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t k = 0; k < n_base; ++k) {
+    for (idx_t k = 0; k < n_base; ++k) {
         // Insert 0 bits at positions lo, med, hi to get base index
-        const gate_idx_t base = insertBit0(insertBit0(insertBit0(k, lo), med), hi);
+        const idx_t base = insertBit0(insertBit0(insertBit0(k, lo), med), hi);
 
         // Only swap when both controls are 1
-        const gate_idx_t idx_c11_t0 = base | incr_ctrl1 | incr_ctrl2;
-        const gate_idx_t idx_c11_t1 = base | incr_ctrl1 | incr_ctrl2 | incr_tgt;
+        const idx_t idx_c11_t0 = base | incr_ctrl1 | incr_ctrl2;
+        const idx_t idx_c11_t1 = base | incr_ctrl1 | incr_ctrl2 | incr_tgt;
 
         cplx_t tmp = data[idx_c11_t0];
         data[idx_c11_t0] = data[idx_c11_t1];

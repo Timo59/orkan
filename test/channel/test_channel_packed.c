@@ -316,7 +316,7 @@ done:
 static double trace_packed(unsigned dim, const cplx_t *data) {
     double tr = 0.0;
     for (unsigned i = 0; i < dim; ++i) {
-        tr += creal(data[col_off(dim, i)]);  /* diagonal: offset 0 within column i */
+        tr += creal(data[i * (2 * dim - i + 1) / 2]);  /* diagonal element (i,i) in packed format */
     }
     return tr;
 }

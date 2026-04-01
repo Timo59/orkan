@@ -26,6 +26,7 @@
  */
 
 #include "state.h"
+#include "index.h"
 #include "utils.h"
 
 #include <assert.h>
@@ -39,48 +40,23 @@
  */
 
 /**
- * @brief Compute tile offset in storage (lower-triangular, row-major tile ordering)
- *
- * Tiles in row tr: T(tr,0), T(tr,1), ..., T(tr,tr)
- * Tiles before row tr: 0 + 1 + ... + (tr-1) = tr*(tr+1)/2
- *
- * @param tr Tile row index
- * @param tc Tile column index (tc <= tr)
- * @return Tile offset (in units of tiles)
- */
-static inline dim_t tile_offset(dim_t tr, dim_t tc) {
-    return tr * (tr + 1) / 2 + tc;
-}
-
-/**
- * @brief Compute element offset within a tile (row-major)
- *
- * @param lr Local row within tile (0 to TILE_DIM-1)
- * @param lc Local column within tile (0 to TILE_DIM-1)
- * @return Element offset within tile
- */
-static inline dim_t elem_offset(dim_t lr, dim_t lc) {
-    return lr * TILE_DIM + lc;
-}
-
-/**
  * @brief Compute absolute storage index for a lower-triangle element
  *
  * For element (row, col) where row >= col:
  * 1. Compute tile coordinates: tr = row / TILE_DIM, tc = col / TILE_DIM
  * 2. Compute local coordinates: lr = row % TILE_DIM, lc = col % TILE_DIM
- * 3. index = tile_offset(tr, tc) * TILE_SIZE + elem_offset(lr, lc)
+ * 3. index = tile_off(tr, tc) + elem_off(lr, lc)
  *
  * @param row Global row index (row >= col)
  * @param col Global column index
  * @return Absolute storage index
  */
-static inline dim_t tiled_index(dim_t row, dim_t col) {
-    const dim_t tr = row >> LOG_TILE_DIM;  /* row / TILE_DIM */
-    const dim_t tc = col >> LOG_TILE_DIM;  /* col / TILE_DIM */
-    const dim_t lr = row & (TILE_DIM - 1); /* row % TILE_DIM */
-    const dim_t lc = col & (TILE_DIM - 1); /* col % TILE_DIM */
-    return tile_offset(tr, tc) * TILE_SIZE + elem_offset(lr, lc);
+static inline idx_t tiled_index(idx_t row, idx_t col) {
+    const idx_t tr = row >> LOG_TILE_DIM;
+    const idx_t tc = col >> LOG_TILE_DIM;
+    const idx_t lr = row & (TILE_DIM - 1);
+    const idx_t lc = col & (TILE_DIM - 1);
+    return tile_off(tr, tc) + elem_off(lr, lc);
 }
 
 /*
@@ -89,17 +65,17 @@ static inline dim_t tiled_index(dim_t row, dim_t col) {
  * =====================================================================================================================
  */
 
-dim_t state_tiled_len(qubit_t qubits) {
+idx_t state_tiled_len(qubit_t qubits) {
     /*
      * Storage length for tiled format: n_tiles*(n_tiles+1)/2 * TILE_SIZE
      *
-     * With 64-bit dim_t, memory exhaustion occurs long before overflow.
+     * With 64-bit idx_t, memory exhaustion occurs long before overflow.
      * The assert below guards against dimension overflow for the matrix itself.
      */
-    assert(qubits < sizeof(dim_t) * 8 - 1);  /* Prevent dim overflow */
+    assert(qubits < sizeof(idx_t) * 8 - 1);  /* Prevent dim overflow */
 
-    const dim_t dim = POW2(qubits, dim_t);
-    const dim_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;  /* ceil(dim / TILE_DIM) */
+    const idx_t dim = POW2(qubits, idx_t);
+    const idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;  /* ceil(dim / TILE_DIM) */
 
     return (n_tiles * (n_tiles + 1) >> 1) * TILE_SIZE;
 }
@@ -117,29 +93,29 @@ void state_tiled_plus(state_t *state, qubit_t qubits) {
      * All matrix elements are equal to 1/2^n.
      * This is consistent with state_packed_plus.
      */
-    const dim_t dim = POW2(state->qubits, dim_t);
-    const dim_t len = state_tiled_len(state->qubits);
+    const idx_t dim = POW2(state->qubits, idx_t);
+    const idx_t len = state_tiled_len(state->qubits);
     const cplx_t prefactor = 1.0 / (double)dim;
 
     if (state->qubits < LOG_TILE_DIM) {
         /* Single tile with padding: only write the physical dim x dim corner.
          * Padding stays zero from state_init's memset. */
-        for (dim_t row = 0; row < dim; ++row) {
-            for (dim_t col = 0; col < dim; ++col) {
+        for (idx_t row = 0; row < dim; ++row) {
+            for (idx_t col = 0; col < dim; ++col) {
                 state->data[row * TILE_DIM + col] = prefactor;
             }
         }
     } else {
         /* dim is a multiple of TILE_DIM, so no padding exists. Bulk fill. */
-        for (dim_t i = 0; i < len; ++i) {
+        for (idx_t i = 0; i < len; ++i) {
             state->data[i] = prefactor;
         }
     }
 }
 
 
-cplx_t state_tiled_get(const state_t *state, dim_t row, dim_t col) {
-    const dim_t dim = POW2(state->qubits, dim_t);
+cplx_t state_tiled_get(const state_t *state, idx_t row, idx_t col) {
+    const idx_t dim = POW2(state->qubits, idx_t);
     assert(row < dim && col < dim);
 
     if (row >= col) {
@@ -152,8 +128,8 @@ cplx_t state_tiled_get(const state_t *state, dim_t row, dim_t col) {
 }
 
 
-void state_tiled_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
-    const dim_t dim = POW2(state->qubits, dim_t);
+void state_tiled_set(state_t *state, idx_t row, idx_t col, cplx_t val) {
+    const idx_t dim = POW2(state->qubits, idx_t);
     assert(row < dim && col < dim);
 
     if (row >= col) {
@@ -176,5 +152,5 @@ void state_tiled_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
 
 void state_tiled_print(const state_t *state) {
     printf("Type: MIXED_TILED\nQubits: %u\n", state->qubits);
-    mprint_tiled(state->data, POW2(state->qubits, dim_t));
+    mprint_tiled(state->data, POW2(state->qubits, idx_t));
 }

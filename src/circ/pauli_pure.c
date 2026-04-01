@@ -4,7 +4,8 @@
 // dispatchers in pauli.c before these functions are called.
 
 #include "circ.h"
-#include "gate.h"       /* insertBit0, gate_idx_t */
+#include "gate.h"       /* insertBit0, idx_t */
+#include "index.h"
 
 #include <complex.h>    /* creal, cimag, CMPLX */
 #include <math.h>       /* cos, sin */
@@ -61,7 +62,7 @@ static inline cplx_t apply_ipow(const cplx_t z, const unsigned exp) {
  *    x_mask bit positions.
  */
 void pauli_apply_pure(state_t *state, const pauli_t *P) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     cplx_t *restrict data = state->data;
 
     const uint64_t x_mask = P->x_mask;
@@ -72,7 +73,7 @@ void pauli_apply_pure(state_t *state, const pauli_t *P) {
         if (z_mask == 0) return;  /* identity: no-op */
         /* Pure Z-string (y_mask == 0 guaranteed): real sign flips only */
         #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t i = 0; i < dim; ++i) {
+        for (idx_t i = 0; i < dim; ++i) {
             const unsigned parity = (unsigned)(__builtin_popcountll(i & z_mask) & 1u);
             const double sign = 1.0 - 2.0 * (double)parity;
             data[i] = data[i] * sign;
@@ -81,12 +82,12 @@ void pauli_apply_pure(state_t *state, const pauli_t *P) {
         const unsigned eta_exp   = (unsigned)(__builtin_popcountll(y_mask) & 3u);
         const unsigned y_parity  = (unsigned)(__builtin_popcountll(y_mask) & 1u);
         const qubit_t  split_bit = (qubit_t)__builtin_ctzll(x_mask);
-        const gate_idx_t n_pairs = dim >> 1;
+        const idx_t n_pairs = dim >> 1;
 
         #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t k = 0; k < n_pairs; ++k) {
-            const gate_idx_t j  = insertBit0(k, split_bit);
-            const gate_idx_t jp = j ^ x_mask;
+        for (idx_t k = 0; k < n_pairs; ++k) {
+            const idx_t j  = insertBit0(k, split_bit);
+            const idx_t jp = j ^ x_mask;
 
             const unsigned parity_j = (unsigned)(__builtin_popcountll(j & z_mask) & 1u);
             const unsigned exp_j  = (eta_exp + 2u * parity_j) & 3u;
@@ -118,7 +119,7 @@ void pauli_apply_pure(state_t *state, const pauli_t *P) {
  * 3. Non-diagonal (x_mask != 0): paired update; both old values read before write.
  */
 void pauli_exp_pure(state_t *state, const pauli_t *P, double theta) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     cplx_t *restrict data = state->data;
 
     const uint64_t x_mask = P->x_mask;
@@ -134,7 +135,7 @@ void pauli_exp_pure(state_t *state, const pauli_t *P, double theta) {
             /* Global phase: all amplitudes multiplied by e^{-i*theta/2} = c - i*s */
             const cplx_t phase = CMPLX(c, -s);
             #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t i = 0; i < dim; ++i) {
+            for (idx_t i = 0; i < dim; ++i) {
                 data[i] = data[i] * phase;
             }
             return;
@@ -143,7 +144,7 @@ void pauli_exp_pure(state_t *state, const pauli_t *P, double theta) {
         const cplx_t fac_pos = CMPLX(c, -s);   /* epsilon = +1: e^{-i*theta/2} */
         const cplx_t fac_neg = CMPLX(c,  s);   /* epsilon = -1: e^{+i*theta/2} */
         #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t i = 0; i < dim; ++i) {
+        for (idx_t i = 0; i < dim; ++i) {
             const unsigned parity = (unsigned)(__builtin_popcountll(i & z_mask) & 1u);
             data[i] = data[i] * (parity ? fac_neg : fac_pos);
         }
@@ -156,12 +157,12 @@ void pauli_exp_pure(state_t *state, const pauli_t *P, double theta) {
         const unsigned eta_exp   = (unsigned)(__builtin_popcountll(y_mask) & 3u);
         const unsigned y_parity  = (unsigned)(__builtin_popcountll(y_mask) & 1u);
         const qubit_t  split_bit = (qubit_t)__builtin_ctzll(x_mask);
-        const gate_idx_t n_pairs = dim >> 1;
+        const idx_t n_pairs = dim >> 1;
 
         #pragma omp parallel for if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t k = 0; k < n_pairs; ++k) {
-            const gate_idx_t j  = insertBit0(k, split_bit);
-            const gate_idx_t jp = j ^ x_mask;
+        for (idx_t k = 0; k < n_pairs; ++k) {
+            const idx_t j  = insertBit0(k, split_bit);
+            const idx_t jp = j ^ x_mask;
 
             const unsigned parity_j = (unsigned)(__builtin_popcountll(j & z_mask) & 1u);
             const unsigned exp_j    = (eta_exp + 2u * parity_j) & 3u;

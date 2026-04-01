@@ -34,7 +34,7 @@ cplx_t* zmv(const unsigned n, const cplx_t *m, const cplx_t *v) {
     }
 
     // Define multipliers: w = ALPHA*M.v + BETA*w
-    const dim_t N = (dim_t) n;
+    const idx_t N = (idx_t) n;
     const cplx_t ALPHA = 1.0 + I*0.0;
     const cplx_t BETA = 0.0 + I*0.0;
     cblas_zgemv(CblasColMajor, CblasNoTrans, N, N, &ALPHA, m, N, v, 1, &BETA, out, 1);
@@ -60,7 +60,7 @@ cplx_t* zumu(const unsigned n, const cplx_t *u, const cplx_t *m) {
     }
 
     // Define multipliers
-    const dim_t N = (dim_t) n;
+    const idx_t N = (idx_t) n;
     const cplx_t ALPHA = 1.0 + I*0.0;
     const cplx_t BETA = 0.0 + I*0.0;
 
@@ -95,7 +95,7 @@ cplx_t* zsumu(const unsigned n, const unsigned r, const cplx_t **u, const cplx_t
   }
 
   // Define multipliers
-  const dim_t N = (dim_t) n;
+  const idx_t N = (idx_t) n;
   const cplx_t ONE = 1.0 + I*0.0;
   const cplx_t ZERO = 0.0 + I*0.0;
 

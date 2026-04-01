@@ -70,7 +70,7 @@ typedef struct state {
  * @param[in]   state   Quantum state (type and qubits must be initialized)
  * @return      Number of complex elements in the state representation
  */
-dim_t state_len(const state_t *state);
+idx_t state_len(const state_t *state);
 
 /*
  * @brief   Initialize a quantum state with the specified number of qubits
@@ -132,7 +132,7 @@ void state_print(const state_t *state);
  * @param[in]   col     Column index (ignored for PURE)
  * @return      The requested element
  */
-cplx_t state_get(const state_t *state, dim_t row, dim_t col);
+cplx_t state_get(const state_t *state, idx_t row, idx_t col);
 
 /*
  * @brief   Set an element in the state representation
@@ -146,7 +146,7 @@ cplx_t state_get(const state_t *state, dim_t row, dim_t col);
  * @param[in]       col     Column index (ignored for PURE)
  * @param[in]       val     Value to set
  */
-void state_set(state_t *state, dim_t row, dim_t col, cplx_t val);
+void state_set(state_t *state, idx_t row, idx_t col, cplx_t val);
 
 /*
  * =====================================================================================================================
@@ -157,7 +157,7 @@ void state_set(state_t *state, dim_t row, dim_t col, cplx_t val);
 /*
  * @brief   Compute storage length for a pure state: 2^qubits
  */
-dim_t state_pure_len(qubit_t qubits);
+idx_t state_pure_len(qubit_t qubits);
 
 /*
  * @brief   Initialize a pure state to |+>^n
@@ -167,12 +167,12 @@ void state_pure_plus(state_t *state, qubit_t qubits);
 /*
  * @brief   Get amplitude at index row
  */
-cplx_t state_pure_get(const state_t *state, dim_t row);
+cplx_t state_pure_get(const state_t *state, idx_t row);
 
 /*
  * @brief   Set amplitude at index row
  */
-void state_pure_set(state_t *state, dim_t row, cplx_t val);
+void state_pure_set(state_t *state, idx_t row, cplx_t val);
 
 /*
  * @brief   Print pure state information
@@ -188,7 +188,7 @@ void state_pure_print(const state_t *state);
 /*
  * @brief   Compute storage length for packed format: dim*(dim+1)/2
  */
-dim_t state_packed_len(qubit_t qubits);
+idx_t state_packed_len(qubit_t qubits);
 
 /*
  * @brief   Initialize a packed state to the |+><+|^n density matrix
@@ -200,12 +200,12 @@ void state_packed_plus(state_t *state, qubit_t qubits);
 /*
  * @brief   Get element (row, col) from packed density matrix
  */
-cplx_t state_packed_get(const state_t *state, dim_t row, dim_t col);
+cplx_t state_packed_get(const state_t *state, idx_t row, idx_t col);
 
 /*
  * @brief   Set element (row, col) in packed density matrix
  */
-void state_packed_set(state_t *state, dim_t row, dim_t col, cplx_t val);
+void state_packed_set(state_t *state, idx_t row, idx_t col, cplx_t val);
 
 /*
  * @brief   Print packed state information
@@ -227,7 +227,7 @@ void state_packed_print(const state_t *state);
  * Storage = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE
  * where n_tiles = ceil(2^qubits / TILE_DIM)
  */
-dim_t state_tiled_len(qubit_t qubits);
+idx_t state_tiled_len(qubit_t qubits);
 
 /*
  * @brief   Initialize a tiled state to the |+><+|^n density matrix
@@ -239,12 +239,12 @@ void state_tiled_plus(state_t *state, qubit_t qubits);
 /*
  * @brief   Get element (row, col) from tiled density matrix
  */
-cplx_t state_tiled_get(const state_t *state, dim_t row, dim_t col);
+cplx_t state_tiled_get(const state_t *state, idx_t row, idx_t col);
 
 /*
  * @brief   Set element (row, col) in tiled density matrix
  */
-void state_tiled_set(state_t *state, dim_t row, dim_t col, cplx_t val);
+void state_tiled_set(state_t *state, idx_t row, idx_t col, cplx_t val);
 
 /*
  * @brief   Print tiled state information

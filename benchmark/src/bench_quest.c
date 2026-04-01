@@ -127,7 +127,7 @@ static void *quest_init(qubit_t qubits, bench_gate_id_t gate, double par) {
 
     /* Random Hermitian init */
     bench_init_hermitian_dense((cplx_t*)ctx->qureg.cpuAmps,
-                               (dim_t)1 << qubits);
+                               (idx_t)1 << qubits);
 
     return ctx;
 }

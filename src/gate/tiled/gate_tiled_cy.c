@@ -34,8 +34,8 @@
 #include "gate_tiled.h"
 
 void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
     cplx_t * restrict data = state->data;
 
     if (control < LOG_TILE_DIM) {
@@ -45,24 +45,24 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
          * All elements are lower-tri -> phases apply directly.
          */
         if (target < LOG_TILE_DIM) {
-            const gate_idx_t n_tiles = dim_tile * (dim_tile + 1) / 2;
-            const gate_idx_t n_base = (dim < TILE_DIM) ? dim >> 2 : TILE_DIM >> 2;
+            const idx_t n_tiles = dim_tile * (dim_tile + 1) / 2;
+            const idx_t n_base = (dim < TILE_DIM) ? dim >> 2 : TILE_DIM >> 2;
             const qubit_t lo = (control < target) ? control : target;
             const qubit_t hi = (control > target) ? control : target;
-            const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
-            const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+            const idx_t incr_ctrl = (idx_t)1 << control;
+            const idx_t incr_tgt = (idx_t)1 << target;
 
             #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t i = 0; i < n_tiles; ++i) {
+            for (idx_t i = 0; i < n_tiles; ++i) {
                 cplx_t * restrict tile = data + i * TILE_SIZE;
 
-                for (gate_idx_t blr = 0; blr < n_base; ++blr) {
-                    const gate_idx_t r00 = insertBits2_0(blr, lo, hi);
-                    const gate_idx_t r01 = r00 | incr_tgt, r10 = r00 | incr_ctrl, r11 = r10 | incr_tgt;
+                for (idx_t blr = 0; blr < n_base; ++blr) {
+                    const idx_t r00 = insertBits2_0(blr, lo, hi);
+                    const idx_t r01 = r00 | incr_tgt, r10 = r00 | incr_ctrl, r11 = r10 | incr_tgt;
 
-                    for (gate_idx_t blc = 0; blc < n_base; ++blc) {
-                        const gate_idx_t c00 = insertBits2_0(blc, lo, hi);
-                        const gate_idx_t c01 = c00 | incr_tgt, c10 = c00 | incr_ctrl, c11 = c10 | incr_tgt;
+                    for (idx_t blc = 0; blc < n_base; ++blc) {
+                        const idx_t c00 = insertBits2_0(blc, lo, hi);
+                        const idx_t c01 = c00 | incr_tgt, c10 = c00 | incr_ctrl, c11 = c10 | incr_tgt;
 
                         /* Pair A: (r10,c00) <-> (r11,c00); phases (-i, +i) */
                         cplx_t tmp = tile[elem_off(r10, c00)];
@@ -109,20 +109,20 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
          * tile rows/cols; the control bit distinguishes local rows/cols.
          */
         else {
-            const gate_idx_t n_bt = dim_tile >> 1;
+            const idx_t n_bt = dim_tile >> 1;
             const qubit_t tile_bit = target - LOG_TILE_DIM;
-            const gate_idx_t incr_tile = (gate_idx_t)1 << tile_bit;
-            const gate_idx_t n_bl = TILE_DIM >> 1;
-            const gate_idx_t incr_local = (gate_idx_t)1 << control;
+            const idx_t incr_tile = (idx_t)1 << tile_bit;
+            const idx_t n_bl = TILE_DIM >> 1;
+            const idx_t incr_local = (idx_t)1 << control;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr0 = insertBit0(btr, tile_bit);
-                const gate_idx_t tr1 = tr0 | incr_tile;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr0 = insertBit0(btr, tile_bit);
+                const idx_t tr1 = tr0 | incr_tile;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc0 = insertBit0(btc, tile_bit);
-                    const gate_idx_t tc1 = tc0 | incr_tile;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc0 = insertBit0(btc, tile_bit);
+                    const idx_t tc1 = tc0 | incr_tile;
 
                     cplx_t * restrict t00 = data + tile_off(tr0, tc0);
                     cplx_t * restrict t10 = data + tile_off(tr1, tc0);
@@ -132,13 +132,13 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     if (tr0 > tc1) {
                         cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r0 = insertBit0(blr, control);
-                            const gate_idx_t r1 = r0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r0 = insertBit0(blr, control);
+                            const idx_t r1 = r0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c0 = insertBit0(blc, control);
-                                const gate_idx_t c1 = c0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c0 = insertBit0(blc, control);
+                                const idx_t c1 = c0 | incr_local;
 
                                 /* Pair A: phases (-i, +i) */
                                 cplx_t tmp = t00[elem_off(r1, c0)];
@@ -181,13 +181,13 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     else if (btr != btc) {
                         cplx_t * restrict t01 = data + tile_off(tc1, tr0);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r0 = insertBit0(blr, control);
-                            const gate_idx_t r1 = r0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r0 = insertBit0(blr, control);
+                            const idx_t r1 = r0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c0 = insertBit0(blc, control);
-                                const gate_idx_t c1 = c0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c0 = insertBit0(blc, control);
+                                const idx_t c1 = c0 | incr_local;
 
                                 /* Pair A: phases (-i, +i) — both lower-tri */
                                 cplx_t tmp = t00[elem_off(r1, c0)];
@@ -252,13 +252,13 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                          * Pair C: new rho[r00,c10] = +i * conj(t10[c1,r0])
                          *   = CMPLX(cimag(t10[c1,r0]), creal(t10[c1,r0]))
                          */
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r0 = insertBit0(blr, control);
-                            const gate_idx_t r1 = r0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r0 = insertBit0(blr, control);
+                            const idx_t r1 = r0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c0 = insertBit0(blc, control);
-                                const gate_idx_t c1 = c0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c0 = insertBit0(blc, control);
+                                const idx_t c1 = c0 | incr_local;
 
                                 /* Pair B: one-way write to t11 */
                                 cplx_t s = t10[elem_off(c0, r1)];
@@ -270,13 +270,13 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                             }
                         }
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r0 = insertBit0(blr, control);
-                            const gate_idx_t r1 = r0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r0 = insertBit0(blr, control);
+                            const idx_t r1 = r0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c0 = insertBit0(blc, control);
-                                const gate_idx_t c1 = c0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c0 = insertBit0(blc, control);
+                                const idx_t c1 = c0 | incr_local;
 
                                 /* Pair A: phases (-i, +i) — both in t00/t10 lower-tri */
                                 cplx_t tmp = t00[elem_off(r1, c0)];
@@ -322,20 +322,20 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
          * Pair F (spec) is within t11; Pairs C, D (spec) are in t01.
          */
         if (target < LOG_TILE_DIM) {
-            const gate_idx_t n_bt = dim_tile >> 1;
-            const gate_idx_t tile_bit = control - LOG_TILE_DIM;
-            const gate_idx_t incr_tile = (gate_idx_t)1 << tile_bit;
-            const gate_idx_t n_bl = TILE_DIM >> 1;
-            const gate_idx_t incr_local = (gate_idx_t)1 << target;
+            const idx_t n_bt = dim_tile >> 1;
+            const idx_t tile_bit = control - LOG_TILE_DIM;
+            const idx_t incr_tile = (idx_t)1 << tile_bit;
+            const idx_t n_bl = TILE_DIM >> 1;
+            const idx_t incr_local = (idx_t)1 << target;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr0 = insertBit0(btr, tile_bit);
-                const gate_idx_t tr1 = tr0 | incr_tile;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr0 = insertBit0(btr, tile_bit);
+                const idx_t tr1 = tr0 | incr_tile;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc0 = insertBit0(btc, tile_bit);
-                    const gate_idx_t tc1 = tc0 | incr_tile;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc0 = insertBit0(btc, tile_bit);
+                    const idx_t tc1 = tc0 | incr_tile;
 
                     cplx_t * restrict t10 = data + tile_off(tr1, tc0);
                     cplx_t * restrict t11 = data + tile_off(tr1, tc1);
@@ -343,13 +343,13 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     if (tr0 > tc1) {
                         cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_local;
 
                                 /* Pair A: phases (-i, +i) — within t10 */
                                 cplx_t tmp = t10[elem_off(lr0, lc0)];
@@ -391,13 +391,13 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     else if (btr != btc) {
                         cplx_t * restrict t01 = data + tile_off(tc1, tr0);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_local;
 
                                 /* Pair A: phases (-i, +i) — within t10 */
                                 cplx_t tmp = t10[elem_off(lr0, lc0)];
@@ -450,13 +450,13 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                      * through the Hermitian conjugate relationship.
                      */
                     else {
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_local;
 
                                 /* Pair A: phases (-i, +i) — within t10 */
                                 cplx_t tmp = t10[elem_off(lr0, lc0)];
@@ -492,26 +492,26 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
          * is identical to CX; only the per-element operations change.
          */
         else {
-            const gate_idx_t n_bt = dim_tile >> 2;
+            const idx_t n_bt = dim_tile >> 2;
             const qubit_t lo = (control < target) ? control - LOG_TILE_DIM : target - LOG_TILE_DIM;
             const qubit_t hi = (control > target) ? control - LOG_TILE_DIM : target - LOG_TILE_DIM;
-            const gate_idx_t incr_ctrl = (gate_idx_t)1 << (control - LOG_TILE_DIM);
-            const gate_idx_t incr_tgt = (gate_idx_t)1 << (target - LOG_TILE_DIM);
+            const idx_t incr_ctrl = (idx_t)1 << (control - LOG_TILE_DIM);
+            const idx_t incr_tgt = (idx_t)1 << (target - LOG_TILE_DIM);
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr00 = insertBits2_0(btr, lo, hi);
-                const gate_idx_t tr01 = tr00 | incr_tgt, tr10 = tr00 | incr_ctrl, tr11 = tr10 | incr_tgt;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr00 = insertBits2_0(btr, lo, hi);
+                const idx_t tr01 = tr00 | incr_tgt, tr10 = tr00 | incr_ctrl, tr11 = tr10 | incr_tgt;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc00 = insertBits2_0(btc, lo, hi);
-                    const gate_idx_t tc01 = tc00 | incr_tgt, tc10 = tc00 | incr_ctrl, tc11 = tc10 | incr_tgt;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc00 = insertBits2_0(btc, lo, hi);
+                    const idx_t tc01 = tc00 | incr_tgt, tc10 = tc00 | incr_ctrl, tc11 = tc10 | incr_tgt;
 
                     /* Pair A: always lower-tri; phases (-i, +i) */
                     {
                         cplx_t * restrict tA = data + tile_off(tr10, tc00);
                         cplx_t * restrict tB = data + tile_off(tr11, tc00);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             cplx_t tmp = tA[i];
                             tA[i] = CMPLX( cimag(tB[i]), -creal(tB[i]));
                             tB[i] = CMPLX(-cimag(tmp),    creal(tmp));
@@ -522,7 +522,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     {
                         cplx_t * restrict tA = data + tile_off(tr10, tc10);
                         cplx_t * restrict tB = data + tile_off(tr11, tc11);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                         }
                     }
@@ -533,7 +533,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                         {
                             cplx_t * restrict tA = data + tile_off(tr11, tc01);
                             cplx_t * restrict tB = data + tile_off(tr10, tc01);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i];
                                 tA[i] = CMPLX(-cimag(tB[i]),  creal(tB[i]));
                                 tB[i] = CMPLX( cimag(tmp),   -creal(tmp));
@@ -543,7 +543,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                         {
                             cplx_t * restrict tA = data + tile_off(tr11, tc10);
                             cplx_t * restrict tB = data + tile_off(tr10, tc11);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = -tB[i]; tB[i] = -tmp;
                             }
                         }
@@ -551,7 +551,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                         {
                             cplx_t * restrict tA = data + tile_off(tr01, tc10);
                             cplx_t * restrict tB = data + tile_off(tr01, tc11);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i];
                                 tA[i] = CMPLX(-cimag(tB[i]),  creal(tB[i]));
                                 tB[i] = CMPLX( cimag(tmp),   -creal(tmp));
@@ -561,7 +561,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                         {
                             cplx_t * restrict tA = data + tile_off(tr00, tc10);
                             cplx_t * restrict tB = data + tile_off(tr00, tc11);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i];
                                 tA[i] = CMPLX(-cimag(tB[i]),  creal(tB[i]));
                                 tB[i] = CMPLX( cimag(tmp),   -creal(tmp));
@@ -574,7 +574,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 /* Pair B: phases (+i, -i) — both lower-tri */
                                 cplx_t * restrict tA = data + tile_off(tr11, tc01);
                                 cplx_t * restrict tB = data + tile_off(tr10, tc01);
-                                for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                                for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                     cplx_t tmp = tA[i];
                                     tA[i] = CMPLX(-cimag(tB[i]),  creal(tB[i]));
                                     tB[i] = CMPLX( cimag(tmp),   -creal(tmp));
@@ -584,7 +584,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 /* Pair F: negate-swap — both lower-tri */
                                 cplx_t * restrict tA = data + tile_off(tr11, tc10);
                                 cplx_t * restrict tB = data + tile_off(tr10, tc11);
-                                for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                                for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                     cplx_t tmp = tA[i]; tA[i] = -tB[i]; tB[i] = -tmp;
                                 }
                             }
@@ -596,8 +596,8 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 if (tr10 > tc01) {
                                     /* Both lower-tri */
                                     cplx_t * restrict tB = data + tile_off(tr10, tc01);
-                                    for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                        for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                                    for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                        for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                             cplx_t tmp = tA[lr * TILE_DIM + lc];
                                             tA[lr * TILE_DIM + lc] = CMPLX(-cimag(tB[lr * TILE_DIM + lc]),
                                                                             creal(tB[lr * TILE_DIM + lc]));
@@ -608,8 +608,8 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 else {
                                     /* tB stores adjoint of (tr10,tc01) at (tc01,tr10) */
                                     cplx_t * restrict tB = data + tile_off(tc01, tr10);
-                                    for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                        for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                                    for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                        for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                             /* tA[lr,lc] is lower-tri = rho[r11,c01]
                                              * tB[lc,lr] is stored conj(rho[r10,c01])
                                              * Pair B: new rho[r11,c01] = +i*conj(tB[lc,lr])
@@ -630,8 +630,8 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 /* Pair F: negate-swap; (tr11,tc10) lower, (tr10,tc11) upper */
                                 cplx_t * restrict tA = data + tile_off(tr11, tc10);
                                 cplx_t * restrict tB = data + tile_off(tc11, tr10);
-                                for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                    for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                                for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                    for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                         /* tA[lr,lc] = rho[r11,c10] (lower-tri)
                                          * tB[lc,lr] = conj(rho[r10,c11]) (upper-tri stored)
                                          * new rho[r11,c10] = -rho[r10,c11] = -conj(tB[lc,lr])
@@ -647,8 +647,8 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 /* Pair F: negate-swap; diagonal case (btr == btc) */
                                 cplx_t * restrict tA = data + tile_off(tr11, tc10);
                                 cplx_t * restrict tB = data + tile_off(tc11, tr10);
-                                for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                    for (gate_idx_t lc = 0; lc <= lr; ++lc) {
+                                for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                    for (idx_t lc = 0; lc <= lr; ++lc) {
                                         cplx_t tmp = tA[lr * TILE_DIM + lc];
                                         tA[lr * TILE_DIM + lc] = -conj(tB[lc * TILE_DIM + lr]);
                                         tB[lc * TILE_DIM + lr] = -conj(tmp);
@@ -663,7 +663,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 {
                                     cplx_t * restrict tA = data + tile_off(tr01, tc10);
                                     cplx_t * restrict tB = data + tile_off(tr01, tc11);
-                                    for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                                    for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                         cplx_t tmp = tA[i];
                                         tA[i] = CMPLX(-cimag(tB[i]),  creal(tB[i]));
                                         tB[i] = CMPLX( cimag(tmp),   -creal(tmp));
@@ -673,8 +673,8 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                 {
                                     cplx_t * restrict tA = data + tile_off(tr00, tc10);
                                     cplx_t * restrict tB = data + tile_off(tc11, tr00);
-                                    for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                        for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                                    for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                        for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                             /* tA[lr,lc] = rho[r00,c10] (lower-tri)
                                              * tB[lc,lr] = conj(rho[r00,c11]) (upper-tri stored)
                                              * Pair C: new rho[r00,c10] = +i*rho[r00,c11] = +i*conj(tB[lc,lr])
@@ -697,8 +697,8 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                     cplx_t * restrict tA = data + tile_off(tc11, tr01);
                                     if (tr01 > tc10) {
                                         cplx_t * restrict tB = data + tile_off(tr01, tc10);
-                                        for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                            for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                                        for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                            for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                                 /* tA[lc,lr] = conj(rho[r01,c11]) (upper stored)
                                                  * tB[lr,lc] = rho[r01,c10] (lower-tri)
                                                  * Pair D: new rho[r01,c10] = +i*rho[r01,c11] = +i*conj(tA[lc,lr])
@@ -725,7 +725,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                          * Pair D: new rho[r01,c11] = -i*rho[r01,c10]
                                          *   new stored tA[i] = conj(-i*rho[r01,c10]) = +i*conj(rho[r01,c10]) = +i*tB[i]
                                          */
-                                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                             cplx_t tmp = tA[i];
                                             cplx_t s = tB[i];
                                             tA[i] = CMPLX(-cimag(s), creal(s));
@@ -746,7 +746,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                                      * new rho[r00,c11] = -i*rho[r00,c10]
                                      *   new stored tB[i] = conj(-i)*tA[i] = +i*tA[i]
                                      */
-                                    for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                                    for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                         cplx_t tmp = tA[i];
                                         cplx_t s = tB[i];
                                         tA[i] = CMPLX( cimag(s), -creal(s));

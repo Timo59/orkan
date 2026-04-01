@@ -46,8 +46,8 @@ void test_packed_init_null_data(void) {
         TEST_ASSERT_NOT_NULL(state.data);
 
         // Verify all elements are zero
-        dim_t len = state_packed_len(n);
-        for (dim_t i = 0; i < len; i++) {
+        idx_t len = state_packed_len(n);
+        for (idx_t i = 0; i < len; i++) {
             TEST_ASSERT_COMPLEX_WITHIN(0.0 + 0.0*I, state.data[i], PRECISION);
         }
 
@@ -65,13 +65,13 @@ void test_packed_init_ownership(void) {
     state_t state = {.type = MIXED_PACKED, .data = NULL, .qubits = 0};
 
     // Allocate data externally (2 qubits = 10 elements, 64-byte aligned)
-    dim_t len = state_packed_len(2);
+    idx_t len = state_packed_len(2);
     size_t size = (len * sizeof(cplx_t) + 63) & ~(size_t)63;
     cplx_t *data = aligned_alloc(64, size);
     TEST_ASSERT_NOT_NULL(data);
 
     // Set values
-    for (dim_t i = 0; i < len; i++) {
+    for (idx_t i = 0; i < len; i++) {
         data[i] = (double)i + (double)i * 0.1 * I;
     }
 
@@ -85,7 +85,7 @@ void test_packed_init_ownership(void) {
     TEST_ASSERT_EQUAL_PTR(original_ptr, state.data);  // State owns the data
 
     // Verify values preserved
-    for (dim_t i = 0; i < len; i++) {
+    for (idx_t i = 0; i < len; i++) {
         cplx_t expected = (double)i + (double)i * 0.1 * I;
         TEST_ASSERT_COMPLEX_WITHIN(expected, state.data[i], PRECISION);
     }
@@ -133,12 +133,12 @@ void test_packed_plus_values(void) {
         TEST_ASSERT_NOT_NULL(state.data);
         TEST_ASSERT_EQUAL_UINT8(n, state.qubits);
 
-        dim_t dim = POW2(n, dim_t);
-        dim_t len = state_packed_len(n);
+        idx_t dim = POW2(n, idx_t);
+        idx_t len = state_packed_len(n);
         double expected_value = 1.0 / (double)dim;
 
         // For |+><+| state, all elements should be 1/dim
-        for (dim_t i = 0; i < len; i++) {
+        for (idx_t i = 0; i < len; i++) {
             double real_part = creal(state.data[i]);
             double imag_part = cimag(state.data[i]);
 
@@ -330,8 +330,8 @@ void test_packed_cp_independence(void) {
     TEST_ASSERT_NOT_EQUAL_PTR(original.data, copy.data);
 
     // Verify values initially identical
-    dim_t len = state_packed_len(2);
-    for (dim_t i = 0; i < len; i++) {
+    idx_t len = state_packed_len(2);
+    for (idx_t i = 0; i < len; i++) {
         TEST_ASSERT_COMPLEX_WITHIN(original.data[i], copy.data[i], PRECISION);
     }
 

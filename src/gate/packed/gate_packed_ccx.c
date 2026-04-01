@@ -20,6 +20,7 @@
  */
 
 #include "gate.h"
+#include "index.h"
 #include <complex.h>
 
 #ifdef _OPENMP
@@ -33,9 +34,9 @@
 
 
 void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     cplx_t * restrict data = state->data;
-    const gate_idx_t n_base = dim >> 3;
+    const idx_t n_base = dim >> 3;
 
     /* Mutable copies for potential swap */
     qubit_t c1 = ctrl1, c2 = ctrl2;
@@ -46,9 +47,9 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
         c1 = c2;
         c2 = tmp;
     }
-    gate_idx_t incr_ctrl1 = (gate_idx_t)1 << c1;
-    gate_idx_t incr_ctrl2 = (gate_idx_t)1 << c2;
-    gate_idx_t incr_target = (gate_idx_t)1 << target;
+    idx_t incr_ctrl1 = (idx_t)1 << c1;
+    idx_t incr_ctrl2 = (idx_t)1 << c2;
+    idx_t incr_target = (idx_t)1 << target;
 
     qubit_t hi, med, lo;
     if (c2 > target) {
@@ -68,26 +69,26 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
     }
 
     #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t bc = 0; bc < n_base; ++bc) {
-        gate_idx_t c000 = insertBit0(insertBit0(insertBit0(bc, lo), med), hi);
-        gate_idx_t c001 = c000 | incr_target, c010 = c000 | incr_ctrl2, c100 = c000 | incr_ctrl1;
-        gate_idx_t c011 = c001 | incr_ctrl2, c101 = c001 | incr_ctrl1, c110 = c010 | incr_ctrl1;
-        gate_idx_t c111 = c011 | incr_ctrl1;
+    for (idx_t bc = 0; bc < n_base; ++bc) {
+        idx_t c000 = insertBit0(insertBit0(insertBit0(bc, lo), med), hi);
+        idx_t c001 = c000 | incr_target, c010 = c000 | incr_ctrl2, c100 = c000 | incr_ctrl1;
+        idx_t c011 = c001 | incr_ctrl2, c101 = c001 | incr_ctrl1, c110 = c010 | incr_ctrl1;
+        idx_t c111 = c011 | incr_ctrl1;
 
-        const gate_idx_t offset_c000 = c000 * (2 * dim - c000 + 1) / 2;
-        const gate_idx_t offset_c001 = c001 * (2 * dim - c001 + 1) / 2;
-        const gate_idx_t offset_c010 = c010 * (2 * dim - c010 + 1) / 2;
-        const gate_idx_t offset_c011 = c011 * (2 * dim - c011 + 1) / 2;
-        const gate_idx_t offset_c100 = c100 * (2 * dim - c100 + 1) / 2;
-        const gate_idx_t offset_c101 = c101 * (2 * dim - c101 + 1) / 2;
-        const gate_idx_t offset_c110 = c110 * (2 * dim - c110 + 1) / 2;
-        const gate_idx_t offset_c111 = c111 * (2 * dim - c111 + 1) / 2;
+        const idx_t offset_c000 = c000 * (2 * dim - c000 + 1) / 2;
+        const idx_t offset_c001 = c001 * (2 * dim - c001 + 1) / 2;
+        const idx_t offset_c010 = c010 * (2 * dim - c010 + 1) / 2;
+        const idx_t offset_c011 = c011 * (2 * dim - c011 + 1) / 2;
+        const idx_t offset_c100 = c100 * (2 * dim - c100 + 1) / 2;
+        const idx_t offset_c101 = c101 * (2 * dim - c101 + 1) / 2;
+        const idx_t offset_c110 = c110 * (2 * dim - c110 + 1) / 2;
+        const idx_t offset_c111 = c111 * (2 * dim - c111 + 1) / 2;
 
-        for (gate_idx_t br = bc ; br < n_base; ++br) {
-            gate_idx_t r000 = insertBit0(insertBit0(insertBit0(br, lo), med), hi);
-            gate_idx_t r001 = r000 | incr_target, r010 = r000 | incr_ctrl2, r100 = r000 | incr_ctrl1;
-            gate_idx_t r011 = r001 | incr_ctrl2, r101 = r001 | incr_ctrl1, r110 = r010 | incr_ctrl1;
-            gate_idx_t r111 = r011 | incr_ctrl1;
+        for (idx_t br = bc ; br < n_base; ++br) {
+            idx_t r000 = insertBit0(insertBit0(insertBit0(br, lo), med), hi);
+            idx_t r001 = r000 | incr_target, r010 = r000 | incr_ctrl2, r100 = r000 | incr_ctrl1;
+            idx_t r011 = r001 | incr_ctrl2, r101 = r001 | incr_ctrl1, r110 = r010 | incr_ctrl1;
+            idx_t r111 = r011 | incr_ctrl1;
 
             /* Pair A: (r110,c000) <-> (r111,c000) — always lower tri; plain swap */
             cplx_t tmp = data[(r110 - c000) + offset_c000];

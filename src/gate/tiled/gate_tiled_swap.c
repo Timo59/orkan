@@ -30,8 +30,8 @@
 #include "gate_tiled.h"
 
 void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t n_tiles = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
     cplx_t * restrict data = state->data;
 
     const qubit_t lo = (q1 < q2) ? q1 : q2;
@@ -51,27 +51,27 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
          * are swapped consistently (both are within the same tile), the result is
          * automatically Hermitian-consistent.
          */
-        const gate_idx_t dim_tile = (dim < TILE_DIM) ? dim : TILE_DIM;
-        const gate_idx_t n_base = dim_tile >> 2;
-        const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
-        const gate_idx_t incr_hi = (gate_idx_t)1 << hi;
+        const idx_t dim_tile = (dim < TILE_DIM) ? dim : TILE_DIM;
+        const idx_t n_base = dim_tile >> 2;
+        const idx_t incr_lo = (idx_t)1 << lo;
+        const idx_t incr_hi = (idx_t)1 << hi;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t tr = 0; tr < n_tiles; ++tr) {
-            for (gate_idx_t tc = 0; tc <= tr; ++tc) {
+        for (idx_t tr = 0; tr < n_tiles; ++tr) {
+            for (idx_t tc = 0; tc <= tr; ++tc) {
                 cplx_t *tile = data + tile_off(tr, tc);
 
-                for (gate_idx_t br = 0; br < n_base; ++br) {
-                    const gate_idx_t r00 = insertBits2_0(br, lo, hi);
-                    const gate_idx_t r01 = r00 | incr_lo;
-                    const gate_idx_t r10 = r00 | incr_hi;
-                    const gate_idx_t r11 = r10 | incr_lo;
+                for (idx_t br = 0; br < n_base; ++br) {
+                    const idx_t r00 = insertBits2_0(br, lo, hi);
+                    const idx_t r01 = r00 | incr_lo;
+                    const idx_t r10 = r00 | incr_hi;
+                    const idx_t r11 = r10 | incr_lo;
 
-                    for (gate_idx_t bc = 0; bc < n_base; ++bc) {
-                        const gate_idx_t c00 = insertBits2_0(bc, lo, hi);
-                        const gate_idx_t c01 = c00 | incr_lo;
-                        const gate_idx_t c10 = c00 | incr_hi;
-                        const gate_idx_t c11 = c10 | incr_lo;
+                    for (idx_t bc = 0; bc < n_base; ++bc) {
+                        const idx_t c00 = insertBits2_0(bc, lo, hi);
+                        const idx_t c01 = c00 | incr_lo;
+                        const idx_t c10 = c00 | incr_hi;
+                        const idx_t c11 = c10 | incr_lo;
 
                         /* Pair 1: (r01,c00) <-> (r10,c00) */
                         cplx_t tmp = tile[r01 * TILE_DIM + c00];
@@ -137,28 +137,25 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
          * Pairs 4-6: T(tr0,tc1) may be upper-tri, accessed via T(tc1,tr0)+conj.
          *
          * Diagonal tile-block note (is_diag, i.e., tr0==tc0, tr1==tc1):
-         *   T(tr0,tr0) and T(tr1,tr1) are diagonal tiles where elem(lr,lc)
-         *   and elem(lc,lr) are conjugates. Swaps modify some positions in
-         *   these tiles. To avoid reading stale upper-triangle values, we
-         *   use dtile_read/dtile_write which canonicalize through the
-         *   lower-triangle position. After all swaps, we mirror the upper
-         *   triangle of diagonal tiles to restore consistency.
+         *   T(tr0,tr0) and T(tr1,tr1) are diagonal tiles that store the
+         *   full TILE_DIM x TILE_DIM block. Both triangles are present,
+         *   so swaps can read/write directly without canonicalization.
          */
-        const gate_idx_t half_nt = n_tiles >> 1;
+        const idx_t half_nt = n_tiles >> 1;
         const qubit_t tile_bit = hi - LOG_TILE_DIM;
-        const gate_idx_t incr_tile = (gate_idx_t)1 << tile_bit;
-        const gate_idx_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;
-        const gate_idx_t half_td = tile_dim >> 1;
-        const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
+        const idx_t incr_tile = (idx_t)1 << tile_bit;
+        const idx_t tile_dim = (dim < TILE_DIM) ? dim : TILE_DIM;
+        const idx_t half_td = tile_dim >> 1;
+        const idx_t incr_lo = (idx_t)1 << lo;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t btr = 0; btr < half_nt; ++btr) {
-            const gate_idx_t tr0 = insertBit0(btr, tile_bit);
-            const gate_idx_t tr1 = tr0 | incr_tile;
+        for (idx_t btr = 0; btr < half_nt; ++btr) {
+            const idx_t tr0 = insertBit0(btr, tile_bit);
+            const idx_t tr1 = tr0 | incr_tile;
 
-            for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                const gate_idx_t tc0 = insertBit0(btc, tile_bit);
-                const gate_idx_t tc1 = tc0 | incr_tile;
+            for (idx_t btc = 0; btc <= btr; ++btc) {
+                const idx_t tc0 = insertBit0(btc, tile_bit);
+                const idx_t tc1 = tc0 | incr_tile;
 
                 /* Tile pointers: T00, T11, T10 always in lower triangle */
                 cplx_t * restrict t00 = data + tile_off(tr0, tc0);
@@ -168,13 +165,13 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                 if (tr0 > tc1) {
                     cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                    for (gate_idx_t blr = 0; blr < half_td; ++blr) {
-                        const gate_idx_t lr0 = insertBit0(blr, lo);
-                        const gate_idx_t lr1 = lr0 | incr_lo;
+                    for (idx_t blr = 0; blr < half_td; ++blr) {
+                        const idx_t lr0 = insertBit0(blr, lo);
+                        const idx_t lr1 = lr0 | incr_lo;
 
-                        for (gate_idx_t blc = 0; blc < half_td; ++blc) {
-                            const gate_idx_t lc0 = insertBit0(blc, lo);
-                            const gate_idx_t lc1 = lc0 | incr_lo;
+                        for (idx_t blc = 0; blc < half_td; ++blc) {
+                            const idx_t lc0 = insertBit0(blc, lo);
+                            const idx_t lc1 = lc0 | incr_lo;
 
                             /* |hi=0,lo=1><hi=0,lo=0| <--> |hi=1,lo=0><hi=0,lo=0| */
                             cplx_t tmp = t00[lr1 * TILE_DIM + lc0];
@@ -211,13 +208,13 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                 else if (btr != btc) {
                     cplx_t * restrict t01 = data + tile_off(tc1, tr0);
 
-                    for (gate_idx_t blr = 0; blr < half_td; ++blr) {
-                        const gate_idx_t lr0 = insertBit0(blr, lo);
-                        const gate_idx_t lr1 = lr0 | incr_lo;
+                    for (idx_t blr = 0; blr < half_td; ++blr) {
+                        const idx_t lr0 = insertBit0(blr, lo);
+                        const idx_t lr1 = lr0 | incr_lo;
 
-                        for (gate_idx_t blc = 0; blc < half_td; ++blc) {
-                            const gate_idx_t lc0 = insertBit0(blc, lo);
-                            const gate_idx_t lc1 = lc0 | incr_lo;
+                        for (idx_t blc = 0; blc < half_td; ++blc) {
+                            const idx_t lc0 = insertBit0(blc, lo);
+                            const idx_t lc1 = lc0 | incr_lo;
 
                             /* |hi=0,lo=1><hi=0,lo=0| <--> |hi=1,lo=0><hi=0,lo=0| */
                             cplx_t tmp = t00[lr1 * TILE_DIM + lc0];
@@ -252,13 +249,13 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                     }
                 }
                 else {
-                    for (gate_idx_t blr = 0; blr < half_td; ++blr) {
-                        const gate_idx_t lr0 = insertBit0(blr, lo);
-                        const gate_idx_t lr1 = lr0 | incr_lo;
+                    for (idx_t blr = 0; blr < half_td; ++blr) {
+                        const idx_t lr0 = insertBit0(blr, lo);
+                        const idx_t lr1 = lr0 | incr_lo;
 
-                        for (gate_idx_t blc = 0; blc < half_td; ++blc) {
-                            const gate_idx_t lc0 = insertBit0(blc, lo);
-                            const gate_idx_t lc1 = lc0 | incr_lo;
+                        for (idx_t blc = 0; blc < half_td; ++blc) {
+                            const idx_t lc0 = insertBit0(blc, lo);
+                            const idx_t lc1 = lc0 | incr_lo;
 
                             /* |hi=0,lo=0><hi=0,lo=1| <--> |hi=0,lo=0><hi=1,lo=0|
                              * T(1,0) = conj(T(0,1))*/
@@ -269,13 +266,13 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                         }
                     }
 
-                    for (gate_idx_t blr = 0; blr < half_td; ++blr) {
-                        const gate_idx_t lr0 = insertBit0(blr, lo);
-                        const gate_idx_t lr1 = lr0 | incr_lo;
+                    for (idx_t blr = 0; blr < half_td; ++blr) {
+                        const idx_t lr0 = insertBit0(blr, lo);
+                        const idx_t lr1 = lr0 | incr_lo;
 
-                        for (gate_idx_t blc = 0; blc < half_td; ++blc) {
-                            const gate_idx_t lc0 = insertBit0(blc, lo);
-                            const gate_idx_t lc1 = lc0 | incr_lo;
+                        for (idx_t blc = 0; blc < half_td; ++blc) {
+                            const idx_t lc0 = insertBit0(blc, lo);
+                            const idx_t lc1 = lc0 | incr_lo;
 
                             /* |hi=0,lo=1><hi=0,lo=0| <--> |hi=1,lo=0><hi=0,lo=0| */
                             cplx_t tmp = t00[lr1 * TILE_DIM + lc0];
@@ -334,18 +331,18 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
          */
         const qubit_t tile_lo = lo - LOG_TILE_DIM;
         const qubit_t tile_hi = hi - LOG_TILE_DIM;
-        const gate_idx_t incr_lo = (gate_idx_t)1 << tile_lo;
-        const gate_idx_t incr_hi = (gate_idx_t)1 << tile_hi;
-        const gate_idx_t quarter_nt = n_tiles >> 2;
+        const idx_t incr_lo = (idx_t)1 << tile_lo;
+        const idx_t incr_hi = (idx_t)1 << tile_hi;
+        const idx_t quarter_nt = n_tiles >> 2;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t btr = 0; btr < quarter_nt; ++btr) {
-            const gate_idx_t tr00 = insertBits2_0(btr, tile_lo, tile_hi);
-            const gate_idx_t tr01 = tr00 | incr_lo, tr10 = tr00 | incr_hi, tr11 = tr10 | incr_lo;
+        for (idx_t btr = 0; btr < quarter_nt; ++btr) {
+            const idx_t tr00 = insertBits2_0(btr, tile_lo, tile_hi);
+            const idx_t tr01 = tr00 | incr_lo, tr10 = tr00 | incr_hi, tr11 = tr10 | incr_lo;
 
-            for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                const gate_idx_t tc00 = insertBits2_0(btc, tile_lo, tile_hi);
-                const gate_idx_t tc01 = tc00 | incr_lo, tc10 = tc00 | incr_hi, tc11 = tc10 | incr_lo;
+            for (idx_t btc = 0; btc <= btr; ++btc) {
+                const idx_t tc00 = insertBits2_0(btc, tile_lo, tile_hi);
+                const idx_t tc01 = tc00 | incr_lo, tc10 = tc00 | incr_hi, tc11 = tc10 | incr_lo;
                 cplx_t tmp;
 
                 /* ---- Pair 1: T(tr01,tc00) <-> T(tr10,tc00) ----
@@ -353,7 +350,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                 {
                     cplx_t * restrict tA = data + tile_off(tr01, tc00);
                     cplx_t * restrict tB = data + tile_off(tr10, tc00);
-                    for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                    for (idx_t i = 0; i < TILE_SIZE; ++i) {
                         tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                     }
                 }
@@ -363,7 +360,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                 {
                     cplx_t * restrict tA = data + tile_off(tr01, tc01);
                     cplx_t * restrict tB = data + tile_off(tr10, tc10);
-                    for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                    for (idx_t i = 0; i < TILE_SIZE; ++i) {
                         tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                     }
                 }
@@ -373,7 +370,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                 {
                     cplx_t * restrict tA = data + tile_off(tr11, tc01);
                     cplx_t * restrict tB = data + tile_off(tr11, tc10);
-                    for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                    for (idx_t i = 0; i < TILE_SIZE; ++i) {
                         tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                     }
                 }
@@ -385,7 +382,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                     {
                         cplx_t * restrict tA = data + tile_off(tr10, tc01);
                         cplx_t * restrict tB = data + tile_off(tr01, tc10);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                         }
                     }
@@ -393,7 +390,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                     {
                         cplx_t * restrict tA = data + tile_off(tr10, tc11);
                         cplx_t * restrict tB = data + tile_off(tr01, tc11);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                         }
                     }
@@ -401,7 +398,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                     {
                         cplx_t * restrict tA = data + tile_off(tr00, tc01);
                         cplx_t * restrict tB = data + tile_off(tr00, tc10);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                         }
                     }
@@ -414,14 +411,14 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                         cplx_t * restrict tA = data + tile_off(tr10, tc01);
                         if (tr01 > tc10) {
                             cplx_t * restrict tB = data + tile_off(tr01, tc10);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else {
                             cplx_t * restrict tB = data + tile_off(tc10, tr01);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -434,8 +431,8 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                         {
                             cplx_t * restrict tA = data + tile_off(tr00, tc01);
                             cplx_t * restrict tB = data + tile_off(tc10, tr00);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -446,8 +443,8 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                         {
                             cplx_t * restrict tA = data + tile_off(tr10, tc11);
                             cplx_t * restrict tB = data + tile_off(tc11, tr01);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -459,7 +456,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                         {
                             cplx_t * restrict tA = data + tile_off(tc01, tr00);
                             cplx_t * restrict tB = data + tile_off(tc10, tr00);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -467,7 +464,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
                         {
                             cplx_t * restrict tA = data + tile_off(tc11, tr10);
                             cplx_t * restrict tB = data + tile_off(tc11, tr01);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }

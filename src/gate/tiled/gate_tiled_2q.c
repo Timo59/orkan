@@ -1,33 +1,33 @@
 #include "gate_tiled.h"
 
 void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx_t *mat) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
     qubit_t lo = (q1 < q2) ? q1 : q2;
     qubit_t hi = (q1 > q2) ? q1 : q2;
     cplx_t * restrict data = state->data;
 
     if (hi < LOG_TILE_DIM) {
-        const gate_idx_t n_tiles = dim_tile * (dim_tile + 1) / 2;
-        const gate_idx_t nbl = (dim < TILE_DIM) ? dim >> 2 : TILE_DIM >> 2;
-        const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
-        const gate_idx_t incr_hi = (gate_idx_t)1 << hi;
+        const idx_t n_tiles = dim_tile * (dim_tile + 1) / 2;
+        const idx_t nbl = (dim < TILE_DIM) ? dim >> 2 : TILE_DIM >> 2;
+        const idx_t incr_lo = (idx_t)1 << lo;
+        const idx_t incr_hi = (idx_t)1 << hi;
 
         #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t i = 0; i < n_tiles; ++i) {
+        for (idx_t i = 0; i < n_tiles; ++i) {
             cplx_t * restrict tile = data + i * TILE_SIZE;
 
-            for (gate_idx_t blr = 0; blr < nbl; ++blr) {
-                const gate_idx_t lr00 = insertBits2_0(blr, lo, hi);
-                const gate_idx_t lr01 = lr00 | incr_lo;
-                const gate_idx_t lr10 = lr00 | incr_hi;
-                const gate_idx_t lr11 = lr10 | incr_lo;
+            for (idx_t blr = 0; blr < nbl; ++blr) {
+                const idx_t lr00 = insertBits2_0(blr, lo, hi);
+                const idx_t lr01 = lr00 | incr_lo;
+                const idx_t lr10 = lr00 | incr_hi;
+                const idx_t lr11 = lr10 | incr_lo;
 
-                for (gate_idx_t blc = 0; blc < nbl; ++blc) {
-                    const gate_idx_t lc00 = insertBits2_0(blc, lo, hi);
-                    const gate_idx_t lc01 = lc00 | incr_lo;
-                    const gate_idx_t lc10 = lc00 | incr_hi;
-                    const gate_idx_t lc11 = lc10 | incr_lo;
+                for (idx_t blc = 0; blc < nbl; ++blc) {
+                    const idx_t lc00 = insertBits2_0(blc, lo, hi);
+                    const idx_t lc01 = lc00 | incr_lo;
+                    const idx_t lc10 = lc00 | incr_hi;
+                    const idx_t lc11 = lc10 | incr_lo;
                     cplx_t old[16], new[16] = {0};
 
                     old[0] = tile[elem_off(lr00, lc00)];
@@ -80,19 +80,19 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
 
     else if (lo < LOG_TILE_DIM) {
         const qubit_t idx_tile = hi - LOG_TILE_DIM;
-        const gate_idx_t incr_tile = (gate_idx_t)1 << idx_tile;
-        const gate_idx_t nbt = dim_tile >> 1;
-        const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
-        const gate_idx_t nbl = TILE_DIM >> 1;
+        const idx_t incr_tile = (idx_t)1 << idx_tile;
+        const idx_t nbt = dim_tile >> 1;
+        const idx_t incr_lo = (idx_t)1 << lo;
+        const idx_t nbl = TILE_DIM >> 1;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t btr = 0; btr < nbt; ++btr) {
-            const gate_idx_t tr0 = insertBit0(btr, idx_tile);
-            const gate_idx_t tr1 = tr0 | incr_tile;
+        for (idx_t btr = 0; btr < nbt; ++btr) {
+            const idx_t tr0 = insertBit0(btr, idx_tile);
+            const idx_t tr1 = tr0 | incr_tile;
 
-            for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                const gate_idx_t tc0 = insertBit0(btc, idx_tile);
-                const gate_idx_t tc1 = tc0 | incr_tile;
+            for (idx_t btc = 0; btc <= btr; ++btc) {
+                const idx_t tc0 = insertBit0(btc, idx_tile);
+                const idx_t tc1 = tc0 | incr_tile;
 
                 cplx_t * restrict t00 = data + tile_off(tr0, tc0);
                 cplx_t * restrict t10 = data + tile_off(tr1, tc0);
@@ -101,13 +101,13 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                 if (tr0 > tc1) {
                     cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                    for (gate_idx_t blr = 0; blr < nbl; ++blr) {
-                        const gate_idx_t lr0 = insertBit0(blr, lo);
-                        const gate_idx_t lr1 = lr0 | incr_lo;
+                    for (idx_t blr = 0; blr < nbl; ++blr) {
+                        const idx_t lr0 = insertBit0(blr, lo);
+                        const idx_t lr1 = lr0 | incr_lo;
 
-                        for (gate_idx_t blc = 0; blc < nbl; ++blc) {
-                            const gate_idx_t lc0 = insertBit0(blc, lo);
-                            const gate_idx_t lc1 = lc0 | incr_lo;
+                        for (idx_t blc = 0; blc < nbl; ++blc) {
+                            const idx_t lc0 = insertBit0(blc, lo);
+                            const idx_t lc1 = lc0 | incr_lo;
                             cplx_t old[16], new[16] = {0};
 
                             old[0] = t00[elem_off(lr0, lc0)];
@@ -160,13 +160,13 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                 else if (btc != btr) {
                     cplx_t * restrict t01 = data + tile_off(tc1, tr0);
 
-                    for (gate_idx_t blr = 0; blr < nbl; ++blr) {
-                        const gate_idx_t lr0 = insertBit0(blr, lo);
-                        const gate_idx_t lr1 = lr0 | incr_lo;
+                    for (idx_t blr = 0; blr < nbl; ++blr) {
+                        const idx_t lr0 = insertBit0(blr, lo);
+                        const idx_t lr1 = lr0 | incr_lo;
 
-                        for (gate_idx_t blc = 0; blc < nbl; ++blc) {
-                            const gate_idx_t lc0 = insertBit0(blc, lo);
-                            const gate_idx_t lc1 = lc0 | incr_lo;
+                        for (idx_t blc = 0; blc < nbl; ++blc) {
+                            const idx_t lc0 = insertBit0(blc, lo);
+                            const idx_t lc1 = lc0 | incr_lo;
                             cplx_t old[16], new[16] = {0};
 
                             old[0] = t00[elem_off(lr0, lc0)];
@@ -217,13 +217,13 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                 }
 
                 else {
-                    for (gate_idx_t blr = 0; blr < nbl; ++blr) {
-                        const gate_idx_t lr0 = insertBit0(blr, lo);
-                        const gate_idx_t lr1 = lr0 | incr_lo;
+                    for (idx_t blr = 0; blr < nbl; ++blr) {
+                        const idx_t lr0 = insertBit0(blr, lo);
+                        const idx_t lr1 = lr0 | incr_lo;
 
-                        for (gate_idx_t blc = 0; blc <= blr; ++blc) {
-                            const gate_idx_t lc0 = insertBit0(blc, lo);
-                            const gate_idx_t lc1 = lc0 | incr_lo;
+                        for (idx_t blc = 0; blc <= blr; ++blc) {
+                            const idx_t lc0 = insertBit0(blc, lo);
+                            const idx_t lc1 = lc0 | incr_lo;
                             cplx_t old[16], new[16] = {0};
 
                             old[0] = t00[elem_off(lr0, lc0)];
@@ -285,24 +285,24 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
     }
 
     else {
-        const gate_idx_t nbt = dim_tile >> 2;
+        const idx_t nbt = dim_tile >> 2;
         lo -= LOG_TILE_DIM;
         hi -= LOG_TILE_DIM;
-        const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
-        const gate_idx_t incr_hi = (gate_idx_t)1 << hi;
+        const idx_t incr_lo = (idx_t)1 << lo;
+        const idx_t incr_hi = (idx_t)1 << hi;
 
         #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-        for (gate_idx_t btr = 0; btr < nbt; ++btr) {
-            const gate_idx_t tr00 = insertBits2_0(btr, lo, hi);
-            const gate_idx_t tr01 = tr00 | incr_lo, tr10 = tr00 | incr_hi, tr11 = tr10 | incr_lo;
+        for (idx_t btr = 0; btr < nbt; ++btr) {
+            const idx_t tr00 = insertBits2_0(btr, lo, hi);
+            const idx_t tr01 = tr00 | incr_lo, tr10 = tr00 | incr_hi, tr11 = tr10 | incr_lo;
 
-            for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                const gate_idx_t tc00 = insertBits2_0(btc, lo, hi);
-                const gate_idx_t tc01 = tc00 | incr_lo, tc10 = tc00 | incr_hi, tc11 = tc10 | incr_lo;
+            for (idx_t btc = 0; btc <= btr; ++btc) {
+                const idx_t tc00 = insertBits2_0(btc, lo, hi);
+                const idx_t tc01 = tc00 | incr_lo, tc10 = tc00 | incr_hi, tc11 = tc10 | incr_lo;
 
                 if (tr00 > tc11) {
 
-                    for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                    for (idx_t i = 0; i < TILE_SIZE; ++i) {
                         cplx_t old[16], new[16] = {0};
 
                         old[0] = data[tile_off(tr00, tc00) + i];
@@ -354,8 +354,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
 
                 else if (tr00 > tc10) {
 
-                    for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
-                        for (gate_idx_t j = 0; j < TILE_DIM; ++j) {
+                    for (idx_t i = 0; i < TILE_DIM; ++i) {
+                        for (idx_t j = 0; j < TILE_DIM; ++j) {
                             cplx_t old[16], new[16] = {0};
 
                             old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
@@ -410,8 +410,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
 
                     if(tr01 > tc10) {
 
-                        for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
-                            for (gate_idx_t j = 0; j < TILE_DIM; ++j) {
+                        for (idx_t i = 0; i < TILE_DIM; ++i) {
+                            for (idx_t j = 0; j < TILE_DIM; ++j) {
                                 cplx_t old[16], new[16] = {0};
 
                                 old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
@@ -464,8 +464,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
 
                     else {
 
-                        for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
-                            for (gate_idx_t j = 0; j < TILE_DIM; ++j) {
+                        for (idx_t i = 0; i < TILE_DIM; ++i) {
+                            for (idx_t j = 0; j < TILE_DIM; ++j) {
                                 cplx_t old[16], new[16] = {0};
 
                                 old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
@@ -521,8 +521,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
 
                     if(tr01 > tc10) {
 
-                        for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
-                            for (gate_idx_t j = 0; j < TILE_DIM; ++j) {
+                        for (idx_t i = 0; i < TILE_DIM; ++i) {
+                            for (idx_t j = 0; j < TILE_DIM; ++j) {
                                 cplx_t old[16], new[16] = {0};
 
                                 old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
@@ -575,8 +575,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
 
                     else {
 
-                        for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
-                            for (gate_idx_t j = 0; j < TILE_DIM; ++j) {
+                        for (idx_t i = 0; i < TILE_DIM; ++i) {
+                            for (idx_t j = 0; j < TILE_DIM; ++j) {
                                 cplx_t old[16], new[16] = {0};
 
                                 old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];
@@ -631,8 +631,8 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
                 /* If btr==btc, adjoints of the tiles in the upper triangle are exactly the lower triangles involved */
                 else {
                     
-                    for (gate_idx_t i = 0; i < TILE_DIM; ++i) {
-                        for(gate_idx_t j = 0; j <= i; ++j) {
+                    for (idx_t i = 0; i < TILE_DIM; ++i) {
+                        for(idx_t j = 0; j <= i; ++j) {
                             cplx_t old[16], new[16] = {0};
 
                             old[0] = data[tile_off(tr00, tc00) + elem_off(i, j)];

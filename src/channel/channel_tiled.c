@@ -1,4 +1,5 @@
 #include "channel.h"
+#include "index.h"
 
 /*
  * Preload 4x4 superoperator into 32 real-valued locals.

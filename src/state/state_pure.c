@@ -22,8 +22,8 @@
  * =====================================================================================================================
  */
 
-dim_t state_pure_len(qubit_t qubits) {
-    return POW2(qubits, dim_t);
+idx_t state_pure_len(qubit_t qubits) {
+    return POW2(qubits, idx_t);
 }
 
 
@@ -33,24 +33,24 @@ void state_pure_plus(state_t *state, qubit_t qubits) {
     if (!state->data) return;
 
     /* Compute uniform amplitude: 1/sqrt(2^n) */
-    const dim_t len = state_pure_len(qubits);
+    const idx_t len = state_pure_len(qubits);
     const cplx_t amplitude = 1.0 / sqrt((double)len);
 
     /* Set all amplitudes to the uniform value */
-    for (dim_t i = 0; i < len; ++i) {
+    for (idx_t i = 0; i < len; ++i) {
         state->data[i] = amplitude;
     }
 }
 
 
-cplx_t state_pure_get(const state_t *state, dim_t row) {
-    assert(row < POW2(state->qubits, dim_t));
+cplx_t state_pure_get(const state_t *state, idx_t row) {
+    assert(row < POW2(state->qubits, idx_t));
     return state->data[row];
 }
 
 
-void state_pure_set(state_t *state, dim_t row, cplx_t val) {
-    assert(row < POW2(state->qubits, dim_t));
+void state_pure_set(state_t *state, idx_t row, cplx_t val) {
+    assert(row < POW2(state->qubits, idx_t));
     state->data[row] = val;
 }
 

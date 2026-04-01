@@ -8,8 +8,8 @@
 void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, const qubit_t target) {
     const qubit_t ctrl1 = (control1 > control2) ? control1 : control2;
     const qubit_t ctrl2 = (control1 < control2) ? control1 : control2;
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
     cplx_t * restrict data = state->data;
 
     /* Sort all three qubit positions: lo < mid < hi */
@@ -32,36 +32,36 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
          * All swap pairs are contained in the same tile.
          */
         if(target < LOG_TILE_DIM) {
-            const gate_idx_t n_tiles = dim_tile * (dim_tile + 1) / 2;
-            const gate_idx_t n_base = (dim < TILE_DIM) ? dim >> 3 : TILE_DIM >> 3;
-            const gate_idx_t incr_ctrl1 = (gate_idx_t)1 << ctrl1;
-            const gate_idx_t incr_ctrl2 = (gate_idx_t)1 << ctrl2;
-            const gate_idx_t incr_tgt   = (gate_idx_t)1 << target;
+            const idx_t n_tiles = dim_tile * (dim_tile + 1) / 2;
+            const idx_t n_base = (dim < TILE_DIM) ? dim >> 3 : TILE_DIM >> 3;
+            const idx_t incr_ctrl1 = (idx_t)1 << ctrl1;
+            const idx_t incr_ctrl2 = (idx_t)1 << ctrl2;
+            const idx_t incr_tgt   = (idx_t)1 << target;
 
             #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t i = 0; i < n_tiles; ++i) {
+            for (idx_t i = 0; i < n_tiles; ++i) {
                 cplx_t * restrict tile = data + i * TILE_SIZE;
 
-                for (gate_idx_t blr = 0; blr < n_base; ++blr) {
+                for (idx_t blr = 0; blr < n_base; ++blr) {
                     /* insertBits3_0: insert 0-bits at positions lo, mid, hi */
-                    const gate_idx_t r000 = insertBit0(insertBits2_0(blr, lo, mid), hi);
-                    const gate_idx_t r_c1   = r000 | incr_ctrl1;                   /* ctrl1=1, ctrl2=0, tgt=0 */
-                    const gate_idx_t r_c2   = r000 | incr_ctrl2;                   /* ctrl1=0, ctrl2=1, tgt=0 */
-                    const gate_idx_t r_t    = r000 | incr_tgt;                     /* ctrl1=0, ctrl2=0, tgt=1 */
-                    const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;     /* ctrl1=1, ctrl2=1, tgt=0 */
-                    const gate_idx_t r_c1t  = r000 | incr_ctrl1 | incr_tgt;       /* ctrl1=1, ctrl2=0, tgt=1 */
-                    const gate_idx_t r_c2t  = r000 | incr_ctrl2 | incr_tgt;       /* ctrl1=0, ctrl2=1, tgt=1 */
-                    const gate_idx_t r_all  = r000 | incr_ctrl1 | incr_ctrl2 | incr_tgt; /* ctrl1=1, ctrl2=1, tgt=1 */
+                    const idx_t r000 = insertBit0(insertBits2_0(blr, lo, mid), hi);
+                    const idx_t r_c1   = r000 | incr_ctrl1;                   /* ctrl1=1, ctrl2=0, tgt=0 */
+                    const idx_t r_c2   = r000 | incr_ctrl2;                   /* ctrl1=0, ctrl2=1, tgt=0 */
+                    const idx_t r_t    = r000 | incr_tgt;                     /* ctrl1=0, ctrl2=0, tgt=1 */
+                    const idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;     /* ctrl1=1, ctrl2=1, tgt=0 */
+                    const idx_t r_c1t  = r000 | incr_ctrl1 | incr_tgt;       /* ctrl1=1, ctrl2=0, tgt=1 */
+                    const idx_t r_c2t  = r000 | incr_ctrl2 | incr_tgt;       /* ctrl1=0, ctrl2=1, tgt=1 */
+                    const idx_t r_all  = r000 | incr_ctrl1 | incr_ctrl2 | incr_tgt; /* ctrl1=1, ctrl2=1, tgt=1 */
 
-                    for (gate_idx_t blc = 0; blc < n_base; ++blc) {
-                        const gate_idx_t c000 = insertBit0(insertBits2_0(blc, lo, mid), hi);
-                        const gate_idx_t c_c1   = c000 | incr_ctrl1;
-                        const gate_idx_t c_c2   = c000 | incr_ctrl2;
-                        const gate_idx_t c_t    = c000 | incr_tgt;
-                        const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
-                        const gate_idx_t c_c1t  = c000 | incr_ctrl1 | incr_tgt;
-                        const gate_idx_t c_c2t  = c000 | incr_ctrl2 | incr_tgt;
-                        const gate_idx_t c_all  = c000 | incr_ctrl1 | incr_ctrl2 | incr_tgt;
+                    for (idx_t blc = 0; blc < n_base; ++blc) {
+                        const idx_t c000 = insertBit0(insertBits2_0(blc, lo, mid), hi);
+                        const idx_t c_c1   = c000 | incr_ctrl1;
+                        const idx_t c_c2   = c000 | incr_ctrl2;
+                        const idx_t c_t    = c000 | incr_tgt;
+                        const idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+                        const idx_t c_c1t  = c000 | incr_ctrl1 | incr_tgt;
+                        const idx_t c_c2t  = c000 | incr_ctrl2 | incr_tgt;
+                        const idx_t c_all  = c000 | incr_ctrl1 | incr_ctrl2 | incr_tgt;
 
                         cplx_t tmp;
 
@@ -175,23 +175,23 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
          * Groups 2, 4, and pair H involve tile t(tr0,tc1) which may be upper triangle.
          */
         else {
-            const gate_idx_t n_bt = dim_tile >> 1;
+            const idx_t n_bt = dim_tile >> 1;
             const qubit_t tile_bit = target - LOG_TILE_DIM;
-            const gate_idx_t incr_tile = (gate_idx_t)1 << tile_bit;
-            const gate_idx_t n_bl = TILE_DIM >> 2;
+            const idx_t incr_tile = (idx_t)1 << tile_bit;
+            const idx_t n_bl = TILE_DIM >> 2;
             const qubit_t lo_local = ctrl2;  /* ctrl2 < ctrl1, both < LOG_TILE_DIM */
             const qubit_t hi_local = ctrl1;
-            const gate_idx_t incr_ctrl1 = (gate_idx_t)1 << ctrl1;
-            const gate_idx_t incr_ctrl2 = (gate_idx_t)1 << ctrl2;
+            const idx_t incr_ctrl1 = (idx_t)1 << ctrl1;
+            const idx_t incr_ctrl2 = (idx_t)1 << ctrl2;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr0 = insertBit0(btr, tile_bit);
-                const gate_idx_t tr1 = tr0 | incr_tile;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr0 = insertBit0(btr, tile_bit);
+                const idx_t tr1 = tr0 | incr_tile;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc0 = insertBit0(btc, tile_bit);
-                    const gate_idx_t tc1 = tc0 | incr_tile;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc0 = insertBit0(btc, tile_bit);
+                    const idx_t tc1 = tc0 | incr_tile;
 
                     cplx_t * restrict t00 = data + tile_off(tr0, tc0);
                     cplx_t * restrict t10 = data + tile_off(tr1, tc0);
@@ -201,17 +201,17 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                     if (tr0 > tc1) {
                         cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
-                            const gate_idx_t r_c1   = r000 | incr_ctrl1;
-                            const gate_idx_t r_c2   = r000 | incr_ctrl2;
-                            const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
+                            const idx_t r_c1   = r000 | incr_ctrl1;
+                            const idx_t r_c2   = r000 | incr_ctrl2;
+                            const idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
-                                const gate_idx_t c_c1   = c000 | incr_ctrl1;
-                                const gate_idx_t c_c2   = c000 | incr_ctrl2;
-                                const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
+                                const idx_t c_c1   = c000 | incr_ctrl1;
+                                const idx_t c_c2   = c000 | incr_ctrl2;
+                                const idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
 
                                 cplx_t tmp;
 
@@ -302,17 +302,17 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                     else if (btr != btc) {
                         cplx_t * restrict t01 = data + tile_off(tc1, tr0);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
-                            const gate_idx_t r_c1   = r000 | incr_ctrl1;
-                            const gate_idx_t r_c2   = r000 | incr_ctrl2;
-                            const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
+                            const idx_t r_c1   = r000 | incr_ctrl1;
+                            const idx_t r_c2   = r000 | incr_ctrl2;
+                            const idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
-                                const gate_idx_t c_c1   = c000 | incr_ctrl1;
-                                const gate_idx_t c_c2   = c000 | incr_ctrl2;
-                                const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
+                                const idx_t c_c1   = c000 | incr_ctrl1;
+                                const idx_t c_c2   = c000 | incr_ctrl2;
+                                const idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
 
                                 cplx_t tmp;
 
@@ -410,17 +410,17 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                          * Group 2 (E,F,G): t11[r_c1c2, c_xx] = conj(t10[c_xx, r_c1c2])
                          * Group 4 (I,K,M): t00[r_xx, c_c1c2] = conj(t10[c_c1c2, r_xx])
                          */
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
-                            const gate_idx_t r_c1   = r000 | incr_ctrl1;
-                            const gate_idx_t r_c2   = r000 | incr_ctrl2;
-                            const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
+                            const idx_t r_c1   = r000 | incr_ctrl1;
+                            const idx_t r_c2   = r000 | incr_ctrl2;
+                            const idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
-                                const gate_idx_t c_c1   = c000 | incr_ctrl1;
-                                const gate_idx_t c_c2   = c000 | incr_ctrl2;
-                                const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
+                                const idx_t c_c1   = c000 | incr_ctrl1;
+                                const idx_t c_c2   = c000 | incr_ctrl2;
+                                const idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
 
                                 /* Group 2 (E,F,G): t11 receives from adjoint of t10 */
                                 /* Pair E */
@@ -445,17 +445,17 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                          * Groups 1 (A,B,C), 5 (J,L,N), pair D always in lower tri.
                          * Pair H: t10 <-> t01 = conj(t10^T), self-adjoint swap within t10.
                          */
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
-                            const gate_idx_t r_c1   = r000 | incr_ctrl1;
-                            const gate_idx_t r_c2   = r000 | incr_ctrl2;
-                            const gate_idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000   = insertBits2_0(blr, lo_local, hi_local);
+                            const idx_t r_c1   = r000 | incr_ctrl1;
+                            const idx_t r_c2   = r000 | incr_ctrl2;
+                            const idx_t r_c1c2 = r000 | incr_ctrl1 | incr_ctrl2;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
-                                const gate_idx_t c_c1   = c000 | incr_ctrl1;
-                                const gate_idx_t c_c2   = c000 | incr_ctrl2;
-                                const gate_idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000   = insertBits2_0(blc, lo_local, hi_local);
+                                const idx_t c_c1   = c000 | incr_ctrl1;
+                                const idx_t c_c2   = c000 | incr_ctrl2;
+                                const idx_t c_c1c2 = c000 | incr_ctrl1 | incr_ctrl2;
 
                                 cplx_t tmp;
 
@@ -535,23 +535,23 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
              * Each swap pair is self-contained within a single tile (no inter-tile swaps).
              * Tile t01 may be in the upper triangle when tr0 < tc1.
              */
-            const gate_idx_t n_bt = dim_tile >> 1;
+            const idx_t n_bt = dim_tile >> 1;
             const qubit_t tile_bit = ctrl1 - LOG_TILE_DIM;
-            const gate_idx_t incr_tile = (gate_idx_t)1 << tile_bit;
-            const gate_idx_t n_bl = TILE_DIM >> 2;
-            const gate_idx_t incr_ctrl2 = (gate_idx_t)1 << ctrl2;
-            const gate_idx_t incr_tgt   = (gate_idx_t)1 << target;
+            const idx_t incr_tile = (idx_t)1 << tile_bit;
+            const idx_t n_bl = TILE_DIM >> 2;
+            const idx_t incr_ctrl2 = (idx_t)1 << ctrl2;
+            const idx_t incr_tgt   = (idx_t)1 << target;
             const qubit_t lo_local = (ctrl2 < target) ? ctrl2 : target;
             const qubit_t hi_local = (ctrl2 > target) ? ctrl2 : target;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr0 = insertBit0(btr, tile_bit);
-                const gate_idx_t tr1 = tr0 | incr_tile;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr0 = insertBit0(btr, tile_bit);
+                const idx_t tr1 = tr0 | incr_tile;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc0 = insertBit0(btc, tile_bit);
-                    const gate_idx_t tc1 = tc0 | incr_tile;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc0 = insertBit0(btc, tile_bit);
+                    const idx_t tc1 = tc0 | incr_tile;
 
                     cplx_t * restrict t10 = data + tile_off(tr1, tc0);
                     cplx_t * restrict t11 = data + tile_off(tr1, tc1);
@@ -560,17 +560,17 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                     if (tr0 > tc1) {
                         cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000  = insertBits2_0(blr, lo_local, hi_local);
-                            const gate_idx_t r_c2  = r000 | incr_ctrl2;
-                            const gate_idx_t r_t   = r000 | incr_tgt;
-                            const gate_idx_t r_c2t = r000 | incr_ctrl2 | incr_tgt;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000  = insertBits2_0(blr, lo_local, hi_local);
+                            const idx_t r_c2  = r000 | incr_ctrl2;
+                            const idx_t r_t   = r000 | incr_tgt;
+                            const idx_t r_c2t = r000 | incr_ctrl2 | incr_tgt;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000  = insertBits2_0(blc, lo_local, hi_local);
-                                const gate_idx_t c_c2  = c000 | incr_ctrl2;
-                                const gate_idx_t c_t   = c000 | incr_tgt;
-                                const gate_idx_t c_c2t = c000 | incr_ctrl2 | incr_tgt;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000  = insertBits2_0(blc, lo_local, hi_local);
+                                const idx_t c_c2  = c000 | incr_ctrl2;
+                                const idx_t c_t   = c000 | incr_tgt;
+                                const idx_t c_c2t = c000 | incr_ctrl2 | incr_tgt;
 
                                 cplx_t tmp;
 
@@ -661,17 +661,17 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                     else if (btr != btc) {
                         cplx_t * restrict t01 = data + tile_off(tc1, tr0);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000  = insertBits2_0(blr, lo_local, hi_local);
-                            const gate_idx_t r_c2  = r000 | incr_ctrl2;
-                            const gate_idx_t r_t   = r000 | incr_tgt;
-                            const gate_idx_t r_c2t = r000 | incr_ctrl2 | incr_tgt;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000  = insertBits2_0(blr, lo_local, hi_local);
+                            const idx_t r_c2  = r000 | incr_ctrl2;
+                            const idx_t r_t   = r000 | incr_tgt;
+                            const idx_t r_c2t = r000 | incr_ctrl2 | incr_tgt;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000  = insertBits2_0(blc, lo_local, hi_local);
-                                const gate_idx_t c_c2  = c000 | incr_ctrl2;
-                                const gate_idx_t c_t   = c000 | incr_tgt;
-                                const gate_idx_t c_c2t = c000 | incr_ctrl2 | incr_tgt;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000  = insertBits2_0(blc, lo_local, hi_local);
+                                const idx_t c_c2  = c000 | incr_ctrl2;
+                                const idx_t c_t   = c000 | incr_tgt;
+                                const idx_t c_c2t = c000 | incr_ctrl2 | incr_tgt;
 
                                 cplx_t tmp;
 
@@ -770,17 +770,17 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                      * together, so no special guards are needed.
                      */
                     else {
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000  = insertBits2_0(blr, lo_local, hi_local);
-                            const gate_idx_t r_c2  = r000 | incr_ctrl2;
-                            const gate_idx_t r_t   = r000 | incr_tgt;
-                            const gate_idx_t r_c2t = r000 | incr_ctrl2 | incr_tgt;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000  = insertBits2_0(blr, lo_local, hi_local);
+                            const idx_t r_c2  = r000 | incr_ctrl2;
+                            const idx_t r_t   = r000 | incr_tgt;
+                            const idx_t r_c2t = r000 | incr_ctrl2 | incr_tgt;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000  = insertBits2_0(blc, lo_local, hi_local);
-                                const gate_idx_t c_c2  = c000 | incr_ctrl2;
-                                const gate_idx_t c_t   = c000 | incr_tgt;
-                                const gate_idx_t c_c2t = c000 | incr_ctrl2 | incr_tgt;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000  = insertBits2_0(blc, lo_local, hi_local);
+                                const idx_t c_c2  = c000 | incr_ctrl2;
+                                const idx_t c_t   = c000 | incr_tgt;
+                                const idx_t c_c2t = c000 | incr_ctrl2 | incr_tgt;
 
                                 cplx_t tmp;
 
@@ -871,28 +871,28 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
          *     (tr10,tc10) <-> (tr10,tc11): Pair M
          */
         else {
-            const gate_idx_t n_bt = dim_tile >> 2;
+            const idx_t n_bt = dim_tile >> 2;
             const qubit_t ctrl1_tile = ctrl1 - LOG_TILE_DIM;
             const qubit_t tgt_tile   = target - LOG_TILE_DIM;
             const qubit_t lo_tile = (ctrl1_tile < tgt_tile) ? ctrl1_tile : tgt_tile;
             const qubit_t hi_tile = (ctrl1_tile > tgt_tile) ? ctrl1_tile : tgt_tile;
-            const gate_idx_t incr_ctrl1_tile = (gate_idx_t)1 << ctrl1_tile;
-            const gate_idx_t incr_tgt_tile   = (gate_idx_t)1 << tgt_tile;
-            const gate_idx_t n_bl = TILE_DIM >> 1;
-            const gate_idx_t incr_ctrl2 = (gate_idx_t)1 << ctrl2;
+            const idx_t incr_ctrl1_tile = (idx_t)1 << ctrl1_tile;
+            const idx_t incr_tgt_tile   = (idx_t)1 << tgt_tile;
+            const idx_t n_bl = TILE_DIM >> 1;
+            const idx_t incr_ctrl2 = (idx_t)1 << ctrl2;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr00 = insertBits2_0(btr, lo_tile, hi_tile);
-                const gate_idx_t tr01 = tr00 | incr_tgt_tile;
-                const gate_idx_t tr10 = tr00 | incr_ctrl1_tile;
-                const gate_idx_t tr11 = tr10 | incr_tgt_tile;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr00 = insertBits2_0(btr, lo_tile, hi_tile);
+                const idx_t tr01 = tr00 | incr_tgt_tile;
+                const idx_t tr10 = tr00 | incr_ctrl1_tile;
+                const idx_t tr11 = tr10 | incr_tgt_tile;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc00 = insertBits2_0(btc, lo_tile, hi_tile);
-                    const gate_idx_t tc01 = tc00 | incr_tgt_tile;
-                    const gate_idx_t tc10 = tc00 | incr_ctrl1_tile;
-                    const gate_idx_t tc11 = tc10 | incr_tgt_tile;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc00 = insertBits2_0(btc, lo_tile, hi_tile);
+                    const idx_t tc01 = tc00 | incr_tgt_tile;
+                    const idx_t tc10 = tc00 | incr_ctrl1_tile;
+                    const idx_t tc11 = tc10 | incr_tgt_tile;
 
                     /* Pointers to always-lower-triangle tiles */
                     cplx_t * restrict t10_00 = data + tile_off(tr10, tc00);
@@ -910,13 +910,13 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         cplx_t * restrict t00_11 = data + tile_off(tr00, tc11);
                         cplx_t * restrict t01_10 = data + tile_off(tr01, tc10);
                         cplx_t * restrict t01_11 = data + tile_off(tr01, tc11);
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                            const gate_idx_t r_c2 = r000 | incr_ctrl2;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000 = insertBit0(blr, ctrl2);
+                            const idx_t r_c2 = r000 | incr_ctrl2;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000 = insertBit0(blc, ctrl2);
+                                const idx_t c_c2 = c000 | incr_ctrl2;
 
                                 cplx_t tmp;
 
@@ -1022,13 +1022,13 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                      *   Exactly one of these two is upper when they differ.
                      */
                     else if (btr != btc) {
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                            const gate_idx_t r_c2 = r000 | incr_ctrl2;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000 = insertBit0(blr, ctrl2);
+                            const idx_t r_c2 = r000 | incr_ctrl2;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000 = insertBit0(blc, ctrl2);
+                                const idx_t c_c2 = c000 | incr_ctrl2;
 
                                 cplx_t tmp;
 
@@ -1067,11 +1067,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr10 > tc01) {
                             cplx_t * restrict t11_01 = data + tile_off(tr11, tc01);
                             cplx_t * restrict t10_01 = data + tile_off(tr10, tc01);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t r_c2 = insertBit0(blr, ctrl2) | incr_ctrl2;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                    const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t r_c2 = insertBit0(blr, ctrl2) | incr_ctrl2;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t c000 = insertBit0(blc, ctrl2);
+                                    const idx_t c_c2 = c000 | incr_ctrl2;
                                     cplx_t tmp;
                                     /* Pair E */
                                     tmp = t11_01[elem_off(r_c2, c000)];
@@ -1088,11 +1088,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                             /* (tr10,tc01) is upper tri; adjoint is (tc01,tr10) */
                             cplx_t * restrict t11_01 = data + tile_off(tr11, tc01);
                             cplx_t * restrict adj10_01 = data + tile_off(tc01, tr10);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t r_c2 = insertBit0(blr, ctrl2) | incr_ctrl2;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                    const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t r_c2 = insertBit0(blr, ctrl2) | incr_ctrl2;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t c000 = insertBit0(blc, ctrl2);
+                                    const idx_t c_c2 = c000 | incr_ctrl2;
                                     cplx_t tmp;
                                     /* Pair E: t11_01[r_c2,c000] <-> conj(adj10_01[c000,r_c2]) */
                                     tmp = t11_01[elem_off(r_c2, c000)];
@@ -1115,12 +1115,12 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                          */
                         if (tr10 > tc11) {
                             cplx_t * restrict t10_11 = data + tile_off(tr10, tc11);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                                const gate_idx_t r_c2 = r000 | incr_ctrl2;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                    const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t r000 = insertBit0(blr, ctrl2);
+                                const idx_t r_c2 = r000 | incr_ctrl2;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t c000 = insertBit0(blc, ctrl2);
+                                    const idx_t c_c2 = c000 | incr_ctrl2;
                                     cplx_t tmp;
                                     /* Pair G: (tr11,tc11)[r_c2,c000] <-> (tr10,tc11)[r_c2,c000] */
                                     tmp = t11_11[elem_off(r_c2, c000)];
@@ -1140,12 +1140,12 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             /* (tr10,tc11) is upper tri; adjoint is (tc11,tr10) */
                             cplx_t * restrict adj10_11 = data + tile_off(tc11, tr10);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                                const gate_idx_t r_c2 = r000 | incr_ctrl2;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                    const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t r000 = insertBit0(blr, ctrl2);
+                                const idx_t r_c2 = r000 | incr_ctrl2;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t c000 = insertBit0(blc, ctrl2);
+                                    const idx_t c_c2 = c000 | incr_ctrl2;
                                     cplx_t tmp;
                                     /* Pair G: t11_11[r_c2,c000] <-> conj(adj10_11[c000,r_c2]) */
                                     tmp = t11_11[elem_off(r_c2, c000)];
@@ -1186,11 +1186,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                             cplx_t * restrict t01_10 = data + tile_off(tr01, tc10);
                             cplx_t * restrict t01_11 = data + tile_off(tr01, tc11);
 
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                                const gate_idx_t r_c2 = r000 | incr_ctrl2;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t r000 = insertBit0(blr, ctrl2);
+                                const idx_t r_c2 = r000 | incr_ctrl2;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
                                     cplx_t tmp;
 
                                     /* Pair I: t00_10[r000,c_c2] <-> conj(adj00_11[c_c2,r000]) */
@@ -1222,11 +1222,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                             cplx_t * restrict adj00_11 = data + tile_off(tc11, tr00);
 
                             /* Pairs I, K: swap between adjoints directly */
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                                const gate_idx_t r_c2 = r000 | incr_ctrl2;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t r000 = insertBit0(blr, ctrl2);
+                                const idx_t r_c2 = r000 | incr_ctrl2;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
                                     cplx_t tmp;
                                     /* Pair I: adj00_10[c_c2,r000] <-> adj00_11[c_c2,r000] */
                                     tmp = adj00_10[elem_off(c_c2, r000)];
@@ -1245,11 +1245,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                                 /* Both (tr01,tc10) and (tr01,tc11) are lower tri */
                                 cplx_t * restrict t01_10 = data + tile_off(tr01, tc10);
                                 cplx_t * restrict t01_11 = data + tile_off(tr01, tc11);
-                                for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                    const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                                    const gate_idx_t r_c2 = r000 | incr_ctrl2;
-                                    for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                        const gate_idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
+                                for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                    const idx_t r000 = insertBit0(blr, ctrl2);
+                                    const idx_t r_c2 = r000 | incr_ctrl2;
+                                    for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                        const idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
                                         cplx_t tmp;
                                         tmp = t01_10[elem_off(r000, c_c2)];
                                         t01_10[elem_off(r000, c_c2)] = t01_11[elem_off(r000, c_c2)];
@@ -1264,11 +1264,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                                 /* (tr01,tc10) lower, (tr01,tc11) upper */
                                 cplx_t * restrict t01_10 = data + tile_off(tr01, tc10);
                                 cplx_t * restrict adj01_11 = data + tile_off(tc11, tr01);
-                                for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                    const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                                    const gate_idx_t r_c2 = r000 | incr_ctrl2;
-                                    for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                        const gate_idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
+                                for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                    const idx_t r000 = insertBit0(blr, ctrl2);
+                                    const idx_t r_c2 = r000 | incr_ctrl2;
+                                    for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                        const idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
                                         cplx_t tmp;
                                         /* Pair J */
                                         tmp = t01_10[elem_off(r000, c_c2)];
@@ -1285,11 +1285,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                                 /* Both (tr01,tc10) and (tr01,tc11) are upper tri */
                                 cplx_t * restrict adj01_10 = data + tile_off(tc10, tr01);
                                 cplx_t * restrict adj01_11 = data + tile_off(tc11, tr01);
-                                for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                    const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                                    const gate_idx_t r_c2 = r000 | incr_ctrl2;
-                                    for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                        const gate_idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
+                                for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                    const idx_t r000 = insertBit0(blr, ctrl2);
+                                    const idx_t r_c2 = r000 | incr_ctrl2;
+                                    for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                        const idx_t c_c2 = insertBit0(blc, ctrl2) | incr_ctrl2;
                                         cplx_t tmp;
                                         tmp = adj01_10[elem_off(c_c2, r000)];
                                         adj01_10[elem_off(c_c2, r000)] = adj01_11[elem_off(c_c2, r000)];
@@ -1333,13 +1333,13 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                      */
                     else {
                         /* Phase 1: one-way writes for G and M (read from t11_10 before it's modified) */
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                            const gate_idx_t r_c2 = r000 | incr_ctrl2;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000 = insertBit0(blr, ctrl2);
+                            const idx_t r_c2 = r000 | incr_ctrl2;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000 = insertBit0(blc, ctrl2);
+                                const idx_t c_c2 = c000 | incr_ctrl2;
 
                                 /* Pair G: t11_11[r_c2,c000] = conj(t11_10[c000,r_c2]) */
                                 t11_11[elem_off(r_c2, c000)] = conj(t11_10[elem_off(c000, r_c2)]);
@@ -1368,11 +1368,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                             if (incr_ctrl1_tile > incr_tgt_tile) {
                                 /* ctrl1 > target: both tiles lower tri, direct swap */
                                 cplx_t * restrict t10_01 = data + tile_off(tr10, tc01);
-                                for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                    const gate_idx_t r_c2 = insertBit0(blr, ctrl2) | incr_ctrl2;
-                                    for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                        const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                        const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                                for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                    const idx_t r_c2 = insertBit0(blr, ctrl2) | incr_ctrl2;
+                                    for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                        const idx_t c000 = insertBit0(blc, ctrl2);
+                                        const idx_t c_c2 = c000 | incr_ctrl2;
                                         cplx_t tmp;
                                         /* Pair E */
                                         tmp = t11_01[elem_off(r_c2, c000)];
@@ -1388,11 +1388,11 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                             else {
                                 /* target > ctrl1: (tr10,tc01) upper, adj = (tr01,tc10) */
                                 cplx_t * restrict t01_10 = data + tile_off(tr01, tc10);
-                                for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                    const gate_idx_t r_c2 = insertBit0(blr, ctrl2) | incr_ctrl2;
-                                    for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                        const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                        const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                                for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                    const idx_t r_c2 = insertBit0(blr, ctrl2) | incr_ctrl2;
+                                    for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                        const idx_t c000 = insertBit0(blc, ctrl2);
+                                        const idx_t c_c2 = c000 | incr_ctrl2;
                                         cplx_t tmp;
                                         /* Pair E: t11_01[r_c2,c000] <-> conj(t01_10[c000,r_c2]) */
                                         tmp = t11_01[elem_off(r_c2, c000)];
@@ -1408,13 +1408,13 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         }
 
                         /* Phase 2: two-way swaps */
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r000 = insertBit0(blr, ctrl2);
-                            const gate_idx_t r_c2 = r000 | incr_ctrl2;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r000 = insertBit0(blr, ctrl2);
+                            const idx_t r_c2 = r000 | incr_ctrl2;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c000 = insertBit0(blc, ctrl2);
-                                const gate_idx_t c_c2 = c000 | incr_ctrl2;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c000 = insertBit0(blc, ctrl2);
+                                const idx_t c_c2 = c000 | incr_ctrl2;
 
                                 cplx_t tmp;
 
@@ -1514,28 +1514,28 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
              * with Pairs A,E / B,F / C,G (row swaps) — they are Hermitian conjugate
              * pairs and performing both would double-swap. Skip I,J,K,L,M,N on diagonal.
              */
-            const gate_idx_t n_bt = dim_tile >> 2;
+            const idx_t n_bt = dim_tile >> 2;
             const qubit_t ctrl1_tile = ctrl1 - LOG_TILE_DIM;
             const qubit_t ctrl2_tile = ctrl2 - LOG_TILE_DIM;
             const qubit_t lo_tile = ctrl2_tile;   /* ctrl2_tile < ctrl1_tile */
             const qubit_t hi_tile = ctrl1_tile;
-            const gate_idx_t incr_ctrl1_tile = (gate_idx_t)1 << ctrl1_tile;
-            const gate_idx_t incr_ctrl2_tile = (gate_idx_t)1 << ctrl2_tile;
-            const gate_idx_t n_bl = TILE_DIM >> 1;
-            const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+            const idx_t incr_ctrl1_tile = (idx_t)1 << ctrl1_tile;
+            const idx_t incr_ctrl2_tile = (idx_t)1 << ctrl2_tile;
+            const idx_t n_bl = TILE_DIM >> 1;
+            const idx_t incr_tgt = (idx_t)1 << target;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr00 = insertBits2_0(btr, lo_tile, hi_tile);
-                const gate_idx_t tr01 = tr00 | incr_ctrl2_tile;
-                const gate_idx_t tr10 = tr00 | incr_ctrl1_tile;
-                const gate_idx_t tr11 = tr00 | incr_ctrl1_tile | incr_ctrl2_tile;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr00 = insertBits2_0(btr, lo_tile, hi_tile);
+                const idx_t tr01 = tr00 | incr_ctrl2_tile;
+                const idx_t tr10 = tr00 | incr_ctrl1_tile;
+                const idx_t tr11 = tr00 | incr_ctrl1_tile | incr_ctrl2_tile;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc00 = insertBits2_0(btc, lo_tile, hi_tile);
-                    const gate_idx_t tc01 = tc00 | incr_ctrl2_tile;
-                    const gate_idx_t tc10 = tc00 | incr_ctrl1_tile;
-                    const gate_idx_t tc11 = tc00 | incr_ctrl1_tile | incr_ctrl2_tile;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc00 = insertBits2_0(btc, lo_tile, hi_tile);
+                    const idx_t tc01 = tc00 | incr_ctrl2_tile;
+                    const idx_t tc10 = tc00 | incr_ctrl1_tile;
+                    const idx_t tc11 = tc00 | incr_ctrl1_tile | incr_ctrl2_tile;
 
                     /* Pointers to always-lower-triangle tiles */
                     cplx_t * restrict t11_00 = data + tile_off(tr11, tc00);
@@ -1549,13 +1549,13 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         cplx_t * restrict t01_11 = data + tile_off(tr01, tc11);
                         cplx_t * restrict t10_11 = data + tile_off(tr10, tc11);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_tgt;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_tgt;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_tgt;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_tgt;
 
                                 cplx_t tmp;
 
@@ -1664,13 +1664,13 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                      */
                     else if (btr != btc) {
                         /* Always-lower-triangle row swaps and diagonal-tile swaps */
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_tgt;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_tgt;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_tgt;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_tgt;
 
                                 cplx_t tmp;
 
@@ -1719,12 +1719,12 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                          */
                         {
                             cplx_t * restrict adj00_11 = data + tile_off(tc11, tr00);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t lr0 = insertBit0(blr, target);
-                                const gate_idx_t lr1 = lr0 | incr_tgt;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t lc0 = insertBit0(blc, target);
-                                    const gate_idx_t lc1 = lc0 | incr_tgt;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t lr0 = insertBit0(blr, target);
+                                const idx_t lr1 = lr0 | incr_tgt;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t lc0 = insertBit0(blc, target);
+                                    const idx_t lc1 = lc0 | incr_tgt;
                                     cplx_t tmp;
                                     /* Pair I: adj[lc0, lr0] <-> adj[lc1, lr0] */
                                     tmp = adj00_11[elem_off(lc0, lr0)];
@@ -1745,12 +1745,12 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr01 > tc11) {
                             /* (tr01, tc11) is lower tri — direct col swap */
                             cplx_t * restrict t01_11 = data + tile_off(tr01, tc11);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t lr0 = insertBit0(blr, target);
-                                const gate_idx_t lr1 = lr0 | incr_tgt;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t lc0 = insertBit0(blc, target);
-                                    const gate_idx_t lc1 = lc0 | incr_tgt;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t lr0 = insertBit0(blr, target);
+                                const idx_t lr1 = lr0 | incr_tgt;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t lc0 = insertBit0(blc, target);
+                                    const idx_t lc1 = lc0 | incr_tgt;
                                     cplx_t tmp;
                                     /* Pair K */
                                     tmp = t01_11[elem_off(lr0, lc0)];
@@ -1766,12 +1766,12 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             /* (tr01, tc11) is upper tri — row swap in adjoint (tc11, tr01) */
                             cplx_t * restrict adj01_11 = data + tile_off(tc11, tr01);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t lr0 = insertBit0(blr, target);
-                                const gate_idx_t lr1 = lr0 | incr_tgt;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t lc0 = insertBit0(blc, target);
-                                    const gate_idx_t lc1 = lc0 | incr_tgt;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t lr0 = insertBit0(blr, target);
+                                const idx_t lr1 = lr0 | incr_tgt;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t lc0 = insertBit0(blc, target);
+                                    const idx_t lc1 = lc0 | incr_tgt;
                                     cplx_t tmp;
                                     /* Pair K: adj[lc0, lr0] <-> adj[lc1, lr0] */
                                     tmp = adj01_11[elem_off(lc0, lr0)];
@@ -1792,12 +1792,12 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr10 > tc11) {
                             /* (tr10, tc11) is lower tri — direct col swap */
                             cplx_t * restrict t10_11 = data + tile_off(tr10, tc11);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t lr0 = insertBit0(blr, target);
-                                const gate_idx_t lr1 = lr0 | incr_tgt;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t lc0 = insertBit0(blc, target);
-                                    const gate_idx_t lc1 = lc0 | incr_tgt;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t lr0 = insertBit0(blr, target);
+                                const idx_t lr1 = lr0 | incr_tgt;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t lc0 = insertBit0(blc, target);
+                                    const idx_t lc1 = lc0 | incr_tgt;
                                     cplx_t tmp;
                                     /* Pair M */
                                     tmp = t10_11[elem_off(lr0, lc0)];
@@ -1813,12 +1813,12 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             /* (tr10, tc11) is upper tri — row swap in adjoint (tc11, tr10) */
                             cplx_t * restrict adj10_11 = data + tile_off(tc11, tr10);
-                            for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                                const gate_idx_t lr0 = insertBit0(blr, target);
-                                const gate_idx_t lr1 = lr0 | incr_tgt;
-                                for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                    const gate_idx_t lc0 = insertBit0(blc, target);
-                                    const gate_idx_t lc1 = lc0 | incr_tgt;
+                            for (idx_t blr = 0; blr < n_bl; ++blr) {
+                                const idx_t lr0 = insertBit0(blr, target);
+                                const idx_t lr1 = lr0 | incr_tgt;
+                                for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                    const idx_t lc0 = insertBit0(blc, target);
+                                    const idx_t lc1 = lc0 | incr_tgt;
                                     cplx_t tmp;
                                     /* Pair M: adj[lc0, lr0] <-> adj[lc1, lr0] */
                                     tmp = adj10_11[elem_off(lc0, lr0)];
@@ -1858,13 +1858,13 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                      * tile and jointly preserve Hermiticity, so no special guards needed.
                      */
                     else {
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_tgt;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_tgt;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_tgt;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_tgt;
 
                                 cplx_t tmp;
 
@@ -1983,9 +1983,9 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
          * in cross-label pairs and simplifies the diagonal case.
          */
         else {
-            const gate_idx_t ctrl1_tile = ctrl1 - LOG_TILE_DIM;
-            const gate_idx_t ctrl2_tile = ctrl2 - LOG_TILE_DIM;
-            const gate_idx_t tgt_tile   = target - LOG_TILE_DIM;
+            const idx_t ctrl1_tile = ctrl1 - LOG_TILE_DIM;
+            const idx_t ctrl2_tile = ctrl2 - LOG_TILE_DIM;
+            const idx_t tgt_tile   = target - LOG_TILE_DIM;
 
             /* Sort tile bits: lo_tile < mid_tile < hi_tile */
             qubit_t lo_tile, mid_tile, hi_tile;
@@ -1999,33 +1999,33 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                 lo_tile = ctrl2_tile; mid_tile = ctrl1_tile; hi_tile = tgt_tile;
             }
 
-            const gate_idx_t incr_c1 = (gate_idx_t)1 << ctrl1_tile;
-            const gate_idx_t incr_c2 = (gate_idx_t)1 << ctrl2_tile;
-            const gate_idx_t incr_t  = (gate_idx_t)1 << tgt_tile;
+            const idx_t incr_c1 = (idx_t)1 << ctrl1_tile;
+            const idx_t incr_c2 = (idx_t)1 << ctrl2_tile;
+            const idx_t incr_t  = (idx_t)1 << tgt_tile;
 
-            const gate_idx_t n_bt = dim_tile >> 3;
+            const idx_t n_bt = dim_tile >> 3;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
                 /* insertBits3_0: insert 0-bits at positions lo_tile, mid_tile, hi_tile */
-                const gate_idx_t tr000  = insertBit0(insertBits2_0(btr, lo_tile, mid_tile), hi_tile);
-                const gate_idx_t tr_c1  = tr000 | incr_c1;
-                const gate_idx_t tr_c2  = tr000 | incr_c2;
-                const gate_idx_t tr_t   = tr000 | incr_t;
-                const gate_idx_t tr_c1c2 = tr000 | incr_c1 | incr_c2;
-                const gate_idx_t tr_c1t  = tr000 | incr_c1 | incr_t;
-                const gate_idx_t tr_c2t  = tr000 | incr_c2 | incr_t;
-                const gate_idx_t tr_all  = tr000 | incr_c1 | incr_c2 | incr_t;
+                const idx_t tr000  = insertBit0(insertBits2_0(btr, lo_tile, mid_tile), hi_tile);
+                const idx_t tr_c1  = tr000 | incr_c1;
+                const idx_t tr_c2  = tr000 | incr_c2;
+                const idx_t tr_t   = tr000 | incr_t;
+                const idx_t tr_c1c2 = tr000 | incr_c1 | incr_c2;
+                const idx_t tr_c1t  = tr000 | incr_c1 | incr_t;
+                const idx_t tr_c2t  = tr000 | incr_c2 | incr_t;
+                const idx_t tr_all  = tr000 | incr_c1 | incr_c2 | incr_t;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc000  = insertBit0(insertBits2_0(btc, lo_tile, mid_tile), hi_tile);
-                    const gate_idx_t tc_c1  = tc000 | incr_c1;
-                    const gate_idx_t tc_c2  = tc000 | incr_c2;
-                    const gate_idx_t tc_t   = tc000 | incr_t;
-                    const gate_idx_t tc_c1c2 = tc000 | incr_c1 | incr_c2;
-                    const gate_idx_t tc_c1t  = tc000 | incr_c1 | incr_t;
-                    const gate_idx_t tc_c2t  = tc000 | incr_c2 | incr_t;
-                    const gate_idx_t tc_all  = tc000 | incr_c1 | incr_c2 | incr_t;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc000  = insertBit0(insertBits2_0(btc, lo_tile, mid_tile), hi_tile);
+                    const idx_t tc_c1  = tc000 | incr_c1;
+                    const idx_t tc_c2  = tc000 | incr_c2;
+                    const idx_t tc_t   = tc000 | incr_t;
+                    const idx_t tc_c1c2 = tc000 | incr_c1 | incr_c2;
+                    const idx_t tc_c1t  = tc000 | incr_c1 | incr_t;
+                    const idx_t tc_c2t  = tc000 | incr_c2 | incr_t;
+                    const idx_t tc_all  = tc000 | incr_c1 | incr_c2 | incr_t;
 
                     /*
                      * =====================================================================
@@ -2046,7 +2046,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                     {
                         cplx_t * restrict tA = data + tile_off(tr_c1c2, tc000);
                         cplx_t * restrict tB = data + tile_off(tr_all, tc000);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                         }
                     }
@@ -2055,7 +2055,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                     {
                         cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c2);
                         cplx_t * restrict tB = data + tile_off(tr_all, tc_c2);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                         }
                     }
@@ -2064,7 +2064,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                     {
                         cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c1);
                         cplx_t * restrict tB = data + tile_off(tr_all, tc_c1);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                         }
                     }
@@ -2082,7 +2082,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                     if (btr != btc) {
                         cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c1c2);
                         cplx_t * restrict tB = data + tile_off(tr_all, tc_all);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                        for (idx_t i = 0; i < TILE_SIZE; ++i) {
                             cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                         }
                     }
@@ -2092,8 +2092,8 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                          * lower-triangle elements to preserve Hermitian storage. */
                         cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c1c2);
                         cplx_t * restrict tB = data + tile_off(tr_all, tc_all);
-                        for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                            for (gate_idx_t lc = 0; lc <= lr; ++lc) {
+                        for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                            for (idx_t lc = 0; lc <= lr; ++lc) {
                                 cplx_t tmp = tA[lr * TILE_DIM + lc];
                                 tA[lr * TILE_DIM + lc] = tB[lr * TILE_DIM + lc];
                                 tB[lr * TILE_DIM + lc] = tmp;
@@ -2117,7 +2117,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2126,7 +2126,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c2t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c2t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2135,7 +2135,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c1t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c1t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2144,7 +2144,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_all, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c1c2, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2153,7 +2153,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr000, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr000, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2162,7 +2162,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_t, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2171,7 +2171,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_c2, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c2, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2180,7 +2180,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_c2t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c2t, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2189,7 +2189,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_c1, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c1, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2198,7 +2198,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         {
                             cplx_t * restrict tA = data + tile_off(tr_c1t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c1t, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2236,15 +2236,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1c2 > tc_t) {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_t, tr_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tB[lr * TILE_DIM + lc];
                                     tB[lr * TILE_DIM + lc] = conj(tA[lc * TILE_DIM + lr]);
                                     tA[lc * TILE_DIM + lr] = conj(tmp);
@@ -2256,15 +2256,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1c2 > tc_c2t) {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c2t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c2t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c2t, tr_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c2t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tB[lr * TILE_DIM + lc];
                                     tB[lr * TILE_DIM + lc] = conj(tA[lc * TILE_DIM + lr]);
                                     tA[lc * TILE_DIM + lr] = conj(tmp);
@@ -2276,15 +2276,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1c2 > tc_c1t) {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c1t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c1t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c1t, tr_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c1t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tB[lr * TILE_DIM + lc];
                                     tB[lr * TILE_DIM + lc] = conj(tA[lc * TILE_DIM + lr]);
                                     tA[lc * TILE_DIM + lr] = conj(tmp);
@@ -2302,7 +2302,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1c2 > tc_all) {
                             cplx_t * restrict tA = data + tile_off(tr_all, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c1c2, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2310,8 +2310,8 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                             /* tile(tr_c1c2, tc_all) upper tri; adjoint = tile(tc_all, tr_c1c2) */
                             cplx_t * restrict tA = data + tile_off(tr_all, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c1c2);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -2336,15 +2336,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr000 > tc_all) {
                             cplx_t * restrict tA = data + tile_off(tr000, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr000, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else if (tr000 > tc_c1c2) {
                             cplx_t * restrict tA = data + tile_off(tr000, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr000);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -2354,7 +2354,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c1c2, tr000);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr000);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2363,15 +2363,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_t > tc_all) {
                             cplx_t * restrict tA = data + tile_off(tr_t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_t, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else if (tr_t > tc_c1c2) {
                             cplx_t * restrict tA = data + tile_off(tr_t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -2381,7 +2381,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c1c2, tr_t);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2390,15 +2390,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c2 > tc_all) {
                             cplx_t * restrict tA = data + tile_off(tr_c2, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c2, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else if (tr_c2 > tc_c1c2) {
                             cplx_t * restrict tA = data + tile_off(tr_c2, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c2);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -2408,7 +2408,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c1c2, tr_c2);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c2);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2417,15 +2417,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c2t > tc_all) {
                             cplx_t * restrict tA = data + tile_off(tr_c2t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c2t, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else if (tr_c2t > tc_c1c2) {
                             cplx_t * restrict tA = data + tile_off(tr_c2t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c2t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -2435,7 +2435,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c1c2, tr_c2t);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c2t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2444,15 +2444,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1 > tc_all) {
                             cplx_t * restrict tA = data + tile_off(tr_c1, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c1, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else if (tr_c1 > tc_c1c2) {
                             cplx_t * restrict tA = data + tile_off(tr_c1, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c1);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -2462,7 +2462,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c1c2, tr_c1);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c1);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2471,15 +2471,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1t > tc_all) {
                             cplx_t * restrict tA = data + tile_off(tr_c1t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_c1t, tc_all);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else if (tr_c1t > tc_c1c2) {
                             cplx_t * restrict tA = data + tile_off(tr_c1t, tc_c1c2);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c1t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tA[lr * TILE_DIM + lc];
                                     tA[lr * TILE_DIM + lc] = conj(tB[lc * TILE_DIM + lr]);
                                     tB[lc * TILE_DIM + lr] = conj(tmp);
@@ -2489,7 +2489,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c1c2, tr_c1t);
                             cplx_t * restrict tB = data + tile_off(tc_all, tr_c1t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2551,7 +2551,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1c2 > tc_t) {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
@@ -2559,8 +2559,8 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                             /* Upper tri: use adjoint tile(tc_t, tr_c1c2) */
                             cplx_t * restrict tA = data + tile_off(tc_t, tr_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tB[lr * TILE_DIM + lc];
                                     tB[lr * TILE_DIM + lc] = conj(tA[lc * TILE_DIM + lr]);
                                     tA[lc * TILE_DIM + lr] = conj(tmp);
@@ -2572,15 +2572,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1c2 > tc_c2t) {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c2t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c2t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c2t, tr_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c2t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tB[lr * TILE_DIM + lc];
                                     tB[lr * TILE_DIM + lc] = conj(tA[lc * TILE_DIM + lr]);
                                     tA[lc * TILE_DIM + lr] = conj(tmp);
@@ -2592,15 +2592,15 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                         if (tr_c1c2 > tc_c1t) {
                             cplx_t * restrict tA = data + tile_off(tr_c1c2, tc_c1t);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c1t);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i) {
+                            for (idx_t i = 0; i < TILE_SIZE; ++i) {
                                 cplx_t tmp = tA[i]; tA[i] = tB[i]; tB[i] = tmp;
                             }
                         }
                         else {
                             cplx_t * restrict tA = data + tile_off(tc_c1t, tr_c1c2);
                             cplx_t * restrict tB = data + tile_off(tr_all, tc_c1t);
-                            for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                                for (gate_idx_t lc = 0; lc < TILE_DIM; ++lc) {
+                            for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                                for (idx_t lc = 0; lc < TILE_DIM; ++lc) {
                                     cplx_t tmp = tB[lr * TILE_DIM + lc];
                                     tB[lr * TILE_DIM + lc] = conj(tA[lc * TILE_DIM + lr]);
                                     tA[lc * TILE_DIM + lr] = conj(tmp);
@@ -2617,8 +2617,8 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
                          *   T[lr,lc] <-> conj(T[lc,lr])
                          * Only process lr >= lc to avoid double-swapping. */
                         cplx_t * restrict tH = data + tile_off(tr_all, tr_c1c2);
-                        for (gate_idx_t lr = 0; lr < TILE_DIM; ++lr) {
-                            for (gate_idx_t lc = 0; lc <= lr; ++lc) {
+                        for (idx_t lr = 0; lr < TILE_DIM; ++lr) {
+                            for (idx_t lc = 0; lc <= lr; ++lc) {
                                 cplx_t tmp = tH[lr * TILE_DIM + lc];
                                 tH[lr * TILE_DIM + lc] = conj(tH[lc * TILE_DIM + lr]);
                                 tH[lc * TILE_DIM + lr] = conj(tmp);
