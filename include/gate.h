@@ -25,63 +25,6 @@
 extern "C" {
 #endif
 
-/*
- * =====================================================================================================================
- * Index type for gate internals
- * =====================================================================================================================
- *
- * gate_idx_t is an unsigned 64-bit type used for ALL index computations within the gate
- * module (loop variables, dim, stride, step, pack_idx results).
- *
- * It is intentionally distinct from dim_t (int64_t) for two reasons:
- *   1. Unsigned semantics: bitwise NOT, right-shift, and wrap-around are unambiguous for
- *      unsigned types in C. Index arithmetic is always non-negative; uint64_t makes that
- *      invariant explicit and avoids implementation-defined behaviour on right shifts.
- *   2. Separation of concerns: dim_t is a public API dimension; gate_idx_t is an internal
- *      index. Their widths happen to match, but they are semantically distinct.
- */
-typedef uint64_t gate_idx_t;
-
-/*
- * =====================================================================================================================
- * Bit-insertion helper (shared across gate backends)
- * =====================================================================================================================
- */
-
-/**
- * @brief Insert a 0 bit at position `pos` in value `val`
- *
- * For k from 0 to dim/2-1, insertBit0(k, target) produces all indices with bit
- * `target` equal to 0. This enables direct enumeration without wasted iterations.
- *
- * Example: pos=2, val=0b101 -> 0b1001 (insert 0 at bit 2)
- */
-static inline gate_idx_t insertBit0(gate_idx_t val, qubit_t pos) {
-    gate_idx_t mask = ((gate_idx_t)1 << pos) - 1;
-    return (val & mask) | ((val & ~mask) << 1);
-}
-
-/**
- * @brief Insert 0 bits at two positions in value `val`
- *
- * For two-qubit gates, we iterate over indices where both qubit bits are 0.
- * This helper inserts 0 bits at positions lo and hi (lo < hi).
- */
-static inline gate_idx_t insertBits2_0(gate_idx_t val, qubit_t lo, qubit_t hi) {
-    gate_idx_t mask_lo = ((gate_idx_t)1 << lo) - 1;
-    val = (val & mask_lo) | ((val & ~mask_lo) << 1);
-    gate_idx_t mask_hi = ((gate_idx_t)1 << hi) - 1;
-    return (val & mask_hi) | ((val & ~mask_hi) << 1);
-}
-
-/**
- * @brief Compute packed array index for element (r, c) where r >= c
- *
- * LAPACK packed lower-triangle, column-major: index = c*(2*dim - c + 1)/2 + (r - c)
- */
-static inline gate_idx_t pack_idx(gate_idx_t dim, gate_idx_t r, gate_idx_t c) {
-    return c * (2 * dim - c + 1) / 2 + (r - c);
-}
 
 /*
  * =====================================================================================================================

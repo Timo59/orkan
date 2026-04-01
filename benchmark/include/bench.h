@@ -276,7 +276,7 @@ void bench_fill_random(void *buf, size_t n);
  * Random-fills the full matrix, then enforces: upper triangle = conj(lower),
  * diagonal elements real.  Used by BLAS and competitor backends.
  */
-void bench_init_hermitian_dense(cplx_t *rho, dim_t dim);
+void bench_init_hermitian_dense(cplx_t *rho, idx_t dim);
 
 /**
  * @brief Fill packed lower-triangle storage as random Hermitian.

@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
     int tq = ch->tgt_qubits;
 
     /* Build Kraus operators */
-    dim_t d = (dim_t)1 << tq;
+    idx_t d = (idx_t)1 << tq;
     cplx_t ops[ch->n_ops * d * d];
     ch->build(opts.par, ops);
 

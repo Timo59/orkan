@@ -48,16 +48,16 @@ static void build_rz(double t, cplx_t o[4]) {
  * Kronecker product: C = A ⊗ B (column-major)
  * ===================================================================== */
 
-static cplx_t *kron(dim_t ma, dim_t na, const cplx_t *A,
-                     dim_t mb, dim_t nb, const cplx_t *B) {
-    dim_t mc = ma*mb, nc = na*nb;
+static cplx_t *kron(idx_t ma, idx_t na, const cplx_t *A,
+                     idx_t mb, idx_t nb, const cplx_t *B) {
+    idx_t mc = ma*mb, nc = na*nb;
     cplx_t *C = malloc((size_t)(mc*nc) * sizeof(cplx_t));
     if (!C) return NULL;
-    for (dim_t ja = 0; ja < na; ++ja)
-        for (dim_t ia = 0; ia < ma; ++ia) {
+    for (idx_t ja = 0; ja < na; ++ja)
+        for (idx_t ia = 0; ia < ma; ++ia) {
             cplx_t a = A[ia + ja*ma];
-            for (dim_t jb = 0; jb < nb; ++jb)
-                for (dim_t ib = 0; ib < mb; ++ib)
+            for (idx_t jb = 0; jb < nb; ++jb)
+                for (idx_t ib = 0; ib < mb; ++ib)
                     C[(ib+ia*mb) + (jb+ja*nb)*mc] = a * B[ib+jb*mb];
         }
     return C;
@@ -69,18 +69,18 @@ static cplx_t *kron(dim_t ma, dim_t na, const cplx_t *A,
 
 static cplx_t *build_full_1q(qubit_t qubits, const cplx_t g[4], qubit_t tgt) {
     qubit_t pos = qubits - 1 - tgt;
-    dim_t dl = (dim_t)1 << pos;
+    idx_t dl = (idx_t)1 << pos;
     cplx_t *idl = calloc((size_t)(dl*dl), sizeof(cplx_t));
     if (!idl) return NULL;
-    for (dim_t i = 0; i < dl; ++i) idl[i+i*dl] = 1.0;
+    for (idx_t i = 0; i < dl; ++i) idl[i+i*dl] = 1.0;
     cplx_t *tmp = kron(dl, dl, idl, 2, 2, g);
     free(idl);
     if (!tmp) return NULL;
     dl *= 2;
-    dim_t dr = (dim_t)1 << tgt;
+    idx_t dr = (idx_t)1 << tgt;
     cplx_t *idr = calloc((size_t)(dr*dr), sizeof(cplx_t));
     if (!idr) { free(tmp); return NULL; }
-    for (dim_t i = 0; i < dr; ++i) idr[i+i*dr] = 1.0;
+    for (idx_t i = 0; i < dr; ++i) idr[i+i*dr] = 1.0;
     cplx_t *U = kron(dl, dl, tmp, dr, dr, idr);
     free(tmp); free(idr);
     return U;
@@ -88,18 +88,18 @@ static cplx_t *build_full_1q(qubit_t qubits, const cplx_t g[4], qubit_t tgt) {
 
 static cplx_t *build_full_2q(qubit_t qubits, const cplx_t g[16],
                                qubit_t q1, qubit_t q2) {
-    dim_t dim = (dim_t)1 << qubits;
+    idx_t dim = (idx_t)1 << qubits;
     cplx_t *U = calloc((size_t)(dim*dim), sizeof(cplx_t));
     if (!U) return NULL;
-    for (dim_t i = 0; i < dim; ++i) {
+    for (idx_t i = 0; i < dim; ++i) {
         int b1 = (i>>q1)&1, b2 = (i>>q2)&1;
         int gc = b2*2+b1;
         for (int gr = 0; gr < 4; ++gr) {
             cplx_t v = g[gr+gc*4];
             if (cabs(v) < 1e-15) continue;
-            dim_t j = i;
-            j = (j & ~((dim_t)1<<q1)) | ((dim_t)(gr&1)<<q1);
-            j = (j & ~((dim_t)1<<q2)) | ((dim_t)((gr>>1)&1)<<q2);
+            idx_t j = i;
+            j = (j & ~((idx_t)1<<q1)) | ((idx_t)(gr&1)<<q1);
+            j = (j & ~((idx_t)1<<q2)) | ((idx_t)((gr>>1)&1)<<q2);
             U[j+i*dim] = v;
         }
     }
@@ -107,11 +107,11 @@ static cplx_t *build_full_2q(qubit_t qubits, const cplx_t g[16],
 }
 
 static cplx_t *build_full_ccx(qubit_t qubits, qubit_t c1, qubit_t c2, qubit_t tgt) {
-    dim_t dim = (dim_t)1 << qubits;
+    idx_t dim = (idx_t)1 << qubits;
     cplx_t *U = calloc((size_t)(dim*dim), sizeof(cplx_t));
     if (!U) return NULL;
-    for (dim_t i = 0; i < dim; ++i) {
-        dim_t j = ((i>>c1)&1) && ((i>>c2)&1) ? i ^ ((dim_t)1<<tgt) : i;
+    for (idx_t i = 0; i < dim; ++i) {
+        idx_t j = ((i>>c1)&1) && ((i>>c2)&1) ? i ^ ((idx_t)1<<tgt) : i;
         U[j+i*dim] = 1.0;
     }
     return U;
@@ -121,7 +121,7 @@ static cplx_t *build_full_ccx(qubit_t qubits, qubit_t c1, qubit_t c2, qubit_t tg
  * ρ' = UρU† via zgemm
  * ===================================================================== */
 
-static void apply_uruh(dim_t dim, const cplx_t *U, cplx_t *rho, cplx_t *tmp) {
+static void apply_uruh(idx_t dim, const cplx_t *U, cplx_t *rho, cplx_t *tmp) {
     const cplx_t one = 1.0, zero = 0.0;
     cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
                 dim, dim, dim, &one, U, dim, rho, dim, &zero, tmp, dim);
@@ -140,7 +140,7 @@ typedef struct {
     cplx_t       *tmp;
     cplx_t      **U_lookup;
     int           lookup_size;
-    dim_t         dim;
+    idx_t         dim;
     qubit_t       n_qubits;
     blas_apply_fn apply;
 } blas_ctx_t;
@@ -168,7 +168,7 @@ static void blas_apply_3q(void *c, const qubit_t *pos) {
 static void *blas_init(qubit_t qubits, bench_gate_id_t gate, double par) {
     if (qubits > BLAS_MAX_QUBITS) return NULL;
     const bench_gate_info_t *gi = &bench_gate_table[gate];
-    dim_t dim = (dim_t)1 << qubits;
+    idx_t dim = (idx_t)1 << qubits;
     int n = (int)qubits;
 
     blas_ctx_t *ctx = calloc(1, sizeof(blas_ctx_t));

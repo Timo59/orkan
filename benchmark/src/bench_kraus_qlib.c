@@ -65,7 +65,7 @@ static void kraus_qlib_cleanup(void *c) {
  * ===================================================================== */
 
 static superop_t build_superop(int n_ops, int tgt_qubits, const cplx_t *ops) {
-    dim_t d = (dim_t)1 << tgt_qubits;
+    idx_t d = (idx_t)1 << tgt_qubits;
     kraus_t kraus = {
         .n_qubits = (qubit_t)tgt_qubits,
         .n_terms  = (uint64_t)n_ops,
@@ -97,11 +97,11 @@ static void *kraus_qlib_tiled_init(qubit_t sys_qubits, int n_ops,
 }
 
 static size_t kraus_qlib_tiled_touch_bytes(qubit_t qubits) {
-    dim_t dim = (dim_t)1 << qubits;
+    idx_t dim = (idx_t)1 << qubits;
     if (qubits < LOG_TILE_DIM) {
         return 2 * (size_t)dim * (size_t)dim * sizeof(cplx_t);
     }
-    dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+    idx_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
     size_t n_tile_pairs = (size_t)n_tiles * (n_tiles + 1) / 2;
     return 2 * n_tile_pairs * TILE_SIZE * sizeof(cplx_t);
 }
@@ -143,7 +143,7 @@ static void *kraus_qlib_packed_init(qubit_t sys_qubits, int n_ops,
 }
 
 static size_t kraus_qlib_packed_touch_bytes(qubit_t qubits) {
-    dim_t dim = (dim_t)1 << qubits;
+    idx_t dim = (idx_t)1 << qubits;
     return 2 * ((size_t)dim * (dim + 1) / 2) * sizeof(cplx_t);
 }
 

@@ -20,6 +20,7 @@
  */
 
 #include "state.h"
+#include "index.h"
 #include "utils.h"
 
 #include <assert.h>
@@ -28,43 +29,23 @@
 
 /*
  * =====================================================================================================================
- * Helper functions
- * =====================================================================================================================
- */
-
-/**
- * @brief Compute index for element (row, col) in packed lower-triangular storage
- *
- * Assumes row >= col (lower triangle).
- *
- * @param dim   Matrix dimension (2^qubits)
- * @param row   Row index
- * @param col   Column index (col <= row)
- * @return      Index into packed storage array
- */
-static inline dim_t packed_idx(dim_t dim, dim_t row, dim_t col) {
-    return col * dim - col * (col + 1) / 2 + row;
-}
-
-/*
- * =====================================================================================================================
  * Packed state implementations
  * =====================================================================================================================
  */
 
-dim_t state_packed_len(qubit_t qubits) {
+idx_t state_packed_len(qubit_t qubits) {
     /*
      * Storage length for packed lower-triangular format: dim*(dim+1)/2
      *
      * To avoid overflow in dim*(dim+1), we compute (dim/2)*(dim+1) since
      * dim = 2^qubits is always even for qubits >= 1.
      *
-     * dim_t is int64_t so overflow is not reachable in practice
+     * idx_t is int64_t so overflow is not reachable in practice
      * (memory is exhausted long before 62 qubits).
      */
-    assert(qubits < sizeof(dim_t) * 8 - 1);  /* Prevent dim overflow */
+    assert(qubits < sizeof(idx_t) * 8 - 1);  /* Prevent dim overflow */
 
-    const dim_t dim = POW2(qubits, dim_t);
+    const idx_t dim = POW2(qubits, idx_t);
     if (qubits == 0) {
         return 1;  /* dim=1 is odd, so (dim>>1)*(dim+1) = 0*2 = 0, wrong */
     }
@@ -84,46 +65,46 @@ void state_packed_plus(state_t *state, qubit_t qubits) {
      *
      * All matrix elements are equal to 1/2^n.
      */
-    const dim_t dim = POW2(qubits, dim_t);
-    const dim_t len = state_packed_len(qubits);
+    const idx_t dim = POW2(qubits, idx_t);
+    const idx_t len = state_packed_len(qubits);
     const cplx_t prefactor = 1.0 / (double)dim;
 
     /* Set all stored elements to the uniform value */
-    for (dim_t i = 0; i < len; ++i) {
+    for (idx_t i = 0; i < len; ++i) {
         state->data[i] = prefactor;
     }
 }
 
 
-cplx_t state_packed_get(const state_t *state, dim_t row, dim_t col) {
-    const dim_t dim = POW2(state->qubits, dim_t);
+cplx_t state_packed_get(const state_t *state, idx_t row, idx_t col) {
+    const idx_t dim = POW2(state->qubits, idx_t);
     assert(row < dim && col < dim);
 
     if (row >= col) {
         /* Lower triangle: direct access */
-        return state->data[packed_idx(dim, row, col)];
+        return state->data[pack_idx(dim, row, col)];
     } else {
         /* Upper triangle: return conjugate of (col, row) */
-        return conj(state->data[packed_idx(dim, col, row)]);
+        return conj(state->data[pack_idx(dim, col, row)]);
     }
 }
 
 
-void state_packed_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
-    const dim_t dim = POW2(state->qubits, dim_t);
+void state_packed_set(state_t *state, idx_t row, idx_t col, cplx_t val) {
+    const idx_t dim = POW2(state->qubits, idx_t);
     assert(row < dim && col < dim);
 
     if (row >= col) {
         /* Lower triangle: direct storage */
-        state->data[packed_idx(dim, row, col)] = val;
+        state->data[pack_idx(dim, row, col)] = val;
     } else {
         /* Upper triangle: store conjugate at (col, row) */
-        state->data[packed_idx(dim, col, row)] = conj(val);
+        state->data[pack_idx(dim, col, row)] = conj(val);
     }
 }
 
 
 void state_packed_print(const state_t *state) {
     printf("Type: MIXED_PACKED\nQubits: %u\n", state->qubits);
-    mprint_packed(state->data, POW2(state->qubits, dim_t));
+    mprint_packed(state->data, POW2(state->qubits, idx_t));
 }

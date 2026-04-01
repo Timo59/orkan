@@ -115,7 +115,7 @@ static void *qulacs_init(qubit_t qubits, bench_gate_id_t gate, double par) {
 
     /* Random Hermitian init */
     bench_init_hermitian_dense(
-        reinterpret_cast<cplx_t*>(ctx->rho), static_cast<dim_t>(ctx->dim));
+        reinterpret_cast<cplx_t*>(ctx->rho), static_cast<idx_t>(ctx->dim));
 
     /* Pre-build gate matrices for CY and CCX */
     /* Y = [[0, -i], [i, 0]] in row-major (Qulacs convention): mat[r*2+c] */

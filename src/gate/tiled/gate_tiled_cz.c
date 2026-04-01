@@ -30,8 +30,8 @@
 #include "gate_tiled.h"
 
 void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
     cplx_t * restrict data = state->data;
 
     if (control < LOG_TILE_DIM) {
@@ -54,28 +54,28 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
          * Group B: negate tile[r00, c11], tile[r01, c11], tile[r10, c11]
          */
         if (target < LOG_TILE_DIM) {
-            const gate_idx_t n_base = (dim < TILE_DIM) ? dim >> 2 : TILE_DIM >> 2;
+            const idx_t n_base = (dim < TILE_DIM) ? dim >> 2 : TILE_DIM >> 2;
             const qubit_t lo = (control < target) ? control : target;
             const qubit_t hi = (control > target) ? control : target;
-            const gate_idx_t incr_ctrl = (gate_idx_t)1 << control;
-            const gate_idx_t incr_tgt = (gate_idx_t)1 << target;
+            const idx_t incr_ctrl = (idx_t)1 << control;
+            const idx_t incr_tgt = (idx_t)1 << target;
 
             #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < dim_tile; ++btr) {
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
+            for (idx_t btr = 0; btr < dim_tile; ++btr) {
+                for (idx_t btc = 0; btc <= btr; ++btc) {
                     cplx_t * restrict tile = data + tile_off(btr, btc);
 
-                    for (gate_idx_t blr = 0; blr < n_base; ++blr) {
-                        const gate_idx_t r00 = insertBits2_0(blr, lo, hi);
-                        const gate_idx_t r01 = r00 | incr_tgt;
-                        const gate_idx_t r10 = r00 | incr_ctrl;
-                        const gate_idx_t r11 = r10 | incr_tgt;
+                    for (idx_t blr = 0; blr < n_base; ++blr) {
+                        const idx_t r00 = insertBits2_0(blr, lo, hi);
+                        const idx_t r01 = r00 | incr_tgt;
+                        const idx_t r10 = r00 | incr_ctrl;
+                        const idx_t r11 = r10 | incr_tgt;
 
-                        for (gate_idx_t blc = 0; blc < n_base; ++blc) {
-                            const gate_idx_t c00 = insertBits2_0(blc, lo, hi);
-                            const gate_idx_t c01 = c00 | incr_tgt;
-                            const gate_idx_t c10 = c00 | incr_ctrl;
-                            const gate_idx_t c11 = c10 | incr_tgt;
+                        for (idx_t blc = 0; blc < n_base; ++blc) {
+                            const idx_t c00 = insertBits2_0(blc, lo, hi);
+                            const idx_t c01 = c00 | incr_tgt;
+                            const idx_t c10 = c00 | incr_ctrl;
+                            const idx_t c11 = c10 | incr_tgt;
 
                             /* Group A: row=11, col!=11 -- always lower-tri */
                             tile[elem_off(r11, c00)] = -tile[elem_off(r11, c00)];
@@ -133,20 +133,20 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
          * Triangle handling for t01 follows the 3-branch pattern from cx_tiled.
          */
         else {
-            const gate_idx_t n_bt = dim_tile >> 1;
+            const idx_t n_bt = dim_tile >> 1;
             const qubit_t tile_bit = target - LOG_TILE_DIM;
-            const gate_idx_t incr_tile = (gate_idx_t)1 << tile_bit;
-            const gate_idx_t n_bl = TILE_DIM >> 1;
-            const gate_idx_t incr_local = (gate_idx_t)1 << control;
+            const idx_t incr_tile = (idx_t)1 << tile_bit;
+            const idx_t n_bl = TILE_DIM >> 1;
+            const idx_t incr_local = (idx_t)1 << control;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr0 = insertBit0(btr, tile_bit);
-                const gate_idx_t tr1 = tr0 | incr_tile;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr0 = insertBit0(btr, tile_bit);
+                const idx_t tr1 = tr0 | incr_tile;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc0 = insertBit0(btc, tile_bit);
-                    const gate_idx_t tc1 = tc0 | incr_tile;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc0 = insertBit0(btc, tile_bit);
+                    const idx_t tc1 = tc0 | incr_tile;
 
                     cplx_t * restrict t10 = data + tile_off(tr1, tc0);
                     cplx_t * restrict t11 = data + tile_off(tr1, tc1);
@@ -155,13 +155,13 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     if (tr0 > tc1) {
                         cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r0 = insertBit0(blr, control);
-                            const gate_idx_t r1 = r0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r0 = insertBit0(blr, control);
+                            const idx_t r1 = r0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c0 = insertBit0(blc, control);
-                                const gate_idx_t c1 = c0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c0 = insertBit0(blc, control);
+                                const idx_t c1 = c0 | incr_local;
 
                                 /* t10: negate where local row has control bit (Group A) */
                                 t10[elem_off(r1, c0)] = -t10[elem_off(r1, c0)];
@@ -182,13 +182,13 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     else if (btr != btc) {
                         cplx_t * restrict t01_adj = data + tile_off(tc1, tr0);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r0 = insertBit0(blr, control);
-                            const gate_idx_t r1 = r0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r0 = insertBit0(blr, control);
+                            const idx_t r1 = r0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c0 = insertBit0(blc, control);
-                                const gate_idx_t c1 = c0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c0 = insertBit0(blc, control);
+                                const idx_t c1 = c0 | incr_local;
 
                                 /* t10: negate where local row has control bit (Group A) */
                                 t10[elem_off(r1, c0)] = -t10[elem_off(r1, c0)];
@@ -232,13 +232,13 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                      * are handled automatically since we negate raw storage directly.
                      */
                     else {
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t r0 = insertBit0(blr, control);
-                            const gate_idx_t r1 = r0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t r0 = insertBit0(blr, control);
+                            const idx_t r1 = r0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t c0 = insertBit0(blc, control);
-                                const gate_idx_t c1 = c0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t c0 = insertBit0(blc, control);
+                                const idx_t c1 = c0 | incr_local;
 
                                 /* t10: negate all elements where local row has control bit.
                                  * This handles both Group A (direct) and Group B (adjoint). */
@@ -289,20 +289,20 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
          *   Action: negate where local col has target bit: t01[lr0, lc1], t01[lr1, lc1]
          */
         if (target < LOG_TILE_DIM) {
-            const gate_idx_t n_bt = dim_tile >> 1;
+            const idx_t n_bt = dim_tile >> 1;
             const qubit_t tile_bit = control - LOG_TILE_DIM;
-            const gate_idx_t incr_tile = (gate_idx_t)1 << tile_bit;
-            const gate_idx_t n_bl = TILE_DIM >> 1;
-            const gate_idx_t incr_local = (gate_idx_t)1 << target;
+            const idx_t incr_tile = (idx_t)1 << tile_bit;
+            const idx_t n_bl = TILE_DIM >> 1;
+            const idx_t incr_local = (idx_t)1 << target;
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr0 = insertBit0(btr, tile_bit);
-                const gate_idx_t tr1 = tr0 | incr_tile;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr0 = insertBit0(btr, tile_bit);
+                const idx_t tr1 = tr0 | incr_tile;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc0 = insertBit0(btc, tile_bit);
-                    const gate_idx_t tc1 = tc0 | incr_tile;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc0 = insertBit0(btc, tile_bit);
+                    const idx_t tc1 = tc0 | incr_tile;
 
                     cplx_t * restrict t10 = data + tile_off(tr1, tc0);
                     cplx_t * restrict t11 = data + tile_off(tr1, tc1);
@@ -311,13 +311,13 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     if (tr0 > tc1) {
                         cplx_t * restrict t01 = data + tile_off(tr0, tc1);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_local;
 
                                 /* t10: negate where local row has target bit (Group A) */
                                 t10[elem_off(lr1, lc0)] = -t10[elem_off(lr1, lc0)];
@@ -338,13 +338,13 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     else if (btr != btc) {
                         cplx_t * restrict t01_adj = data + tile_off(tc1, tr0);
 
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_local;
 
                                 /* t10: Group A */
                                 t10[elem_off(lr1, lc0)] = -t10[elem_off(lr1, lc0)];
@@ -374,13 +374,13 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                      * For t11 (diagonal tile): negate where exactly one of (lr, lc) has
                      * target bit. Raw storage negation preserves Hermitian consistency. */
                     else {
-                        for (gate_idx_t blr = 0; blr < n_bl; ++blr) {
-                            const gate_idx_t lr0 = insertBit0(blr, target);
-                            const gate_idx_t lr1 = lr0 | incr_local;
+                        for (idx_t blr = 0; blr < n_bl; ++blr) {
+                            const idx_t lr0 = insertBit0(blr, target);
+                            const idx_t lr1 = lr0 | incr_local;
 
-                            for (gate_idx_t blc = 0; blc < n_bl; ++blc) {
-                                const gate_idx_t lc0 = insertBit0(blc, target);
-                                const gate_idx_t lc1 = lc0 | incr_local;
+                            for (idx_t blc = 0; blc < n_bl; ++blc) {
+                                const idx_t lc0 = insertBit0(blc, target);
+                                const idx_t lc1 = lc0 | incr_local;
 
                                 /* t10: negate all elements where local row has target bit */
                                 t10[elem_off(lr1, lc0)] = -t10[elem_off(lr1, lc0)];
@@ -414,40 +414,40 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
          * Group B tiles may cross the diagonal.
          */
         else {
-            const gate_idx_t n_bt = dim_tile >> 2;
+            const idx_t n_bt = dim_tile >> 2;
             const qubit_t lo = (control < target) ? control - LOG_TILE_DIM : target - LOG_TILE_DIM;
             const qubit_t hi = (control > target) ? control - LOG_TILE_DIM : target - LOG_TILE_DIM;
-            const gate_idx_t incr_ctrl = (gate_idx_t)1 << (control - LOG_TILE_DIM);
-            const gate_idx_t incr_tgt = (gate_idx_t)1 << (target - LOG_TILE_DIM);
+            const idx_t incr_ctrl = (idx_t)1 << (control - LOG_TILE_DIM);
+            const idx_t incr_tgt = (idx_t)1 << (target - LOG_TILE_DIM);
 
             #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-            for (gate_idx_t btr = 0; btr < n_bt; ++btr) {
-                const gate_idx_t tr00 = insertBits2_0(btr, lo, hi);
-                const gate_idx_t tr01 = tr00 | incr_tgt;
-                const gate_idx_t tr10 = tr00 | incr_ctrl;
-                const gate_idx_t tr11 = tr10 | incr_tgt;
+            for (idx_t btr = 0; btr < n_bt; ++btr) {
+                const idx_t tr00 = insertBits2_0(btr, lo, hi);
+                const idx_t tr01 = tr00 | incr_tgt;
+                const idx_t tr10 = tr00 | incr_ctrl;
+                const idx_t tr11 = tr10 | incr_tgt;
 
-                for (gate_idx_t btc = 0; btc <= btr; ++btc) {
-                    const gate_idx_t tc00 = insertBits2_0(btc, lo, hi);
-                    const gate_idx_t tc01 = tc00 | incr_tgt;
-                    const gate_idx_t tc10 = tc00 | incr_ctrl;
-                    const gate_idx_t tc11 = tc10 | incr_tgt;
+                for (idx_t btc = 0; btc <= btr; ++btc) {
+                    const idx_t tc00 = insertBits2_0(btc, lo, hi);
+                    const idx_t tc01 = tc00 | incr_tgt;
+                    const idx_t tc10 = tc00 | incr_ctrl;
+                    const idx_t tc11 = tc10 | incr_tgt;
 
                     /* Group A: negate entire tiles (tr11, tc00), (tr11, tc01), (tr11, tc10)
                      * These are always in lower triangle since tr11 > tc00, tc01, tc10 */
                     {
                         cplx_t * restrict tA0 = data + tile_off(tr11, tc00);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                        for (idx_t i = 0; i < TILE_SIZE; ++i)
                             tA0[i] = -tA0[i];
                     }
                     {
                         cplx_t * restrict tA1 = data + tile_off(tr11, tc01);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                        for (idx_t i = 0; i < TILE_SIZE; ++i)
                             tA1[i] = -tA1[i];
                     }
                     {
                         cplx_t * restrict tA2 = data + tile_off(tr11, tc10);
-                        for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                        for (idx_t i = 0; i < TILE_SIZE; ++i)
                             tA2[i] = -tA2[i];
                     }
 
@@ -458,17 +458,17 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                     if (tr00 > tc11) {
                         {
                             cplx_t * restrict tB0 = data + tile_off(tr00, tc11);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                            for (idx_t i = 0; i < TILE_SIZE; ++i)
                                 tB0[i] = -tB0[i];
                         }
                         {
                             cplx_t * restrict tB1 = data + tile_off(tr01, tc11);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                            for (idx_t i = 0; i < TILE_SIZE; ++i)
                                 tB1[i] = -tB1[i];
                         }
                         {
                             cplx_t * restrict tB2 = data + tile_off(tr10, tc11);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                            for (idx_t i = 0; i < TILE_SIZE; ++i)
                                 tB2[i] = -tB2[i];
                         }
                     }
@@ -482,29 +482,29 @@ void cz_tiled(state_t *state, const qubit_t control, const qubit_t target) {
                          * Adjoint at (tc11, tr00) -- always in lower triangle */
                         {
                             cplx_t * restrict tB0 = data + tile_off(tc11, tr00);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                            for (idx_t i = 0; i < TILE_SIZE; ++i)
                                 tB0[i] = -tB0[i];
                         }
 
                         /* (tr01, tc11): check triangle position */
                         if (tr01 > tc11) {
                             cplx_t * restrict tB1 = data + tile_off(tr01, tc11);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                            for (idx_t i = 0; i < TILE_SIZE; ++i)
                                 tB1[i] = -tB1[i];
                         } else {
                             cplx_t * restrict tB1 = data + tile_off(tc11, tr01);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                            for (idx_t i = 0; i < TILE_SIZE; ++i)
                                 tB1[i] = -tB1[i];
                         }
 
                         /* (tr10, tc11): check triangle position */
                         if (tr10 > tc11) {
                             cplx_t * restrict tB2 = data + tile_off(tr10, tc11);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                            for (idx_t i = 0; i < TILE_SIZE; ++i)
                                 tB2[i] = -tB2[i];
                         } else {
                             cplx_t * restrict tB2 = data + tile_off(tc11, tr10);
-                            for (gate_idx_t i = 0; i < TILE_SIZE; ++i)
+                            for (idx_t i = 0; i < TILE_SIZE; ++i)
                                 tB2[i] = -tB2[i];
                         }
                     }

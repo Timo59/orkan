@@ -24,16 +24,16 @@
  * Kronecker product: C = A (x) B  (column-major)
  * ===================================================================== */
 
-static cplx_t *kron(dim_t ma, dim_t na, const cplx_t *A,
-                     dim_t mb, dim_t nb, const cplx_t *B) {
-    dim_t mc = ma*mb, nc = na*nb;
+static cplx_t *kron(idx_t ma, idx_t na, const cplx_t *A,
+                     idx_t mb, idx_t nb, const cplx_t *B) {
+    idx_t mc = ma*mb, nc = na*nb;
     cplx_t *C = malloc((size_t)(mc*nc) * sizeof(cplx_t));
     if (!C) return NULL;
-    for (dim_t ja = 0; ja < na; ++ja)
-        for (dim_t ia = 0; ia < ma; ++ia) {
+    for (idx_t ja = 0; ja < na; ++ja)
+        for (idx_t ia = 0; ia < ma; ++ia) {
             cplx_t a = A[ia + ja*ma];
-            for (dim_t jb = 0; jb < nb; ++jb)
-                for (dim_t ib = 0; ib < mb; ++ib)
+            for (idx_t jb = 0; jb < nb; ++jb)
+                for (idx_t ib = 0; ib < mb; ++ib)
                     C[(ib+ia*mb) + (jb+ja*nb)*mc] = a * B[ib+jb*mb];
         }
     return C;
@@ -47,18 +47,18 @@ static cplx_t *kron(dim_t ma, dim_t na, const cplx_t *A,
 
 static cplx_t *build_full_1q(qubit_t n_qubits, const cplx_t g[4], qubit_t tgt) {
     qubit_t pos = n_qubits - 1 - tgt;
-    dim_t dl = (dim_t)1 << pos;
+    idx_t dl = (idx_t)1 << pos;
     cplx_t *idl = calloc((size_t)(dl*dl), sizeof(cplx_t));
     if (!idl) return NULL;
-    for (dim_t i = 0; i < dl; ++i) idl[i+i*dl] = 1.0;
+    for (idx_t i = 0; i < dl; ++i) idl[i+i*dl] = 1.0;
     cplx_t *tmp = kron(dl, dl, idl, 2, 2, g);
     free(idl);
     if (!tmp) return NULL;
     dl *= 2;
-    dim_t dr = (dim_t)1 << tgt;
+    idx_t dr = (idx_t)1 << tgt;
     cplx_t *idr = calloc((size_t)(dr*dr), sizeof(cplx_t));
     if (!idr) { free(tmp); return NULL; }
-    for (dim_t i = 0; i < dr; ++i) idr[i+i*dr] = 1.0;
+    for (idx_t i = 0; i < dr; ++i) idr[i+i*dr] = 1.0;
     cplx_t *U = kron(dl, dl, tmp, dr, dr, idr);
     free(tmp); free(idr);
     return U;
@@ -75,7 +75,7 @@ typedef struct {
     cplx_t **U_lookup;  /* U_lookup[k * n + tgt] = full expanded Kraus op k at target tgt */
     int      n_ops;
     int      n_qubits;
-    dim_t    dim;
+    idx_t    dim;
 } kraus_blas_ctx_t;
 
 /* =====================================================================
@@ -84,7 +84,7 @@ typedef struct {
 
 static void kraus_blas_apply(void *c, const qubit_t *pos) {
     kraus_blas_ctx_t *ctx = (kraus_blas_ctx_t *)c;
-    dim_t dim = ctx->dim;
+    idx_t dim = ctx->dim;
     size_t mat_bytes = (size_t)(dim * dim) * sizeof(cplx_t);
     const cplx_t one = 1.0, zero = 0.0;
 
@@ -114,8 +114,8 @@ static void *kraus_blas_init(qubit_t sys_qubits, int n_ops,
     if (tgt_qubits != 1) return NULL;  /* only 1-qubit channels for now */
 
     int n = (int)sys_qubits;
-    dim_t dim = (dim_t)1 << sys_qubits;
-    dim_t d = (dim_t)1 << tgt_qubits;
+    idx_t dim = (idx_t)1 << sys_qubits;
+    idx_t d = (idx_t)1 << tgt_qubits;
 
     kraus_blas_ctx_t *ctx = calloc(1, sizeof(kraus_blas_ctx_t));
     if (!ctx) return NULL;

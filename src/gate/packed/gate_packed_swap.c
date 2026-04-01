@@ -17,6 +17,7 @@
  */
 
 #include "gate.h"
+#include "index.h"
 #include <complex.h>
 
 #ifdef _OPENMP
@@ -28,29 +29,29 @@
 #endif
 
 void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
+    const idx_t dim = (idx_t)1 << state->qubits;
     const qubit_t hi = q1 > q2 ? q1 : q2;
     const qubit_t lo = q1 < q2 ? q1 : q2;
-    const gate_idx_t incr_hi = (gate_idx_t)1 << hi;
-    const gate_idx_t incr_lo = (gate_idx_t)1 << lo;
+    const idx_t incr_hi = (idx_t)1 << hi;
+    const idx_t incr_lo = (idx_t)1 << lo;
     cplx_t * restrict data = state->data;
-    const gate_idx_t quarter_dim = dim >> 2;
+    const idx_t quarter_dim = dim >> 2;
 
     #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t bc = 0; bc < quarter_dim; ++bc) {
-        const gate_idx_t c00 = insertBits2_0(bc, lo, hi);
-        const gate_idx_t c01 = c00 | incr_lo, c10 = c00 | incr_hi, c11 = c10 | incr_lo;
+    for (idx_t bc = 0; bc < quarter_dim; ++bc) {
+        const idx_t c00 = insertBits2_0(bc, lo, hi);
+        const idx_t c01 = c00 | incr_lo, c10 = c00 | incr_hi, c11 = c10 | incr_lo;
 
         /* Precompute offsets of columns */
-        gate_idx_t offset_c00 = c00 * (2 * dim - c00 + 1) / 2;
-        gate_idx_t offset_c01 = c01 * (2 * dim - c01 + 1) / 2;
-        gate_idx_t offset_c10 = c10 * (2 * dim - c10 + 1) / 2;
-        gate_idx_t offset_c11 = c11 * (2 * dim - c11 + 1) / 2;
+        idx_t offset_c00 = c00 * (2 * dim - c00 + 1) / 2;
+        idx_t offset_c01 = c01 * (2 * dim - c01 + 1) / 2;
+        idx_t offset_c10 = c10 * (2 * dim - c10 + 1) / 2;
+        idx_t offset_c11 = c11 * (2 * dim - c11 + 1) / 2;
 
 
-        for (gate_idx_t br = bc; br < quarter_dim; ++br) {
-            const gate_idx_t r00 = insertBits2_0(br, lo, hi);
-            const gate_idx_t r01 = r00 | incr_lo, r10 = r00 | incr_hi, r11 = r10 | incr_lo;
+        for (idx_t br = bc; br < quarter_dim; ++br) {
+            const idx_t r00 = insertBits2_0(br, lo, hi);
+            const idx_t r01 = r00 | incr_lo, r10 = r00 | incr_hi, r11 = r10 | incr_lo;
 
             /* Pair A: (r01,c00) <-> (r10,c00) — always lower tri; plain swap */
             cplx_t tmp = data[(r01 - c00) + offset_c00];

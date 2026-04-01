@@ -20,6 +20,7 @@
  */
 
 #include "gate.h"
+#include "index.h"
 #include <complex.h>
 #include <math.h>
 
@@ -66,35 +67,35 @@
  */
 #define TRAVERSE_PACKED_BLOCKS(state, target, BLOCK_OP)                         \
 do {                                                                            \
-    const gate_idx_t dim = (gate_idx_t)1 << (state)->qubits;                    \
-    const gate_idx_t incr = (gate_idx_t)1 << (target);                          \
-    const gate_idx_t half_dim = dim >> 1;                                       \
+    const idx_t dim = (idx_t)1 << (state)->qubits;                    \
+    const idx_t incr = (idx_t)1 << (target);                          \
+    const idx_t half_dim = dim >> 1;                                       \
     cplx_t * restrict data = (state)->data;                                     \
                                                                                 \
     _Pragma("omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)")       \
-    for (gate_idx_t bc = 0; bc < half_dim; ++bc) {                              \
-        gate_idx_t c0 = insertBit0(bc, target);                                 \
-        gate_idx_t c1 = c0 | incr;                                              \
+    for (idx_t bc = 0; bc < half_dim; ++bc) {                              \
+        idx_t c0 = insertBit0(bc, target);                                 \
+        idx_t c1 = c0 | incr;                                              \
                                                                                 \
         /* Precompute column base for c1: pack_idx(dim, c1, c1) */             \
-        gate_idx_t col1_base = c1 * (2 * dim - c1 + 1) / 2;                    \
+        idx_t col1_base = c1 * (2 * dim - c1 + 1) / 2;                    \
         /* Precompute column base for c0: pack_idx(dim, c0, c0) */             \
-        gate_idx_t col0_base = c0 * (2 * dim - c0 + 1) / 2;                    \
+        idx_t col0_base = c0 * (2 * dim - c0 + 1) / 2;                    \
                                                                                 \
-        for (gate_idx_t br = bc; br < half_dim; ++br) {                         \
-            gate_idx_t r0 = insertBit0(br, target);                             \
-            gate_idx_t r1 = r0 | incr;                                          \
+        for (idx_t br = bc; br < half_dim; ++br) {                         \
+            idx_t r0 = insertBit0(br, target);                             \
+            idx_t r1 = r0 | incr;                                          \
                                                                                 \
             /* Compute idx00 = pack_idx(dim, r0, c0) from col0_base */         \
-            gate_idx_t idx00 = col0_base + (r0 - c0);                           \
+            idx_t idx00 = col0_base + (r0 - c0);                           \
             /* idx10 = pack_idx(dim, r1, c0): same column, row offset by incr */\
-            gate_idx_t idx10 = idx00 + incr;                                    \
+            idx_t idx10 = idx00 + incr;                                    \
             /* idx11 = pack_idx(dim, r1, c1) from col1_base */                 \
-            gate_idx_t idx11 = col1_base + (r1 - c1);                           \
+            idx_t idx11 = col1_base + (r1 - c1);                           \
                                                                                 \
             /* (r0, c1): in lower triangle if r0 >= c1 */                       \
             int lower_01 = (r0 >= c1);                                          \
-            gate_idx_t idx01 = lower_01 ? (col1_base + (r0 - c1))               \
+            idx_t idx01 = lower_01 ? (col1_base + (r0 - c1))               \
                                         : pack_idx(dim, c1, r0);               \
                                                                                 \
             /* On diagonal blocks (bc==br), idx01==idx10 points to same elem */ \
@@ -484,24 +485,24 @@ void p_packed(state_t *state, const qubit_t target, const double theta) {
     const double c = cos(theta);
     const double s = sin(theta);
 
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t incr = (gate_idx_t)1 << target;
-    const gate_idx_t half_dim = dim >> 1;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t incr = (idx_t)1 << target;
+    const idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
 
     #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t bc = 0; bc < half_dim; ++bc) {
-        gate_idx_t c0 = insertBit0(bc, target);
-        gate_idx_t c1 = c0 | incr;
+    for (idx_t bc = 0; bc < half_dim; ++bc) {
+        idx_t c0 = insertBit0(bc, target);
+        idx_t c1 = c0 | incr;
 
-        for (gate_idx_t br = bc; br < half_dim; ++br) {
-            gate_idx_t r0 = insertBit0(br, target);
-            gate_idx_t r1 = r0 | incr;
+        for (idx_t br = bc; br < half_dim; ++br) {
+            idx_t r0 = insertBit0(br, target);
+            idx_t r1 = r0 | incr;
 
-            gate_idx_t idx10 = pack_idx(dim, r1, c0);
+            idx_t idx10 = pack_idx(dim, r1, c0);
 
             int lower_01 = (r0 >= c1);
-            gate_idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
             int diag_block = (bc == br);
 
             /* (1,0) *= e^(iθ): (a+bi) -> (a·c - b·s) + i·(b·c + a·s) */
@@ -558,26 +559,26 @@ void rx_packed(state_t *state, const qubit_t target, const double theta) {
     const double s2 = s * s;
     const double cs = c * s;
 
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t incr = (gate_idx_t)1 << target;
-    const gate_idx_t half_dim = dim >> 1;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t incr = (idx_t)1 << target;
+    const idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
 
     #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t bc = 0; bc < half_dim; ++bc) {
-        gate_idx_t c0 = insertBit0(bc, target);
-        gate_idx_t c1 = c0 | incr;
+    for (idx_t bc = 0; bc < half_dim; ++bc) {
+        idx_t c0 = insertBit0(bc, target);
+        idx_t c1 = c0 | incr;
 
-        for (gate_idx_t br = bc; br < half_dim; ++br) {
-            gate_idx_t r0 = insertBit0(br, target);
-            gate_idx_t r1 = r0 | incr;
+        for (idx_t br = bc; br < half_dim; ++br) {
+            idx_t r0 = insertBit0(br, target);
+            idx_t r1 = r0 | incr;
 
-            gate_idx_t idx00 = pack_idx(dim, r0, c0);
-            gate_idx_t idx11 = pack_idx(dim, r1, c1);
-            gate_idx_t idx10 = pack_idx(dim, r1, c0);
+            idx_t idx00 = pack_idx(dim, r0, c0);
+            idx_t idx11 = pack_idx(dim, r1, c1);
+            idx_t idx10 = pack_idx(dim, r1, c0);
 
             int lower_01 = (r0 >= c1);
-            gate_idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
             int diag_block = (bc == br);
 
             cplx_t rho00 = data[idx00];
@@ -632,26 +633,26 @@ void ry_packed(state_t *state, const qubit_t target, const double theta) {
     const double s2 = s * s;
     const double cs = c * s;
 
-    const gate_idx_t dim = (gate_idx_t)1 << state->qubits;
-    const gate_idx_t incr = (gate_idx_t)1 << target;
-    const gate_idx_t half_dim = dim >> 1;
+    const idx_t dim = (idx_t)1 << state->qubits;
+    const idx_t incr = (idx_t)1 << target;
+    const idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
 
     #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
-    for (gate_idx_t bc = 0; bc < half_dim; ++bc) {
-        gate_idx_t c0 = insertBit0(bc, target);
-        gate_idx_t c1 = c0 | incr;
+    for (idx_t bc = 0; bc < half_dim; ++bc) {
+        idx_t c0 = insertBit0(bc, target);
+        idx_t c1 = c0 | incr;
 
-        for (gate_idx_t br = bc; br < half_dim; ++br) {
-            gate_idx_t r0 = insertBit0(br, target);
-            gate_idx_t r1 = r0 | incr;
+        for (idx_t br = bc; br < half_dim; ++br) {
+            idx_t r0 = insertBit0(br, target);
+            idx_t r1 = r0 | incr;
 
-            gate_idx_t idx00 = pack_idx(dim, r0, c0);
-            gate_idx_t idx11 = pack_idx(dim, r1, c1);
-            gate_idx_t idx10 = pack_idx(dim, r1, c0);
+            idx_t idx00 = pack_idx(dim, r0, c0);
+            idx_t idx11 = pack_idx(dim, r1, c1);
+            idx_t idx10 = pack_idx(dim, r1, c0);
 
             int lower_01 = (r0 >= c1);
-            gate_idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
+            idx_t idx01 = lower_01 ? pack_idx(dim, r0, c1) : pack_idx(dim, c1, r0);
             int diag_block = (bc == br);
 
             cplx_t rho00 = data[idx00];

@@ -117,7 +117,7 @@ static void *aer_init(qubit_t qubits, bench_gate_id_t gate, double par) {
         /* Random Hermitian init */
         bench_init_hermitian_dense(
             reinterpret_cast<cplx_t*>(ctx->dm->data()),
-            (dim_t)1 << qubits);
+            (idx_t)1 << qubits);
 
         /* Resolve apply function and pre-build vectorized matrices */
         using VMatrix = AER::Linalg::VMatrix;

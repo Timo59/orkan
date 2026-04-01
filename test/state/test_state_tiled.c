@@ -17,9 +17,9 @@
 void test_tiled_len_small(void) {
     // Sub-tile (dim < TILE_DIM) and exact-tile (dim == TILE_DIM) cases
     for (qubit_t n = 1; n <= LOG_TILE_DIM; n++) {
-        dim_t dim = POW2(n, dim_t);
-        dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
-        dim_t expected = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE;
+        idx_t dim = POW2(n, idx_t);
+        idx_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+        idx_t expected = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE;
         TEST_ASSERT_EQUAL_INT64(expected, state_tiled_len(n));
     }
 }
@@ -33,9 +33,9 @@ void test_tiled_len_small(void) {
 void test_tiled_len_multi_tile(void) {
     // LOG_TILE_DIM+1 qubits: dim = 2*TILE_DIM, n_tiles = 2, 3 lower-triangular tiles
     const qubit_t n = LOG_TILE_DIM + 1;
-    dim_t dim = POW2(n, dim_t);
-    dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
-    dim_t expected_len = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE;
+    idx_t dim = POW2(n, idx_t);
+    idx_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+    idx_t expected_len = n_tiles * (n_tiles + 1) / 2 * TILE_SIZE;
 
     TEST_ASSERT_EQUAL_INT64(expected_len, state_tiled_len(n));
 }
@@ -57,8 +57,8 @@ void test_tiled_init_null_data(void) {
         TEST_ASSERT_NOT_NULL(state.data);
 
         // Verify all elements are zero
-        dim_t len = state_tiled_len(n);
-        for (dim_t i = 0; i < len; i++) {
+        idx_t len = state_tiled_len(n);
+        for (idx_t i = 0; i < len; i++) {
             TEST_ASSERT_COMPLEX_WITHIN(0.0 + 0.0*I, state.data[i], PRECISION);
         }
 
@@ -76,13 +76,13 @@ void test_tiled_init_ownership(void) {
     state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
     // Allocate data externally (64-byte aligned)
-    dim_t len = state_tiled_len(2);
+    idx_t len = state_tiled_len(2);
     size_t size = (len * sizeof(cplx_t) + 63) & ~(size_t)63;
     cplx_t *data = aligned_alloc(64, size);
     TEST_ASSERT_NOT_NULL(data);
 
     // Set some values
-    for (dim_t i = 0; i < len; i++) {
+    for (idx_t i = 0; i < len; i++) {
         data[i] = (double)(i % 100) + (double)(i % 50) * 0.1 * I;
     }
 
@@ -96,7 +96,7 @@ void test_tiled_init_ownership(void) {
     TEST_ASSERT_EQUAL_PTR(original_ptr, state.data);  // State owns the data
 
     // Verify values preserved
-    for (dim_t i = 0; i < len; i++) {
+    for (idx_t i = 0; i < len; i++) {
         cplx_t expected = (double)(i % 100) + (double)(i % 50) * 0.1 * I;
         TEST_ASSERT_COMPLEX_WITHIN(expected, state.data[i], PRECISION);
     }
@@ -145,13 +145,13 @@ void test_tiled_plus_values(void) {
         TEST_ASSERT_NOT_NULL(state.data);
         TEST_ASSERT_EQUAL_UINT8(n, state.qubits);
 
-        dim_t dim = POW2(n, dim_t);
+        idx_t dim = POW2(n, idx_t);
         double expected_value = 1.0 / (double)dim;
 
         // Check ALL elements = 1/dim (not just diagonal!)
         // The |+⟩⟨+| density matrix is a completely uniform matrix
-        for (dim_t row = 0; row < dim; row++) {
-            for (dim_t col = 0; col < dim; col++) {
+        for (idx_t row = 0; row < dim; row++) {
+            for (idx_t col = 0; col < dim; col++) {
                 cplx_t val = state_tiled_get(&state, row, col);
                 TEST_ASSERT_DOUBLE_WITHIN(PRECISION, expected_value, creal(val));
                 TEST_ASSERT_DOUBLE_WITHIN(PRECISION, 0.0, cimag(val));
@@ -208,7 +208,7 @@ void test_tiled_get_within_tile(void) {
 
 void test_tiled_get_cross_tile(void) {
     const qubit_t n = LOG_TILE_DIM + 1;
-    const dim_t T = TILE_DIM;
+    const idx_t T = TILE_DIM;
     state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
     state_init(&state, n, NULL);  // dim = 2*T, 3 lower-triangular tiles
@@ -288,20 +288,20 @@ void test_tiled_set_roundtrip(void) {
     };
 
     // Set values at various positions (lower triangle only)
-    dim_t positions[][2] = {
+    idx_t positions[][2] = {
         {0, 0}, {1, 0}, {1, 1}, {2, 1}, {3, 0}, {4, 3}, {5, 2}, {7, 7}
     };
 
     for (int i = 0; i < 8; i++) {
-        dim_t row = positions[i][0];
-        dim_t col = positions[i][1];
+        idx_t row = positions[i][0];
+        idx_t col = positions[i][1];
         state_tiled_set(&state, row, col, test_values[i]);
     }
 
     // Verify roundtrip
     for (int i = 0; i < 8; i++) {
-        dim_t row = positions[i][0];
-        dim_t col = positions[i][1];
+        idx_t row = positions[i][0];
+        idx_t col = positions[i][1];
         cplx_t retrieved = state_tiled_get(&state, row, col);
         TEST_ASSERT_COMPLEX_WITHIN(test_values[i], retrieved, PRECISION);
     }
@@ -332,8 +332,8 @@ void test_tiled_cp_independence(void) {
     TEST_ASSERT_NOT_EQUAL_PTR(original.data, copy.data);
 
     // Verify values initially identical
-    dim_t len = state_tiled_len(2);
-    for (dim_t i = 0; i < len; i++) {
+    idx_t len = state_tiled_len(2);
+    for (idx_t i = 0; i < len; i++) {
         TEST_ASSERT_COMPLEX_WITHIN(original.data[i], copy.data[i], PRECISION);
     }
 
@@ -423,7 +423,7 @@ void test_tiled_single_qubit(void) {
 
 void test_tiled_tile_boundaries(void) {
     const qubit_t n = LOG_TILE_DIM + 1;
-    const dim_t T = TILE_DIM;
+    const idx_t T = TILE_DIM;
     state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
     state_init(&state, n, NULL);  // dim = 2*T
@@ -488,15 +488,15 @@ void test_tiled_set_upper(void) {
 
 void test_tiled_multi_tile(void) {
     const qubit_t n = LOG_TILE_DIM + 1;
-    const dim_t T = TILE_DIM;
+    const idx_t T = TILE_DIM;
     state_t state = {.type = MIXED_TILED, .data = NULL, .qubits = 0};
 
     state_init(&state, n, NULL);  // dim = 2*T, 3 lower-triangular tiles
 
     // Verify storage length
-    dim_t dim = POW2(n, dim_t);
-    dim_t nt = (dim + TILE_DIM - 1) / TILE_DIM;
-    dim_t expected_len = nt * (nt + 1) / 2 * TILE_SIZE;
+    idx_t dim = POW2(n, idx_t);
+    idx_t nt = (dim + TILE_DIM - 1) / TILE_DIM;
+    idx_t expected_len = nt * (nt + 1) / 2 * TILE_SIZE;
     TEST_ASSERT_EQUAL_INT64(expected_len, state_tiled_len(n));
     TEST_ASSERT_EQUAL_UINT8(n, state.qubits);
     TEST_ASSERT_NOT_NULL(state.data);

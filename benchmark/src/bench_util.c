@@ -59,20 +59,20 @@ void bench_fill_random(void *buf, size_t n) {
  * Hermitian random initialisation
  * ===================================================================== */
 
-void bench_init_hermitian_dense(cplx_t *rho, dim_t dim) {
+void bench_init_hermitian_dense(cplx_t *rho, idx_t dim) {
     /* Fill entire matrix with random data */
     bench_fill_random(rho, (size_t)dim * (size_t)dim * sizeof(cplx_t));
 
     /* Enforce Hermiticity: lower triangle stays, upper = conj(lower), diag real */
-    for (dim_t i = 0; i < dim; ++i) {
+    for (idx_t i = 0; i < dim; ++i) {
         SETIMAG(rho[i * dim + i], 0.0);
-        for (dim_t j = i + 1; j < dim; ++j)
+        for (idx_t j = i + 1; j < dim; ++j)
             rho[i * dim + j] = conj(rho[j * dim + i]);
     }
 }
 
 void bench_init_hermitian_packed(cplx_t *data, qubit_t qubits) {
-    dim_t dim = (dim_t)1 << qubits;
+    idx_t dim = (idx_t)1 << qubits;
     size_t len = (size_t)dim * ((size_t)dim + 1) / 2;
 
     /* Fill packed lower-triangle storage with random data */
@@ -81,15 +81,15 @@ void bench_init_hermitian_packed(cplx_t *data, qubit_t qubits) {
     /* Zero imaginary part of diagonal elements.
      * In LAPACK column-major packed lower triangle, diagonal element (i,i)
      * is at index: i*(2*dim - i + 1)/2  (the first element of column i). */
-    for (dim_t i = 0; i < dim; ++i) {
+    for (idx_t i = 0; i < dim; ++i) {
         size_t idx = (size_t)i * (2 * (size_t)dim - (size_t)i + 1) / 2;
         SETIMAG(data[idx], 0.0);
     }
 }
 
 void bench_init_hermitian_tiled(cplx_t *data, qubit_t qubits) {
-    dim_t dim = (dim_t)1 << qubits;
-    dim_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
+    idx_t dim = (idx_t)1 << qubits;
+    idx_t n_tiles = (dim + TILE_DIM - 1) / TILE_DIM;
     size_t n_tile_pairs = (size_t)(n_tiles * (n_tiles + 1) / 2);
 
     /* Fill all tile storage with random data */
@@ -105,7 +105,7 @@ void bench_init_hermitian_tiled(cplx_t *data, qubit_t qubits) {
      *   - (lr, lc) with lr > lc: keep random value (lower triangle)
      *   - (lr, lc) with lr < lc: set to conj of (lc, lr)
      *   - (lr, lr): zero imaginary part */
-    for (dim_t k = 0; k < n_tiles; ++k) {
+    for (idx_t k = 0; k < n_tiles; ++k) {
         size_t tile_off = (size_t)(k * (k + 1) / 2) * TILE_SIZE;
         cplx_t *tile = data + tile_off;
 

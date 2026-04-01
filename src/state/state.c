@@ -24,7 +24,7 @@
  * @param len Number of complex elements
  * @return Aligned, zero-initialized memory, or NULL on failure
  */
-static cplx_t *state_alloc_aligned(dim_t len) {
+static cplx_t *state_alloc_aligned(idx_t len) {
     size_t size = len * sizeof(cplx_t);
     /* Round up to alignment boundary (required by aligned_alloc) */
     size = (size + STATE_ALIGNMENT - 1) & ~(size_t)(STATE_ALIGNMENT - 1);
@@ -41,7 +41,7 @@ static cplx_t *state_alloc_aligned(dim_t len) {
  * =====================================================================================================================
  */
 
-dim_t state_len(const state_t *state) {
+idx_t state_len(const state_t *state) {
     assert(state != NULL);
 
     switch (state->type) {
@@ -75,7 +75,7 @@ void state_init(state_t *state, const qubit_t qubits, cplx_t **data) {
         if (((uintptr_t)*data & (STATE_ALIGNMENT - 1)) == 0) {
             state->data = *data;
         } else {
-            const dim_t len = state_len(state);
+            const idx_t len = state_len(state);
             state->data = state_alloc_aligned(len);
             if (!state->data) {
                 fprintf(stderr, "state_init(): aligned realloc failed for %zu elements\n", (size_t)len);
@@ -90,7 +90,7 @@ void state_init(state_t *state, const qubit_t qubits, cplx_t **data) {
         *data = NULL;
     } else {
         /* Allocate zero-initialized, aligned storage */
-        const dim_t len = state_len(state);
+        const idx_t len = state_len(state);
         state->data = state_alloc_aligned(len);
         if (!state->data) {
             fprintf(stderr, "state_init(): allocation failed for %zu elements\n", (size_t)len);
@@ -135,7 +135,7 @@ state_t state_cp(const state_t *state) {
     state_t out = *state;
 
     /* Allocate aligned storage for the copy */
-    const dim_t len = state_len(state);
+    const idx_t len = state_len(state);
     out.data = state_alloc_aligned(len);
     if (!out.data) {
         fprintf(stderr, "state_cp(): allocation failed\n");
@@ -168,7 +168,7 @@ void state_print(const state_t *state) {
 }
 
 
-cplx_t state_get(const state_t *state, dim_t row, dim_t col) {
+cplx_t state_get(const state_t *state, idx_t row, idx_t col) {
     assert(state != NULL && state->data != NULL);
 
     switch (state->type) {
@@ -186,7 +186,7 @@ cplx_t state_get(const state_t *state, dim_t row, dim_t col) {
 }
 
 
-void state_set(state_t *state, dim_t row, dim_t col, cplx_t val) {
+void state_set(state_t *state, idx_t row, idx_t col, cplx_t val) {
     assert(state != NULL && state->data != NULL);
 
     switch (state->type) {
