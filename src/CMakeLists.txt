@@ -36,6 +36,8 @@ set(Q_SOURCES
 # Include directory
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 
+include(GNUInstallDirs)
+
 # Create library target
 add_library(${PROJECT_NAME_LOWER} SHARED ${Q_SOURCES})
 
@@ -72,7 +74,6 @@ if(ENABLE_OPENMP AND TARGET OpenMP::OpenMP_C)
 endif()
 
 # Install rules
-include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 # Install library and register export set
