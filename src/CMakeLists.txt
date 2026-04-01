@@ -62,13 +62,13 @@ endif()
 target_link_libraries(${PROJECT_NAME_LOWER}
         PRIVATE
             ${PROJECT_COMPILER_FLAGS}
-            omp_compiler_flags
 )
-
-# For the installed/exported target, link OpenMP directly (imported targets
-# are resolved by find_dependency in the package config file)
 if(ENABLE_OPENMP AND TARGET OpenMP::OpenMP_C)
     target_link_libraries(${PROJECT_NAME_LOWER} PUBLIC OpenMP::OpenMP_C)
+    # FindOpenMP does not always propagate the include directory on macOS
+    if(APPLE AND LIBOMP_PREFIX)
+        target_include_directories(${PROJECT_NAME_LOWER} PUBLIC "${LIBOMP_PREFIX}/include")
+    endif()
 endif()
 
 # Install rules

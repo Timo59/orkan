@@ -33,9 +33,7 @@ endif()
 
 target_link_libraries(blas_compiler_flags INTERFACE ${QSIM_BLAS_LIBRARIES})
 
-# Interface library to specify usage of OpenMP routines
-add_library(omp_compiler_flags INTERFACE)
-
+# Find OpenMP (used directly by library target, not via interface library)
 if(ENABLE_OPENMP)
     if(APPLE)
         # Apple Clang does not ship with OpenMP; locate Homebrew's libomp
@@ -60,13 +58,6 @@ if(ENABLE_OPENMP)
 
     find_package(OpenMP REQUIRED COMPONENTS C CXX)
     message(STATUS "OpenMP parallelization enabled")
-    target_link_libraries(omp_compiler_flags INTERFACE OpenMP::OpenMP_C OpenMP::OpenMP_CXX)
-
-    # FindOpenMP does not always propagate the include directory on macOS;
-    # add it explicitly from the resolved Homebrew prefix.
-    if(APPLE AND LIBOMP_PREFIX)
-        target_include_directories(omp_compiler_flags INTERFACE "${LIBOMP_PREFIX}/include")
-    endif()
 else()
     message(STATUS "OpenMP parallelization disabled")
 endif()
