@@ -46,7 +46,7 @@ set_target_properties(${PROJECT_NAME_LOWER} PROPERTIES
 target_include_directories(${PROJECT_NAME_LOWER}
         PUBLIC
             $<BUILD_INTERFACE:${INCLUDE_DIR}>
-            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
             "${CMAKE_CURRENT_SOURCE_DIR}/internal"
@@ -60,18 +60,28 @@ if(DEFINED OMP_THRESHOLD)
     target_compile_definitions(${PROJECT_NAME_LOWER} PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
 endif()
 target_link_libraries(${PROJECT_NAME_LOWER}
-        PUBLIC
+        PRIVATE
             ${PROJECT_COMPILER_FLAGS}
             omp_compiler_flags
 )
 
+# For the installed/exported target, link OpenMP directly (imported targets
+# are resolved by find_dependency in the package config file)
+if(ENABLE_OPENMP AND TARGET OpenMP::OpenMP_C)
+    target_link_libraries(${PROJECT_NAME_LOWER} PUBLIC OpenMP::OpenMP_C)
+endif()
+
 # Install rules
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
+# Install library and register export set
 install(TARGETS ${PROJECT_NAME_LOWER}
+    EXPORT ${PROJECT_NAME}Targets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
+# Install public headers
 install(FILES
     ${INCLUDE_DIR}/qlib.h
     ${INCLUDE_DIR}/q_types.h
@@ -79,5 +89,31 @@ install(FILES
     ${INCLUDE_DIR}/gate.h
     ${INCLUDE_DIR}/channel.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}
+)
+
+# Install CMake targets file (provides QSim::qsim imported target)
+install(EXPORT ${PROJECT_NAME}Targets
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_LOWER}
+)
+
+# Generate and install package config file
+configure_package_config_file(
+    "${CMAKE_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_LOWER}
+)
+
+# Generate and install version file
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_LOWER}
 )
 
