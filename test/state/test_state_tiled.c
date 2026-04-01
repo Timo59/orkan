@@ -1,7 +1,7 @@
 // test_state_tiled.c - Unit tests for MIXED_TILED quantum states (tiled/blocked density matrices)
 
 #include "test.h"
-#include "state.h"
+#include "state_internal.h"
 #include "utils.h"
 
 #include <math.h>

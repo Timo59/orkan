@@ -98,7 +98,7 @@ static inline void znprint(const double complex x) {
     } while(0)
 
 /* Print Hermitian matrix from tiled lower-triangular storage.
- * Requires TILE_DIM, TILE_SIZE, LOG_TILE_DIM from state.h at expansion site. */
+ * Uses TILE_DIM, TILE_SIZE, LOG_TILE_DIM from q_types.h. */
 #define mprint_tiled(_tiled, _n) \
     do { \
         const size_t _dim = (_n); \

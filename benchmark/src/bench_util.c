@@ -4,6 +4,9 @@
  */
 
 #include "bench.h"
+
+#define SETREAL(a, b)  (*((double*) &(a)) = (b))
+#define SETIMAG(a, b)  (*(((double*) &(a)) + 1) = (b))
 #include <sys/mman.h>
 #if !defined(__APPLE__) && !defined(__FreeBSD__)
 #include <sys/random.h>

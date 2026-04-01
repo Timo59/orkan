@@ -34,6 +34,9 @@ unset(_BUILD_DIR_NAME)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
 
+# Lowercase project name for target and install paths
+string(TOLOWER "${PROJECT_NAME}" PROJECT_NAME_LOWER)
+
 # Add CMake modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -93,7 +96,7 @@ if (BUILD_TESTS AND EXISTS "${CMAKE_SOURCE_DIR}/test")
     add_custom_target(verified_install
             COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
             COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR}
-            DEPENDS test_state test_gate
+            DEPENDS ${PROJECT_NAME_LOWER} test_state test_gate test_channel
             COMMENT "Running tests before install..."
     )
 endif ()

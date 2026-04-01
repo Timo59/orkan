@@ -3,6 +3,7 @@ FetchContent_Declare(
     unity
     GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity.git
     GIT_TAG        v2.6.1
+    EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(unity)
 set(UNITY_SRC "${unity_SOURCE_DIR}/src")
@@ -36,10 +37,12 @@ target_include_directories(test_state
         PRIVATE
             ${UNITY_SRC}
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
+            "${CMAKE_SOURCE_DIR}/src/internal"
+            "${CMAKE_SOURCE_DIR}/src/state"
 )
 target_link_libraries(test_state
         PRIVATE
-            q
+            ${PROJECT_NAME_LOWER}
 )
 add_test(NAME test_state COMMAND test_state)
 
@@ -78,10 +81,11 @@ target_include_directories(test_gate
         PRIVATE
             ${UNITY_SRC}
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
+            "${CMAKE_SOURCE_DIR}/src/internal"
 )
 target_link_libraries(test_gate
         PRIVATE
-            q
+            ${PROJECT_NAME_LOWER}
             blas_compiler_flags
 )
 add_test(NAME test_gate COMMAND test_gate)
@@ -118,7 +122,7 @@ target_include_directories(test_circuit
 )
 target_link_libraries(test_circuit
         PRIVATE
-            q
+            ${PROJECT_NAME_LOWER}
             blas_compiler_flags
 )
 add_test(NAME test_circuit COMMAND test_circuit)
@@ -154,7 +158,7 @@ target_include_directories(test_channel
 )
 target_link_libraries(test_channel
         PRIVATE
-            q
+            ${PROJECT_NAME_LOWER}
             blas_compiler_flags
 )
 add_test(NAME test_channel COMMAND test_channel)

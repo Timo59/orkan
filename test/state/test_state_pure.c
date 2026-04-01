@@ -1,7 +1,7 @@
 // test_state_pure.c - Unit tests for PURE quantum states (state vectors)
 
 #include "test.h"
-#include "state.h"
+#include "state_internal.h"
 #include "utils.h"
 
 #include <math.h>

@@ -6,8 +6,7 @@
  * type-specific implementations based on state->type.
  */
 
-#include "state.h"
-#include "utils.h"
+#include "state_internal.h"
 
 #include <assert.h>
 #include <stdint.h>

@@ -18,7 +18,7 @@ target_include_directories(profile_x_tiled PRIVATE
 )
 
 # Link libq — inherits compiler flags, BLAS, OpenMP, and include dirs via PUBLIC deps
-target_link_libraries(profile_x_tiled PRIVATE q)
+target_link_libraries(profile_x_tiled PRIVATE ${PROJECT_NAME_LOWER})
 
 # --- profile_h_tiled ---
 add_executable(profile_h_tiled "${PROF_SRC_DIR}/profile_h_tiled.c")
@@ -31,7 +31,7 @@ target_include_directories(profile_h_tiled PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
-target_link_libraries(profile_h_tiled PRIVATE q)
+target_link_libraries(profile_h_tiled PRIVATE ${PROJECT_NAME_LOWER})
 
 # --- profile_channel_tiled ---
 add_executable(profile_channel_tiled "${PROF_SRC_DIR}/profile_channel_tiled.c")
@@ -44,4 +44,4 @@ target_include_directories(profile_channel_tiled PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
-target_link_libraries(profile_channel_tiled PRIVATE q)
+target_link_libraries(profile_channel_tiled PRIVATE ${PROJECT_NAME_LOWER})

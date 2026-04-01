@@ -37,28 +37,29 @@ set(Q_SOURCES
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 
 # Create library target
-add_library(q SHARED ${Q_SOURCES})
+add_library(${PROJECT_NAME_LOWER} SHARED ${Q_SOURCES})
 
-set_target_properties(q PROPERTIES
+set_target_properties(${PROJECT_NAME_LOWER} PROPERTIES
         VERSION         ${PROJECT_VERSION}
         SOVERSION       ${PROJECT_VERSION_MAJOR}
 )
-target_include_directories(q
+target_include_directories(${PROJECT_NAME_LOWER}
         PUBLIC
             $<BUILD_INTERFACE:${INCLUDE_DIR}>
-            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDE_DIR}>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
+            "${CMAKE_CURRENT_SOURCE_DIR}/internal"
             "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled"
 )
-target_compile_definitions(q
+target_compile_definitions(${PROJECT_NAME_LOWER}
         PUBLIC
             LOG_TILE_DIM=${LOG_TILE_DIM}
 )
 if(DEFINED OMP_THRESHOLD)
-    target_compile_definitions(q PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
+    target_compile_definitions(${PROJECT_NAME_LOWER} PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
 endif()
-target_link_libraries(q
+target_link_libraries(${PROJECT_NAME_LOWER}
         PUBLIC
             ${PROJECT_COMPILER_FLAGS}
             omp_compiler_flags
@@ -67,7 +68,7 @@ target_link_libraries(q
 # Install rules
 include(GNUInstallDirs)
 
-install(TARGETS q
+install(TARGETS ${PROJECT_NAME_LOWER}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
@@ -75,9 +76,8 @@ install(FILES
     ${INCLUDE_DIR}/qlib.h
     ${INCLUDE_DIR}/q_types.h
     ${INCLUDE_DIR}/state.h
-    ${INCLUDE_DIR}/channel.h
     ${INCLUDE_DIR}/gate.h
-    ${INCLUDE_DIR}/circ.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    ${INCLUDE_DIR}/channel.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}
 )
 

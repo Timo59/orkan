@@ -158,22 +158,6 @@ void p(state_t *state, const qubit_t target, const double theta) { DISPATCH_ROT(
         default: GATE_VALIDATE(0, #name ": unknown state type");                \
     }
 
-/* Variants for 2Q gates without tiled implementation */
-#define DISPATCH_2Q_NO_TILED(name, state, control, target)                           \
-    GATE_VALIDATE((state) && (state)->data,                                          \
-                  #name ": null state or data pointer");                             \
-    GATE_VALIDATE((control) < (state)->qubits,                                       \
-                  #name ": control qubit out of range");                             \
-    GATE_VALIDATE((target) < (state)->qubits,                                        \
-                  #name ": target qubit out of range");                              \
-    GATE_VALIDATE((control) != (target),                                             \
-                  #name ": control and target must differ");                         \
-    switch ((state)->type) {                                                         \
-        case PURE:         name##_pure(state, control, target);   break;             \
-        case MIXED_PACKED: name##_packed(state, control, target);  break;            \
-        case MIXED_TILED:  GATE_VALIDATE(0, #name ": not implemented for tiled");    \
-        default: GATE_VALIDATE(0, #name ": unknown state type");                     \
-    }
 
 void cx(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cx, state, control, target); }
 void cy(state_t *state, const qubit_t control, const qubit_t target) { DISPATCH_2Q(cy, state, control, target); }

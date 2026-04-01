@@ -1,7 +1,7 @@
 // test_state_packed.c - Unit tests for MIXED_PACKED quantum states (packed density matrices)
 
 #include "test.h"
-#include "state.h"
+#include "state_internal.h"
 #include "utils.h"
 
 #include <math.h>
