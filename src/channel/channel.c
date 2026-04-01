@@ -1,6 +1,16 @@
-// channel.c  - Channel dispatchers with input validation and two way type dispatch
+// channel.c - Superoperator construction and channel dispatch for mixed states
 
 #include "channel.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define CHANNEL_VALIDATE(cond, msg) do {                        \
+    if (!(cond)) {                                              \
+        fprintf(stderr, "qlib: channel: %s\n", (msg));         \
+        exit(EXIT_FAILURE);                                     \
+    }                                                           \
+} while(0)
 
 /*
  * =====================================================================================================================
@@ -9,10 +19,7 @@
  */
 
 superop_t kraus_to_superop(const kraus_t *kraus) {
-  if (!kraus || !kraus->data) {
-    fprintf(stderr, "kraus_to_superop: null kraus or data\n");
-    exit(EXIT_FAILURE);
-  }
+  CHANNEL_VALIDATE(kraus && kraus->data, "kraus_to_superop: null kraus or data");
 
   const idx_t N = (idx_t)1 << kraus->n_qubits;  // Hilbert space dimension
   const idx_t M = N * N;                        // Superoperator dimension
@@ -20,10 +27,7 @@ superop_t kraus_to_superop(const kraus_t *kraus) {
   superop_t out = {0};
   out.n_qubits = kraus->n_qubits;
   out.data = calloc(M * M, sizeof(cplx_t));
-  if (!out.data) {
-    fprintf(stderr, "kraus_to_superop: data allocation failed\n");
-    exit(EXIT_FAILURE);
-  }
+  CHANNEL_VALIDATE(out.data, "kraus_to_superop: allocation failed");
 
   for (uint64_t k = 0; k < kraus->n_terms; ++k) {
     /* Pointer to first element in k-th Kraus operator */
@@ -47,54 +51,35 @@ superop_t kraus_to_superop(const kraus_t *kraus) {
 
 /*
  * =====================================================================================================================
- * Packed mixed state channel implementations
+ * Backend declarations
  * =====================================================================================================================
  */
 
 extern void channel_packed_1q(state_t *state, const cplx_t *sop, const qubit_t target);
-
-/*
- * =====================================================================================================================
- * Tiled mixed state channel implementations 
- * =====================================================================================================================
- */
-
 extern void channel_tiled_1q(state_t *state, const cplx_t *sop, const qubit_t target);
 
 /*
  * =====================================================================================================================
- * Dispatchers
+ * Dispatcher
  * =====================================================================================================================
  */
 
 void channel_1q(state_t *state, const superop_t *sop, const qubit_t target) {
-  if (!state || !state->data) {
-    fprintf(stderr, "channel_1q: null state or data pointer\n");
-    exit(EXIT_FAILURE);
-  }
-  if (target >= state->qubits) {
-    fprintf(stderr, "channel_1q: target qubit out of range\n");
-    exit(EXIT_FAILURE);
-  }
-  if (!sop || !sop->data) {
-    fprintf(stderr, "channel_1q: null superoperator or data pointer\n");
-    exit(EXIT_FAILURE);
-  }
-  if (sop->n_qubits != 1) {
-    fprintf(stderr, "channel_1q: number of targeted qubits is not 1\n");
-    exit(EXIT_FAILURE);
-  }
+  CHANNEL_VALIDATE(state && state->data,  "channel_1q: null state or data pointer");
+  CHANNEL_VALIDATE(target < state->qubits, "channel_1q: target qubit out of range");
+  CHANNEL_VALIDATE(sop && sop->data,       "channel_1q: null superoperator or data pointer");
+  CHANNEL_VALIDATE(sop->n_qubits == 1,     "channel_1q: superoperator is not 1-local");
 
   switch (state->type) {
     case PURE:
-      fprintf(stderr, "channel_1q: Kraus operation is not available for pure states\n");
-      exit(EXIT_FAILURE);
+      CHANNEL_VALIDATE(0, "channel_1q: not available for pure states");
     case MIXED_PACKED:
       channel_packed_1q(state, sop->data, target);
       break;
     case MIXED_TILED:
       channel_tiled_1q(state, sop->data, target);
       break;
+    default:
+      CHANNEL_VALIDATE(0, "channel_1q: unknown state type");
   }
 }
-
