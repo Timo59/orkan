@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.27)
 
 # Set the name of the project and store it to CMAKE_PROJECT_NAME. Set PROJECT_SOURCE_DIR and PROJECT_BINARY_DIR
-project(QSim
-        VERSION     1.0.0   # Sets PROJECT_VERSION and <PROJECT_NAME>_VERSION
-        DESCRIPTION "Quantum Computer simulator" # Sets PROJECT_DESCRIPTION and <PROJECT_NAME>_DESCRIPTION
-        LANGUAGES   C CXX   # Programming languages to build the project
+project(Orkan
+        VERSION     0.1.0
+        DESCRIPTION "Fast quantum state simulator"
+        LANGUAGES   C CXX
 )
 
 # Default to Debug if no build type specified (single-config generators only)
