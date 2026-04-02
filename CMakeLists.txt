@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.27)
 
 # Set the name of the project and store it to CMAKE_PROJECT_NAME. Set PROJECT_SOURCE_DIR and PROJECT_BINARY_DIR
-project(Reif
+project(Orkan
         VERSION     0.1.0
         DESCRIPTION "Fast quantum state simulator"
         LANGUAGES   C CXX
