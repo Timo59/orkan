@@ -92,7 +92,7 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}
 )
 
-# Install CMake targets file (provides QSim::qsim imported target)
+# Install CMake targets file (provides Orkan::orkan imported target)
 install(EXPORT ${PROJECT_NAME}Targets
     NAMESPACE ${PROJECT_NAME}::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_LOWER}

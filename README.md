@@ -1,6 +1,8 @@
-# QSim
+# Orkan
 
-A quantum computer simulator library written in C17 for representing, manipulating, and simulating quantum states. Supports pure states (statevectors) and mixed states (density matrices) with three storage backends optimised for different use cases.
+A fast quantum state simulator written in C17. Named after the *Orkan* — the strongest wind force classification in German meteorology.
+
+Supports pure states (statevectors) and mixed states (density matrices) with three storage backends optimised for different use cases.
 
 ## Features
 
@@ -44,20 +46,20 @@ cmake --build --preset release
 cmake --install cmake-build-release --prefix /usr/local
 ```
 
-## Using QSim in your project
+## Using Orkan in your project
 
 After installation, add to your `CMakeLists.txt`:
 
 ```cmake
-find_package(QSim 1.0 REQUIRED)
+find_package(Orkan 0.1 REQUIRED)
 add_executable(myapp main.c)
-target_link_libraries(myapp QSim::qsim)
+target_link_libraries(myapp Orkan::orkan)
 ```
 
 Minimal example:
 
 ```c
-#include <qsim/qlib.h>
+#include <orkan/qlib.h>
 #include <stdio.h>
 
 int main(void) {
@@ -95,7 +97,7 @@ cmake/            CMake modules and package config template
 
 ## Benchmarks
 
-Benchmarks compare QSim against QuEST, Qulacs, and Qiskit-Aer on single-gate and Kraus channel throughput. Build with:
+Benchmarks compare Orkan against QuEST, Qulacs, and Qiskit-Aer on single-gate and Kraus channel throughput. Build with:
 
 ```bash
 cmake --preset release -DBUILD_BENCHMARKS=ON
