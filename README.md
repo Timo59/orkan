@@ -102,3 +102,9 @@ cmake --preset release -DBUILD_BENCHMARKS=ON
 cmake --build --preset release --target bench_gate bench_kraus
 ./cmake-build-release/benchmark/bench_gate --help
 ```
+
+## License
+
+Copyright (C) 2025–2026 Timo Ziegler
+
+This program is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License v3.0](LICENSE).
