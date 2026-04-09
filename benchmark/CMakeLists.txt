@@ -13,15 +13,12 @@ set(EXTERN_DIR "${CMAKE_SOURCE_DIR}/extern")
 # Find external frameworks (auto-detect)
 # ======================================================================
 
-# QuEST — check extern/ first, then system paths
-find_path(QuEST_INCLUDE_DIR quest/include/quest.h
-    HINTS ${EXTERN_DIR}/QuEST ${QuEST_DIR} $ENV{QuEST_DIR}
-          /usr/local /opt/quest)
-find_library(QuEST_LIBRARY NAMES QuEST quest
-    HINTS ${EXTERN_DIR}/QuEST/build ${QuEST_DIR}/lib $ENV{QuEST_DIR}/lib
-          /usr/local/lib /opt/quest/lib)
-if(QuEST_INCLUDE_DIR AND QuEST_LIBRARY)
+# QuEST — build from submodule if present
+if(EXISTS "${EXTERN_DIR}/QuEST/CMakeLists.txt")
+    add_subdirectory("${EXTERN_DIR}/QuEST" "${CMAKE_BINARY_DIR}/extern/QuEST" EXCLUDE_FROM_ALL)
     set(QuEST_FOUND TRUE)
+    set(QuEST_LIBRARY QuEST::QuEST)
+    set(QuEST_INCLUDE_DIR "${EXTERN_DIR}/QuEST")
 endif()
 
 # OpenMP — macOS needs Homebrew libomp hints
@@ -73,13 +70,18 @@ find_path(NLOHMANN_JSON_INCLUDE_DIR nlohmann/json.hpp
     HINTS "${NLOHMANN_JSON_PREFIX}/include" /opt/homebrew/include /usr/local/include /usr/include)
 
 if(AER_DM_FOUND)
-    add_library(aer_dm_static INTERFACE)
-    target_include_directories(aer_dm_static SYSTEM INTERFACE "${AER_DM_INCLUDE_DIR}")
-    if(NLOHMANN_JSON_INCLUDE_DIR)
-        target_include_directories(aer_dm_static SYSTEM INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
-    else()
-        message(WARNING "nlohmann/json.hpp not found — Aer DM headers will fail to compile.")
+    if(NOT NLOHMANN_JSON_INCLUDE_DIR)
+        message(STATUS "nlohmann/json.hpp not found — fetching via FetchContent")
+        include(FetchContent)
+        FetchContent_Declare(nlohmann_json
+            URL https://github.com/nlohmann/json/releases/download/v3.11.3/include.zip
+            URL_HASH SHA256=a22461d13119ac5c78f205d3df1db13403e58ce1bb1794edc9313677313f4a9d
+        )
+        FetchContent_MakeAvailable(nlohmann_json)
+        set(NLOHMANN_JSON_INCLUDE_DIR "${nlohmann_json_SOURCE_DIR}/include")
     endif()
+    add_library(aer_dm_static INTERFACE)
+    target_include_directories(aer_dm_static SYSTEM INTERFACE "${AER_DM_INCLUDE_DIR}" "${NLOHMANN_JSON_INCLUDE_DIR}")
 endif()
 
 # ======================================================================
@@ -117,7 +119,6 @@ target_link_libraries(bench_gate PRIVATE ${PROJECT_NAME_LOWER} blas_compiler_fla
 
 if(QuEST_FOUND)
     target_compile_definitions(bench_gate PRIVATE HAVE_QUEST)
-    target_include_directories(bench_gate PRIVATE ${QuEST_INCLUDE_DIR} ${EXTERN_DIR}/QuEST/build)
     target_link_libraries(bench_gate PRIVATE ${QuEST_LIBRARY})
 endif()
 
@@ -178,7 +179,6 @@ target_link_libraries(bench_kraus PRIVATE ${PROJECT_NAME_LOWER} blas_compiler_fl
 
 if(QuEST_FOUND)
     target_compile_definitions(bench_kraus PRIVATE HAVE_QUEST)
-    target_include_directories(bench_kraus PRIVATE ${QuEST_INCLUDE_DIR} ${EXTERN_DIR}/QuEST/build)
     target_link_libraries(bench_kraus PRIVATE ${QuEST_LIBRARY})
 endif()
 
