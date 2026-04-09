@@ -44,7 +44,7 @@ elseif(UNIX)
     else()
         # Use bundled OpenBLAS with ILP64 support
         message(STATUS "Using bundled OpenBLAS with ILP64 support")
-        message(STATUS "Note: First build will take 10-30 minutes to compile OpenBLAS")
+        message(STATUS "Note: First build will take a few minutes to compile OpenBLAS")
 
         include(FetchContent)
         FetchContent_Declare(
@@ -57,7 +57,7 @@ elseif(UNIX)
         set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries" FORCE)
         set(BUILD_STATIC_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
         set(INTERFACE64 1 CACHE STRING "Use 64-bit integers (ILP64)" FORCE)
-        set(DYNAMIC_ARCH ON CACHE BOOL "Build for multiple CPU architectures" FORCE)
+        set(DYNAMIC_ARCH OFF CACHE BOOL "Build for multiple CPU architectures" FORCE)
         set(BUILD_TESTING OFF CACHE BOOL "Disable OpenBLAS tests" FORCE)
         set(BUILD_WITHOUT_LAPACK OFF CACHE BOOL "Include LAPACK" FORCE)
 
