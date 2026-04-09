@@ -43,6 +43,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # Options
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
+option(BUILD_PROFILE "Build profiling harness" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer for memory debugging" OFF)
 option(ENABLE_OPENMP "Enable OpenMP parallelization" ON)
 
@@ -105,6 +106,6 @@ if(BUILD_BENCHMARKS AND EXISTS "${CMAKE_SOURCE_DIR}/benchmark")
     add_subdirectory(benchmark)
 endif()
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/profile")
+if(BUILD_PROFILE AND EXISTS "${CMAKE_SOURCE_DIR}/profile")
     add_subdirectory(profile)
 endif()
