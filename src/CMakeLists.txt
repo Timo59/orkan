@@ -29,8 +29,6 @@ set(Q_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate_pure.c"
         ${GATE_PACKED_SOURCES}
         ${GATE_TILED_SOURCES}
-        "${CMAKE_CURRENT_SOURCE_DIR}/circ/pauli.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/circ/pauli_pure.c"
 )
 
 # Include directory

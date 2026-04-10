@@ -1,5 +1,17 @@
 stages:
+  - test
   - publish
+
+test-linux:
+  stage: test
+  image: ubuntu:latest
+  script:
+    - apt-get update && apt-get install -y cmake libopenblas-dev build-essential
+    - cmake --preset debug -DUSE_SYSTEM_OPENBLAS=ON
+    - cmake --build --preset debug
+    - ctest --preset debug
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
 
 # Pushes a filtered subset of main to the public GitHub mirror (Timo59/orkan).
 #
