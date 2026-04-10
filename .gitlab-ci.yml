@@ -5,6 +5,10 @@ stages:
 test-linux:
   stage: test
   image: ubuntu:latest
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - cmake-build-debug/
   script:
     - apt-get update && apt-get install -y cmake libopenblas-dev build-essential git
     - cmake --preset debug -DUSE_SYSTEM_OPENBLAS=ON
