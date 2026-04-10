@@ -1,0 +1,46 @@
+stages:
+  - publish
+
+# Pushes a filtered subset of main to the public GitHub mirror (Timo59/orkan).
+#
+# Excluded from the public repo:
+#   - docs/          (internal technical specs and planning)
+#   - profile/       (internal profiling harness)
+#   - .claude/       (Claude Code auto-memory)
+#   - CLAUDE.md      (Claude Code instructions)
+#   - MEMORY.md      (Claude auto-memory index)
+#   - PRD.md         (internal product requirements)
+#   - .gitlab-ci.yml (internal CI — irrelevant and confusing on GitHub)
+#
+# git-filter-repo produces deterministic SHAs, so this job does a regular
+# fast-forward push. Stable SHAs mean consumers never need to rebase.
+#
+# One-time setup required before first CI run:
+#   git push --force https://github.com/Timo59/orkan.git main
+# This replaces the old snapshot history on GitHub with the real filtered history.
+# After that, this job handles all future releases without force-pushing.
+#
+# Requires CI/CD variable: GITHUB_TOKEN (classic PAT with repo scope)
+
+publish-to-github:
+  stage: publish
+  image: python:3.12-slim
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - pip install --quiet git-filter-repo
+    - git clone --bare "$CI_REPOSITORY_URL" filtered.git
+    - cd filtered.git
+    - git filter-repo --invert-paths \
+        --path CLAUDE.md \
+        --path MEMORY.md \
+        --path PRD.md \
+        --path profile/ \
+        --path docs/ \
+        --path .claude/ \
+        --path .gitlab-ci.yml
+    - git push "https://oauth2:${GITHUB_TOKEN}@github.com/Timo59/orkan.git" main
+    - git push "https://oauth2:${GITHUB_TOKEN}@github.com/Timo59/orkan.git" --tags
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: on_success
