@@ -6,7 +6,7 @@ test-linux:
   stage: test
   image: ubuntu:latest
   script:
-    - apt-get update && apt-get install -y cmake libopenblas-dev build-essential
+    - apt-get update && apt-get install -y cmake libopenblas-dev build-essential git
     - cmake --preset debug -DUSE_SYSTEM_OPENBLAS=ON
     - cmake --build --preset debug
     - ctest --preset debug
