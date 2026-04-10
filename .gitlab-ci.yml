@@ -43,7 +43,7 @@ publish-to-github:
     - pip install --quiet git-filter-repo
     - git clone --bare "$CI_REPOSITORY_URL" filtered.git
     - cd filtered.git
-    - git filter-repo --invert-paths \
+    - git filter-repo --force --invert-paths \
         --path CLAUDE.md \
         --path MEMORY.md \
         --path PRD.md \
