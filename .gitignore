@@ -33,3 +33,6 @@
 **/cmake-build-*
 **/build
 
+# Claude
+**/.claude
+**/.obsidian

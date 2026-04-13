@@ -22,7 +22,6 @@ test-linux:
 # Excluded from the public repo:
 #   - docs/          (internal technical specs and planning)
 #   - profile/       (internal profiling harness)
-#   - .claude/       (Claude Code auto-memory)
 #   - CLAUDE.md      (Claude Code instructions)
 #   - MEMORY.md      (Claude auto-memory index)
 #   - PRD.md         (internal product requirements)
@@ -53,7 +52,6 @@ publish-to-github:
         --path PRD.md \
         --path profile/ \
         --path docs/ \
-        --path .claude/ \
         --path .gitlab-ci.yml
     - git push "https://oauth2:${GITHUB_TOKEN}@github.com/Timo59/orkan.git" main
     - git push "https://oauth2:${GITHUB_TOKEN}@github.com/Timo59/orkan.git" --tags
