@@ -1,650 +1,150 @@
-# MEAS Module: Expectation Value, Gradient, and Moment Matrix
+# MEAS Module: Diagonal Observable Expectation Value
 
-**Module:** Measurement and Gradient Computation
-**Status:** Design complete — implementation pending
-**Last Updated:** 2026-02-27
+**Module:** Measurement
+**Status:** In progress
+**Last Updated:** 2026-04-14
 
 ---
 
 ## Scope
 
-This module provides three computational deliverables, all restricted to
-**diagonal cost Hamiltonians** (combinatorial optimisation problems):
+This module provides measurement operations on quantum states. Currently
+implemented:
 
-| Deliverable       | Ideal circuit | Noisy circuit | Requirement              |
-|-------------------|:-------------:|:-------------:|--------------------------|
-| Expectation value | ✓             | ✓             | —                        |
-| Gradient          | ✓             | ✗             | Adjoint differentiation  |
-| Moment matrix     | ✓             | ✗             | Pure initial state only  |
-
-**Gradient computation is not provided for noisy circuits.** Noise is
-non-invertible; there is no backward pass. If an external optimiser requires
-gradients for a noisy circuit it must call `expectation_value` repeatedly using
-the parameter-shift rule or finite differences.
-
-State preparation — including LCU-based state preparation — is the caller's
-responsibility. This module receives a `state_t *` initial state and applies
-no knowledge of how it was produced.
+| Function | Pure | Mixed (packed) | Mixed (tiled) |
+|----------|:----:|:--------------:|:-------------:|
+| `mean`   | yes  | yes            | yes           |
 
 ---
 
 ## Directory Layout
 
-Files to be created (none exist yet; module is pending implementation):
-
 ```
 QSim/
 ├── include/
-│   └── meas.h                  # Public API: all types and function declarations
+│   └── meas.h                  # Public API
 ├── src/
 │   └── meas/
-│       ├── expectation.c       # expectation_value(): forward pass for ideal and noisy
-│       ├── gradient.c          # gradient_adjoint(): 3-pass adjoint differentiation
-│       ├── qaoa.c              # qaoa_circuit_new(), pqc_free(), cost/mixer channels
-│       └── moment_matrix.c     # moment_matrix(), moment_matrix_load(); MPI-parallel
+│       ├── meas.c              # Dispatch layer
+│       ├── meas_pure.c         # Pure state backend
+│       ├── meas_packed.c       # Packed mixed state backend
+│       └── meas_tiled.c        # Tiled mixed state backend
+├── test/
+│   └── meas/
+│       ├── test_meas.c         # Test runner (13 tests)
+│       ├── test_meas_pure.c    # Pure state tests
+│       ├── test_meas_packed.c  # Packed state tests
+│       └── test_meas_tiled.c   # Tiled state tests
 └── docs/
     └── MEAS_MODULE.md          # This file
-```
-
-`q_types.h` (location TBD — see Open Questions) must define `unitary_fn_t`
-before `meas.h` can be compiled.
-
----
-
-## Inputs / Dependencies
-
-### Consumed from other modules
-
-| Dependency            | Header / symbol              | Required by                        |
-|-----------------------|------------------------------|------------------------------------|
-| `state_t`             | `state.h`                    | All functions                      |
-| `gate_rx`             | `gate.h`                     | Mixer channel (`qaoa.c`)           |
-| `gate_diag_phase`     | `gate.h` (not yet added)     | Cost channel (`qaoa.c`, `gradient.c`) |
-| `unitary_fn_t` type   | `q_types.h` (not yet defined)| `lcu_layer_t`, `moment_matrix.c`   |
-| Pauli exponential constructor | Pauli module (unspecified) | `moment_matrix.c` only   |
-| MPI                   | system / `ENABLE_MPI=ON`     | `moment_matrix.c` (optional)       |
-
-### External input at call time
-
-- `state_t *initial` — caller-prepared quantum state (pure or mixed).
-- `double *h` — diagonal Hamiltonian coefficients, length 2^n, caller-allocated.
-- `double *params` — variational parameters, length `n_channels`, caller-owned.
-
----
-
-## Outputs / Artifacts
-
-| Artifact                         | Type           | Description                                       |
-|----------------------------------|----------------|---------------------------------------------------|
-| `libmeas.a`                      | Static library | Linked by test suite and any optimiser driver     |
-| `meas.h`                         | Public header  | All types and function declarations               |
-| Moment matrix file (`*.mmat`)    | Binary file    | Lower triangle of M; format described below       |
-| `double` return values           | In-process     | `expectation_value` and `gradient_adjoint` return ⟨H_C⟩ |
-| `grad_out[]` array               | In-process     | `gradient_adjoint` writes ∂⟨H_C⟩/∂params[c]      |
-
----
-
-## TODO
-
-- [ ] Add `gate_diag_phase` to gate module (all four backends) — critical path
-- [ ] Decide location of `unitary_fn_t` definition (`q_types.h` vs `gate.h`)
-- [ ] Add `ENABLE_MPI` CMake option to `CMakeLists.txt` and `CMakePresets.json`
-- [ ] Record MPI write protocol decision (see Open Questions)
-- [ ] Publish Pauli module interface (blocks `moment_matrix.c`)
-- [ ] Implement `expectation.c`
-- [ ] Implement `qaoa.c` (cost + mixer channels, `qaoa_circuit_new`, `pqc_free`)
-- [ ] Implement `gradient.c`
-- [ ] Implement `moment_matrix.c` (deferred until Pauli module + MPI decision)
-- [ ] Write `meas.h` public header
-- [ ] Add CMake target `meas` to `CMakeLists.txt`
-- [ ] Add test suite entries covering all four backends × all three deliverables
-
----
-
-## Preliminaries
-
-The following work in other modules must be completed before any part of this
-module can be implemented. Items are ordered by dependency and criticality.
-
-### 1. Gate Module — Diagonal Phase Multiply *(critical path)*
-
-A new operation must be added to the gate module across all four backends
-(pure/packed, pure/tiled, mixed/packed, mixed/tiled):
-
-```c
-void gate_diag_phase(state_t *state, const double *h, double gamma);
-```
-
-Semantics:
-
-- **Pure:** `ψ(x) ← ψ(x) · exp(−iγ h_x)` for all x in 0 … 2^n − 1
-- **Mixed:** `ρ_{xy} ← ρ_{xy} · exp(−iγ (h_x − h_y))` for all x, y
-
-Without it the cost channel (`qaoa.c`), the QAOA circuit constructor, and the
-adjoint gradient cannot be implemented. `expectation_value` and a mixer-only
-circuit could be written first but would be of limited utility.
-
-### 2. Shared Type — `unitary_fn_t`
-
-Must be defined in a shared header before `meas.h` can be compiled:
-
-```c
-// Applies a single unitary U in-place to *state.
-// All parameters are baked in at construction time by the caller.
-typedef void (*unitary_fn_t)(state_t *state);
-```
-
-### 3. Pauli Module — Pauli Exponential Unitary *(blocks moment matrix)*
-
-`lcu_layer_t` supports unitaries of the form exp(−iθ P) for a Pauli string P.
-The delivery contract required by this module is:
-
-- A constructor that returns a `unitary_fn_t` with angle θ and Pauli string P
-  baked in.
-- The returned function applies exp(−iθ P) to the input state in place.
-
-`moment_matrix` implementation must be deferred until this interface is
-published, even if the Pauli module itself is incomplete.
-
-### 4. Build System — `ENABLE_MPI` Option *(blocks MPI path in moment matrix)*
-
-The `ENABLE_MPI` CMake option does not yet exist in `CMakeLists.txt` or
-`CMakePresets.json`. It must be added before `moment_matrix.c` can be compiled
-with MPI support. The single-process (OpenMP-only) path can be compiled without
-this option.
-
-### 5. Architecture Decision — MPI Write Protocol *(blocks moment matrix)*
-
-The `moment_matrix` write path requires a decision on distribution and
-serialisation strategy before `moment_matrix.c` is written. The three options
-are:
-
-| Option | Notes |
-|--------|-------|
-| OpenMP-only, single process | Lowest risk; defers MPI entirely |
-| MPI gather to rank 0, then sequential write | Simple MPI; rank 0 must hold full lower triangle |
-| MPI-IO (`MPI_File_write_at`) | Each rank writes its own rows; no gather needed |
-
-**Decision must be recorded here before implementation begins.**
-
-### Recommended Implementation Order
-
-1. **`expectation_value`** — shortest dependency chain; useful immediately for
-   both ideal and noisy circuits; unblocks all further work.
-2. **`gate_diag_phase` + cost/mixer channel `apply` callbacks** — implement the
-   QAOA channel infrastructure.
-3. **`gradient_adjoint`** — once the channel infrastructure exists this is
-   roughly 100 lines (the 3-pass loop plus `grad_inner` for cost and mixer
-   channels).
-4. **`moment_matrix`** — deferred until the Pauli module and MPI write protocol
-   are resolved (Preliminaries 3–5).
-
-Between steps 1 and 3 the caller can use central finite differences around
-`expectation_value` as a temporary gradient path. This is not a library
-function — a 10-line loop in the caller's optimisation driver is sufficient and
-works for all circuit and state types.
-
----
-
-## Cost Hamiltonian
-
-H_C is restricted to **diagonal Hamiltonians in the Z basis**:
-
-    H_C = Σ_x h_x |x⟩⟨x|
-
-`h` is stored as a real vector of length 2^n (a `double` array). All other
-Hamiltonian representations are out of scope.
-
-Expectation values follow directly from the diagonal:
-
-    Pure state:  ⟨H_C⟩ = Σ_x h_x |ψ(x)|²      (weighted sum over populations)
-    Mixed state: ⟨H_C⟩ = Σ_x h_x ρ_{xx}         (weighted sum over diagonal of ρ)
-
-**Co-state initialisation** — H_C|ψ_f⟩ is element-wise multiplication by h_x,
-costing O(2^n) with no matrix multiply.
-
-**Mixed-state backward pass** — At the start of Pass 2 (see below), H_f is
-initialised from h_x and immediately expanded into the same MIXED_PACKED or
-MIXED_TILED memory layout as the density matrix, with all off-diagonal elements
-set to zero. Subsequent unitary gates fill in the off-diagonal entries in place.
-
----
-
-## Expectation Value
-
-A single forward pass through the circuit, updating one state buffer in place.
-
-**Pure state:**
-```
-tmp = copy(initial)
-for k = 1 to N_ch:
-    tmp = apply(channel[k], tmp, params[k])
-return Σ_x h[x] * |tmp[x]|²
-```
-
-**Mixed state:** identical, with `Σ_x h[x] * tmp[x][x]` as the final sum.
-
-For noisy circuits `apply` includes the Kraus step; the algorithm is otherwise
-identical. Memory: one state-sized buffer throughout.
-
----
-
-## Gradient: Adjoint Differentiation (Ideal Circuits Only)
-
-### Design Rationale
-
-Adjoint differentiation is chosen over finite differences for three reasons:
-
-1. **No additional error.** Finite differences introduce truncation error O(ε²)
-   and cancellation error O(ε_mach/ε) on top of the inherent rounding already
-   present in the forward simulation. Adjoint differentiation introduces no
-   additional approximation: the gradient is computed from the same
-   floating-point states the forward pass produced.
-
-2. **No tuning parameter.** The optimal finite-difference step ε depends on the
-   Hamiltonian coefficients, the circuit depth, and the current parameter
-   values — none of which are known at library-design time. Adjoint
-   differentiation has no such parameter.
-
-3. **Cost independent of parameter count.** For pure states the cost is 3 ×
-   N_ch channel applications regardless of how many parameters the circuit has.
-   Central finite differences cost 2 × N_ch × N_params channel applications.
-   At QAOA depth p = 20 (N_params = 40) the adjoint method is ~27× cheaper.
-
-For **noisy circuits**, finite differences via repeated `expectation_value`
-calls are the only mathematically valid gradient method (noise channels are
-non-invertible; there is no backward pass). The library exposes
-`expectation_value` precisely so external optimisers can do this themselves.
-A `gradient_finite_diff` convenience function is intentionally absent from the
-public API: there is no universally correct ε, users would rely on it for
-accurate results, and its error characteristics vary unpredictably across the
-parameter landscape.
-
-### Mathematical Foundation
-
-For a parametrised gate U_k(θ_k) = exp(−iθ_k G_k) at position k in a circuit
-U_f · U_k · V:
-
-    ∂⟨H_C⟩/∂θ_k = −2 Im Tr(H_f^(k) · G_k · ρ_k)
-
-where:
-- ρ_k = V ρ_0 V†  is the state immediately before gate k  (Schrödinger picture)
-- H_f^(k) = U_f† H_C U_f  is H_C pulled back to position k (Heisenberg picture)
-
-For **pure states** both ρ_k and H_f^(k) are represented as 2^n-dimensional
-complex vectors; the trace reduces to a vector inner product. H_f^(k) is never
-expanded into a matrix. For **mixed states** both are 2^n × 2^n Hermitian
-operators stored in the density matrix memory layout.
-
-### 3-Pass Algorithm
-
-Exploits unitarity U_k U_k† = I to carry both the state and co-state through
-the circuit without storing any intermediate states. Total cost: 3 × N_ch
-channel applications, two state-sized buffers.
-
-**Pass 1 — forward, compute final state and expectation value:**
-```
-tmp = copy(initial)
-for k = 1 to N_ch:
-    apply(channel[k], tmp, +params[k])
-
-E = Σ_x h[x] * |tmp[x]|²     (pure)
-E = Σ_x h[x] * tmp[x][x]     (mixed)
-```
-
-**Initialise co-state from final state:**
-```
-mu = h[x] * tmp[x]            (pure:  element-wise multiply, gives vector)
-mu = expand h[x] into DM layout, then propagate as H_f    (mixed)
-```
-
-**Pass 2 — backward, pull co-state to circuit entrance:**
-```
-for k = N_ch, N_ch-1, ..., 1:
-    apply(channel[k], mu, -params[k])    # unitary adjoint = apply with negated theta
-mu_0 = mu
-```
-
-**Pass 3 — forward, accumulate gradients:**
-```
-tmp = copy(initial)
-λ   = mu_0
-for k = 1 to N_ch:
-    apply(channel[k], tmp, +params[k])
-    apply(channel[k], λ,   +params[k])
-    if channel[k].has_gradient:
-        grad[k] = grad_inner(channel[k], λ, tmp, params[k])
-```
-
-At the point of the `grad_inner` call, `tmp` holds the post-gate forward state
-ρ_k (Schrödinger picture) and `λ` holds the co-state H_f^(k)|ψ_k⟩ (pure) or
-H_f^(k) (mixed) at position k.
-
----
-
-## QAOA: First Implementation Target
-
-### Circuit Structure
-
-Depth-p QAOA on n qubits: 2p channels, 2p parameters.
-
-```
-Channel 1:    cost layer,  param γ_1
-Channel 2:    mixer layer, param β_1
-  ...
-Channel 2p-1: cost layer,  param γ_p
-Channel 2p:   mixer layer, param β_p
-```
-
-### Cost Channel
-
-Implements U_C(γ) = exp(−iγ H_C) via `gate_diag_phase` (see Preliminary 1).
-
-Since H_C is diagonal, this is **element-wise phase multiplication** in O(2^n):
-
-    Pure:  ψ(x)   ←  ψ(x) · exp(−iγ h_x)
-    Mixed: ρ_{xy} ←  ρ_{xy} · exp(−iγ (h_x − h_y))
-
-Generator G_C = H_C. Gradient inner product:
-
-    −2 Im ⟨μ|H_C|tmp⟩  =  −2 Im Σ_x h_x μ*(x) tmp(x)          (pure)
-    −2 Im Tr(H_f H_C σ) =  −2 Im Σ_x h_x [H_f · σ]_{xx}        (mixed)
-
-No RZZ decomposition required. No Trotter approximation.
-
-### Mixer Channel
-
-Implements U_B(β) = Π_j exp(−iβ X_j / 2), applied as n sequential Rx(β) calls
-(all commute: [X_i, X_j] = 0 for i ≠ j).
-
-Generator G_B = Σ_j X_j / 2. Gradient inner product:
-
-    −2 Im ⟨μ|G_B|tmp⟩  =  Σ_j (−Im ⟨μ|X_j|tmp⟩)
-
-Computed with a single temporary state copy: for each qubit j, apply X_j to the
-copy of `tmp`, accumulate −Im ⟨μ | copy_j⟩ into the running sum, restore copy.
-This costs one temporary buffer and n sequential X applications regardless of
-state type.
-
-For mixed states the same structure applies with the Hilbert-Schmidt inner
-product: Tr(H_f · X_j · σ) computed by applying X_j to a copy of σ and
-contracting with H_f.
-
-### Initial State
-
-|ψ_0⟩ = |+⟩^⊗n (uniform superposition) via `state_plus()` — already implemented.
-
----
-
-## Moment Matrix
-
-### Definition
-
-Given L layers each offering K_k unitaries {U_{k;1}, …, U_{k;K_k}}, a
-multi-index I = (i_1, …, i_L) selects one unitary per layer and defines the
-composed unitary U_I = U_{L;i_L} · … · U_{1;i_1}. The moment matrix is:
-
-    M_{IJ} = Tr(H_C · U_I ρ_0 U_J†)
-
-M is N × N (N = ΠK_k), Hermitian (M_{IJ} = M_{JI}*), and computed once for
-a given (ρ_0, H_C, circuit). It is stored to file and reused by the external
-σ-optimisation library (SDP solver or otherwise) without recomputation.
-
-### Pure Initial State
-
-For |ψ_0⟩ pure, define |φ_I⟩ = U_I|ψ_0⟩. Then:
-
-    M_{IJ} = ⟨φ_J|H_C|φ_I⟩ = Σ_x h_x φ_I(x) φ_J*(x)
-
-The diagonal M_{II} = Σ_x h_x |φ_I(x)|² is real. Mixed initial states are out
-of scope (see Deferred).
-
-### Unitaries
-
-Each U_{k;i} is either a gate sequence built from the gate module or an
-exponential of a Pauli string from the Pauli module.
-
-### Computation Algorithm (MPI)
-
-The matrix is computed column by column. For each column J:
-
-```
-1. Root rank computes |φ_J⟩ = U_J|ψ_0⟩ and broadcasts it to all ranks.
-2. Each rank iterates its assigned rows I ≥ J:
-       compute |φ_I⟩ = U_I|ψ_0⟩
-       M[I][J] = Σ_x h[x] * φ_I[x] * conj(φ_J[x])
-       M[J][I] = conj(M[I][J])                      # Hermitian symmetry
-3. Ranks write their portion of the lower triangle to the output file.
-```
-
-Memory per rank: two state vectors (|φ_I⟩ and |φ_J⟩) plus the partial M
-region. For shared-memory systems OpenMP parallelism over rows within one rank
-is sufficient.
-
-### File Format
-
-The output file stores the lower triangle of M as raw binary with a fixed
-header. All multi-byte values are little-endian.
-
-**Header (fixed layout):**
-
-| Field         | Type       | Description                                  |
-|---------------|------------|----------------------------------------------|
-| `magic`       | `uint32_t` | `0x4D4D4154` ("MMAT")                        |
-| `version`     | `uint32_t` | Format version, currently 1                  |
-| `n_qubits`    | `int32_t`  | Number of qubits n                           |
-| `L`           | `int32_t`  | Number of layers                             |
-| `K[0..L-1]`  | `int32_t`  | Unitaries per layer                          |
-| `N`           | `int64_t`  | Total multi-indices N = ΠK_k                 |
-| `timestamp`   | `int64_t`  | Unix timestamp of computation                |
-| `h[0..2^n-1]`| `double`   | Hamiltonian diagonal, length 2^n             |
-
-**Data:** Lower triangle of M in row-major order (I ≥ J), stored as
-`double complex` pairs (real, imag). Length: N*(N+1)/2 elements.
-
-**Writing:** Header fields must be written individually (not via `fwrite` of a
-struct) to avoid compiler-inserted padding between fields of different sizes.
-Data elements are written as contiguous `double` pairs (real, imag) in a
-single `fwrite` call per row segment.
-
-The caller is responsible for converting to the format required by the SDP
-solver (e.g., sparse (i, j, value) triples for MOSEK's C API).
-
----
-
-## Data Structures
-
-```c
-// Diagonal cost Hamiltonian: h[x] for x = 0, …, 2^n_qubits − 1
-typedef struct {
-    double  *h;
-    int      n_qubits;
-} diag_hamiltonian_t;
-
-// Abstract parametrised channel (grad_inner never called for noisy circuits)
-typedef struct param_channel {
-    void   (*apply)     (state_t *state, double theta, const void *ctx);
-    double (*grad_inner)(const state_t *lambda, const state_t *tmp,
-                         double theta, const void *ctx);
-    const void *ctx;
-    int    has_gradient;    // 0 for fixed non-parametrised channels
-} param_channel_t;
-
-// Flat parametrised circuit.
-// params is caller-owned; pqc_free does NOT free it.
-typedef struct {
-    param_channel_t **channels;
-    int               n_channels;
-    double           *params;      // length n_channels, caller-owned
-    int               is_noisy;    // 0: ideal, 1: noisy (expectation value only)
-} pqc_t;
-
-// Function pointer type for a single unitary in a moment-matrix circuit.
-// Applies U in-place to *state. All parameters are baked in at construction
-// time by the caller. Defined in q_types.h (see Preliminary 2).
-typedef void (*unitary_fn_t)(state_t *state);
-
-// One layer of a moment-matrix circuit: K_k unitaries.
-// Each unitary is a gate sequence (gate module) or Pauli exponential
-// (Pauli module, see Preliminary 3), exposed as a unitary_fn_t.
-typedef struct {
-    unitary_fn_t *unitaries;   // array of K function pointers
-    int           K;
-} lcu_layer_t;
-
-// Full moment-matrix circuit
-typedef struct {
-    lcu_layer_t *layers;
-    int          L;
-    int          N;    // ΠK_k, total number of multi-indices
-} lcu_circuit_t;
 ```
 
 ---
 
 ## API
 
-**Error handling convention** (consistent with the rest of the library):
-programming errors (NULL pointers, mismatched `n_qubits`, `gradient_adjoint`
-called with `is_noisy == 1`) trigger `assert` with a descriptive message.
-Resource failures (allocation, file I/O) return `NULL` or write nothing and
-set `errno`.
-
 ```c
-// Forward pass only. Works for ideal and noisy circuits.
-double expectation_value(
-    const pqc_t              *circuit,
-    const state_t            *initial,
-    const diag_hamiltonian_t *H_C
-);
-
-// 3-pass adjoint differentiation. Ideal circuits only (circuit->is_noisy == 0).
-// Returns ⟨H_C⟩. Writes ∂⟨H_C⟩/∂params[c] into grad_out[c] for each channel c.
-double gradient_adjoint(
-    const pqc_t              *circuit,
-    const state_t            *initial,
-    const diag_hamiltonian_t *H_C,
-    double                   *grad_out   // length circuit->n_channels
-);
-
-// QAOA circuit constructors
-pqc_t *qaoa_circuit_new(
-    int                       p,          // number of layers
-    const diag_hamiltonian_t *H_C,
-    int                       n_qubits
-);
-void pqc_free(pqc_t *circuit);
-
-// Compute and write the moment matrix (pure initial state, MPI-parallel).
-// Writes lower triangle + header to output_path in the binary format above.
-void moment_matrix(
-    const lcu_circuit_t      *circuit,
-    const state_t            *initial,    // must be PURE
-    const diag_hamiltonian_t *H_C,
-    const char               *output_path
-);
-
-// Load a previously written moment matrix from file.
-// Allocates *M_out (caller must free). Sets *N_out = circuit N.
-void moment_matrix_load(
-    const char     *path,
-    int            *N_out,
-    double complex **M_out    // lower triangle, length N*(N+1)/2
-);
+double mean(const state_t *state, const double *obs);
 ```
+
+Computes the expectation value of a diagonal observable:
+
+- **Pure:**  `<H> = sum_x obs[x] |psi(x)|^2`
+- **Mixed:** `<H> = sum_x obs[x] rho_{xx}`
+
+**Parameters:**
+
+| Parameter | Type              | Description                                      |
+|-----------|-------------------|--------------------------------------------------|
+| `state`   | `const state_t *` | Quantum state in any representation               |
+| `obs`     | `const double *`  | Diagonal coefficients, length `2^(state->qubits)` |
+| return    | `double`          | Real expectation value `Tr(rho H)`                |
+
+**Preconditions** (checked via `assert`): `state`, `state->data`, and `obs`
+must be non-NULL.
+
+---
+
+## Backend Implementations
+
+### Pure (`meas_pure.c`)
+
+Iterates all `2^n` amplitudes, accumulates `obs[x] * |psi[x]|^2` where
+`|psi|^2 = creal^2 + cimag^2` (avoids `cabs` sqrt).
+
+OpenMP: `#pragma omp parallel for reduction(+:sum)` over the full state vector.
+
+### Packed (`meas_packed.c`)
+
+Diagonal elements of packed lower-triangular column-major storage sit at
+indices `0, dim, 2*dim-1, 3*dim-3, ...` with strides `dim, dim-1, dim-2, ...`
+
+Each OpenMP thread computes its starting packed index once from
+`pack_idx(dim, x_start, x_start) = x_start * (2*dim - x_start + 1) / 2`,
+then uses the stride-decrement pattern sequentially within its chunk.
+
+Only `creal` is needed: diagonal elements of a Hermitian matrix are real.
+
+### Tiled (`meas_tiled.c`)
+
+Diagonal elements live on diagonal tiles `(k, k)`.  Within each tile the
+diagonal is strided by `TILE_DIM + 1` (row-major intra-tile layout).
+
+Diagonal tile positions (in `TILE_SIZE` units): `0, 2, 5, 9, 14, ...`
+Stride between consecutive diagonal tiles: `2, 3, 4, 5, ...` (starts at 2,
+increments by 1 each iteration).
+
+Each OpenMP thread processes a contiguous chunk of diagonal tiles.  Within
+each tile, diagonal elements are gathered to a contiguous stack array
+`double diag[TILE_DIM]` to enable auto-vectorisation of the dot product.
+
+`len_tile` is computed once: either `dim` (single tile, `qubits < LOG_TILE_DIM`)
+or `TILE_DIM` (all diagonal tiles are full since both `dim` and `TILE_DIM` are
+powers of 2).
 
 ---
 
 ## Build Integration
 
-The measurement module is a static library linked against the state and gate
-modules. When moment matrix computation is enabled, it additionally requires
-MPI.
+The measurement module sources are compiled into the `orkan` shared library
+alongside the state, gate, and channel modules.
 
-Planned `CMakeLists.txt` additions (inside `QSim/`):
+**Sources** added to `Q_SOURCES` in `src/CMakeLists.txt`:
 
 ```cmake
-add_library(meas STATIC
-    src/meas/expectation.c
-    src/meas/gradient.c
-    src/meas/moment_matrix.c
-    src/meas/qaoa.c
+set(MEAS_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/meas/meas.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/meas/meas_pure.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/meas/meas_packed.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/meas/meas_tiled.c"
 )
-target_include_directories(meas PUBLIC include)
-target_link_libraries(meas PRIVATE state gate)
-
-if(ENABLE_MPI)
-    find_package(MPI REQUIRED)
-    target_link_libraries(meas PRIVATE MPI::MPI_C)
-    target_compile_definitions(meas PRIVATE MEAS_MPI)
-endif()
 ```
 
-`ENABLE_MPI` defaults to `OFF` and is set independently of `ENABLE_OPENMP`.
-When `ENABLE_MPI` is off, `moment_matrix` runs single-process with OpenMP
-parallelism over rows. When on, MPI is used for cross-node distribution with
-OpenMP within each rank.
+**Public header** `include/meas.h` is installed alongside other headers.
+
+**Umbrella header** `include/qlib.h` includes `meas.h`.
+
+**Test target** `test_meas` is registered in `test/CMakeLists.txt` and added
+to `verified_install` DEPENDS in the root `CMakeLists.txt`.
 
 ---
 
-## Deferred — Out of Scope for First Implementation
+## Test Suite
 
-- **Gradient for noisy circuits** — caller uses parameter-shift or finite
-  differences via repeated `expectation_value` calls
-- **Mixed initial state moment matrix** — requires Hilbert-Schmidt (Liouville)
-  space; deferred indefinitely
-- **Noise in moment matrix** — moot given pure-only initial state
-- **Hessian / second-order gradients**
-- **Natural gradient** (quantum geometric tensor / Fisher information metric)
-- **General non-diagonal observables**
-- **Multi-parameter channels** (more than one independent parameter per channel)
-- **Trotter-based Hamiltonian simulation**
-- **General Pauli-string Hamiltonian evolution** (non-QAOA; no decision on
-  Trotterisation vs. direct exponentiation)
-- **RSWAP and other non-standard parametrised gates**
+13 tests across four categories, run at qubit counts 1 through `MAXQUBITS` (4).
 
----
-
-## Open Questions
-
-1. **MPI write protocol (blocks `moment_matrix.c`)** — The three options
-   (OpenMP-only, MPI gather to rank 0, MPI-IO) are listed in Preliminary 5 but
-   no decision has been recorded. Must be resolved before implementation begins.
-
-2. **Location of `unitary_fn_t`** — Should this type live in `q_types.h` (a new
-   shared header), `gate.h`, or `meas.h` itself? If `meas.h`, the Pauli module
-   would need to include a meas header to satisfy the construction contract,
-   creating a circular dependency risk.
-
-3. **Pauli module interface** — The Pauli exponential constructor's exact
-   signature (return type, argument order, ownership semantics) is unspecified.
-   The meas module requires it to return a `unitary_fn_t` with all parameters
-   baked in, but no Pauli module spec exists yet.
-
-4. **`moment_matrix_load` error return** — The function signature returns `void`
-   but must communicate file-not-found, corrupt header, and version mismatch to
-   the caller. The current convention (`errno` + NULL write to `*M_out`) is not
-   stated explicitly. Should it return an error code instead?
-
-5. **`gradient_adjoint` for channels with `has_gradient == 0`** — The Pass 3
-   pseudocode applies `channel[k]` to both `tmp` and `λ` even when
-   `has_gradient == 0`. Is a non-parametrised channel's `apply` guaranteed to
-   be its own unitary adjoint when called with θ = 0? What is the contract
-   for fixed (non-parametrised) channels in the backward direction?
-
-6. **Ownership of `param_channel_t` in `pqc_t`** — `pqc_free` does not free
-   `params` (caller-owned, documented). It is unspecified whether `pqc_free`
-   frees the `channels` array and the individual `param_channel_t` objects, or
-   whether those are also caller-owned.
-
-7. **`qaoa_circuit_new` parameter ownership** — The constructor takes
-   `const diag_hamiltonian_t *H_C` and `n_qubits`. It is unspecified whether
-   the returned `pqc_t` holds a pointer to the caller's `H_C` (shallow copy) or
-   makes its own copy of `h`. If shallow, the caller must not free `H_C` while
-   the circuit is alive.
-
-8. **Mixed-state `gradient_adjoint` buffer count** — The spec states "two
-   state-sized buffers" for the pure-state case. For mixed states, a density
-   matrix is 2^{2n} elements rather than 2^n, making this significantly more
-   expensive. The spec does not confirm the buffer count or memory bound for the
-   mixed-state path.
+| Test | State | Observable | Expected |
+|------|-------|-----------|----------|
+| `test_mean_pure_uniform` | \|+⟩^n | obs[x]=1 | 1.0 |
+| `test_mean_pure_identity` | \|+⟩^n | obs[x]=x | (2^n−1)/2 |
+| `test_mean_pure_basis` | \|0⟩ | obs[x]=x | 0.0 |
+| `test_mean_pure_basis_k` | \|k⟩ | obs[x]=x | k |
+| `test_mean_packed_uniform` | \|+⟩⟨+\|^⊗n | obs[x]=1 | 1.0 |
+| `test_mean_packed_identity` | \|+⟩⟨+\|^⊗n | obs[x]=x | (2^n−1)/2 |
+| `test_mean_packed_pure_embed` | \|0⟩⟨0\| | obs[x]=x | 0.0 |
+| `test_mean_tiled_uniform` | \|+⟩⟨+\|^⊗n | obs[x]=1 | 1.0 |
+| `test_mean_tiled_identity` | \|+⟩⟨+\|^⊗n | obs[x]=x | (2^n−1)/2 |
+| `test_mean_tiled_pure_embed` | \|0⟩⟨0\| | obs[x]=x | 0.0 |
+| `test_mean_tiled_small` | n=1 (< LOG_TILE_DIM) | obs[x]=1 | 1.0 |
+| `test_mean_tiled_multi` | n=LOG_TILE_DIM+1 | obs[x]=x | (2^n−1)/2 |
+| `test_mean_consistency` | same state, 3 types | same obs | equal |

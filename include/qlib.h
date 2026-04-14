@@ -5,5 +5,6 @@
 #include "state.h"
 #include "gate.h"
 #include "channel.h"
+#include "meas.h"
 
 #endif /* QLIB_H */

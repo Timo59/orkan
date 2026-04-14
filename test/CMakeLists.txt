@@ -128,3 +128,38 @@ target_link_libraries(test_channel
             $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lm>
 )
 add_test(NAME test_channel COMMAND test_channel)
+
+#=======================================================================================================================
+# test_meas
+#=======================================================================================================================
+
+set(MEAS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/meas")
+
+set(TEST_MEAS_SRC
+        "${MEAS_DIR}/test_meas.c"
+        "${MEAS_DIR}/test_meas_pure.c"
+        "${MEAS_DIR}/test_meas_packed.c"
+        "${MEAS_DIR}/test_meas_tiled.c"
+        "${UNITY_SRC}/unity.c"
+)
+
+add_executable(test_meas ${TEST_MEAS_SRC})
+target_compile_definitions(test_meas
+        PRIVATE
+            UNITY_INCLUDE_DOUBLE
+            UNITY_SUPPORT_64
+            LOG_TILE_DIM=${LOG_TILE_DIM}
+)
+target_include_directories(test_meas
+        PRIVATE
+            ${UNITY_SRC}
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+            "${CMAKE_SOURCE_DIR}/src/internal"
+            "${CMAKE_SOURCE_DIR}/src/meas"
+)
+target_link_libraries(test_meas
+        PRIVATE
+            ${PROJECT_NAME_LOWER}
+            $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lm>
+)
+add_test(NAME test_meas COMMAND test_meas)

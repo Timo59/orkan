@@ -15,6 +15,14 @@ set(CHANNEL_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/channel/channel_tiled.c"
 )
 
+# Collect measurement module source files
+set(MEAS_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/meas/meas.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/meas/meas_pure.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/meas/meas_packed.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/meas/meas_tiled.c"
+)
+
 # Collect packed gate sources (one file per gate)
 file(GLOB GATE_PACKED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_*.c")
 
@@ -25,6 +33,7 @@ file(GLOB GATE_TILED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_
 set(Q_SOURCES
         ${STATE_SOURCES}
         ${CHANNEL_SOURCES}
+        ${MEAS_SOURCES}
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/gate/gate_pure.c"
         ${GATE_PACKED_SOURCES}
@@ -87,6 +96,7 @@ install(FILES
     ${INCLUDE_DIR}/state.h
     ${INCLUDE_DIR}/gate.h
     ${INCLUDE_DIR}/channel.h
+    ${INCLUDE_DIR}/meas.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}
 )
 
