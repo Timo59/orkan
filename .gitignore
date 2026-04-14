@@ -26,6 +26,9 @@
 **/.sh
 **/.zsh
 
+# Generated build artifacts
+compile_commands.json
+
 # IDEs
 **/.vscode
 **/.dSYM

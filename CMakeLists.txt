@@ -31,6 +31,18 @@ if(_BUILD_DIR_NAME MATCHES "[Rr]elease" AND NOT CMAKE_BUILD_TYPE STREQUAL "Relea
 endif()
 unset(_BUILD_DIR_NAME)
 
+# Generate compile_commands.json for clangd/LSP tooling
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Symlink compile_commands.json to project root (debug build only, so it's consistent)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    file(CREATE_LINK
+        "${CMAKE_BINARY_DIR}/compile_commands.json"
+        "${CMAKE_SOURCE_DIR}/compile_commands.json"
+        SYMBOLIC
+    )
+endif()
+
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
 
