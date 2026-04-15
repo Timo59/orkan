@@ -32,10 +32,38 @@ set(CIRC_SOURCES
 )
 
 # Collect packed gate sources (one file per gate)
-file(GLOB GATE_PACKED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_*.c")
+set(GATE_PACKED_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_1q.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_ccx.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_cx.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_cy.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_cz.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/packed/gate_packed_swap.c"
+)
 
-# Collect tiled gate sources
-file(GLOB GATE_TILED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_*.c")
+# Collect tiled gate sources (one file per gate)
+set(GATE_TILED_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_1q.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_2q.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_ccx.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_cx.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_cy.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_cz.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_h.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_hy.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_p.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_rx.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_ry.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_rz.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_s.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_sdg.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_swap.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_t.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_tdg.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_x.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_y.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/gate/tiled/gate_tiled_z.c"
+)
 
 # Collect all source files
 set(Q_SOURCES

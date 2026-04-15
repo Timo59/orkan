@@ -1,6 +1,6 @@
 # Build System
 
-Shared build infrastructure for QSim. Per-module build details are in their respective Technical Specs.
+Shared build infrastructure for Orkan. Per-module build details are in their respective Technical Specs.
 
 ---
 
@@ -13,7 +13,7 @@ cmake/
 ├── PlatformConfig.cmake      OS detection and platform-specific settings
 ├── Dependencies.cmake        BLAS/LAPACK resolution (tests/benchmarks only)
 ├── CompilerFlags.cmake       Compiler flags interface library, OpenMP detection
-└── QSimConfig.cmake.in       Package config template for find_package(QSim)
+└── OrkanConfig.cmake.in      Package config template for find_package(Orkan)
 src/
 ├── CMakeLists.txt            Library target, install rules, package config generation
 └── internal/                 Internal headers (index.h, utils.h) — not installed
@@ -71,7 +71,7 @@ All target names are derived from the project name (`PROJECT_NAME_LOWER`).
 
 | Target | Type | Output | Notes |
 |---|---|---|---|
-| `${PROJECT_NAME_LOWER}` | Shared library | `libqsim.dylib` / `libqsim.so` | State, gate, channel, circuit modules |
+| `${PROJECT_NAME_LOWER}` | Shared library | `liborkan.dylib` / `liborkan.so` | State, gate, channel, circuit modules |
 | `test_state` | Executable | `test/test_state` | State module tests |
 | `test_gate` | Executable | `test/test_gate` | Gate module tests |
 | `test_circuit` | Executable | `test/test_circuit` | Circuit module tests |
@@ -85,7 +85,7 @@ All target names are derived from the project name (`PROJECT_NAME_LOWER`).
 
 ## Compiler Flags (cmake/CompilerFlags.cmake)
 
-### QSim_compiler_flags (interface library, linked PRIVATE)
+### Orkan_compiler_flags (interface library, linked PRIVATE)
 
 Build-time flags not propagated to consumers:
 
@@ -115,23 +115,23 @@ cmake --install cmake-build-release --prefix /usr/local
 ```
 
 Installs:
-- `lib/libqsim.{so,dylib}` with versioning (SOVERSION from `PROJECT_VERSION_MAJOR`)
-- `include/qsim/` containing: `qlib.h`, `q_types.h`, `state.h`, `gate.h`, `channel.h`
-- `lib/cmake/qsim/` containing: `QSimConfig.cmake`, `QSimConfigVersion.cmake`, `QSimTargets.cmake`
+- `lib/liborkan.{so,dylib}` with versioning (SOVERSION from `PROJECT_VERSION_MAJOR`)
+- `include/orkan/` containing: `qlib.h`, `q_types.h`, `state.h`, `gate.h`, `channel.h`, `meas.h`, `circ.h`
+- `lib/cmake/orkan/` containing: `OrkanConfig.cmake`, `OrkanConfigVersion.cmake`, `OrkanTargets.cmake`
 
 ### Using the installed library
 
 ```cmake
-find_package(QSim 1.0 REQUIRED)
+find_package(Orkan 0.1 REQUIRED)
 add_executable(myapp main.c)
-target_link_libraries(myapp QSim::qsim)
+target_link_libraries(myapp Orkan::orkan)
 ```
 
 ```c
-#include <qsim/qlib.h>
+#include <orkan/qlib.h>
 ```
 
-The package config file handles transitive dependencies: when `ENABLE_OPENMP` was ON at build time, `find_package(QSim)` automatically calls `find_dependency(OpenMP)` (with Homebrew hints on macOS).
+The package config file handles transitive dependencies: when `ENABLE_OPENMP` was ON at build time, `find_package(Orkan)` automatically calls `find_dependency(OpenMP)` (with Homebrew hints on macOS).
 
 Version compatibility uses `SameMajorVersion` — version 1.2 satisfies a request for 1.0, but 2.0 does not.
 
