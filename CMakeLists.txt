@@ -109,7 +109,7 @@ if (BUILD_TESTS AND EXISTS "${CMAKE_SOURCE_DIR}/test")
     add_custom_target(verified_install
             COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
             COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR}
-            DEPENDS ${PROJECT_NAME_LOWER} test_state test_gate test_channel test_meas
+            DEPENDS ${PROJECT_NAME_LOWER} test_state test_gate test_channel test_meas test_circ
             COMMENT "Running tests before install..."
     )
 endif ()

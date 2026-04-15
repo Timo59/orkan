@@ -163,3 +163,37 @@ target_link_libraries(test_meas
             $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lm>
 )
 add_test(NAME test_meas COMMAND test_meas)
+
+#=======================================================================================================================
+# test_circ
+#=======================================================================================================================
+
+set(CIRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/circ")
+
+set(TEST_CIRC_SRC
+        "${CIRC_DIR}/test_circ.c"
+        "${CIRC_DIR}/test_circ_pure.c"
+        "${CIRC_DIR}/test_circ_packed.c"
+        "${CIRC_DIR}/test_circ_tiled.c"
+        "${UNITY_SRC}/unity.c"
+)
+
+add_executable(test_circ ${TEST_CIRC_SRC})
+target_compile_definitions(test_circ
+        PRIVATE
+            UNITY_INCLUDE_DOUBLE
+            UNITY_SUPPORT_64
+            LOG_TILE_DIM=${LOG_TILE_DIM}
+)
+target_include_directories(test_circ
+        PRIVATE
+            ${UNITY_SRC}
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+            "${CMAKE_SOURCE_DIR}/src/internal"
+)
+target_link_libraries(test_circ
+        PRIVATE
+            ${PROJECT_NAME_LOWER}
+            $<$<AND:$<BOOL:${UNIX}>,$<NOT:$<BOOL:${APPLE}>>>:-lm>
+)
+add_test(NAME test_circ COMMAND test_circ)

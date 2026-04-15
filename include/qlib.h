@@ -6,5 +6,6 @@
 #include "gate.h"
 #include "channel.h"
 #include "meas.h"
+#include "circ.h"
 
 #endif /* QLIB_H */
