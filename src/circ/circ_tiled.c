@@ -57,10 +57,12 @@ void exp_diag_tiled(state_t *state, const double *restrict diag, double t) {
             cplx_t *restrict tile = data + tile_off(tr, tc);
 
             if (tr == tc) {
-                /* Diagonal tile: strict lower triangle only (skip diagonal) */
+                /* Diagonal tile: strict lower triangle (skip diagonal).
+                 * Mirror each write to the upper triangle so that
+                 * within-tile gate paths (which read both triangles)
+                 * see consistent post-evolution values. */
                 for (idx_t lr = 1; lr < len_tile; ++lr) {
                     const idx_t r = r_base + lr;
-                    #pragma omp simd
                     for (idx_t lc = 0; lc < lr; ++lc) {
                         const idx_t c   = c_base + lc;
                         const idx_t off = elem_off(lr, lc);
@@ -72,6 +74,9 @@ void exp_diag_tiled(state_t *state, const double *restrict diag, double t) {
                         const double im = cimag(tile[off]);
                         tile[off] = CMPLX(f_re * re - f_im * im,
                                           f_re * im + f_im * re);
+
+                        /* Mirror to upper triangle: conj of new lower value */
+                        tile[elem_off(lc, lr)] = conj(tile[off]);
                     }
                 }
             } else {
