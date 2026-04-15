@@ -7,7 +7,25 @@
 
 #include "meas.h"
 
-#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+/*
+ * =====================================================================================================================
+ * Error handling
+ * =====================================================================================================================
+ *
+ * MEAS_VALIDATE calls exit() on failure.  Passing a null pointer or invalid
+ * state type indicates a programming error, not a recoverable runtime
+ * condition.  This matches the gate and channel modules.
+ */
+
+#define MEAS_VALIDATE(cond, msg) do {                           \
+    if (!(cond)) {                                              \
+        fprintf(stderr, "qlib: meas: %s\n", (msg));            \
+        exit(EXIT_FAILURE);                                     \
+    }                                                           \
+} while(0)
 
 /*
  * =====================================================================================================================
@@ -26,7 +44,8 @@ extern double mean_tiled(const state_t *state, const double *obs);
  */
 
 double mean(const state_t *state, const double *obs) {
-    assert(state && state->data && obs);
+    MEAS_VALIDATE(state && state->data, "mean: null state or data pointer");
+    MEAS_VALIDATE(obs, "mean: null observable pointer");
 
     switch (state->type) {
         case PURE:
@@ -36,7 +55,7 @@ double mean(const state_t *state, const double *obs) {
         case MIXED_TILED:
             return mean_tiled(state, obs);
         default:
-            assert(0 && "mean(): invalid state type");
+            MEAS_VALIDATE(0, "mean: invalid state type");
             return 0.0;
     }
 }

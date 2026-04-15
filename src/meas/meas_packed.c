@@ -12,6 +12,7 @@
  */
 
 #include "meas.h"
+#include "index.h"
 
 #include <complex.h>
 
@@ -40,8 +41,8 @@ double mean_packed(const state_t *state, const double *obs) {
         idx_t x_start = tid * chunk;
         idx_t x_end = (tid == nthreads - 1) ? dim : x_start + chunk;
 
-        /* Starting packed index: pack_idx(dim, x_start, x_start) */
-        idx_t idx = x_start * (2 * dim - x_start + 1) / 2;
+        /* Starting packed index for diagonal element (x_start, x_start) */
+        idx_t idx = pack_idx(dim, x_start, x_start);
         idx_t stride = dim - x_start;
 
         for (idx_t x = x_start; x < x_end; ++x) {

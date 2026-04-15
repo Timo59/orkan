@@ -19,6 +19,9 @@ void test_mean_pure_uniform(void);
 void test_mean_pure_identity(void);
 void test_mean_pure_basis(void);
 void test_mean_pure_basis_k(void);
+void test_mean_pure_imaginary(void);
+void test_mean_pure_negative_obs(void);
+void test_mean_pure_mixed_sign_obs(void);
 
 /*
  * =====================================================================================================================
@@ -29,6 +32,9 @@ void test_mean_pure_basis_k(void);
 void test_mean_packed_uniform(void);
 void test_mean_packed_identity(void);
 void test_mean_packed_pure_embed(void);
+void test_mean_packed_basis_k(void);
+void test_mean_packed_negative_obs(void);
+void test_mean_packed_mixed_sign_obs(void);
 
 /*
  * =====================================================================================================================
@@ -41,6 +47,9 @@ void test_mean_tiled_identity(void);
 void test_mean_tiled_pure_embed(void);
 void test_mean_tiled_small(void);
 void test_mean_tiled_multi(void);
+void test_mean_tiled_basis_k(void);
+void test_mean_tiled_negative_obs(void);
+void test_mean_tiled_mixed_sign_obs(void);
 
 /*
  * =====================================================================================================================
@@ -106,6 +115,9 @@ int main(void) {
     RUN_TEST(test_mean_pure_identity);
     RUN_TEST(test_mean_pure_basis);
     RUN_TEST(test_mean_pure_basis_k);
+    RUN_TEST(test_mean_pure_imaginary);
+    RUN_TEST(test_mean_pure_negative_obs);
+    RUN_TEST(test_mean_pure_mixed_sign_obs);
 
     /*
      * MIXED_PACKED state tests
@@ -114,6 +126,9 @@ int main(void) {
     RUN_TEST(test_mean_packed_uniform);
     RUN_TEST(test_mean_packed_identity);
     RUN_TEST(test_mean_packed_pure_embed);
+    RUN_TEST(test_mean_packed_basis_k);
+    RUN_TEST(test_mean_packed_negative_obs);
+    RUN_TEST(test_mean_packed_mixed_sign_obs);
 
     /*
      * MIXED_TILED state tests
@@ -124,6 +139,9 @@ int main(void) {
     RUN_TEST(test_mean_tiled_pure_embed);
     RUN_TEST(test_mean_tiled_small);
     RUN_TEST(test_mean_tiled_multi);
+    RUN_TEST(test_mean_tiled_basis_k);
+    RUN_TEST(test_mean_tiled_negative_obs);
+    RUN_TEST(test_mean_tiled_mixed_sign_obs);
 
     /*
      * Cross-representation consistency
