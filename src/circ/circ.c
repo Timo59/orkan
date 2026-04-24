@@ -47,6 +47,8 @@ void exp_diag(state_t *state, const double *diag, double t) {
     CIRC_VALIDATE(state && state->data, "exp_diag: null state or data pointer");
     CIRC_VALIDATE(diag, "exp_diag: null diagonal pointer");
 
+    if (t == 0.0) return;
+
     switch (state->type) {
         case PURE:
             exp_diag_pure(state, diag, t);

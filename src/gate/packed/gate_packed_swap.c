@@ -24,9 +24,6 @@
 #include <omp.h>
 #endif
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
 
 void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
     const idx_t dim = (idx_t)1 << state->qubits;
@@ -37,7 +34,7 @@ void swap_packed(state_t *state, const qubit_t q1, const qubit_t q2) {
     cplx_t * restrict data = state->data;
     const idx_t quarter_dim = dim >> 2;
 
-    #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t bc = 0; bc < quarter_dim; ++bc) {
         const idx_t c00 = insertBits2_0(bc, lo, hi);
         const idx_t c01 = c00 | incr_lo, c10 = c00 | incr_hi, c11 = c10 | incr_lo;

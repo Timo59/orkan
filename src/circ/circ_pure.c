@@ -18,15 +18,11 @@
 #include <omp.h>
 #endif
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 4096
-#endif
-
 void exp_diag_pure(state_t *state, const double *restrict diag, double t) {
     const idx_t dim = POW2(state->qubits, idx_t);
     cplx_t *restrict data = state->data;
 
-    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for simd schedule(static) if(dim >= OMP_THRESHOLD_PURE)
     for (idx_t x = 0; x < dim; ++x) {
         const double angle = diag[x] * t;
         const double c = cos(angle);

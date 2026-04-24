@@ -47,7 +47,7 @@ void ry_tiled(state_t *state, const qubit_t target, const double theta) {
         const idx_t dim_tile = dim < TILE_DIM ? dim : TILE_DIM;
         const idx_t n_base = dim_tile >> 1;
 
-        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t tr = 0; tr < n_tiles; ++tr) {
             for (idx_t tc = 0; tc <= tr; ++tc) {
                 idx_t offset_tile = tile_off(tr, tc);
@@ -86,7 +86,7 @@ void ry_tiled(state_t *state, const qubit_t target, const double theta) {
         const qubit_t target_tile = target - LOG_TILE_DIM;
         const idx_t incr_tile = (idx_t)1 << target_tile;
 
-        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t btr = 0; btr < n_base; ++btr) {
             const idx_t tr0 = insertBit0(btr, target_tile);
             const idx_t tr1 = tr0 | incr_tile;

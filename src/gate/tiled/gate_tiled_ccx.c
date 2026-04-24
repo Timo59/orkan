@@ -38,7 +38,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
             const idx_t incr_ctrl2 = (idx_t)1 << ctrl2;
             const idx_t incr_tgt   = (idx_t)1 << target;
 
-            #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t i = 0; i < n_tiles; ++i) {
                 cplx_t * restrict tile = data + i * TILE_SIZE;
 
@@ -184,7 +184,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
             const idx_t incr_ctrl1 = (idx_t)1 << ctrl1;
             const idx_t incr_ctrl2 = (idx_t)1 << ctrl2;
 
-            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t btr = 0; btr < n_bt; ++btr) {
                 const idx_t tr0 = insertBit0(btr, tile_bit);
                 const idx_t tr1 = tr0 | incr_tile;
@@ -544,7 +544,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
             const qubit_t lo_local = (ctrl2 < target) ? ctrl2 : target;
             const qubit_t hi_local = (ctrl2 > target) ? ctrl2 : target;
 
-            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t btr = 0; btr < n_bt; ++btr) {
                 const idx_t tr0 = insertBit0(btr, tile_bit);
                 const idx_t tr1 = tr0 | incr_tile;
@@ -881,7 +881,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
             const idx_t n_bl = TILE_DIM >> 1;
             const idx_t incr_ctrl2 = (idx_t)1 << ctrl2;
 
-            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t btr = 0; btr < n_bt; ++btr) {
                 const idx_t tr00 = insertBits2_0(btr, lo_tile, hi_tile);
                 const idx_t tr01 = tr00 | incr_tgt_tile;
@@ -1524,7 +1524,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
             const idx_t n_bl = TILE_DIM >> 1;
             const idx_t incr_tgt = (idx_t)1 << target;
 
-            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t btr = 0; btr < n_bt; ++btr) {
                 const idx_t tr00 = insertBits2_0(btr, lo_tile, hi_tile);
                 const idx_t tr01 = tr00 | incr_ctrl2_tile;
@@ -2005,7 +2005,7 @@ void ccx_tiled(state_t *state, const qubit_t control1, const qubit_t control2, c
 
             const idx_t n_bt = dim_tile >> 3;
 
-            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t btr = 0; btr < n_bt; ++btr) {
                 /* insertBits3_0: insert 0-bits at positions lo_tile, mid_tile, hi_tile */
                 const idx_t tr000  = insertBit0(insertBits2_0(btr, lo_tile, mid_tile), hi_tile);

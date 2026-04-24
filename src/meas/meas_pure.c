@@ -16,15 +16,11 @@
 #include <omp.h>
 #endif
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 4096
-#endif
-
 double mean_pure(const state_t *state, const double *obs) {
     const idx_t dim = POW2(state->qubits, idx_t);
     double sum = 0.0;
 
-    #pragma omp parallel for reduction(+:sum) schedule(static) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for reduction(+:sum) schedule(static) if(dim >= OMP_THRESHOLD_PURE)
     for (idx_t x = 0; x < dim; ++x) {
         const cplx_t a = state->data[x];
         sum += obs[x] * (creal(a) * creal(a) + cimag(a) * cimag(a));

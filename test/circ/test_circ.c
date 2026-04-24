@@ -18,6 +18,10 @@
 
 void test_exp_diag_pure_basis_k(void);
 void test_exp_diag_pure_plus(void);
+void test_exp_diag_pure_double_apply(void);
+void test_exp_diag_pure_negative_t(void);
+void test_exp_diag_pure_mixed_sign_diag(void);
+void test_exp_diag_pure_zero_t(void);
 void test_exp_diag_pure_zero_obs(void);
 void test_exp_diag_pure_global_phase(void);
 void test_exp_diag_pure_unitarity(void);
@@ -31,6 +35,10 @@ void test_exp_diag_pure_unitarity(void);
 void test_exp_diag_packed_basis_k(void);
 void test_exp_diag_packed_plus(void);
 void test_exp_diag_packed_double_apply(void);
+void test_exp_diag_packed_negative_t(void);
+void test_exp_diag_packed_mixed_sign_diag(void);
+void test_exp_diag_packed_zero_t(void);
+void test_exp_diag_packed_complex_input(void);
 void test_exp_diag_packed_zero_obs(void);
 void test_exp_diag_packed_identity_obs(void);
 
@@ -43,6 +51,10 @@ void test_exp_diag_packed_identity_obs(void);
 void test_exp_diag_tiled_basis_k(void);
 void test_exp_diag_tiled_plus(void);
 void test_exp_diag_tiled_double_apply(void);
+void test_exp_diag_tiled_negative_t(void);
+void test_exp_diag_tiled_mixed_sign_diag(void);
+void test_exp_diag_tiled_zero_t(void);
+void test_exp_diag_tiled_complex_input(void);
 void test_exp_diag_tiled_zero_obs(void);
 void test_exp_diag_tiled_identity_obs(void);
 void test_exp_diag_tiled_small(void);
@@ -125,6 +137,10 @@ int main(void) {
     printf("\n========== PURE exp_diag Tests ==========\n");
     RUN_TEST(test_exp_diag_pure_basis_k);
     RUN_TEST(test_exp_diag_pure_plus);
+    RUN_TEST(test_exp_diag_pure_double_apply);
+    RUN_TEST(test_exp_diag_pure_negative_t);
+    RUN_TEST(test_exp_diag_pure_mixed_sign_diag);
+    RUN_TEST(test_exp_diag_pure_zero_t);
     RUN_TEST(test_exp_diag_pure_zero_obs);
     RUN_TEST(test_exp_diag_pure_global_phase);
     RUN_TEST(test_exp_diag_pure_unitarity);
@@ -136,6 +152,10 @@ int main(void) {
     RUN_TEST(test_exp_diag_packed_basis_k);
     RUN_TEST(test_exp_diag_packed_plus);
     RUN_TEST(test_exp_diag_packed_double_apply);
+    RUN_TEST(test_exp_diag_packed_negative_t);
+    RUN_TEST(test_exp_diag_packed_mixed_sign_diag);
+    RUN_TEST(test_exp_diag_packed_zero_t);
+    RUN_TEST(test_exp_diag_packed_complex_input);
     RUN_TEST(test_exp_diag_packed_zero_obs);
     RUN_TEST(test_exp_diag_packed_identity_obs);
 
@@ -146,6 +166,10 @@ int main(void) {
     RUN_TEST(test_exp_diag_tiled_basis_k);
     RUN_TEST(test_exp_diag_tiled_plus);
     RUN_TEST(test_exp_diag_tiled_double_apply);
+    RUN_TEST(test_exp_diag_tiled_negative_t);
+    RUN_TEST(test_exp_diag_tiled_mixed_sign_diag);
+    RUN_TEST(test_exp_diag_tiled_zero_t);
+    RUN_TEST(test_exp_diag_tiled_complex_input);
     RUN_TEST(test_exp_diag_tiled_zero_obs);
     RUN_TEST(test_exp_diag_tiled_identity_obs);
     RUN_TEST(test_exp_diag_tiled_small);

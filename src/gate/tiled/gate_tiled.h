@@ -25,9 +25,6 @@
 /* Minimum dimension to enable OpenMP parallelization.
  * At dim < 512 (n < 9), OpenMP thread-launch overhead (~32µs) dominates
  * the actual computation time. See profile/REPORT_x_tiled.md §5.1. */
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
 
 
 /*

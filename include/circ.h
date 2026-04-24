@@ -32,7 +32,7 @@ extern "C" {
  *   PURE:   psi[x]    *= exp(-i diag[x] t)
  *   MIXED:  rho[r][c] *= exp(-i (diag[r] - diag[c]) t)
  *
- * Diagonal density-matrix elements are unchanged.
+ * For mixed states, diagonal density-matrix elements are unchanged.
  *
  * @param[in,out]  state  Quantum state (any representation)
  * @param[in]      diag   Diagonal coefficients, length 2^(state->qubits), caller-owned

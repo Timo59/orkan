@@ -18,7 +18,7 @@ void single_from_mat(state_t *state, const qubit_t target, const cplx_t *mat) {
         const idx_t nbl = (dim < TILE_DIM) ? dim >> 1 : TILE_DIM >> 1;
         const idx_t incr = (idx_t)1 << target;
 
-        #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t i = 0; i < n_tiles; ++i) {
             cplx_t * restrict tile = data + i * TILE_SIZE;
 
@@ -69,7 +69,7 @@ void single_from_mat(state_t *state, const qubit_t target, const cplx_t *mat) {
         const qubit_t target_tile = target - LOG_TILE_DIM;
         const idx_t incr = (idx_t)1 << target_tile;
 
-        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t btr = 0; btr < nbt; ++btr) {
             const idx_t tr0 = insertBit0(btr, target_tile);
             const idx_t tr1 = tr0 | incr;

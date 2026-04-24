@@ -25,9 +25,6 @@
 #include <omp.h>
 #endif
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
 
 void cy_packed(state_t * restrict state, const qubit_t control, const qubit_t target) {
     const idx_t dim = (idx_t)1 << state->qubits;
@@ -38,7 +35,7 @@ void cy_packed(state_t * restrict state, const qubit_t control, const qubit_t ta
     cplx_t * restrict data = state->data;
     const idx_t quarter_dim = dim >> 2;
 
-    #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t bc = 0; bc < quarter_dim; ++bc) {
         const idx_t c00 = insertBits2_0(bc, lo, hi);
         const idx_t c01 = c00 | incr_tgt, c10 = c00 | incr_ctrl, c11 = c10 | incr_tgt;

@@ -12,9 +12,6 @@
 /* Minimum dimension to enable OpenMP parallelization (avoid thread overhead for small systems)
  * Pure states: O(dim) work per gate, need dim >= 4096 (~12 qubits) to offset thread overhead
  */
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 4096
-#endif
 
 /*
  * =====================================================================================================================
@@ -40,7 +37,7 @@ do {                                                                           \
     const idx_t step = (idx_t)1 << ((target) + 1);                   \
     cplx_t *data = (state)->data;                                              \
                                                                                \
-    _Pragma("omp parallel for collapse(2) if(dim >= OMP_THRESHOLD)")           \
+    _Pragma("omp parallel for collapse(2) if(dim >= OMP_THRESHOLD_PURE)")           \
     for (idx_t i = 0; i < dim; i += step) {                               \
         for (idx_t j = 0; j < stride; ++j) {                              \
             cplx_t *a = data + i + j;                                          \
@@ -294,7 +291,7 @@ void cx_pure(state_t *state, const qubit_t control, const qubit_t target) {
     const idx_t incr_tgt = (idx_t)1 << target;
     const idx_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
 
-    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD_PURE)
     for (idx_t k = 0; k < n_base; ++k) {
         // Insert 0 bits at positions lo and hi to get base index
         const idx_t base = insertBits2_0(k, lo, hi);
@@ -327,7 +324,7 @@ void cy_pure(state_t *state, const qubit_t control, const qubit_t target) {
     const idx_t incr_tgt = (idx_t)1 << target;
     const idx_t n_base = dim >> 2;
 
-    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD_PURE)
     for (idx_t k = 0; k < n_base; ++k) {
         const idx_t base = insertBits2_0(k, lo, hi);
 
@@ -359,7 +356,7 @@ void cz_pure(state_t *state, const qubit_t control, const qubit_t target) {
     const idx_t incr_tgt = (idx_t)1 << target;
     const idx_t n_base = dim >> 2;
 
-    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD_PURE)
     for (idx_t k = 0; k < n_base; ++k) {
         const idx_t base = insertBits2_0(k, lo, hi);
 
@@ -385,7 +382,7 @@ void swap_pure(state_t *state, const qubit_t q1, const qubit_t q2) {
     const idx_t incr_hi = (idx_t)1 << hi;
     const idx_t n_base = dim >> 2;  // dim / 4: we iterate over indices with both bits = 0
 
-    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD_PURE)
     for (idx_t k = 0; k < n_base; ++k) {
         const idx_t base = insertBits2_0(k, lo, hi);
 
@@ -421,7 +418,7 @@ void ccx_pure(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qu
     const idx_t incr_tgt   = (idx_t)1 << target;
     const idx_t n_base = dim >> 3;  // dim / 8: iterate over indices with all three bits = 0
 
-    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD_PURE)
     for (idx_t k = 0; k < n_base; ++k) {
         // Insert 0 bits at positions lo, med, hi to get base index
         const idx_t base = insertBit0(insertBit0(insertBit0(k, lo), med), hi);

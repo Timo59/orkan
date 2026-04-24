@@ -102,9 +102,10 @@ target_compile_definitions(${PROJECT_NAME_LOWER}
         PUBLIC
             LOG_TILE_DIM=${LOG_TILE_DIM}
 )
-if(DEFINED OMP_THRESHOLD)
-    target_compile_definitions(${PROJECT_NAME_LOWER} PRIVATE OMP_THRESHOLD=${OMP_THRESHOLD})
-endif()
+target_compile_definitions(${PROJECT_NAME_LOWER} PRIVATE
+    OMP_THRESHOLD_PURE=${OMP_THRESHOLD_PURE}
+    OMP_THRESHOLD_MIXED=${OMP_THRESHOLD_MIXED}
+)
 target_link_libraries(${PROJECT_NAME_LOWER}
         PRIVATE
             ${PROJECT_COMPILER_FLAGS}

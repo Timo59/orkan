@@ -34,9 +34,6 @@
  * has ~131k elements — sufficient work to offset thread overhead. Below this, thread-launch
  * overhead (~30 µs) dominates the actual computation.
  */
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
 
 
 /*
@@ -72,7 +69,7 @@ do {                                                                            
     const idx_t half_dim = dim >> 1;                                       \
     cplx_t * restrict data = (state)->data;                                     \
                                                                                 \
-    _Pragma("omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)")       \
+    _Pragma("omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)")       \
     for (idx_t bc = 0; bc < half_dim; ++bc) {                              \
         idx_t c0 = insertBit0(bc, target);                                 \
         idx_t c1 = c0 | incr;                                              \
@@ -490,7 +487,7 @@ void p_packed(state_t *state, const qubit_t target, const double theta) {
     const idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
 
-    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t bc = 0; bc < half_dim; ++bc) {
         idx_t c0 = insertBit0(bc, target);
         idx_t c1 = c0 | incr;
@@ -564,7 +561,7 @@ void rx_packed(state_t *state, const qubit_t target, const double theta) {
     const idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
 
-    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t bc = 0; bc < half_dim; ++bc) {
         idx_t c0 = insertBit0(bc, target);
         idx_t c1 = c0 | incr;
@@ -638,7 +635,7 @@ void ry_packed(state_t *state, const qubit_t target, const double theta) {
     const idx_t half_dim = dim >> 1;
     cplx_t * restrict data = state->data;
 
-    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t bc = 0; bc < half_dim; ++bc) {
         idx_t c0 = insertBit0(bc, target);
         idx_t c1 = c0 | incr;

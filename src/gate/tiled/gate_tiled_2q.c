@@ -13,7 +13,7 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
         const idx_t incr_lo = (idx_t)1 << lo;
         const idx_t incr_hi = (idx_t)1 << hi;
 
-        #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t i = 0; i < n_tiles; ++i) {
             cplx_t * restrict tile = data + i * TILE_SIZE;
 
@@ -85,7 +85,7 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
         const idx_t incr_lo = (idx_t)1 << lo;
         const idx_t nbl = TILE_DIM >> 1;
 
-        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t btr = 0; btr < nbt; ++btr) {
             const idx_t tr0 = insertBit0(btr, idx_tile);
             const idx_t tr1 = tr0 | incr_tile;
@@ -291,7 +291,7 @@ void two_from_mat(state_t *state, const qubit_t q1, const qubit_t q2, const cplx
         const idx_t incr_lo = (idx_t)1 << lo;
         const idx_t incr_hi = (idx_t)1 << hi;
 
-        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t btr = 0; btr < nbt; ++btr) {
             const idx_t tr00 = insertBits2_0(btr, lo, hi);
             const idx_t tr01 = tr00 | incr_lo, tr10 = tr00 | incr_hi, tr11 = tr10 | incr_lo;

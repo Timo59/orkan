@@ -1,9 +1,6 @@
 #include "channel.h"
 #include "index.h"
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
 
 /*
  * Preload 4x4 superoperator into 32 real-valued locals.
@@ -56,7 +53,7 @@ void channel_packed_1q(state_t *state, const cplx_t * restrict sop, const qubit_
 
   SOP_PRELOAD(sop);
 
-  #pragma omp parallel for schedule(dynamic, 1) if(dim >= OMP_THRESHOLD)
+  #pragma omp parallel for schedule(dynamic, 1) if(dim >= OMP_THRESHOLD_MIXED)
   for (idx_t bc = 0; bc < n_base; ++bc) {
     const idx_t c0 = insertBit0(bc, target);
     const idx_t c1 = c0 | incr;

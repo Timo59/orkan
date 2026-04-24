@@ -119,6 +119,107 @@ void test_exp_diag_pure_global_phase(void) {
 }
 
 /*
+ * Apply exp_diag twice: exp(-iDt) exp(-iDt) = exp(-iD 2t).
+ * First application creates complex amplitudes from the real |+> state;
+ * second exercises the full complex * complex multiplication path.
+ */
+void test_exp_diag_pure_double_apply(void) {
+    const double t = M_PI / 4.0;
+    for (qubit_t n = 1; n <= MAXQUBITS; ++n) {
+        const idx_t dim = POW2(n, idx_t);
+        double diag[dim];
+        fill_ramp_diag(diag, dim);
+
+        state_t s = {.type = PURE, .data = NULL, .qubits = 0};
+        state_plus(&s, n);
+        exp_diag(&s, diag, t);
+        exp_diag(&s, diag, t);
+
+        const double amp = 1.0 / sqrt((double)dim);
+        for (idx_t x = 0; x < dim; ++x) {
+            double angle = (double)x * 2.0 * t;
+            cplx_t expected = CMPLX(amp * cos(angle), -amp * sin(angle));
+            TEST_ASSERT_COMPLEX_WITHIN(expected, state_get(&s, x, 0), PRECISION);
+        }
+        state_free(&s);
+    }
+}
+
+/*
+ * Negative t: exp(-iDt) exp(+iDt) = I, state must return to original.
+ */
+void test_exp_diag_pure_negative_t(void) {
+    const double t = 0.77;
+    for (qubit_t n = 1; n <= MAXQUBITS; ++n) {
+        const idx_t dim = POW2(n, idx_t);
+        double diag[dim];
+        fill_ramp_diag(diag, dim);
+
+        state_t s = {.type = PURE, .data = NULL, .qubits = 0};
+        state_plus(&s, n);
+        state_t ref = state_cp(&s);
+
+        exp_diag(&s, diag, t);
+        exp_diag(&s, diag, -t);
+
+        for (idx_t x = 0; x < dim; ++x)
+            TEST_ASSERT_COMPLEX_WITHIN(state_get(&ref, x, 0),
+                                       state_get(&s, x, 0), PRECISION);
+        state_free(&s);
+        state_free(&ref);
+    }
+}
+
+/*
+ * Mixed-sign diagonal: diag[x] = +x (even) or -x (odd).
+ * Stresses all sign-quadrant combinations in the trig product formula.
+ */
+void test_exp_diag_pure_mixed_sign_diag(void) {
+    const double t = M_PI / 4.0;
+    for (qubit_t n = 1; n <= MAXQUBITS; ++n) {
+        const idx_t dim = POW2(n, idx_t);
+        double diag[dim];
+        fill_alternating_diag(diag, dim);
+
+        state_t s = {.type = PURE, .data = NULL, .qubits = 0};
+        state_plus(&s, n);
+        exp_diag(&s, diag, t);
+
+        const double amp = 1.0 / sqrt((double)dim);
+        for (idx_t x = 0; x < dim; ++x) {
+            double angle = diag[x] * t;
+            cplx_t expected = CMPLX(amp * cos(angle), -amp * sin(angle));
+            TEST_ASSERT_COMPLEX_WITHIN(expected, state_get(&s, x, 0), PRECISION);
+        }
+        state_free(&s);
+    }
+}
+
+/*
+ * t = 0 with non-trivial diagonal: state must be unchanged.
+ * Distinct from zero_obs (which uses diag = 0).
+ */
+void test_exp_diag_pure_zero_t(void) {
+    for (qubit_t n = 1; n <= MAXQUBITS; ++n) {
+        const idx_t dim = POW2(n, idx_t);
+        double diag[dim];
+        fill_ramp_diag(diag, dim);
+
+        state_t s = {.type = PURE, .data = NULL, .qubits = 0};
+        state_plus(&s, n);
+        state_t ref = state_cp(&s);
+
+        exp_diag(&s, diag, 0.0);
+
+        for (idx_t x = 0; x < dim; ++x)
+            TEST_ASSERT_COMPLEX_WITHIN(state_get(&ref, x, 0),
+                                       state_get(&s, x, 0), PRECISION);
+        state_free(&s);
+        state_free(&ref);
+    }
+}
+
+/*
  * Unitarity check: sum |psi[x]|^2 must remain 1 after evolution.
  */
 void test_exp_diag_pure_unitarity(void) {

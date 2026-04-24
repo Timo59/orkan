@@ -1,9 +1,6 @@
 #include "channel.h"
 #include "index.h"
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
 
 /*
  * Preload 4x4 superoperator into 32 real-valued locals.
@@ -67,7 +64,7 @@ void channel_tiled_1q(state_t *state, const cplx_t * restrict sop, const qubit_t
     const idx_t nbl = (dim < TILE_DIM) ? dim >> 1 : TILE_DIM >> 1;
     const idx_t incr = (idx_t)1 << target;
 
-    #pragma omp parallel for if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t i = 0; i < n_tiles; ++i) {
       cplx_t * restrict tile = data + i * TILE_SIZE;
 
@@ -107,7 +104,7 @@ void channel_tiled_1q(state_t *state, const cplx_t * restrict sop, const qubit_t
     const qubit_t target_tile = target - LOG_TILE_DIM;
     const idx_t incr = (idx_t)1 << target_tile;
 
-    #pragma omp parallel for schedule(dynamic, 1) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(dynamic, 1) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t btr = 0; btr < nbt; ++btr) {
       const idx_t tr0 = insertBit0(btr, target_tile);
       const idx_t tr1 = tr0 | incr;

@@ -56,7 +56,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
         const idx_t incr_lo = (idx_t)1 << lo;
         const idx_t incr_hi = (idx_t)1 << hi;
 
-        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t tr = 0; tr < n_tiles; ++tr) {
             for (idx_t tc = 0; tc <= tr; ++tc) {
                 cplx_t *tile = data + tile_off(tr, tc);
@@ -148,7 +148,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
         const idx_t half_td = tile_dim >> 1;
         const idx_t incr_lo = (idx_t)1 << lo;
 
-        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t btr = 0; btr < half_nt; ++btr) {
             const idx_t tr0 = insertBit0(btr, tile_bit);
             const idx_t tr1 = tr0 | incr_tile;
@@ -335,7 +335,7 @@ void swap_tiled(state_t *state, const qubit_t q1, const qubit_t q2) {
         const idx_t incr_hi = (idx_t)1 << tile_hi;
         const idx_t quarter_nt = n_tiles >> 2;
 
-        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+        #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
         for (idx_t btr = 0; btr < quarter_nt; ++btr) {
             const idx_t tr00 = insertBits2_0(btr, tile_lo, tile_hi);
             const idx_t tr01 = tr00 | incr_lo, tr10 = tr00 | incr_hi, tr11 = tr10 | incr_lo;

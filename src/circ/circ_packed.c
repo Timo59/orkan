@@ -14,6 +14,7 @@
 
 #include "circ.h"
 #include "index.h"
+#include "utils.h"
 
 #include <complex.h>
 #include <math.h>
@@ -22,10 +23,6 @@
 
 #ifdef _OPENMP
 #include <omp.h>
-#endif
-
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
 #endif
 
 void exp_diag_packed(state_t *state, const double *restrict diag, double t) {
@@ -42,15 +39,14 @@ void exp_diag_packed(state_t *state, const double *restrict diag, double t) {
         exit(EXIT_FAILURE);
     }
 
-    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t x = 0; x < dim; ++x) {
         const double angle = diag[x] * t;
-        cos_d[x] = cos(angle);
-        sin_d[x] = sin(angle);
+        qlib_sincos(angle, &sin_d[x], &cos_d[x]);
     }
 
     /* Iterate columns; elements within a column are contiguous */
-    #pragma omp parallel for schedule(dynamic, 1) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(guided) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t c = 0; c < dim; ++c) {
         const double cc = cos_d[c];
         const double sc = sin_d[c];

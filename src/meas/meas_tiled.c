@@ -26,17 +26,13 @@
 #include <omp.h>
 #endif
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
-
 double mean_tiled(const state_t *state, const double *obs) {
     const idx_t dim = POW2(state->qubits, idx_t);
     const idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
     const idx_t len_tile = (dim < TILE_DIM) ? dim : TILE_DIM;
     double sum = 0.0;
 
-    #pragma omp parallel reduction(+:sum) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel reduction(+:sum) if(dim >= OMP_THRESHOLD_MIXED)
     {
 #ifdef _OPENMP
         int tid = omp_get_thread_num();

@@ -20,15 +20,11 @@
 #include <omp.h>
 #endif
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
-
 double mean_packed(const state_t *state, const double *obs) {
     const idx_t dim = POW2(state->qubits, idx_t);
     double sum = 0.0;
 
-    #pragma omp parallel reduction(+:sum) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel reduction(+:sum) if(dim >= OMP_THRESHOLD_MIXED)
     {
 #ifdef _OPENMP
         int tid = omp_get_thread_num();

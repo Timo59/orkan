@@ -11,6 +11,7 @@
 
 #include "circ.h"
 #include "index.h"
+#include "utils.h"
 
 #include <complex.h>
 #include <math.h>
@@ -21,14 +22,13 @@
 #include <omp.h>
 #endif
 
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
-
 void exp_diag_tiled(state_t *state, const double *restrict diag, double t) {
     const idx_t dim      = POW2(state->qubits, idx_t);
     const idx_t dim_tile = (dim + TILE_DIM - 1) >> LOG_TILE_DIM;
     const idx_t len_tile = (dim < TILE_DIM) ? dim : TILE_DIM;
+    /* dim is always a power of two, so tiles are never ragged.
+     * When dim < TILE_DIM: single tile, len_tile == dim, dim_tile == 1.
+     * When dim >= TILE_DIM: len_tile == TILE_DIM, dim divides evenly. */
     cplx_t *restrict data = state->data;
 
     /* Precompute per-index phases */
@@ -41,14 +41,13 @@ void exp_diag_tiled(state_t *state, const double *restrict diag, double t) {
         exit(EXIT_FAILURE);
     }
 
-    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t x = 0; x < dim; ++x) {
         const double angle = diag[x] * t;
-        cos_d[x] = cos(angle);
-        sin_d[x] = sin(angle);
+        qlib_sincos(angle, &sin_d[x], &cos_d[x]);
     }
 
-    #pragma omp parallel for schedule(dynamic, 1) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(dynamic, 1) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t tr = 0; tr < dim_tile; ++tr) {
         const idx_t r_base = tr * len_tile;
 

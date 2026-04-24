@@ -23,4 +23,9 @@ static inline void fill_uniform_diag(double *diag, idx_t dim) {
         diag[x] = 1.0;
 }
 
+static inline void fill_alternating_diag(double *diag, idx_t dim) {
+    for (idx_t x = 0; x < dim; ++x)
+        diag[x] = (x % 2 == 0) ? (double)x : -(double)x;
+}
+
 #endif /* TEST_CIRC_H */

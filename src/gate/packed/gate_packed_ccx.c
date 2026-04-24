@@ -28,9 +28,6 @@
 #endif
 
 /* Minimum dimension to enable OpenMP parallelization (avoid thread overhead for small systems) */
-#ifndef OMP_THRESHOLD
-#define OMP_THRESHOLD 512
-#endif
 
 
 void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const qubit_t target) {
@@ -68,7 +65,7 @@ void ccx_packed(state_t *state, const qubit_t ctrl1, const qubit_t ctrl2, const 
         lo = c2;
     }
 
-    #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+    #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t bc = 0; bc < n_base; ++bc) {
         idx_t c000 = insertBit0(insertBit0(insertBit0(bc, lo), med), hi);
         idx_t c001 = c000 | incr_target, c010 = c000 | incr_ctrl2, c100 = c000 | incr_ctrl1;

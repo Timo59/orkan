@@ -52,7 +52,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
             const idx_t incr_ctrl = (idx_t)1 << control;
             const idx_t incr_tgt = (idx_t)1 << target;
 
-            #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t i = 0; i < n_tiles; ++i) {
                 cplx_t * restrict tile = data + i * TILE_SIZE;
 
@@ -115,7 +115,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
             const idx_t n_bl = TILE_DIM >> 1;
             const idx_t incr_local = (idx_t)1 << control;
 
-            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t btr = 0; btr < n_bt; ++btr) {
                 const idx_t tr0 = insertBit0(btr, tile_bit);
                 const idx_t tr1 = tr0 | incr_tile;
@@ -328,7 +328,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
             const idx_t n_bl = TILE_DIM >> 1;
             const idx_t incr_local = (idx_t)1 << target;
 
-            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t btr = 0; btr < n_bt; ++btr) {
                 const idx_t tr0 = insertBit0(btr, tile_bit);
                 const idx_t tr1 = tr0 | incr_tile;
@@ -498,7 +498,7 @@ void cy_tiled(state_t *state, const qubit_t control, const qubit_t target) {
             const idx_t incr_ctrl = (idx_t)1 << (control - LOG_TILE_DIM);
             const idx_t incr_tgt = (idx_t)1 << (target - LOG_TILE_DIM);
 
-            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD)
+            #pragma omp parallel for schedule(static, 1) if(dim >= OMP_THRESHOLD_MIXED)
             for (idx_t btr = 0; btr < n_bt; ++btr) {
                 const idx_t tr00 = insertBits2_0(btr, lo, hi);
                 const idx_t tr01 = tr00 | incr_tgt, tr10 = tr00 | incr_ctrl, tr11 = tr10 | incr_tgt;
