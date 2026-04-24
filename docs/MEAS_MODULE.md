@@ -2,7 +2,7 @@
 
 **Module:** Measurement
 **Status:** In progress
-**Last Updated:** 2026-04-15
+**Last Updated:** 2026-04-24
 
 ---
 
@@ -11,9 +11,11 @@
 This module provides measurement operations on quantum states. Currently
 implemented:
 
-| Function | Pure | Mixed (packed) | Mixed (tiled) |
-|----------|:----:|:--------------:|:-------------:|
-| `mean`   | yes  | yes            | yes           |
+| Function        | Pure | Mixed (packed) | Mixed (tiled) |
+|-----------------|:----:|:--------------:|:-------------:|
+| `mean`          | yes  | yes            | yes           |
+| `matel_diag`    | yes  | —              | —             |
+| `sample_matrix` | yes  | —              | —             |
 
 ---
 
@@ -45,6 +47,18 @@ QSim/
 
 ## API
 
+### Types
+
+```c
+typedef void (*qop_t)(state_t *state);
+```
+
+Function pointer type for quantum operations that modify a state in-place.
+Operations with additional parameters (target qubit, rotation angle, ...) must
+be wrapped in a function matching this signature.
+
+### `mean`
+
 ```c
 double mean(const state_t *state, const double *obs);
 ```
@@ -66,16 +80,94 @@ Computes the expectation value of a diagonal observable:
 on failure, surviving Release builds): `state`, `state->data`, and `obs` must
 be non-NULL; `state->type` must be a valid `state_type_t` variant.
 
+### `matel_diag`
+
+```c
+cplx_t matel_diag(const state_t *bra, const state_t *ket, const double *obs);
+```
+
+Matrix element of a diagonal observable between two pure states:
+
+`<bra| H |ket> = sum_x obs[x] conj(bra[x]) ket[x]`
+
+When `bra == ket` this reduces to `mean()` (imaginary part zero to machine
+precision).
+
+**Parameters:**
+
+| Parameter | Type              | Description                                      |
+|-----------|-------------------|--------------------------------------------------|
+| `bra`     | `const state_t *` | Pure quantum state (bra vector)                   |
+| `ket`     | `const state_t *` | Pure quantum state (ket vector)                   |
+| `obs`     | `const double *`  | Diagonal coefficients, length `2^(bra->qubits)`   |
+| return    | `cplx_t`          | Complex matrix element `<bra\| H \|ket>`          |
+
+**Preconditions:** Both states must be `PURE` with matching qubit counts.
+Mixed states cause program termination with a diagnostic message.
+
+### `sample_matrix`
+
+```c
+void sample_matrix(const state_t *state, const double *obs,
+                   qop_t *const *ops, const idx_t *sizes, idx_t n_layers,
+                   cplx_t *out);
+```
+
+Computes the Hermitian sample matrix `S` with entries
+
+`S_{i,j} = <iota| V_i^+ H V_j |iota>`
+
+where `V_k = U_{k_L}^{(L)} ... U_{k_1}^{(1)}` is the composite operation for
+multi-index `k`, and `H = diag(obs)`.
+
+The flat index `k` maps to multi-index `(k_1, ..., k_L)` via mixed-radix
+decomposition with `k_1` least significant (fastest-varying):
+
+`k = k_L * (n_{L-1} * ... * n_1) + ... + k_2 * n_1 + k_1`
+
+Output is the packed lower triangle of `S` in column-major order, `K(K+1)/2`
+elements where `K = sizes[0] * ... * sizes[n_layers-1]`.
+
+**Parameters:**
+
+| Parameter   | Type                | Description                                      |
+|-------------|---------------------|--------------------------------------------------|
+| `state`     | `const state_t *`   | Pure quantum state \|iota>                       |
+| `obs`       | `const double *`    | Diagonal coefficients, length `2^(state->qubits)` |
+| `ops`       | `qop_t *const *`    | Layered operations: `ops[l][k]` is the k-th op in layer l |
+| `sizes`     | `const idx_t *`     | Number of operations per layer, length `n_layers` |
+| `n_layers`  | `idx_t`             | Number of operation layers (L)                    |
+| `out`       | `cplx_t *`          | Packed lower triangle, caller-allocated, length `K*(K+1)/2` |
+
+**Preconditions:** State must be `PURE`. Mixed states cause program termination.
+`n_layers` must be positive. Memory: holds at most two state-vector copies
+simultaneously.
+
 ---
 
 ## Backend Implementations
 
 ### Pure (`meas_pure.c`)
 
-Iterates all `2^n` amplitudes, accumulates `obs[x] * |psi[x]|^2` where
-`|psi|^2 = creal^2 + cimag^2` (avoids `cabs` sqrt).
+**`mean_pure`:** Iterates all `2^n` amplitudes, accumulates
+`obs[x] * |psi[x]|^2` where `|psi|^2 = creal^2 + cimag^2` (avoids `cabs`
+sqrt).  OpenMP: `#pragma omp parallel for reduction(+:sum)` over the full
+state vector.
 
-OpenMP: `#pragma omp parallel for reduction(+:sum)` over the full state vector.
+**`matel_diag_pure`:** Same loop structure as `mean_pure` but accumulates two
+`double` reductions (`sum_re`, `sum_im`) for the real and imaginary parts of
+`obs[x] * conj(bra[x]) * ket[x]`.  The loop body expands complex arithmetic
+into real operations (`ar*br + ai*bi`, `ar*bi - ai*br`) for auto-vectorization.
+
+**`apply_composite`:** Static inline helper.  Decomposes flat index `k` into
+multi-index via repeated `% sizes[l]` / `/ sizes[l]` (k_1 least significant)
+and applies `ops[l][k_l]` sequentially.
+
+**`sample_matrix_pure`:** Iterates the packed lower triangle column by column.
+For each column `j`, builds `phi_j = V_j |iota>` (the "ket") via `state_cp` +
+`apply_composite`.  The diagonal entry uses `phi_j` as both bra and ket.
+Sub-diagonal entries build `phi_i` from the input state each time.  No nested
+OpenMP — gate/channel operations already parallelise internally.
 
 ### Packed (`meas_packed.c`)
 
@@ -134,7 +226,7 @@ to `verified_install` DEPENDS in the root `CMakeLists.txt`.
 
 ## Test Suite
 
-22 tests across four categories, run at qubit counts 1 through `MAXQUBITS` (4).
+33 tests across seven categories, run at qubit counts 1 through `MAXQUBITS` (4).
 Shared helpers `fill_identity_obs` and `fill_uniform_obs` live in
 `test/include/test_meas.h`.
 
@@ -147,6 +239,17 @@ Shared helpers `fill_identity_obs` and `fill_uniform_obs` live in
 | `test_mean_pure_imaginary` | (i/√2, i/√2) | obs={0,1} | 0.5 |
 | `test_mean_pure_negative_obs` | \|+⟩^n | obs[x]=−1 | −1.0 |
 | `test_mean_pure_mixed_sign_obs` | \|+⟩^2 | {−3,+1,−1,+3} | 0.0 |
+| `test_matel_diag_pure_self` | \|+⟩^n, bra=ket | obs[x]=x | mean(s, obs) |
+| `test_matel_diag_pure_orthogonal` | \|0⟩, \|1⟩ | obs[x]=x | 0 |
+| `test_matel_diag_pure_conjugate_symmetry` | \|+⟩^n, \|0⟩ | obs[x]=x | conj(swap) |
+| `test_matel_diag_pure_known` | (1,i)/√2, \|+⟩ | {0,1} | −i/2 |
+| `test_sample_matrix_pure_trivial` | \|+⟩^n, 1 id op | obs[x]=x | [mean] |
+| `test_sample_matrix_pure_two_ops` | \|0⟩, {I,X} | {0,1} | {0,0,1} |
+| `test_sample_matrix_pure_known_values` | \|+⟩, {I,H} | {0,1} | {0.5, 0, 0} |
+| `test_sample_matrix_pure_multi_layer` | \|0⟩, 2 layers | {0,1} | known 4×4 |
+| `test_sample_matrix_pure_asymmetric_layers` | \|0⟩, sizes={3,2} | {0,1} | diag discriminates ordering |
+| `test_sample_matrix_pure_state_unchanged` | \|+⟩^2, {I,X} | obs[x]=x | input state preserved |
+| `test_matel_diag_pure_complex_2q` | \|+⟩^2, i\|+⟩^2 | {0,1,2,3} | 1.5i |
 | `test_mean_packed_uniform` | \|+⟩⟨+\|^⊗n | obs[x]=1 | 1.0 |
 | `test_mean_packed_identity` | \|+⟩⟨+\|^⊗n | obs[x]=x | (2^n−1)/2 |
 | `test_mean_packed_pure_embed` | \|0⟩⟨0\| | obs[x]=x | 0.0 |
