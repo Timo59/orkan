@@ -144,6 +144,40 @@ cmake --build cmake-build-debug --target verified_install
 
 ---
 
+## CI/CD (.gitlab-ci.yml)
+
+### Stages
+
+| Stage | Job | Trigger | Description |
+|---|---|---|---|
+| `test` | `test-linux` | Push to `main` | Builds and tests on Ubuntu (system OpenBLAS, debug preset) |
+| `publish` | `publish-to-github` | Tag push | Publishes a filtered copy of `main` to the public GitHub mirror |
+
+### test-linux
+
+Runs on every push to `main`. Uses `ubuntu:latest` with system OpenBLAS (`-DUSE_SYSTEM_OPENBLAS=ON`). Caches the build directory keyed by branch to avoid full recompilation.
+
+### publish-to-github
+
+Publishes to [github.com/Timo59/orkan](https://github.com/Timo59/orkan) when a tag is pushed. Uses `git-filter-repo` to strip internal files before pushing:
+
+| Excluded path | Reason |
+|---|---|
+| `docs/` | Internal technical specs and planning |
+| `profile/` | Internal profiling harness |
+| `CLAUDE.md` | Claude Code instructions |
+| `MEMORY.md` | Claude auto-memory index |
+| `PRD.md` | Internal product requirements |
+| `.gitlab-ci.yml` | Internal CI — irrelevant on GitHub |
+
+`git-filter-repo` produces deterministic SHAs, so subsequent publishes are regular fast-forward pushes. No force-push is needed after the initial setup.
+
+**Required CI/CD variable:** `GITHUB_TOKEN` — a GitHub classic PAT with `repo` scope.
+
+**Important:** Do not push to the GitHub repo manually. The filtered history has different SHAs than the GitLab history. A manual push would create conflicts that require a force-push to resolve.
+
+---
+
 ## Platform Notes
 
 | Platform | BLAS (tests only) | OpenMP | Notes |
