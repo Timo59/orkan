@@ -283,7 +283,7 @@ void test_sample_matrix_pure_trivial(void) {
  * 1 qubit, |iota> = |0>, obs = {0, 1}, L=1, ops = {I, X}.
  * K=2.  V_0 = I -> |0>,  V_1 = X -> |1>
  * S = [[0, 0], [0, 1]]
- * Packed (col-major lower): {0, 0, 1}
+ * Full (col-major): {0, 0, 0, 1}
  */
 void test_sample_matrix_pure_two_ops(void) {
     state_t s = {.type = PURE, .data = NULL, .qubits = 0};
@@ -296,11 +296,11 @@ void test_sample_matrix_pure_two_ops(void) {
     qop_t *ops[] = {layer0};
     idx_t sizes[] = {2};
 
-    cplx_t out[3];
+    cplx_t out[4];
     sample_matrix(&s, obs, ops, sizes, 1, out);
 
-    cplx_t expected[3] = {0.0, 0.0, 1.0};
-    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, 3, PRECISION);
+    cplx_t expected[4] = {0.0, 0.0, 0.0, 1.0};
+    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, 4, PRECISION);
 
     state_free(&s);
 }
@@ -316,7 +316,7 @@ void test_sample_matrix_pure_two_ops(void) {
  * S[1,0] = <0|H|+> = 0*1*(1/sqrt2) + 1*0*(1/sqrt2) = 0
  * S[1,1] = <0|H|0> = 0*1 + 1*0 = 0
  *
- * Packed (col-major lower): {0.5, 0, 0}
+ * Full (col-major): {0.5, 0, 0, 0}
  */
 void test_sample_matrix_pure_known_values(void) {
     state_t s = {.type = PURE, .data = NULL, .qubits = 0};
@@ -328,11 +328,11 @@ void test_sample_matrix_pure_known_values(void) {
     qop_t *ops[] = {layer0};
     idx_t sizes[] = {2};
 
-    cplx_t out[3];
+    cplx_t out[4];
     sample_matrix(&s, obs, ops, sizes, 1, out);
 
-    cplx_t expected[3] = {0.5, 0.0, 0.0};
-    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, 3, PRECISION);
+    cplx_t expected[4] = {0.5, 0.0, 0.0, 0.0};
+    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, 4, PRECISION);
 
     state_free(&s);
 }
@@ -355,7 +355,7 @@ void test_sample_matrix_pure_known_values(void) {
  *   |1> [ 0   1   1   0 ]
  *   |0> [ 0   0   0   0 ]
  *
- * Packed lower triangle (col-major): {0, 0, 0, 0, 1, 1, 0, 1, 0, 0}
+ * Full (col-major): {0,0,0,0, 0,1,1,0, 0,1,1,0, 0,0,0,0}
  */
 void test_sample_matrix_pure_multi_layer(void) {
     state_t s = {.type = PURE, .data = NULL, .qubits = 0};
@@ -370,12 +370,12 @@ void test_sample_matrix_pure_multi_layer(void) {
     idx_t sizes[] = {2, 2};
 
     const idx_t K = 4;
-    const idx_t packed_len = K * (K + 1) / 2;  /* 10 */
-    cplx_t out[10];
+    const idx_t full_len = K * K;  /* 16 */
+    cplx_t out[16];
     sample_matrix(&s, obs, ops, sizes, 2, out);
 
-    cplx_t expected[10] = {0, 0, 0, 0, 1, 1, 0, 1, 0, 0};
-    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, packed_len, PRECISION);
+    cplx_t expected[16] = {0,0,0,0, 0,1,1,0, 0,1,1,0, 0,0,0,0};
+    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, full_len, PRECISION);
 
     state_free(&s);
 }
@@ -407,19 +407,12 @@ void test_sample_matrix_pure_asymmetric_layers(void) {
     idx_t sizes[] = {3, 2};
 
     const idx_t K = 6;
-    cplx_t out[21];  /* K*(K+1)/2 = 21 */
+    cplx_t out[36];  /* K*K = 36 */
     sample_matrix(&s, obs, ops, sizes, 2, out);
 
-    /* col-major lower triangle — diagonal at positions:
-     * col 0: 6 entries, pos 0..5,   diag at 0
-     * col 1: 5 entries, pos 6..10,  diag at 6
-     * col 2: 4 entries, pos 11..14, diag at 11
-     * col 3: 3 entries, pos 15..17, diag at 15
-     * col 4: 2 entries, pos 18..19, diag at 18
-     * col 5: 1 entry,   pos 20,     diag at 20
-     */
+    /* full col-major — diagonal at positions d*(K+1) */
     const double diag_expected[6] = {0.0, 1.0, 0.5, 0.0, 1.0, 0.5};
-    const idx_t  diag_pos[6]      = {0, 6, 11, 15, 18, 20};
+    const idx_t  diag_pos[6]      = {0, 7, 14, 21, 28, 35};
     for (int d = 0; d < 6; ++d) {
         TEST_ASSERT_DOUBLE_WITHIN(PRECISION, diag_expected[d], creal(out[diag_pos[d]]));
         TEST_ASSERT_DOUBLE_WITHIN(PRECISION, 0.0, cimag(out[diag_pos[d]]));
@@ -448,7 +441,7 @@ void test_sample_matrix_pure_state_unchanged(void) {
     qop_t *ops[] = {layer0};
     idx_t sizes[] = {2};
 
-    cplx_t out[3];
+    cplx_t out[4];
     sample_matrix(&s, obs, ops, sizes, 1, out);
 
     /* verify state unchanged */

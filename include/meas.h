@@ -94,8 +94,8 @@ cplx_t matel_diag(const state_t *bra, const state_t *ket, const double *obs);
  *                          in layer l (l = 0..n_layers-1, k = 0..sizes[l]-1)
  * @param[in]   sizes       Number of operations per layer, length n_layers
  * @param[in]   n_layers    Number of operation layers (L)
- * @param[out]  out         Packed lower triangle (column-major), caller-allocated,
- *                          length K*(K+1)/2
+ * @param[out]  out         Full matrix (column-major), caller-allocated,
+ *                          length K*K
  */
 void sample_matrix(const state_t *state, const double *obs,
                    qop_t *const *ops, const idx_t *sizes, idx_t n_layers,

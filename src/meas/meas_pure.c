@@ -4,7 +4,7 @@
  *
  * - mean_pure:            <H> = sum_x obs[x] |psi(x)|^2
  * - matel_diag_pure:      <bra|H|ket> = sum_x obs[x] conj(bra[x]) ket[x]
- * - sample_matrix_pure:   S_{i,j} = <iota|V_i^+ H V_j|iota>  (packed lower triangle)
+ * - sample_matrix_pure:   S_{i,j} = <iota|V_i^+ H V_j|iota>  (full matrix, column-major)
  *
  * All reduction loops are OpenMP-parallelised, gated by OMP_THRESHOLD_PURE.
  * The sample_matrix outer loops are serial (operations are already parallel).
@@ -85,7 +85,6 @@ void sample_matrix_pure(const state_t *state, const double *obs,
     for (idx_t l = 0; l < n_layers; ++l)
         K *= sizes[l];
 
-    idx_t pos = 0;
     for (idx_t j = 0; j < K; ++j) {
         /* evolve ket: phi_j = V_j |iota> */
         state_t phi_j = state_cp(state);
@@ -93,15 +92,17 @@ void sample_matrix_pure(const state_t *state, const double *obs,
         apply_composite(&phi_j, ops, sizes, n_layers, j);
 
         /* diagonal entry (real-valued): bra == ket */
-        out[pos++] = matel_diag_pure(&phi_j, &phi_j, obs);
+        out[j * K + j] = matel_diag_pure(&phi_j, &phi_j, obs);
 
-        /* sub-diagonal: evolve bra from input state */
+        /* off-diagonal: compute lower, mirror to upper */
         for (idx_t i = j + 1; i < K; ++i) {
             state_t phi_i = state_cp(state);
             if (!phi_i.data) { state_free(&phi_j); goto oom; }
             apply_composite(&phi_i, ops, sizes, n_layers, i);
 
-            out[pos++] = matel_diag_pure(&phi_i, &phi_j, obs);
+            const cplx_t val = matel_diag_pure(&phi_i, &phi_j, obs);
+            out[i + j * K] = val;        /* lower */
+            out[j + i * K] = conj(val);  /* upper */
             state_free(&phi_i);
         }
 
