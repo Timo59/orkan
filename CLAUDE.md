@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this repository.
+Instructions for Claude Code agents working on Orkan.
+
+---
 
 ## Build & Test
 
@@ -17,12 +19,14 @@ ctest --preset debug
 > `CMakeLists.txt` enforces this: configuring a `*debug*` directory with a non-Debug build type
 > (or vice versa) is a `FATAL_ERROR`.
 
+---
+
 ## Repository Layout
 
 ```
-QSim/                         # C17/C++17 quantum simulator
+orkan/                        # C17/C++17 quantum simulator
 ├── src/                      # Main library source (state/ and gate/ subdirs)
-├── include/                  # Public headers (qlib.h, state.h, gate.h, …)
+├── include/                  # Public headers (orkan.h, state.h, gate.h, …)
 ├── test/                     # CTest-based integration test suite
 ├── benchmark/                # Performance benchmarks
 ├── profile/                  # Profiling harness
@@ -31,12 +35,14 @@ QSim/                         # C17/C++17 quantum simulator
 │   ├── PlatformConfig.cmake  # OS/architecture detection
 │   ├── Dependencies.cmake    # find_package calls and extern wiring
 │   └── CompilerFlags.cmake   # Interface library for compiler flags
-├── docs/                     # Per-module technical specs (see Module table below)
+├── docs/                     # Per-module technical specs (see Module Routing below)
 ├── tools/                    # Dev utilities (e.g. verify_ilp64.c)
 ├── archive/                  # Archived/experimental code – do not modify
 ├── CMakeLists.txt            # Root build definition
 └── CMakePresets.json         # Defines debug and release presets
 ```
+
+---
 
 ## Build Options
 
@@ -48,20 +54,44 @@ QSim/                         # C17/C++17 quantum simulator
 | `ENABLE_ASAN` | `OFF` | Enable AddressSanitizer + UBSan |
 | `LOG_TILE_DIM` | `3` (Debug) / `5` (Release) | Log₂ of tile dimension — **do not override manually** |
 
-## Modules
+---
 
-**Read only the Technical Spec for your module. Do not read any other Technical Spec. Do not read Thesis Notes unless explicitly asked to add or update them. Each Technical Spec must include a Build Integration section documenting its `CMakeLists.txt`.**
+## Module Routing
 
-**Documentation update policy: After completing any task — and always before committing changes — update the Technical Spec for the affected module(s) to reflect the current state of the code. The spec must remain the authoritative, accurate description of what is actually implemented.**
+Before starting any task, identify which module it belongs to and read **only** that module's Technical Spec.
 
-| Module      | Status      | Technical Spec          | Thesis Notes |
-|-------------|-------------|-------------------------|--------------|
-| Build System | Complete   | `docs/BUILD_SYSTEM.md`  | —            |
-| State       | Complete    | `docs/STATE_MODULE.md`  | `~/Projects/thesis/2.Simulation/notes/STATE_THESIS_NOTES.md` |
-| Gate        | In Progress | `docs/GATE_MODULE.md`   | `~/Projects/thesis/2.Simulation/notes/GATES_THESIS_NOTES.md` |
-| Channel     | In Progress | `docs/CHANNEL_MODULE.md`| `~/Projects/thesis/2.Simulation/notes/CHANNEL_THESIS_NOTES.md` |
-| Measurement | Pending     | `docs/MEAS_MODULE.md`   | —            |
-| Tests       | In Progress | `docs/TEST_SUITE.md`    | —            |
-| Benchmark   | In Progress | `docs/BENCHMARK.md`     | `~/Projects/thesis/2.Simulation/notes/BENCHMARK_THESIS_NOTES.md` |
-| Profile     | In Progress | `docs/PROFILE.md`       | —            |
-| Circuit     | In Progress | `docs/CIRCUIT_MODULE.md`| —            |
+| Module       | Status      | Technical Spec           |
+|--------------|-------------|--------------------------|
+| Build System | Complete    | `docs/BUILD_SYSTEM.md`   |
+| State        | Complete    | `docs/STATE_MODULE.md`   |
+| Gate         | In Progress | `docs/GATE_MODULE.md`    |
+| Channel      | In Progress | `docs/CHANNEL_MODULE.md` |
+| Measurement  | In Progress | `docs/MEAS_MODULE.md`    |
+| Circuit      | In Progress | `docs/CIRCUIT_MODULE.md` |
+| Tests        | In Progress | `docs/TEST_SUITE.md`     |
+| Benchmark    | In Progress | `docs/BENCHMARK.md`      |
+| Profile      | In Progress | `docs/PROFILE.md`        |
+
+If a task touches multiple modules, read each relevant spec but finish one module's changes before starting the next.
+
+---
+
+## Reading Rules
+
+**Always read before any task:**
+1. This file (`CLAUDE.md`)
+2. The Technical Spec for the module(s) your task belongs to
+3. `README.md` for build and install instructions
+
+**Do NOT read unless explicitly instructed:**
+- Other modules' Technical Specs
+- Files under `archive/` (legacy / experimental)
+
+---
+
+## Behavioral Rules
+
+1. After completing any task — and **always before committing changes** — update the Technical Spec for the affected module(s) to reflect the current state of the code. The spec must remain the authoritative description of what is actually implemented.
+2. Each Technical Spec must include a **Build Integration** section documenting its `CMakeLists.txt`.
+3. Do not extend code in `archive/`. Treat it as read-only.
+4. Do not add historical data, changelogs, or update timestamps to documentation files. Documentation describes the current state only — git history serves that purpose.
