@@ -7,7 +7,7 @@
 
 #define CHANNEL_VALIDATE(cond, msg) do {                        \
     if (!(cond)) {                                              \
-        fprintf(stderr, "qlib: channel: %s\n", (msg));         \
+        fprintf(stderr, "orkan: channel: %s\n", (msg));        \
         exit(EXIT_FAILURE);                                     \
     }                                                           \
 } while(0)

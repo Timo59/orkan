@@ -1,6 +1,6 @@
 /**
- * @file bench_qlib.c
- * @brief qlib_tiled and qlib_packed backend wrappers for the gate benchmark.
+ * @file bench_orkan.c
+ * @brief orkan_tiled and orkan_packed backend wrappers for the gate benchmark.
  */
 
 #include "bench.h"
@@ -9,37 +9,37 @@
  * Context: state + resolved apply function
  * ===================================================================== */
 
-typedef void (*qlib_apply_fn)(void *ctx, const qubit_t *pos);
+typedef void (*orkan_apply_fn)(void *ctx, const qubit_t *pos);
 
 typedef struct {
     state_t       *state;
-    qlib_apply_fn  apply;
+    orkan_apply_fn  apply;
     double         par;
-} qlib_ctx_t;
+} orkan_ctx_t;
 
 /* =====================================================================
  * Per-gate apply functions — zero branching in hot path
  * ===================================================================== */
 
-static void apply_x(void *c, const qubit_t *p)   { x(((qlib_ctx_t*)c)->state, p[0]); }
-static void apply_y(void *c, const qubit_t *p)   { y(((qlib_ctx_t*)c)->state, p[0]); }
-static void apply_z(void *c, const qubit_t *p)   { z(((qlib_ctx_t*)c)->state, p[0]); }
-static void apply_h(void *c, const qubit_t *p)   { h(((qlib_ctx_t*)c)->state, p[0]); }
-static void apply_s(void *c, const qubit_t *p)   { s(((qlib_ctx_t*)c)->state, p[0]); }
-static void apply_t(void *c, const qubit_t *p)   { t(((qlib_ctx_t*)c)->state, p[0]); }
-static void apply_rx(void *c, const qubit_t *p)  { qlib_ctx_t *q = (qlib_ctx_t*)c; rx(q->state, p[0], q->par); }
-static void apply_ry(void *c, const qubit_t *p)  { qlib_ctx_t *q = (qlib_ctx_t*)c; ry(q->state, p[0], q->par); }
-static void apply_rz(void *c, const qubit_t *p)  { qlib_ctx_t *q = (qlib_ctx_t*)c; rz(q->state, p[0], q->par); }
-static void apply_cx(void *c, const qubit_t *p)  { cx(((qlib_ctx_t*)c)->state, p[0], p[1]); }
-static void apply_cy(void *c, const qubit_t *p)  { cy(((qlib_ctx_t*)c)->state, p[0], p[1]); }
-static void apply_cz(void *c, const qubit_t *p)  { cz(((qlib_ctx_t*)c)->state, p[0], p[1]); }
-static void apply_ccx(void *c, const qubit_t *p) { ccx(((qlib_ctx_t*)c)->state, p[0], p[1], p[2]); }
+static void apply_x(void *c, const qubit_t *p)   { x(((orkan_ctx_t*)c)->state, p[0]); }
+static void apply_y(void *c, const qubit_t *p)   { y(((orkan_ctx_t*)c)->state, p[0]); }
+static void apply_z(void *c, const qubit_t *p)   { z(((orkan_ctx_t*)c)->state, p[0]); }
+static void apply_h(void *c, const qubit_t *p)   { h(((orkan_ctx_t*)c)->state, p[0]); }
+static void apply_s(void *c, const qubit_t *p)   { s(((orkan_ctx_t*)c)->state, p[0]); }
+static void apply_t(void *c, const qubit_t *p)   { t(((orkan_ctx_t*)c)->state, p[0]); }
+static void apply_rx(void *c, const qubit_t *p)  { orkan_ctx_t *q = (orkan_ctx_t*)c; rx(q->state, p[0], q->par); }
+static void apply_ry(void *c, const qubit_t *p)  { orkan_ctx_t *q = (orkan_ctx_t*)c; ry(q->state, p[0], q->par); }
+static void apply_rz(void *c, const qubit_t *p)  { orkan_ctx_t *q = (orkan_ctx_t*)c; rz(q->state, p[0], q->par); }
+static void apply_cx(void *c, const qubit_t *p)  { cx(((orkan_ctx_t*)c)->state, p[0], p[1]); }
+static void apply_cy(void *c, const qubit_t *p)  { cy(((orkan_ctx_t*)c)->state, p[0], p[1]); }
+static void apply_cz(void *c, const qubit_t *p)  { cz(((orkan_ctx_t*)c)->state, p[0], p[1]); }
+static void apply_ccx(void *c, const qubit_t *p) { ccx(((orkan_ctx_t*)c)->state, p[0], p[1], p[2]); }
 
 /* =====================================================================
  * Gate resolution — called once at init
  * ===================================================================== */
 
-static qlib_apply_fn qlib_resolve_gate(bench_gate_id_t gate) {
+static orkan_apply_fn orkan_resolve_gate(bench_gate_id_t gate) {
     switch (gate) {
     case BG_X:   return apply_x;
     case BG_Y:   return apply_y;
@@ -55,7 +55,7 @@ static qlib_apply_fn qlib_resolve_gate(bench_gate_id_t gate) {
     case BG_CZ:  return apply_cz;
     case BG_CCX: return apply_ccx;
     default:
-        fprintf(stderr, "bench_qlib: unknown gate id %d\n", (int)gate);
+        fprintf(stderr, "bench_orkan: unknown gate id %d\n", (int)gate);
         abort();
     }
 }
@@ -64,8 +64,8 @@ static qlib_apply_fn qlib_resolve_gate(bench_gate_id_t gate) {
  * Apply — single indirect call, zero branching
  * ===================================================================== */
 
-static void qlib_apply(void *ctx, const qubit_t *pos) {
-    qlib_ctx_t *c = (qlib_ctx_t *)ctx;
+static void orkan_apply(void *ctx, const qubit_t *pos) {
+    orkan_ctx_t *c = (orkan_ctx_t *)ctx;
     c->apply(ctx, pos);
 }
 
@@ -73,19 +73,19 @@ static void qlib_apply(void *ctx, const qubit_t *pos) {
  * Cleanup (shared)
  * ===================================================================== */
 
-static void qlib_cleanup(void *ctx) {
-    qlib_ctx_t *c = (qlib_ctx_t *)ctx;
+static void orkan_cleanup(void *ctx) {
+    orkan_ctx_t *c = (orkan_ctx_t *)ctx;
     state_free(c->state);
     free(c->state);
     free(c);
 }
 
 /* =====================================================================
- * qlib_tiled backend
+ * orkan_tiled backend
  * ===================================================================== */
 
-static void *qlib_tiled_init(qubit_t qubits, bench_gate_id_t gate, double par) {
-    qlib_ctx_t *c = calloc(1, sizeof(qlib_ctx_t));
+static void *orkan_tiled_init(qubit_t qubits, bench_gate_id_t gate, double par) {
+    orkan_ctx_t *c = calloc(1, sizeof(orkan_ctx_t));
     if (!c) return NULL;
     c->state = malloc(sizeof(state_t));
     if (!c->state) { free(c); return NULL; }
@@ -94,11 +94,11 @@ static void *qlib_tiled_init(qubit_t qubits, bench_gate_id_t gate, double par) {
     if (!c->state->data) { free(c->state); free(c); return NULL; }
     bench_init_hermitian_tiled(c->state->data, qubits);
     c->par = par;
-    c->apply = qlib_resolve_gate(gate);
+    c->apply = orkan_resolve_gate(gate);
     return c;
 }
 
-static size_t qlib_tiled_touch_bytes(qubit_t qubits) {
+static size_t orkan_tiled_touch_bytes(qubit_t qubits) {
     idx_t dim = (idx_t)1 << qubits;
     if (qubits < LOG_TILE_DIM) {
         /* State fits in a single diagonal tile — gate touches all
@@ -111,26 +111,26 @@ static size_t qlib_tiled_touch_bytes(qubit_t qubits) {
     return 2 * n_tile_pairs * TILE_SIZE * sizeof(cplx_t);
 }
 
-static int qlib_available(qubit_t qubits) {
+static int orkan_available(qubit_t qubits) {
     (void)qubits;
     return 1;
 }
 
-const bench_backend_t qlib_tiled_backend = {
-    .name        = "qlib_tiled",
-    .init        = qlib_tiled_init,
-    .apply       = qlib_apply,
-    .cleanup     = qlib_cleanup,
-    .touch_bytes = qlib_tiled_touch_bytes,
-    .available   = qlib_available
+const bench_backend_t orkan_tiled_backend = {
+    .name        = "orkan_tiled",
+    .init        = orkan_tiled_init,
+    .apply       = orkan_apply,
+    .cleanup     = orkan_cleanup,
+    .touch_bytes = orkan_tiled_touch_bytes,
+    .available   = orkan_available
 };
 
 /* =====================================================================
- * qlib_packed backend
+ * orkan_packed backend
  * ===================================================================== */
 
-static void *qlib_packed_init(qubit_t qubits, bench_gate_id_t gate, double par) {
-    qlib_ctx_t *c = calloc(1, sizeof(qlib_ctx_t));
+static void *orkan_packed_init(qubit_t qubits, bench_gate_id_t gate, double par) {
+    orkan_ctx_t *c = calloc(1, sizeof(orkan_ctx_t));
     if (!c) return NULL;
     c->state = malloc(sizeof(state_t));
     if (!c->state) { free(c); return NULL; }
@@ -139,20 +139,20 @@ static void *qlib_packed_init(qubit_t qubits, bench_gate_id_t gate, double par) 
     if (!c->state->data) { free(c->state); free(c); return NULL; }
     bench_init_hermitian_packed(c->state->data, qubits);
     c->par = par;
-    c->apply = qlib_resolve_gate(gate);
+    c->apply = orkan_resolve_gate(gate);
     return c;
 }
 
-static size_t qlib_packed_touch_bytes(qubit_t qubits) {
+static size_t orkan_packed_touch_bytes(qubit_t qubits) {
     idx_t dim = (idx_t)1 << qubits;
     return 2 * ((size_t)dim * (dim + 1) / 2) * sizeof(cplx_t);
 }
 
-const bench_backend_t qlib_packed_backend = {
-    .name        = "qlib_packed",
-    .init        = qlib_packed_init,
-    .apply       = qlib_apply,
-    .cleanup     = qlib_cleanup,
-    .touch_bytes = qlib_packed_touch_bytes,
-    .available   = qlib_available
+const bench_backend_t orkan_packed_backend = {
+    .name        = "orkan_packed",
+    .init        = orkan_packed_init,
+    .apply       = orkan_apply,
+    .cleanup     = orkan_cleanup,
+    .touch_bytes = orkan_packed_touch_bytes,
+    .available   = orkan_available
 };

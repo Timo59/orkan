@@ -68,8 +68,8 @@ static void init_backends(void) {
         .available = stub_available
     };
 
-    bench_backends[BACKEND_QLIB_TILED]  = qlib_tiled_backend;
-    bench_backends[BACKEND_QLIB_PACKED] = qlib_packed_backend;
+    bench_backends[BACKEND_ORKAN_TILED]  = orkan_tiled_backend;
+    bench_backends[BACKEND_ORKAN_PACKED] = orkan_packed_backend;
 
     bench_backends[BACKEND_BLAS] = blas_backend;
 #ifdef HAVE_QUEST
@@ -110,7 +110,7 @@ static void usage(const char *prog) {
         "  --per-qubit       Report per-position statistics\n"
         "  --output <FMT>    console, csv, pgfplots (default: console)\n"
         "  --backends <LIST> Comma-separated backends to run (default: all)\n"
-        "                    Names: qlib_tiled,qlib_packed,BLAS,QuEST,Qulacs,\"Qiskit Aer\"\n",
+        "                    Names: orkan_tiled,orkan_packed,BLAS,QuEST,Qulacs,\"Qiskit Aer\"\n",
         prog);
     exit(1);
 }

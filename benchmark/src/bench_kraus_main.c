@@ -17,8 +17,8 @@
 static const bench_kraus_backend_t *kraus_backends[KRAUS_BACKEND_COUNT];
 
 static void init_kraus_backends(void) {
-    kraus_backends[0] = &kraus_qlib_tiled_backend;
-    kraus_backends[1] = &kraus_qlib_packed_backend;
+    kraus_backends[0] = &kraus_orkan_tiled_backend;
+    kraus_backends[1] = &kraus_orkan_packed_backend;
     kraus_backends[2] = &kraus_blas_backend;
 #ifdef HAVE_QUEST
     kraus_backends[3] = &kraus_quest_backend;
@@ -42,7 +42,7 @@ static void init_kraus_backends(void) {
  *
  * The formatter code reads bench_backends[b].name and BACKEND_COUNT.
  * We fill all BACKEND_COUNT slots: Kraus backends get their real names,
- * unused gate-only slots (qlib_tiled, qlib_packed) get stub names with
+ * unused gate-only slots (orkan_tiled, orkan_packed) get stub names with
  * available() returning 0.
  * ===================================================================== */
 
@@ -57,8 +57,8 @@ static int    stub_available(qubit_t q) { (void)q; return 0; }
 bench_backend_t bench_backends[BACKEND_COUNT];
 
 static const char *kraus_backend_names[BACKEND_COUNT] = {
-    [BACKEND_QLIB_TILED]  = "qlib_tiled",
-    [BACKEND_QLIB_PACKED] = "qlib_packed",
+    [BACKEND_ORKAN_TILED]  = "orkan_tiled",
+    [BACKEND_ORKAN_PACKED] = "orkan_packed",
     [BACKEND_BLAS]        = "BLAS",
     [BACKEND_QUEST]       = "QuEST",
     [BACKEND_QULACS]      = "Qulacs",
@@ -81,8 +81,8 @@ static void init_formatter_backends(void) {
  * Mapping: BACKEND_COUNT slots -> KRAUS_BACKEND_COUNT slots
  *
  * gate backend enum          kraus index
- * BACKEND_QLIB_TILED  (0)     0
- * BACKEND_QLIB_PACKED (1)     1
+ * BACKEND_ORKAN_TILED  (0)     0
+ * BACKEND_ORKAN_PACKED (1)     1
  * BACKEND_BLAS        (2)     2
  * BACKEND_QUEST       (3)     3
  * BACKEND_QULACS      (4)     4
@@ -91,8 +91,8 @@ static void init_formatter_backends(void) {
 
 static int backend_to_kraus(int b) {
     switch (b) {
-    case BACKEND_QLIB_TILED:  return 0;
-    case BACKEND_QLIB_PACKED: return 1;
+    case BACKEND_ORKAN_TILED:  return 0;
+    case BACKEND_ORKAN_PACKED: return 1;
     case BACKEND_BLAS:        return 2;
     case BACKEND_QUEST:       return 3;
     case BACKEND_QULACS:      return 4;
@@ -119,7 +119,7 @@ static void usage(const char *prog) {
         "  --per-qubit       Report per-position statistics\n"
         "  --output <FMT>    console, csv, pgfplots (default: console)\n"
         "  --backends <LIST> Comma-separated backends to run (default: all)\n"
-        "                    Names: qlib_tiled,qlib_packed,BLAS,QuEST,Qulacs,\"Qiskit Aer\"\n",
+        "                    Names: orkan_tiled,orkan_packed,BLAS,QuEST,Qulacs,\"Qiskit Aer\"\n",
         prog);
     exit(1);
 }

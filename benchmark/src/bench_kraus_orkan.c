@@ -1,6 +1,6 @@
 /**
- * @file bench_kraus_qlib.c
- * @brief qlib_tiled and qlib_packed backend wrappers for the Kraus benchmark.
+ * @file bench_kraus_orkan.c
+ * @brief orkan_tiled and orkan_packed backend wrappers for the Kraus benchmark.
  *
  * Pre-builds the superoperator at init (not timed), then calls channel_1q()
  * in the hot path.  Mirrors the fairness model of QuEST and Aer which also
@@ -34,14 +34,14 @@ void channel_1q(state_t *state, const superop_t *sop, qubit_t target);
 typedef struct {
     state_t   *state;
     superop_t  sop;
-} kraus_qlib_ctx_t;
+} kraus_orkan_ctx_t;
 
 /* =====================================================================
  * Apply — single call, zero branching
  * ===================================================================== */
 
-static void kraus_qlib_apply(void *c, const qubit_t *pos) {
-    kraus_qlib_ctx_t *ctx = (kraus_qlib_ctx_t *)c;
+static void kraus_orkan_apply(void *c, const qubit_t *pos) {
+    kraus_orkan_ctx_t *ctx = (kraus_orkan_ctx_t *)c;
     channel_1q(ctx->state, &ctx->sop, pos[0]);
 }
 
@@ -49,8 +49,8 @@ static void kraus_qlib_apply(void *c, const qubit_t *pos) {
  * Cleanup (shared)
  * ===================================================================== */
 
-static void kraus_qlib_cleanup(void *c) {
-    kraus_qlib_ctx_t *ctx = (kraus_qlib_ctx_t *)c;
+static void kraus_orkan_cleanup(void *c) {
+    kraus_orkan_ctx_t *ctx = (kraus_orkan_ctx_t *)c;
     state_free(ctx->state);
     free(ctx->state);
     free(ctx->sop.data);
@@ -75,14 +75,14 @@ static superop_t build_superop(int n_ops, int tgt_qubits, const cplx_t *ops) {
 }
 
 /* =====================================================================
- * qlib_tiled backend
+ * orkan_tiled backend
  * ===================================================================== */
 
-static void *kraus_qlib_tiled_init(qubit_t sys_qubits, int n_ops,
+static void *kraus_orkan_tiled_init(qubit_t sys_qubits, int n_ops,
                                     int tgt_qubits, const cplx_t *ops) {
     if (tgt_qubits != 1) return NULL;  /* only 1-qubit channels for now */
 
-    kraus_qlib_ctx_t *ctx = calloc(1, sizeof(kraus_qlib_ctx_t));
+    kraus_orkan_ctx_t *ctx = calloc(1, sizeof(kraus_orkan_ctx_t));
     if (!ctx) return NULL;
 
     ctx->state = malloc(sizeof(state_t));
@@ -96,7 +96,7 @@ static void *kraus_qlib_tiled_init(qubit_t sys_qubits, int n_ops,
     return ctx;
 }
 
-static size_t kraus_qlib_tiled_touch_bytes(qubit_t qubits) {
+static size_t kraus_orkan_tiled_touch_bytes(qubit_t qubits) {
     idx_t dim = (idx_t)1 << qubits;
     if (qubits < LOG_TILE_DIM) {
         return 2 * (size_t)dim * (size_t)dim * sizeof(cplx_t);
@@ -106,29 +106,29 @@ static size_t kraus_qlib_tiled_touch_bytes(qubit_t qubits) {
     return 2 * n_tile_pairs * TILE_SIZE * sizeof(cplx_t);
 }
 
-static int kraus_qlib_available(qubit_t qubits) {
+static int kraus_orkan_available(qubit_t qubits) {
     (void)qubits;
     return 1;
 }
 
-const bench_kraus_backend_t kraus_qlib_tiled_backend = {
-    .name        = "qlib_tiled",
-    .init        = kraus_qlib_tiled_init,
-    .apply       = kraus_qlib_apply,
-    .cleanup     = kraus_qlib_cleanup,
-    .touch_bytes = kraus_qlib_tiled_touch_bytes,
-    .available   = kraus_qlib_available
+const bench_kraus_backend_t kraus_orkan_tiled_backend = {
+    .name        = "orkan_tiled",
+    .init        = kraus_orkan_tiled_init,
+    .apply       = kraus_orkan_apply,
+    .cleanup     = kraus_orkan_cleanup,
+    .touch_bytes = kraus_orkan_tiled_touch_bytes,
+    .available   = kraus_orkan_available
 };
 
 /* =====================================================================
- * qlib_packed backend
+ * orkan_packed backend
  * ===================================================================== */
 
-static void *kraus_qlib_packed_init(qubit_t sys_qubits, int n_ops,
+static void *kraus_orkan_packed_init(qubit_t sys_qubits, int n_ops,
                                      int tgt_qubits, const cplx_t *ops) {
     if (tgt_qubits != 1) return NULL;
 
-    kraus_qlib_ctx_t *ctx = calloc(1, sizeof(kraus_qlib_ctx_t));
+    kraus_orkan_ctx_t *ctx = calloc(1, sizeof(kraus_orkan_ctx_t));
     if (!ctx) return NULL;
 
     ctx->state = malloc(sizeof(state_t));
@@ -142,16 +142,16 @@ static void *kraus_qlib_packed_init(qubit_t sys_qubits, int n_ops,
     return ctx;
 }
 
-static size_t kraus_qlib_packed_touch_bytes(qubit_t qubits) {
+static size_t kraus_orkan_packed_touch_bytes(qubit_t qubits) {
     idx_t dim = (idx_t)1 << qubits;
     return 2 * ((size_t)dim * (dim + 1) / 2) * sizeof(cplx_t);
 }
 
-const bench_kraus_backend_t kraus_qlib_packed_backend = {
-    .name        = "qlib_packed",
-    .init        = kraus_qlib_packed_init,
-    .apply       = kraus_qlib_apply,
-    .cleanup     = kraus_qlib_cleanup,
-    .touch_bytes = kraus_qlib_packed_touch_bytes,
-    .available   = kraus_qlib_available
+const bench_kraus_backend_t kraus_orkan_packed_backend = {
+    .name        = "orkan_packed",
+    .init        = kraus_orkan_packed_init,
+    .apply       = kraus_orkan_apply,
+    .cleanup     = kraus_orkan_cleanup,
+    .touch_bytes = kraus_orkan_packed_touch_bytes,
+    .available   = kraus_orkan_available
 };

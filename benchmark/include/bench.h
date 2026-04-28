@@ -60,8 +60,8 @@ bench_gate_id_t bench_resolve_gate(const char *name);
  * ===================================================================== */
 
 typedef enum {
-    BACKEND_QLIB_TILED,
-    BACKEND_QLIB_PACKED,
+    BACKEND_ORKAN_TILED,
+    BACKEND_ORKAN_PACKED,
     BACKEND_BLAS,
     BACKEND_QUEST,
     BACKEND_QULACS,
@@ -99,8 +99,8 @@ typedef struct bench_backend {
 extern bench_backend_t bench_backends[BACKEND_COUNT];
 
 /** Individual backend vtables — defined in their respective source files */
-extern const bench_backend_t qlib_tiled_backend;
-extern const bench_backend_t qlib_packed_backend;
+extern const bench_backend_t orkan_tiled_backend;
+extern const bench_backend_t orkan_packed_backend;
 extern const bench_backend_t blas_backend;
 #ifdef HAVE_QUEST
 extern const bench_backend_t quest_backend;

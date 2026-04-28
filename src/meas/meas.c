@@ -22,7 +22,7 @@
 
 #define MEAS_VALIDATE(cond, msg) do {                           \
     if (!(cond)) {                                              \
-        fprintf(stderr, "qlib: meas: %s\n", (msg));            \
+        fprintf(stderr, "orkan: meas: %s\n", (msg));           \
         exit(EXIT_FAILURE);                                     \
     }                                                           \
 } while(0)

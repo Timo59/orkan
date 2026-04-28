@@ -18,7 +18,7 @@
 
 #define GATE_VALIDATE(cond, msg) do {                           \
     if (!(cond)) {                                              \
-        fprintf(stderr, "qlib: gate: %s\n", (msg));            \
+        fprintf(stderr, "orkan: gate: %s\n", (msg));           \
         exit(EXIT_FAILURE);                                     \
     }                                                           \
 } while(0)

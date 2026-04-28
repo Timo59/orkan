@@ -116,7 +116,7 @@ cmake --install cmake-build-release --prefix /usr/local
 
 Installs:
 - `lib/liborkan.{so,dylib}` with versioning (SOVERSION from `PROJECT_VERSION_MAJOR`)
-- `include/orkan/` containing: `qlib.h`, `q_types.h`, `state.h`, `gate.h`, `channel.h`, `meas.h`, `circ.h`
+- `include/orkan/` containing: `orkan.h`, `q_types.h`, `state.h`, `gate.h`, `channel.h`, `meas.h`, `circ.h`
 - `lib/cmake/orkan/` containing: `OrkanConfig.cmake`, `OrkanConfigVersion.cmake`, `OrkanTargets.cmake`
 
 ### Using the installed library
@@ -128,7 +128,7 @@ target_link_libraries(myapp Orkan::orkan)
 ```
 
 ```c
-#include <orkan/qlib.h>
+#include <orkan/orkan.h>
 ```
 
 The package config file handles transitive dependencies: when `ENABLE_OPENMP` was ON at build time, `find_package(Orkan)` automatically calls `find_dependency(OpenMP)` (with Homebrew hints on macOS).

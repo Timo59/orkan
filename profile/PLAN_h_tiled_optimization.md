@@ -1,8 +1,8 @@
 # Implementation Plan: Optimizing `h_tiled()` -- Optimizations 7 and 8
 
 **Date**: 2026-02-14
-**Target file**: `/Users/timo/Code/qlib/src/gate/tiled/gate_tiled_h.c`
-**Profiling harness**: `/Users/timo/Code/qlib/profile/src/profile_h_tiled.c`
+**Target file**: `/Users/timo/Code/orkan/src/gate/tiled/gate_tiled_h.c`
+**Profiling harness**: `/Users/timo/Code/orkan/profile/src/profile_h_tiled.c`
 
 **Build configurations**:
 - Debug: `cmake-build-debug` with `LOG_TILE_DIM=3` (8x8 tiles, `TILE_DIM=8`, `TILE_SIZE=64`)
@@ -253,7 +253,7 @@ target_link_libraries(profile_h_tiled PRIVATE q)
 ### 1.3 Build and Verify
 
 ```bash
-cd /Users/timo/Code/qlib/cmake-build-release
+cd /Users/timo/Code/orkan/cmake-build-release
 cmake .. && cmake --build .
 ./profile/profile_h_tiled --min-qubits 5 --max-qubits 5 --iters 10
 ```
@@ -265,10 +265,10 @@ cmake .. && cmake --build .
 ## Step 2: Baseline Measurement
 
 ```bash
-cd /Users/timo/Code/qlib/cmake-build-release
+cd /Users/timo/Code/orkan/cmake-build-release
 ./profile/profile_h_tiled \
     --min-qubits 5 --max-qubits 12 --iters 5000 \
-    --csv /Users/timo/Code/qlib/profile/results_h_tiled_baseline.csv \
+    --csv /Users/timo/Code/orkan/profile/results_h_tiled_baseline.csv \
     --compare -v
 ```
 
@@ -470,7 +470,7 @@ For TILE_DIM=32, each `lc` increment jumps `32 * 16 = 512 bytes`. Every access t
 Build and test in Debug mode (8x8 tiles):
 
 ```bash
-cd /Users/timo/Code/qlib/cmake-build-debug
+cd /Users/timo/Code/orkan/cmake-build-debug
 cmake --build . && ctest --output-on-failure
 ```
 
@@ -491,11 +491,11 @@ cmake --build . && ctest --output-on-failure
 ## Step 6: Post-Optimization Measurement
 
 ```bash
-cd /Users/timo/Code/qlib/cmake-build-release
+cd /Users/timo/Code/orkan/cmake-build-release
 cmake --build .
 ./profile/profile_h_tiled \
     --min-qubits 5 --max-qubits 12 --iters 5000 \
-    --csv /Users/timo/Code/qlib/profile/results_h_tiled_optimized.csv \
+    --csv /Users/timo/Code/orkan/profile/results_h_tiled_optimized.csv \
     --compare -v
 ```
 
@@ -548,21 +548,21 @@ Create `profile/REPORT_h_tiled.md` following the structure of `profile/REPORT_x_
 
 ```bash
 # Step 1: Build profiling harness (after creating files)
-cd /Users/timo/Code/qlib/cmake-build-release && cmake .. && cmake --build .
+cd /Users/timo/Code/orkan/cmake-build-release && cmake .. && cmake --build .
 
 # Step 2: Baseline
 ./profile/profile_h_tiled --min-qubits 5 --max-qubits 12 --iters 5000 \
-    --csv /Users/timo/Code/qlib/profile/results_h_tiled_baseline.csv --compare -v
+    --csv /Users/timo/Code/orkan/profile/results_h_tiled_baseline.csv --compare -v
 
 # Steps 3+4: Apply optimizations to gate_tiled_h.c
 
 # Step 5: Correctness (Debug build)
-cd /Users/timo/Code/qlib/cmake-build-debug && cmake --build . && ctest --output-on-failure
+cd /Users/timo/Code/orkan/cmake-build-debug && cmake --build . && ctest --output-on-failure
 
 # Step 6: Post-optimization (Release build)
-cd /Users/timo/Code/qlib/cmake-build-release && cmake --build .
+cd /Users/timo/Code/orkan/cmake-build-release && cmake --build .
 ./profile/profile_h_tiled --min-qubits 5 --max-qubits 12 --iters 5000 \
-    --csv /Users/timo/Code/qlib/profile/results_h_tiled_optimized.csv --compare -v
+    --csv /Users/timo/Code/orkan/profile/results_h_tiled_optimized.csv --compare -v
 ```
 
 ## Invariants to Preserve

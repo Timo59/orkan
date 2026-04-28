@@ -3,7 +3,7 @@
 
 /**
  * @file profile.h
- * @brief Micro-profiling framework for qlib gate functions
+ * @brief Micro-profiling framework for orkan gate functions
  *
  * Provides high-resolution timing, descriptive statistics, memory bandwidth
  * estimation, and CSV output for detailed performance analysis of individual

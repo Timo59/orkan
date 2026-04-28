@@ -47,12 +47,12 @@ int main(void) {
     if (int_size == 8) {
         printf("✓ ILP64 support detected\n");
         printf("  This BLAS library uses 64-bit integers (ILP64)\n");
-        printf("  Compatible with qSim requirements\n");
+        printf("  Compatible with Orkan requirements\n");
         return 0;
     } else if (int_size == 4) {
         printf("✗ LP64 detected (32-bit integers)\n");
         printf("  This BLAS library uses 32-bit integers (LP64)\n");
-        printf("  NOT compatible with qSim requirements\n\n");
+        printf("  NOT compatible with Orkan requirements\n\n");
         printf("To fix this:\n");
 #ifdef __APPLE__
         printf("  - Ensure you compile with -DACCELERATE_LAPACK_ILP64\n");

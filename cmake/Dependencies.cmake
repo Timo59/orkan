@@ -7,12 +7,12 @@ option(USE_SYSTEM_OPENBLAS "Use system OpenBLAS instead of bundled" OFF)
 if(APPLE)
     # Apple Accelerate framework has guaranteed ILP64 support with ACCELERATE_LAPACK_ILP64
     message(STATUS "Using Apple Accelerate framework (ILP64 native)")
-    set(QSIM_BLAS_COMPILE_DEFINITIONS
+    set(ORKAN_BLAS_COMPILE_DEFINITIONS
             ACCELERATE_NEW_LAPACK # Required to use cblas_new
             ACCELERATE_LAPACK_ILP64  # __LAPACK_int is 64-bit
     )
-    set(QSIM_BLAS_LIBRARIES "-framework Accelerate")
-    set(QSIM_BLAS_INCLUDE_DIRS "")
+    set(ORKAN_BLAS_LIBRARIES "-framework Accelerate")
+    set(ORKAN_BLAS_INCLUDE_DIRS "")
 
 elseif(UNIX)
     # Linux: Bundle OpenBLAS with ILP64 by default
@@ -34,9 +34,9 @@ elseif(UNIX)
         endif()
 
         message(STATUS "Found OpenBLAS: ${OPENBLAS_LIB}")
-        set(QSIM_BLAS_COMPILE_DEFINITIONS "")
-        set(QSIM_BLAS_LIBRARIES ${OPENBLAS_LIB})
-        set(QSIM_BLAS_INCLUDE_DIRS "/usr/include" "/usr/local/include")
+        set(ORKAN_BLAS_COMPILE_DEFINITIONS "")
+        set(ORKAN_BLAS_LIBRARIES ${OPENBLAS_LIB})
+        set(ORKAN_BLAS_INCLUDE_DIRS "/usr/include" "/usr/local/include")
 
     else()
         # Use bundled OpenBLAS with ILP64 support
@@ -61,11 +61,11 @@ elseif(UNIX)
         FetchContent_MakeAvailable(openblas)
 
         # OpenBLAS creates the target 'openblas'
-        set(QSIM_BLAS_COMPILE_DEFINITIONS OPENBLAS_USE64BITINT)
-        set(QSIM_BLAS_LIBRARIES openblas)
+        set(ORKAN_BLAS_COMPILE_DEFINITIONS OPENBLAS_USE64BITINT)
+        set(ORKAN_BLAS_LIBRARIES openblas)
         # Get the include directory from the fetched content
         FetchContent_GetProperties(openblas SOURCE_DIR OPENBLAS_SOURCE_DIR)
-        set(QSIM_BLAS_INCLUDE_DIRS "${OPENBLAS_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated")
+        set(ORKAN_BLAS_INCLUDE_DIRS "${OPENBLAS_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated")
     endif()
 
 else()

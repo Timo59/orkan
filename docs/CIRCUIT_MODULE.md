@@ -20,7 +20,7 @@ Currently implemented:
 ## Directory Layout
 
 ```
-QSim/
+orkan/
 ├── include/
 │   └── circ.h                  # Public API
 ├── src/
@@ -147,7 +147,7 @@ set(CIRC_SOURCES
 
 **Public header** `include/circ.h` is installed alongside other headers.
 
-**Umbrella header** `include/qlib.h` includes `circ.h`.
+**Umbrella header** `include/orkan.h` includes `circ.h`.
 
 **Test target** `test_circ` is registered in `test/CMakeLists.txt` and added
 to `verified_install` DEPENDS in the root `CMakeLists.txt`.

@@ -129,7 +129,7 @@ install(TARGETS ${PROJECT_NAME_LOWER}
 
 # Install public headers
 install(FILES
-    ${INCLUDE_DIR}/qlib.h
+    ${INCLUDE_DIR}/orkan.h
     ${INCLUDE_DIR}/q_types.h
     ${INCLUDE_DIR}/state.h
     ${INCLUDE_DIR}/gate.h

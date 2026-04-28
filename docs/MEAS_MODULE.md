@@ -25,7 +25,7 @@ brief.
 ## Directory Layout
 
 ```
-QSim/
+orkan/
 ├── include/
 │   └── meas.h                  # Public API
 ├── src/
@@ -166,7 +166,7 @@ dependency confined to the relevant translation unit.
 
 **Public header** `include/meas.h` is installed alongside other headers.
 
-**Umbrella header** `include/qlib.h` includes `meas.h`.
+**Umbrella header** `include/orkan.h` includes `meas.h`.
 
 **Test target** `test_meas` is registered in `test/CMakeLists.txt` and added
 to `verified_install` DEPENDS in the root `CMakeLists.txt`.

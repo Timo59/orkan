@@ -1,9 +1,9 @@
 # Packed Storage Optimization Opportunities
 
 Research notes from a comparative analysis of Qiskit-Aer's flat-array `DensityMatrix<double>`
-implementation vs qlib's packed lower-triangular storage. These optimizations target the
+implementation vs orkan's packed lower-triangular storage. These optimizations target the
 small-qubit regime (n ≤ 6) where Aer's simpler indexing gives it a speed advantage for
-permutation gates (X, CX, SWAP). They are not thesis-critical — qlib already wins decisively
+permutation gates (X, CX, SWAP). They are not thesis-critical — orkan already wins decisively
 at n ≥ 5 — but may be worth revisiting if small-n performance becomes important.
 
 **Date:** 2026-03-15
@@ -27,12 +27,12 @@ const areg_t<2> qubits = {{qubit, qubit + num_qubits()}};
 apply_lambda(lambda, qubits);  // iterates k = 0..dim²/4, computes 4 indices per k
 ```
 
-**qlib** stores only the lower triangle of ρ (Hermiticity: ρ[r,c] = conj(ρ[c,r])), saving
+**orkan** stores only the lower triangle of ρ (Hermiticity: ρ[r,c] = conj(ρ[c,r])), saving
 ~50% memory. The cost is that every element access must determine whether it's in the lower
 triangle (direct access) or upper triangle (read the transposed element and conjugate):
 
 ```c
-// qlib's x_packed (gate_packed_1q.c:67-150)
+// orkan's x_packed (gate_packed_1q.c:67-150)
 TRAVERSE_PACKED_BLOCKS(state, target, X_BLOCK_OP);
 ```
 
@@ -375,7 +375,7 @@ void apply_cnot(const uint_t qctrl, const uint_t qtrgt) {
 }
 ```
 
-### Proposed abstraction for qlib
+### Proposed abstraction for orkan
 
 ```c
 typedef struct { int from, to; } perm_pair_t;
@@ -422,10 +422,10 @@ generalized), but they are written once and shared by all permutation gates. Thi
 
 ---
 
-## What qlib Should NOT Do
+## What orkan Should NOT Do
 
 **Do not switch to a flat dim² array.** The 2× memory savings from Hermitian packing is
-essential for the larger qubit counts (10-20) that are qlib's primary use case. The small-n
+essential for the larger qubit counts (10-20) that are orkan's primary use case. The small-n
 overhead is a fixed cost that can be mitigated with the targeted optimizations above without
 abandoning the architectural advantage.
 
@@ -440,8 +440,8 @@ of a third storage format would outweigh the benefits. The precomputed-index-tab
 - `extern/aer-dm/include/simulators/statevector/indexes.hpp` — Aer's `index0()` and `apply_lambda`
 - `extern/aer-dm/include/simulators/density_matrix/densitymatrix.hpp` — Aer's specialized gates
 - `extern/aer-dm/include/simulators/statevector/qubitvector.hpp` — Aer's `apply_permutation_matrix`
-- `include/gate.h` — qlib's `insertBit0`, `pack_idx` definitions
-- `src/gate/packed/gate_packed_1q.c` — qlib's packed 1Q gate with `TRAVERSE_PACKED_BLOCKS`
-- `src/gate/packed/gate_packed_cx.c` — qlib's packed CX with triangle branching
-- `src/gate/tiled/gate_tiled_x.c` — qlib's tiled X gate
-- `src/gate/tiled/gate_tiled_cx.c` — qlib's tiled CX gate (644 lines)
+- `include/gate.h` — orkan's `insertBit0`, `pack_idx` definitions
+- `src/gate/packed/gate_packed_1q.c` — orkan's packed 1Q gate with `TRAVERSE_PACKED_BLOCKS`
+- `src/gate/packed/gate_packed_cx.c` — orkan's packed CX with triangle branching
+- `src/gate/tiled/gate_tiled_x.c` — orkan's tiled X gate
+- `src/gate/tiled/gate_tiled_cx.c` — orkan's tiled CX gate (644 lines)

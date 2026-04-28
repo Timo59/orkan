@@ -29,10 +29,10 @@ extern "C" {
  */
 
 #ifdef __APPLE__
-#define qlib_sincos __sincos
+#define orkan_sincos __sincos
 #else
 extern void sincos(double, double*, double*);
-#define qlib_sincos sincos
+#define orkan_sincos sincos
 #endif
 
 /*

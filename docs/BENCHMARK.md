@@ -13,8 +13,8 @@ outputting results in console, CSV, or PGFplots format.
 
 | # | Backend        | Language | Storage Format                        | Notes                        |
 |---|----------------|----------|---------------------------------------|------------------------------|
-| 1 | qlib\_tiled    | C        | Tiled Hermitian (lower-triangle tiles)| Always available             |
-| 2 | qlib\_packed   | C        | Packed Hermitian (column-major lower) | Always available             |
+| 1 | orkan\_tiled    | C        | Tiled Hermitian (lower-triangle tiles)| Always available             |
+| 2 | orkan\_packed   | C        | Packed Hermitian (column-major lower) | Always available             |
 | 3 | BLAS baseline  | C        | Full 2^n x 2^n dense matrix           | Max 10 qubits; `nan` above  |
 | 4 | QuEST          | C        | Flat vector of 4^n `complex<double>`  | Built if found by CMake      |
 | 5 | Qulacs         | C++      | Flat vector of 4^n `complex<double>`  | Built if found by CMake      |
@@ -115,7 +115,7 @@ Unavailable backends (not built) are **not** errors — they silently produce `n
 
 Each backend receives a randomly initialised **Hermitian** matrix of dimension
 2^n x 2^n in its respective memory layout.  Hermiticity is the only constraint — it
-is required by qlib's symmetric storage formats.  No positive semi-definiteness or
+is required by orkan's symmetric storage formats.  No positive semi-definiteness or
 trace constraint is imposed; all competitors (QuEST, Qulacs, Qiskit Aer) accept
 arbitrary complex matrices and perform pure `ρ → UρU†` linear algebra without
 validating the input.
@@ -218,8 +218,8 @@ depends on the backend's storage format:
 
 | Backend        | touch\_bytes formula                                     |
 |----------------|----------------------------------------------------------|
-| qlib\_tiled    | `2 * n_tile_pairs * TILE_SIZE * sizeof(cplx_t)` (see below) |
-| qlib\_packed   | `2 * dim * (dim + 1) / 2 * sizeof(cplx_t)`               |
+| orkan\_tiled    | `2 * n_tile_pairs * TILE_SIZE * sizeof(cplx_t)` (see below) |
+| orkan\_packed   | `2 * dim * (dim + 1) / 2 * sizeof(cplx_t)`               |
 | BLAS           | `2 * 4^n * sizeof(cplx_t)`                               |
 | QuEST          | `2 * 4^n * sizeof(cplx_t)`                               |
 | Qulacs         | `2 * 4^n * sizeof(cplx_t)`                               |
@@ -229,13 +229,13 @@ where `sizeof(cplx_t) = 16` bytes, `dim = 2^n`, `TILE_SIZE = TILE_DIM^2`,
 `n_tile_pairs = n_tiles * (n_tiles + 1) / 2`, and the factor of 2 accounts for
 one read and one write per element.
 
-**qlib\_tiled small-state special case:** When `qubits < LOG_TILE_DIM`, the entire
+**orkan\_tiled small-state special case:** When `qubits < LOG_TILE_DIM`, the entire
 density matrix fits inside a single diagonal tile.  The tile storage is padded to
 `TILE_DIM x TILE_DIM`, but the kernel only reads and writes the `dim x dim` upper-left
 submatrix (the rest is zero padding).  In this case `touch_bytes = 2 * dim * dim *
 sizeof(cplx_t)` instead of the tile-pair formula.
 
-The qlib backends report **lower** `touch_bytes` than competitors because they
+The orkan backends report **lower** `touch_bytes` than competitors because they
 exploit Hermitian symmetry.  This is intentional: timing columns provide the direct
 performance comparison; bandwidth shows memory-hierarchy utilisation efficiency.
 
@@ -281,8 +281,8 @@ Gate: X   Qubits: 4   Samples: 10   Iterations: 100   Warm-up: 3
 
 Backend          Mean (us)   Median (us)   Min (us)   95% CI (us)       BW (GB/s)
 ----------------------------------------------------------------------------------
-qlib_tiled          12.3        11.8        10.5     [10.2, 14.4]         82.3
-qlib_packed         10.1         9.7         8.9     [ 8.5, 11.7]         91.1
+orkan_tiled          12.3        11.8        10.5     [10.2, 14.4]         82.3
+orkan_packed         10.1         9.7         8.9     [ 8.5, 11.7]         91.1
 BLAS                45.2        44.8        43.1     [42.0, 48.4]         36.2
 QuEST               18.7        18.2        16.9     [15.8, 21.6]         55.4
 Qulacs              15.4        15.1        14.2     [13.5, 17.3]         66.8
@@ -298,8 +298,8 @@ Gate: X   Qubits: 4   Samples: 10   Iterations: 100   Warm-up: 3
 
 Backend        Target   Mean (us)   Median (us)   Min (us)   95% CI (us)       BW (GB/s)
 -----------------------------------------------------------------------------------------
-qlib_tiled        0       11.2        10.9        10.1     [ 9.8, 12.6]         84.1
-qlib_tiled        1       12.5        12.1        11.0     [10.5, 14.5]         75.8
+orkan_tiled        0       11.2        10.9        10.1     [ 9.8, 12.6]         84.1
+orkan_tiled        1       12.5        12.1        11.0     [10.5, 14.5]         75.8
 ...
 Qiskit Aer        3       23.4        22.8        21.1     [20.0, 26.8]         44.2
 ```
@@ -341,7 +341,7 @@ backends in columns.
 ```
 % Gate: X   Samples: 10   Iterations: 100   Warm-up: 3
 % Quantity: mean_us
-qubits  qlib_tiled  qlib_packed  BLAS    QuEST   Qulacs  Aer
+qubits  orkan_tiled  orkan_packed  BLAS    QuEST   Qulacs  Aer
 2       1.2         1.0          3.5     2.1     1.8     2.5
 3       2.8         2.4          8.1     4.9     4.0     5.8
 ...
@@ -356,7 +356,7 @@ For a 1-qubit gate:
 ```
 % Gate: X   Qubits: 4   Samples: 10   Iterations: 100   Warm-up: 3
 % Quantity: mean_us
-target  qlib_tiled  qlib_packed  BLAS    QuEST   Qulacs  Aer
+target  orkan_tiled  orkan_packed  BLAS    QuEST   Qulacs  Aer
 0       11.2        9.8          40.1    17.3    14.1    20.5
 1       12.5        10.3         41.8    18.1    15.0    21.8
 2       11.8        9.9          39.5    17.0    14.3    20.1
@@ -388,15 +388,15 @@ All six gate-benchmark backends participate.
 
 | # | Backend        | Strategy | Cap | Notes |
 |---|----------------|----------|-----|-------|
-| 1 | qlib\_tiled    | Pre-built superoperator via `kraus_to_superop`, applied by `channel_1q` on tiled Hermitian storage | None | Superop built once at init |
-| 2 | qlib\_packed   | Pre-built superoperator via `kraus_to_superop`, applied by `channel_1q` on packed Hermitian storage | None | Superop built once at init |
+| 1 | orkan\_tiled    | Pre-built superoperator via `kraus_to_superop`, applied by `channel_1q` on tiled Hermitian storage | None | Superop built once at init |
+| 2 | orkan\_packed   | Pre-built superoperator via `kraus_to_superop`, applied by `channel_1q` on packed Hermitian storage | None | Superop built once at init |
 | 3 | BLAS baseline  | Kronecker-expand each operator to full N×N, then 2K zgemm + accumulate | 10 qubits | Pre-computes Kronecker products per position |
 | 4 | QuEST          | Pre-built superoperator via `createKrausMap`/`setKrausMap`, applied by `mixKrausMap` | None | Superop built once at init |
 | 5 | Qulacs         | Manual iterate-and-sum: copy ρ, apply `dm_single_qubit_dense_matrix_gate`, accumulate via `dm_state_add` | 10 qubits | No native Kraus API at csim level |
 | 6 | Qiskit Aer     | Pre-built superoperator via `kraus_superop` + `vectorize_matrix`, applied by `apply_superop_matrix` | None | Superop built once at init |
 
 **Fairness**: Each backend does what it would do per-application in production.
-qlib, QuEST and Aer pre-build superoperators at init (not timed); BLAS pre-builds
+orkan, QuEST and Aer pre-build superoperators at init (not timed); BLAS pre-builds
 Kronecker-expanded matrices at init (not timed); Qulacs copies small operator
 matrices at init.  Only the `apply` call is timed.
 
@@ -432,7 +432,7 @@ qubit count (1 for depolarizing → n positions).
 | `benchmark/src/bench_kraus_main.c` | CLI parsing, backend table, orchestration | C |
 | `benchmark/src/bench_kraus_chan.c` | Analytic Kraus operator construction | C |
 | `benchmark/src/bench_kraus_run.c` | Timing loop + position generation | C |
-| `benchmark/src/bench_kraus_qlib.c` | qlib\_tiled and qlib\_packed Kraus backends | C |
+| `benchmark/src/bench_kraus_orkan.c` | orkan\_tiled and orkan\_packed Kraus backends | C |
 | `benchmark/src/bench_kraus_blas.c` | BLAS Kraus backend | C |
 | `benchmark/src/bench_kraus_quest.c` | QuEST Kraus backend | C |
 | `benchmark/src/bench_kraus_qulacs.cpp` | Qulacs Kraus backend | C++ |
@@ -469,7 +469,7 @@ No source file exceeds 500 lines of well-documented code.
 | `benchmark/src/bench_run.c`    | Timing loop (aggregate & per-qubit modes)   | C        |
 | `benchmark/src/bench_result.c` | Mean, median, min, percentile CI, bandwidth | C        |
 | `benchmark/src/bench_util.c`   | PRNG, Hermitian init helpers, huge-page alloc | C        |
-| `benchmark/src/bench_qlib.c`   | qlib\_tiled and qlib\_packed wrappers       | C        |
+| `benchmark/src/bench_orkan.c`   | orkan\_tiled and orkan\_packed wrappers       | C        |
 | `benchmark/src/bench_blas.c`   | BLAS baseline (Kronecker + zgemm)           | C        |
 | `benchmark/src/bench_quest.c`  | QuEST density-matrix wrapper                | C        |
 | `benchmark/src/bench_qulacs.cpp` | Qulacs density-matrix wrapper             | C++      |
@@ -488,7 +488,7 @@ No source file exceeds 500 lines of well-documented code.
 | `benchmark/src/bench_kraus_main.c`    | CLI parsing, orchestration            | C        |
 | `benchmark/src/bench_kraus_chan.c`     | Analytic Kraus operator construction  | C        |
 | `benchmark/src/bench_kraus_run.c`     | Timing loop + position generation     | C        |
-| `benchmark/src/bench_kraus_qlib.c`    | qlib\_tiled and qlib\_packed backends | C        |
+| `benchmark/src/bench_kraus_orkan.c`    | orkan\_tiled and orkan\_packed backends | C        |
 | `benchmark/src/bench_kraus_blas.c`    | BLAS Kraus backend                    | C        |
 | `benchmark/src/bench_kraus_quest.c`   | QuEST Kraus backend                   | C        |
 | `benchmark/src/bench_kraus_qulacs.cpp`| Qulacs Kraus backend                  | C++      |

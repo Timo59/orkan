@@ -59,7 +59,7 @@ target_link_libraries(myapp Orkan::orkan)
 Minimal example:
 
 ```c
-#include <orkan/qlib.h>
+#include <orkan/orkan.h>
 #include <stdio.h>
 
 int main(void) {

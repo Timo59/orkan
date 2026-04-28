@@ -65,8 +65,8 @@ typedef struct {
 
 #define KRAUS_BACKEND_COUNT 6
 
-extern const bench_kraus_backend_t kraus_qlib_tiled_backend;
-extern const bench_kraus_backend_t kraus_qlib_packed_backend;
+extern const bench_kraus_backend_t kraus_orkan_tiled_backend;
+extern const bench_kraus_backend_t kraus_orkan_packed_backend;
 extern const bench_kraus_backend_t kraus_blas_backend;
 
 #ifdef HAVE_QUEST

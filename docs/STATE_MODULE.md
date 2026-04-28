@@ -20,7 +20,7 @@ All public functions dispatch at runtime on `state->type`.
 
 ```
 include/
-  qlib.h              Umbrella header; includes state.h, gate.h, channel.h
+  orkan.h             Umbrella header; includes state.h, gate.h, channel.h
   state.h             Public API and type definitions
   q_types.h           Foundational types: cplx_t, idx_t, qubit_t, tile macros
 src/
@@ -187,13 +187,13 @@ Check `state->data != NULL` after `state_init` or `state_plus`.
 
 ## Build Integration
 
-State sources are compiled into the shared library target `${PROJECT_NAME_LOWER}` (e.g. `libqsim`), defined in `src/CMakeLists.txt`.
+State sources are compiled into the shared library target `${PROJECT_NAME_LOWER}` (e.g. `liborkan`), defined in `src/CMakeLists.txt`.
 
 Sources: `src/state/state.c`, `state_pure.c`, `state_packed.c`, `state_tiled.c`
 
 Test target: `test_state`, defined in `test/CMakeLists.txt`. Links the library and Unity v2.6.1.
 
-Installed headers: `state.h`, `q_types.h`, `qlib.h` to `${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}/`
+Installed headers: `state.h`, `q_types.h`, `orkan.h` to `${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}/`
 
 ```bash
 cmake --preset debug

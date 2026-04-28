@@ -35,14 +35,14 @@ void exp_diag_packed(state_t *state, const double *restrict diag, double t) {
     if (!cos_d || !sin_d) {
         free(cos_d);
         free(sin_d);
-        fprintf(stderr, "qlib: circ: exp_diag_packed: allocation failed\n");
+        fprintf(stderr, "orkan: circ: exp_diag_packed: allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
     #pragma omp parallel for schedule(static) if(dim >= OMP_THRESHOLD_MIXED)
     for (idx_t x = 0; x < dim; ++x) {
         const double angle = diag[x] * t;
-        qlib_sincos(angle, &sin_d[x], &cos_d[x]);
+        orkan_sincos(angle, &sin_d[x], &cos_d[x]);
     }
 
     /* Iterate columns; elements within a column are contiguous */

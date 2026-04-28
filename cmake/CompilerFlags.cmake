@@ -23,15 +23,15 @@ target_link_libraries(${PROJECT_COMPILER_FLAGS}
 add_library(blas_compiler_flags INTERFACE)
 
 # Use BLAS configuration from Dependencies.cmake
-if(QSIM_BLAS_COMPILE_DEFINITIONS)
-    target_compile_definitions(blas_compiler_flags INTERFACE ${QSIM_BLAS_COMPILE_DEFINITIONS})
+if(ORKAN_BLAS_COMPILE_DEFINITIONS)
+    target_compile_definitions(blas_compiler_flags INTERFACE ${ORKAN_BLAS_COMPILE_DEFINITIONS})
 endif()
 
-if(QSIM_BLAS_INCLUDE_DIRS)
-    target_include_directories(blas_compiler_flags INTERFACE ${QSIM_BLAS_INCLUDE_DIRS})
+if(ORKAN_BLAS_INCLUDE_DIRS)
+    target_include_directories(blas_compiler_flags INTERFACE ${ORKAN_BLAS_INCLUDE_DIRS})
 endif()
 
-target_link_libraries(blas_compiler_flags INTERFACE ${QSIM_BLAS_LIBRARIES})
+target_link_libraries(blas_compiler_flags INTERFACE ${ORKAN_BLAS_LIBRARIES})
 
 # Find OpenMP (used directly by library target, not via interface library)
 if(ENABLE_OPENMP)
