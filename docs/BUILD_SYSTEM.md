@@ -163,11 +163,9 @@ Publishes to [github.com/Timo59/orkan](https://github.com/Timo59/orkan) when a t
 
 | Excluded path | Reason |
 |---|---|
-| `docs/` | Internal technical specs and planning |
+| `docs/` | Internal technical specs |
 | `profile/` | Internal profiling harness |
 | `CLAUDE.md` | Claude Code instructions |
-| `MEMORY.md` | Claude auto-memory index |
-| `PRD.md` | Internal product requirements |
 | `.gitlab-ci.yml` | Internal CI — irrelevant on GitHub |
 
 `git-filter-repo` produces deterministic SHAs, so subsequent publishes are regular fast-forward pushes. No force-push is needed after the initial setup.

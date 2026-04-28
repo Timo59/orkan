@@ -2,11 +2,7 @@
 
 Simulates local quantum channels on mixed states via the superoperator formalism.
 
----
-
-## Overview
-
-A quantum channel E acts on a density matrix as E(rho) = sum_k K_k rho K_k-dagger, where {K_k} are the Kraus operators. The module converts the Kraus representation to a 4x4 superoperator matrix S, then applies S element-wise to 2x2 blocks of the density matrix across packed and tiled backends. Only `MIXED_PACKED` and `MIXED_TILED` states are supported; `PURE` states are rejected.
+A channel E acts on a density matrix as E(rho) = sum_k K_k rho K_k-dagger, where {K_k} are the Kraus operators. The module converts the Kraus representation to a 4x4 superoperator matrix S, then applies S element-wise to 2x2 blocks of the density matrix across packed and tiled backends. Only `MIXED_PACKED` and `MIXED_TILED` states are supported; `PURE` states are rejected.
 
 ---
 
@@ -25,10 +21,10 @@ src/internal/
   index.h                      Shared index helpers (insertBit0, col_off, tile_off, elem_off)
 
 test/channel/
-  test_channel.c               Test runner (35 tests)
-  test_channel_superop.c       kraus_to_superop unit tests (7 tests)
-  test_channel_packed.c        Packed sweep + analytical + trace tests (12 tests)
-  test_channel_tiled.c         Tiled sweep + analytical + trace + cross-backend tests (16 tests)
+  test_channel.c               Test runner
+  test_channel_superop.c       kraus_to_superop unit tests
+  test_channel_packed.c        Packed sweep + analytical + trace tests
+  test_channel_tiled.c         Tiled sweep + analytical + trace + cross-backend tests
 ```
 
 ---
@@ -55,7 +51,9 @@ Input validation uses `CHANNEL_VALIDATE` (defined in `channel.c`), which prints 
 
 ---
 
-## Dispatch Architecture
+## Architecture
+
+### Dispatch
 
 `channel_1q` validates inputs (null pointers, qubit range, superoperator locality), then dispatches:
 
@@ -67,10 +65,6 @@ switch (state->type) {
     default:           error — unknown state type
 }
 ```
-
----
-
-## Algorithm
 
 ### Kraus-to-Superoperator Conversion
 
@@ -102,23 +96,21 @@ Two cases based on target qubit position:
 - **Case 1** (target < LOG_TILE_DIM): All four block elements within the same tile.
 - **Case 2** (target >= LOG_TILE_DIM): Elements span four tiles. Three sub-cases for tile triangle structure: all-lower (vectorisable flat loop), mixed (conjugate-transpose access), and diagonal.
 
----
+### OpenMP
 
-## OpenMP Parallelization
-
-`OMP_THRESHOLD` is defined locally in `channel_packed.c` and `channel_tiled.c` with a default of 512. In Debug builds, CMake overrides it to 4 so multi-threaded paths are exercised at small qubit counts.
+`OMP_THRESHOLD` is defined locally in `channel_packed.c` and `channel_tiled.c` with a default of 512. In Debug builds, CMake overrides it to 4.
 
 ---
 
 ## Build Integration
 
-Channel sources are compiled into the shared library target `${PROJECT_NAME_LOWER}`, defined in `src/CMakeLists.txt`.
+Channel sources are compiled into `${PROJECT_NAME_LOWER}` via `src/CMakeLists.txt`.
 
 Sources: `src/channel/channel.c`, `channel_packed.c`, `channel_tiled.c`
 
-Test target: `test_channel`, defined in `test/CMakeLists.txt`. Links the library, BLAS, and Unity v2.6.1.
+Test target `test_channel` in `test/CMakeLists.txt` links the library, BLAS, and Unity v2.6.1.
 
-Installed header: `channel.h` to `${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}/`
+Installed header: `channel.h` → `${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}/`.
 
 ```bash
 cmake --preset debug
@@ -128,26 +120,13 @@ ctest --preset debug -R test_channel
 
 ---
 
-## Test Infrastructure
+## Tests
 
-### Test Harnesses
+| File | Coverage |
+|---|---|
+| `test/channel/test_channel.c` | Runner |
+| `test/channel/test_channel_superop.c` | Analytical superoperator verification |
+| `test/channel/test_channel_packed.c` | Packed sweep, analytical, trace preservation |
+| `test/channel/test_channel_tiled.c` | Tiled sweep, analytical, trace preservation, cross-backend agreement |
 
-| Harness | File | Backend |
-|---------|------|---------|
-| `testChannel1qPacked` | `test_channel_packed.c` | MIXED_PACKED |
-| `testChannel1qTiled` | `test_channel_tiled.c` | MIXED_TILED |
-
-Both sweep qubit counts, all target positions, and multiple input states. Reference is computed via BLAS-based sum_k K_k rho K_k-dagger using full n-qubit Kraus matrices.
-
-### Test Groups
-
-| Group | Count | Description |
-|-------|-------|-------------|
-| kraus_to_superop | 7 | Analytical superoperator verification |
-| Packed sweep | 5 | Full sweep for identity, bit-flip, phase-flip, depolarising, amplitude damping |
-| Tiled sweep | 5 | Same channels on tiled states |
-| Packed analytical | 4 | Boundary cases (full decay, full depolarisation, involution) |
-| Tiled analytical | 4 | Same on tiled states |
-| Trace preservation | 6 | Tr(E(rho)) = Tr(rho) for 3 channels x 2 backends |
-| Cross-backend | 4 | Element-wise packed vs tiled agreement |
-| **Total** | **35** | |
+Sweeps cover qubit counts, all target positions, and multiple input states (identity, bit-flip, phase-flip, depolarising, amplitude damping). Reference is computed via BLAS `sum_k K_k rho K_k-dagger` using full n-qubit Kraus matrices, tolerance 1e-12.

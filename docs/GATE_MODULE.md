@@ -4,12 +4,6 @@ Quantum gate operations for pure and mixed states across three backends.
 
 ---
 
-## Overview
-
-The gate module implements 18 quantum gates, each with three backends: pure state (statevector), packed mixed state (density matrix), and tiled mixed state (blocked density matrix). All public functions dispatch at runtime on `state->type`.
-
----
-
 ## Directory Layout
 
 ```
@@ -37,17 +31,17 @@ src/internal/
   index.h                        Shared index helpers: insertBit0, pack_idx, tile_off, elem_off
 
 test/gate/
-  test_gate.c                    Test runner (56 tests)
-  test_gate_pure_{1q,2q,3q}.c   Pure-state test harnesses
-  test_gate_packed_{1q,2q,3q}.c  Packed test harnesses
-  test_gate_tiled_{1q,2q,2q_mat,3q}.c  Tiled test harnesses
+  test_gate.c                    Test runner; named per-gate wrappers; RUN_TEST registrations
+  test_gate_pure_{1q,2q,3q}.c    Pure-state harnesses
+  test_gate_packed_{1q,2q,3q}.c  Packed harnesses
+  test_gate_tiled_{1q,2q,2q_mat,3q}.c  Tiled harnesses
 ```
 
 ---
 
 ## Public API
 
-Declared in `include/gate.h`. Every function validates inputs (null pointer, qubit range, duplicate qubits) before dispatching.
+Declared in `include/gate.h`. Every public function validates inputs (null pointer, qubit range, duplicate qubits) before dispatching.
 
 ### Single-Qubit Gates
 
@@ -84,9 +78,13 @@ Declared in `include/gate.h`. Every function validates inputs (null pointer, qub
 |------|-----------|
 | Toffoli | `ccx(state, ctrl1, ctrl2, target)` |
 
+Input validation uses `GATE_VALIDATE` (defined in `gate.c`), which prints to stderr and calls `exit()` on failure. This is a deliberate fail-fast choice: silent corruption is worse than crashing.
+
 ---
 
-## Dispatch Architecture
+## Architecture
+
+### Dispatch
 
 Every public gate function in `gate.c` validates inputs, then dispatches on `state->type`:
 
@@ -100,36 +98,28 @@ switch (state->type) {
 
 Dispatch macros: `DISPATCH_1Q` (9 gates), `DISPATCH_ROT` (4 rotation gates), `DISPATCH_2Q` (3 controlled gates). `swap_gate` and `ccx` are dispatched inline due to non-standard naming or arity.
 
-Input validation uses `GATE_VALIDATE` (defined in `gate.c`), which prints to stderr and calls `exit()` on failure. This is a deliberate fail-fast choice for a scientific computing library where silent corruption is worse than crashing.
-
----
-
-## Backend Algorithms
-
-### Pure State
+### Pure-State Backend
 
 Operates on the statevector. Single-qubit gates process amplitude pairs `(psi[i], psi[i + 2^target])` via a traversal macro. Multi-qubit gates enumerate base indices with `insertBit0` / `insertBits2_0`.
 
-### Mixed Packed
+### Mixed-Packed Backend
 
-Implements rho -> U rho U-dagger directly on lower-triangular packed storage. Single-qubit gates iterate block pairs; two-qubit gates work on 4x4 sub-blocks; three-qubit gates on 8x8 sub-blocks. Gate operation classes:
+Implements rho -> U rho U-dagger directly on lower-triangular packed storage. Single-qubit gates iterate block pairs; two-qubit gates work on 4x4 sub-blocks; three-qubit gates on 8x8 sub-blocks. Operation classes:
 
 - **Zero-flop** (X, CX, SWAP): amplitude swaps and conjugations only
 - **Negation permutation** (Y, CY): swaps with sign negation
 - **Diagonal** (Z, S, Sdg, T, Tdg, P, Rz, CZ): only off-diagonal elements change
 - **Mixing** (H, Hy, Rx, Ry): all block elements participate
 
-### Mixed Tiled
+### Mixed-Tiled Backend
 
 Operates on lower-triangular tile storage. Single-qubit gates split into within-tile (target < LOG_TILE_DIM) and cross-tile (target >= LOG_TILE_DIM) cases. Multi-qubit gates have additional cases depending on whether each qubit is tile-local or spans tile boundaries.
 
 For density matrices, Rz and P differ only by a global phase that cancels in U rho U-dagger. The tiled backend implements `rz_tiled` as the primary and `p_tiled` delegates to it; the packed backend reverses this. In the pure backend both are distinct (global phase is observable).
 
----
+### OpenMP
 
-## OpenMP Parallelization
-
-Each backend defines its own `OMP_THRESHOLD` — the minimum dimension below which OpenMP overhead exceeds the computation cost:
+Each backend defines its own threshold below which OpenMP overhead exceeds computation cost:
 
 | Backend | Threshold | Rationale |
 |---------|-----------|-----------|
@@ -143,36 +133,29 @@ In Debug builds, CMake overrides `OMP_THRESHOLD=4` so multi-threaded paths are e
 
 ## Build Integration
 
-Gate sources are compiled into the shared library target `${PROJECT_NAME_LOWER}`, defined in `src/CMakeLists.txt`. Packed and tiled sources are collected by glob; `gate.c` and `gate_pure.c` are listed explicitly.
+Gate sources are compiled into `${PROJECT_NAME_LOWER}` via `src/CMakeLists.txt`. Packed and tiled sources are collected by glob; `gate.c` and `gate_pure.c` are listed explicitly.
 
-Test target: `test_gate`, defined in `test/CMakeLists.txt`. Links the library, BLAS (for reference computations in `test/utility/linalg.c`), and Unity v2.6.1.
+Test target `test_gate` in `test/CMakeLists.txt` links the library, BLAS (for reference computations in `test/utility/linalg.c`), and Unity v2.6.1.
+
+Installed header: `gate.h` → `${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME_LOWER}/`.
 
 ```bash
 cmake --preset debug
 cmake --build --preset debug
-ctest --preset debug --tests-regex test_gate
+ctest --preset debug -R test_gate
 ```
 
 ---
 
-## Test Infrastructure
+## Tests
 
-Each backend has dedicated test harnesses that verify all qubit positions across multiple system sizes and input states. Rotation gates are tested at multiple angles. Correctness is verified against BLAS-based reference computation (`zgemv` for pure, `zgemm` for mixed) at tolerance 1e-12.
+| File | Coverage |
+|---|---|
+| `test/gate/test_gate.c` | Runner: named per-gate wrappers + `RUN_TEST` registrations |
+| `test/gate/test_gate_pure_{1q,2q,3q}.c` | Pure-state harnesses |
+| `test/gate/test_gate_packed_{1q,2q,3q}.c` | Packed harnesses |
+| `test/gate/test_gate_tiled_{1q,2q,2q_mat,3q}.c` | Tiled harnesses (incl. internal `two_from_mat` kernel) |
 
-| Harness | File | Backend |
-|---------|------|---------|
-| `testSingleQubitGate` | `test_gate_pure_1q.c` | PURE |
-| `testRotationGate` | `test_gate_pure_1q.c` | PURE |
-| `testTwoQubitGate` | `test_gate_pure_2q.c` | PURE |
-| `testThreeQubitGate` | `test_gate_pure_3q.c` | PURE |
-| `testSingleQubitGateMixed` | `test_gate_packed_1q.c` | MIXED_PACKED |
-| `testRotationGateMixed` | `test_gate_packed_1q.c` | MIXED_PACKED |
-| `testTwoQubitGateMixed` | `test_gate_packed_2q.c` | MIXED_PACKED |
-| `testThreeQubitGateMixed` | `test_gate_packed_3q.c` | MIXED_PACKED |
-| `testSingleQubitGateTiled` | `test_gate_tiled_1q.c` | MIXED_TILED |
-| `testRotationGateTiled` | `test_gate_tiled_1q.c` | MIXED_TILED |
-| `testTwoQubitGateTiled` | `test_gate_tiled_2q.c` | MIXED_TILED |
-| `testTwoQubitGateTiledMat` | `test_gate_tiled_2q_mat.c` | MIXED_TILED |
-| `testThreeQubitGateTiled` | `test_gate_tiled_3q.c` | MIXED_TILED |
+Each harness sweeps all qubit positions across multiple system sizes and input states. Rotation gates are tested at multiple angles. Correctness verified against BLAS-based reference (`zgemv` for pure, `zgemm` for mixed) at tolerance 1e-12.
 
 Gate matrices are defined in `test/include/test_gate.h`. Reference matrix builders are in `test/utility/gatemat.c`.
