@@ -38,7 +38,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     file(CREATE_LINK
         "${CMAKE_BINARY_DIR}/compile_commands.json"
-        "${CMAKE_SOURCE_DIR}/compile_commands.json"
+        "${PROJECT_SOURCE_DIR}/compile_commands.json"
         SYMBOLIC
     )
 endif()
@@ -50,7 +50,7 @@ set(CMAKE_CXX_STANDARD 17)
 string(TOLOWER "${PROJECT_NAME}" PROJECT_NAME_LOWER)
 
 # Add CMake modules
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 # Options
 option(BUILD_TESTS "Build tests" OFF)
@@ -104,23 +104,23 @@ include(cmake/CompilerFlags.cmake)
 # Build main library
 add_subdirectory(src)
 
-if (BUILD_TESTS AND EXISTS "${CMAKE_SOURCE_DIR}/test")
+if (BUILD_TESTS AND EXISTS "${PROJECT_SOURCE_DIR}/test")
     enable_testing()
     add_subdirectory(test)
 
     # Run tests then install (usage: cmake --build . --target verified_install)
     add_custom_target(verified_install
             COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-            COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR}
+            COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR}
             DEPENDS ${PROJECT_NAME_LOWER} test_state test_gate test_channel test_meas test_circ
             COMMENT "Running tests before install..."
     )
 endif ()
 
-if(BUILD_BENCHMARKS AND EXISTS "${CMAKE_SOURCE_DIR}/benchmark")
+if(BUILD_BENCHMARKS AND EXISTS "${PROJECT_SOURCE_DIR}/benchmark")
     add_subdirectory(benchmark)
 endif()
 
-if(BUILD_PROFILE AND EXISTS "${CMAKE_SOURCE_DIR}/profile")
+if(BUILD_PROFILE AND EXISTS "${PROJECT_SOURCE_DIR}/profile")
     add_subdirectory(profile)
 endif()

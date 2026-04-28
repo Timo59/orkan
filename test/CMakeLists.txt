@@ -37,8 +37,8 @@ target_include_directories(test_state
         PRIVATE
             ${UNITY_SRC}
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
-            "${CMAKE_SOURCE_DIR}/src/internal"
-            "${CMAKE_SOURCE_DIR}/src/state"
+            "${PROJECT_SOURCE_DIR}/src/internal"
+            "${PROJECT_SOURCE_DIR}/src/state"
 )
 target_link_libraries(test_state
         PRIVATE
@@ -82,7 +82,7 @@ target_include_directories(test_gate
         PRIVATE
             ${UNITY_SRC}
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
-            "${CMAKE_SOURCE_DIR}/src/internal"
+            "${PROJECT_SOURCE_DIR}/src/internal"
 )
 target_link_libraries(test_gate
         PRIVATE
@@ -154,8 +154,8 @@ target_include_directories(test_meas
         PRIVATE
             ${UNITY_SRC}
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
-            "${CMAKE_SOURCE_DIR}/src/internal"
-            "${CMAKE_SOURCE_DIR}/src/meas"
+            "${PROJECT_SOURCE_DIR}/src/internal"
+            "${PROJECT_SOURCE_DIR}/src/meas"
 )
 target_link_libraries(test_meas
         PRIVATE
@@ -189,7 +189,7 @@ target_include_directories(test_circ
         PRIVATE
             ${UNITY_SRC}
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
-            "${CMAKE_SOURCE_DIR}/src/internal"
+            "${PROJECT_SOURCE_DIR}/src/internal"
 )
 target_link_libraries(test_circ
         PRIVATE

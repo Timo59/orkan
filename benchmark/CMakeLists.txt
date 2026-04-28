@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 set(BENCH_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
-set(EXTERN_DIR "${CMAKE_SOURCE_DIR}/extern")
+set(EXTERN_DIR "${PROJECT_SOURCE_DIR}/extern")
 
 # ======================================================================
 # Find external frameworks (auto-detect)
@@ -15,7 +15,7 @@ set(EXTERN_DIR "${CMAKE_SOURCE_DIR}/extern")
 
 # QuEST — build from submodule if present
 if(EXISTS "${EXTERN_DIR}/QuEST/CMakeLists.txt")
-    add_subdirectory("${EXTERN_DIR}/QuEST" "${CMAKE_BINARY_DIR}/extern/QuEST" EXCLUDE_FROM_ALL)
+    add_subdirectory("${EXTERN_DIR}/QuEST" "${PROJECT_BINARY_DIR}/extern/QuEST" EXCLUDE_FROM_ALL)
     set(QuEST_FOUND TRUE)
     set(QuEST_LIBRARY QuEST::QuEST)
     set(QuEST_INCLUDE_DIR "${EXTERN_DIR}/QuEST")
@@ -112,7 +112,7 @@ endif()
 
 add_executable(bench_gate ${BENCH_GATE_SRC})
 set_target_properties(bench_gate PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
+    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/benchmark"
     EXCLUDE_FROM_ALL TRUE)
 target_include_directories(bench_gate PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(bench_gate PRIVATE ${PROJECT_NAME_LOWER} blas_compiler_flags)
@@ -172,7 +172,7 @@ endif()
 
 add_executable(bench_kraus ${BENCH_KRAUS_SRC})
 set_target_properties(bench_kraus PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmark"
+    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/benchmark"
     EXCLUDE_FROM_ALL TRUE)
 target_include_directories(bench_kraus PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(bench_kraus PRIVATE ${PROJECT_NAME_LOWER} blas_compiler_flags)

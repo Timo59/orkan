@@ -10,7 +10,7 @@ set(PROF_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 add_executable(profile_x_tiled "${PROF_SRC_DIR}/profile_x_tiled.c")
 
 set_target_properties(profile_x_tiled PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/profile"
+    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/profile"
 )
 
 target_include_directories(profile_x_tiled PRIVATE
@@ -24,7 +24,7 @@ target_link_libraries(profile_x_tiled PRIVATE ${PROJECT_NAME_LOWER})
 add_executable(profile_h_tiled "${PROF_SRC_DIR}/profile_h_tiled.c")
 
 set_target_properties(profile_h_tiled PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/profile"
+    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/profile"
 )
 
 target_include_directories(profile_h_tiled PRIVATE
@@ -37,7 +37,7 @@ target_link_libraries(profile_h_tiled PRIVATE ${PROJECT_NAME_LOWER})
 add_executable(profile_channel_tiled "${PROF_SRC_DIR}/profile_channel_tiled.c")
 
 set_target_properties(profile_channel_tiled PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/profile"
+    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/profile"
 )
 
 target_include_directories(profile_channel_tiled PRIVATE
