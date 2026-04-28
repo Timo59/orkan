@@ -63,6 +63,16 @@ typedef struct state {
 typedef enum { PURE, MIXED_PACKED, MIXED_TILED } state_type_t;
 ```
 
+### `qop_t`
+
+```c
+typedef void (*qop_t)(state_t *state);
+```
+
+Function pointer type for quantum operations that modify a state in-place.
+Operations with additional parameters (target qubit, rotation angle, ...)
+must be wrapped in a function matching this signature.
+
 ### Types from `q_types.h`
 
 | Type | Underlying | Notes |

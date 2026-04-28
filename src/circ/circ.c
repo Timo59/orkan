@@ -63,3 +63,4 @@ void exp_diag(state_t *state, const double *diag, double t) {
             CIRC_VALIDATE(0, "exp_diag: invalid state type");
     }
 }
+

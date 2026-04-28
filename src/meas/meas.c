@@ -38,9 +38,6 @@ extern double mean_packed(const state_t *state, const double *obs);
 extern double mean_tiled(const state_t *state, const double *obs);
 
 extern cplx_t matel_diag_pure(const state_t *bra, const state_t *ket, const double *obs);
-extern void   sample_matrix_pure(const state_t *state, const double *obs,
-                                 qop_t *const *ops, const idx_t *sizes, idx_t n_layers,
-                                 cplx_t *out);
 
 /*
  * =====================================================================================================================
@@ -76,22 +73,3 @@ cplx_t matel_diag(const state_t *bra, const state_t *ket, const double *obs) {
     return matel_diag_pure(bra, ket, obs);
 }
 
-void sample_matrix(const state_t *state, const double *obs,
-                   qop_t *const *ops, const idx_t *sizes, idx_t n_layers,
-                   cplx_t *out) {
-    MEAS_VALIDATE(state && state->data, "sample_matrix: null state or data pointer");
-    MEAS_VALIDATE(obs, "sample_matrix: null observable pointer");
-    MEAS_VALIDATE(ops, "sample_matrix: null ops pointer");
-    MEAS_VALIDATE(sizes, "sample_matrix: null sizes pointer");
-    MEAS_VALIDATE(n_layers > 0, "sample_matrix: n_layers must be positive");
-    MEAS_VALIDATE(out, "sample_matrix: null output pointer");
-    MEAS_VALIDATE(state->type == PURE,
-                  "sample_matrix: requires PURE state (mixed not supported)");
-
-    for (idx_t l = 0; l < n_layers; ++l) {
-        MEAS_VALIDATE(sizes[l] > 0, "sample_matrix: sizes[l] must be positive");
-        MEAS_VALIDATE(ops[l], "sample_matrix: null ops[l] pointer");
-    }
-
-    sample_matrix_pure(state, obs, ops, sizes, n_layers, out);
-}

@@ -44,6 +44,15 @@ typedef struct state {
 } state_t;
 
 /*
+ * @brief   Function pointer type for quantum operations
+ *
+ * A quantum operation modifies a state in-place.  Operations with additional
+ * parameters (target qubit, rotation angle, ...) must be wrapped in a
+ * function matching this signature.
+ */
+typedef void (*qop_t)(state_t *state);
+
+/*
  * =====================================================================================================================
  * Public API (dispatches based on state->type)
  * =====================================================================================================================

@@ -6,6 +6,7 @@
 #include "test.h"
 #include "test_circ.h"
 #include "circ.h"
+#include "gate.h"
 
 #include <math.h>
 

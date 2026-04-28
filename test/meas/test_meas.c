@@ -26,13 +26,8 @@ void test_mean_pure_mixed_sign_obs(void);
 void test_matel_diag_pure_self(void);
 void test_matel_diag_pure_orthogonal(void);
 void test_matel_diag_pure_conjugate_symmetry(void);
+void test_matel_diag_pure_conjugate_symmetry_complex(void);
 void test_matel_diag_pure_known(void);
-void test_sample_matrix_pure_trivial(void);
-void test_sample_matrix_pure_two_ops(void);
-void test_sample_matrix_pure_known_values(void);
-void test_sample_matrix_pure_multi_layer(void);
-void test_sample_matrix_pure_asymmetric_layers(void);
-void test_sample_matrix_pure_state_unchanged(void);
 void test_matel_diag_pure_complex_2q(void);
 
 /*
@@ -138,20 +133,8 @@ int main(void) {
     RUN_TEST(test_matel_diag_pure_self);
     RUN_TEST(test_matel_diag_pure_orthogonal);
     RUN_TEST(test_matel_diag_pure_conjugate_symmetry);
+    RUN_TEST(test_matel_diag_pure_conjugate_symmetry_complex);
     RUN_TEST(test_matel_diag_pure_known);
-
-    /*
-     * PURE sample_matrix tests
-     */
-    printf("\n========== PURE Sample Matrix Tests ==========\n");
-    RUN_TEST(test_sample_matrix_pure_trivial);
-    RUN_TEST(test_sample_matrix_pure_two_ops);
-    RUN_TEST(test_sample_matrix_pure_known_values);
-    RUN_TEST(test_sample_matrix_pure_multi_layer);
-    RUN_TEST(test_sample_matrix_pure_asymmetric_layers);
-    RUN_TEST(test_sample_matrix_pure_state_unchanged);
-
-    printf("\n========== PURE Matel Diag Extended Tests ==========\n");
     RUN_TEST(test_matel_diag_pure_complex_2q);
 
     /*

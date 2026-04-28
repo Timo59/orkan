@@ -136,18 +136,6 @@ void test_mean_pure_mixed_sign_obs(void) {
 
 /*
  * =====================================================================================================================
- * qop_t wrappers for sample_matrix tests
- * =====================================================================================================================
- */
-
-static void op_identity(state_t *s) { (void)s; }
-static void op_x0(state_t *s) { x(s, 0); }
-static void op_h0(state_t *s) { h(s, 0); }
-static void op_z0(state_t *s) { z(s, 0); }
-
-
-/*
- * =====================================================================================================================
  * matel_diag tests
  * =====================================================================================================================
  */
@@ -222,6 +210,43 @@ void test_matel_diag_pure_conjugate_symmetry(void) {
 }
 
 /*
+ * Conjugate-symmetry test on genuinely complex states.
+ *
+ * The earlier conjugate_symmetry test uses |+>^n and |0>, both real-valued, so
+ * matel_diag(a,b) and matel_diag(b,a) are real and the relation conj(ba)==ab
+ * collapses to ba==ab — a sign flip in the imaginary-part accumulation
+ * (sum_im in matel_diag_pure) would still pass.  Here a is purely imaginary
+ * on |1>, making the result purely imaginary and non-degenerate:
+ *
+ *   a = (1/sqrt2)|0> + (i/sqrt2)|1>,  b = |+> = (1/sqrt2)|0> + (1/sqrt2)|1>
+ *   matel(a,b,obs={0,1}) = conj(i/sqrt2)*(1/sqrt2) = -i/2
+ *   matel(b,a,obs={0,1}) = conj(1/sqrt2)*(i/sqrt2) =  i/2
+ */
+void test_matel_diag_pure_conjugate_symmetry_complex(void) {
+    state_t a = {.type = PURE, .data = NULL, .qubits = 0};
+    state_t b = {.type = PURE, .data = NULL, .qubits = 0};
+    state_init(&a, 1, NULL);
+    state_set(&a, 0, 0, INVSQRT2 + 0.0 * I);
+    state_set(&a, 1, 0, 0.0 + INVSQRT2 * I);
+    state_plus(&b, 1);
+
+    double obs[2] = {0.0, 1.0};
+    cplx_t ab = matel_diag(&a, &b, obs);
+    cplx_t ba = matel_diag(&b, &a, obs);
+
+    TEST_ASSERT_COMPLEX_WITHIN(0.0 - 0.5 * I, ab, PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(0.0 + 0.5 * I, ba, PRECISION);
+    TEST_ASSERT_COMPLEX_WITHIN(conj(ba), ab, PRECISION);
+    /* Non-degeneracy: ab != ba.  Without this, a sign flip in sum_im that
+       made matel_diag plain symmetric (instead of conjugate-symmetric)
+       would still satisfy the conj relation above. */
+    TEST_ASSERT_TRUE(cabs(ab - ba) > 0.5);
+
+    state_free(&a);
+    state_free(&b);
+}
+
+/*
  * Known value: bra = (1/sqrt2, i/sqrt2), ket = (1/sqrt2, 1/sqrt2), obs = {0, 1}
  * Expected: 0 * conj(1/sqrt2) * (1/sqrt2) + 1 * conj(i/sqrt2) * (1/sqrt2)
  *         = (-i/sqrt2) * (1/sqrt2) = -i/2
@@ -245,212 +270,6 @@ void test_matel_diag_pure_known(void) {
 }
 
 
-/*
- * =====================================================================================================================
- * sample_matrix tests
- * =====================================================================================================================
- */
-
-/*
- * L=1, sizes={1}, single identity op.
- * K=1, S = [<iota|H|iota>] = [mean(iota, obs)]
- */
-void test_sample_matrix_pure_trivial(void) {
-    for (qubit_t n = 1; n <= MAXQUBITS; ++n) {
-        state_t s = {.type = PURE, .data = NULL, .qubits = 0};
-        state_plus(&s, n);
-
-        const idx_t dim = POW2(n, idx_t);
-        double obs[dim];
-        fill_identity_obs(obs, dim);
-
-        qop_t layer0[] = {op_identity};
-        qop_t *ops[] = {layer0};
-        idx_t sizes[] = {1};
-
-        cplx_t out[1];
-        sample_matrix(&s, obs, ops, sizes, 1, out);
-
-        double expected = mean(&s, obs);
-        TEST_ASSERT_DOUBLE_WITHIN(PRECISION, expected, creal(out[0]));
-        TEST_ASSERT_DOUBLE_WITHIN(PRECISION, 0.0,      cimag(out[0]));
-
-        state_free(&s);
-    }
-}
-
-/*
- * 1 qubit, |iota> = |0>, obs = {0, 1}, L=1, ops = {I, X}.
- * K=2.  V_0 = I -> |0>,  V_1 = X -> |1>
- * S = [[0, 0], [0, 1]]
- * Full (col-major): {0, 0, 0, 1}
- */
-void test_sample_matrix_pure_two_ops(void) {
-    state_t s = {.type = PURE, .data = NULL, .qubits = 0};
-    state_init(&s, 1, NULL);
-    state_set(&s, 0, 0, 1.0 + 0.0 * I);
-
-    double obs[2] = {0.0, 1.0};
-
-    qop_t layer0[] = {op_identity, op_x0};
-    qop_t *ops[] = {layer0};
-    idx_t sizes[] = {2};
-
-    cplx_t out[4];
-    sample_matrix(&s, obs, ops, sizes, 1, out);
-
-    cplx_t expected[4] = {0.0, 0.0, 0.0, 1.0};
-    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, 4, PRECISION);
-
-    state_free(&s);
-}
-
-/*
- * Known-value test for sample matrix off-diagonals.
- * 1 qubit, |iota> = |+> = (1/sqrt2)(|0> + |1>), obs = {0, 1}, L=1, ops = {I, H}.
- *
- * V_0 = I:  |phi_0> = |+> = (1/sqrt2, 1/sqrt2)
- * V_1 = H:  |phi_1> = H|+> = |0> = (1, 0)
- *
- * S[0,0] = <+|H|+> = 0*(1/2) + 1*(1/2) = 0.5
- * S[1,0] = <0|H|+> = 0*1*(1/sqrt2) + 1*0*(1/sqrt2) = 0
- * S[1,1] = <0|H|0> = 0*1 + 1*0 = 0
- *
- * Full (col-major): {0.5, 0, 0, 0}
- */
-void test_sample_matrix_pure_known_values(void) {
-    state_t s = {.type = PURE, .data = NULL, .qubits = 0};
-    state_plus(&s, 1);
-
-    double obs[2] = {0.0, 1.0};
-
-    qop_t layer0[] = {op_identity, op_h0};
-    qop_t *ops[] = {layer0};
-    idx_t sizes[] = {2};
-
-    cplx_t out[4];
-    sample_matrix(&s, obs, ops, sizes, 1, out);
-
-    cplx_t expected[4] = {0.5, 0.0, 0.0, 0.0};
-    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, 4, PRECISION);
-
-    state_free(&s);
-}
-
-/*
- * Multi-layer with non-trivial ops to verify index decomposition.
- * L=2, sizes={2, 2}, K=4. k_1 fastest.
- *
- * 1 qubit, |iota> = |0>, obs = {0, 1}.
- * ops[0] = {I, X},  ops[1] = {I, X}.
- *
- * Index decomposition (k_1 least significant):
- *   k=0: k_1=0, k_2=0 -> V=I*I -> |0>     k=1: k_1=1, k_2=0 -> V=I*X -> |1>
- *   k=2: k_1=0, k_2=1 -> V=X*I -> |1>     k=3: k_1=1, k_2=1 -> V=X*X -> |0>
- *
- * S (full, obs={0,1}):
- *        |0> |1> |1> |0>
- *   |0> [ 0   0   0   0 ]
- *   |1> [ 0   1   1   0 ]
- *   |1> [ 0   1   1   0 ]
- *   |0> [ 0   0   0   0 ]
- *
- * Full (col-major): {0,0,0,0, 0,1,1,0, 0,1,1,0, 0,0,0,0}
- */
-void test_sample_matrix_pure_multi_layer(void) {
-    state_t s = {.type = PURE, .data = NULL, .qubits = 0};
-    state_init(&s, 1, NULL);
-    state_set(&s, 0, 0, 1.0 + 0.0 * I);
-
-    double obs[2] = {0.0, 1.0};
-
-    qop_t layer0[] = {op_identity, op_x0};
-    qop_t layer1[] = {op_identity, op_x0};
-    qop_t *ops[] = {layer0, layer1};
-    idx_t sizes[] = {2, 2};
-
-    const idx_t K = 4;
-    const idx_t full_len = K * K;  /* 16 */
-    cplx_t out[16];
-    sample_matrix(&s, obs, ops, sizes, 2, out);
-
-    cplx_t expected[16] = {0,0,0,0, 0,1,1,0, 0,1,1,0, 0,0,0,0};
-    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(expected, out, full_len, PRECISION);
-
-    state_free(&s);
-}
-
-/*
- * Asymmetric multi-layer test — discriminates k_1-fastest from k_L-fastest.
- *
- * 1 qubit, |iota> = |0>, obs = {0, 1}.
- * L=2, ops[0] = {I, X, H} (size 3), ops[1] = {I, Z} (size 2).
- * K = 3 * 2 = 6.  k_1 fastest (layer 0).
- *
- * k=0: (0,0) -> I*I|0> = |0>,  mean=0     k=1: (1,0) -> I*X|0> = |1>,  mean=1
- * k=2: (2,0) -> I*H|0> = |+>,  mean=0.5   k=3: (0,1) -> Z*I|0> = |0>,  mean=0
- * k=4: (1,1) -> Z*X|0> = -|1>, mean=1     k=5: (2,1) -> Z*H|0> = |->,  mean=0.5
- *
- * If decomposition were wrong (k_2 fastest):
- *   k=1 would decode as (k_1=0, k_2=1) -> Z*I|0> = |0>, mean=0 (not 1).
- */
-void test_sample_matrix_pure_asymmetric_layers(void) {
-    state_t s = {.type = PURE, .data = NULL, .qubits = 0};
-    state_init(&s, 1, NULL);
-    state_set(&s, 0, 0, 1.0 + 0.0 * I);
-
-    double obs[2] = {0.0, 1.0};
-
-    qop_t layer0[] = {op_identity, op_x0, op_h0};
-    qop_t layer1[] = {op_identity, op_z0};
-    qop_t *ops[] = {layer0, layer1};
-    idx_t sizes[] = {3, 2};
-
-    const idx_t K = 6;
-    cplx_t out[36];  /* K*K = 36 */
-    sample_matrix(&s, obs, ops, sizes, 2, out);
-
-    /* full col-major — diagonal at positions d*(K+1) */
-    const double diag_expected[6] = {0.0, 1.0, 0.5, 0.0, 1.0, 0.5};
-    const idx_t  diag_pos[6]      = {0, 7, 14, 21, 28, 35};
-    for (int d = 0; d < 6; ++d) {
-        TEST_ASSERT_DOUBLE_WITHIN(PRECISION, diag_expected[d], creal(out[diag_pos[d]]));
-        TEST_ASSERT_DOUBLE_WITHIN(PRECISION, 0.0, cimag(out[diag_pos[d]]));
-    }
-
-    state_free(&s);
-}
-
-/*
- * State mutation safety: sample_matrix must not modify the input state.
- */
-void test_sample_matrix_pure_state_unchanged(void) {
-    state_t s = {.type = PURE, .data = NULL, .qubits = 0};
-    state_plus(&s, 2);
-
-    const idx_t dim = 4;  /* 2^2 */
-    double obs[4];
-    fill_identity_obs(obs, dim);
-
-    /* snapshot amplitudes before call */
-    cplx_t ref[4];
-    for (idx_t x = 0; x < dim; ++x)
-        ref[x] = s.data[x];
-
-    qop_t layer0[] = {op_identity, op_x0};
-    qop_t *ops[] = {layer0};
-    idx_t sizes[] = {2};
-
-    cplx_t out[4];
-    sample_matrix(&s, obs, ops, sizes, 1, out);
-
-    /* verify state unchanged */
-    TEST_ASSERT_EQUAL_COMPLEX_ARRAY_TOL(ref, s.data, dim, PRECISION);
-    TEST_ASSERT_EQUAL_INT(PURE, s.type);
-    TEST_ASSERT_EQUAL_INT(2, s.qubits);
-
-    state_free(&s);
-}
 
 /*
  * Known-value matel_diag with complex amplitudes at n=2.

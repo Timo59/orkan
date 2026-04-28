@@ -11,9 +11,9 @@
 This module provides parameterised circuit operations on quantum states.
 Currently implemented:
 
-| Function   | Pure | Mixed (packed) | Mixed (tiled) |
-|------------|:----:|:--------------:|:-------------:|
-| `exp_diag` | yes  | yes            | yes           |
+| Function    | Pure | Mixed (packed) | Mixed (tiled) |
+|-------------|:----:|:--------------:|:-------------:|
+| `exp_diag`  | yes  | yes            | yes           |
 
 ---
 
@@ -45,6 +45,8 @@ QSim/
 
 ## API
 
+### `exp_diag`
+
 ```c
 void exp_diag(state_t *state, const double *diag, double t);
 ```
@@ -75,7 +77,7 @@ must be a valid `state_type_t` variant.
 
 ## Backend Implementations
 
-### Pure (`circ_pure.c`)
+### Pure — `exp_diag_pure` (`circ_pure.c`)
 
 Element-wise phase rotation: for each basis state x, multiply `psi[x]` by
 `e^{-i diag[x] t} = cos(diag[x]*t) - i sin(diag[x]*t)`.
