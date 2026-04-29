@@ -122,11 +122,59 @@ ctest --preset debug -R test_channel
 
 ## Tests
 
-| File | Coverage |
-|---|---|
-| `test/channel/test_channel.c` | Runner |
-| `test/channel/test_channel_superop.c` | Analytical superoperator verification |
-| `test/channel/test_channel_packed.c` | Packed sweep, analytical, trace preservation |
-| `test/channel/test_channel_tiled.c` | Tiled sweep, analytical, trace preservation, cross-backend agreement |
+Test framework, build-type requirement, and shared fixtures: see `docs/TEST_SUITE.md`. Sweeps cover qubit counts, all target positions, and multiple input states. Reference is computed via BLAS `sum_k K_k rho K_k-dagger` using full n-qubit Kraus matrices, tolerance 1e-12.
 
-Sweeps cover qubit counts, all target positions, and multiple input states (identity, bit-flip, phase-flip, depolarising, amplitude damping). Reference is computed via BLAS `sum_k K_k rho K_k-dagger` using full n-qubit Kraus matrices, tolerance 1e-12.
+### `kraus_to_superop` (`test/channel/test_channel_superop.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_superop_identity` | Identity channel maps to identity superoperator |
+| `test_superop_x_gate` | Single-Kraus X gate matches direct conjugation |
+| `test_superop_bitflip_p0` | Bit-flip with p=0 reduces to identity |
+| `test_superop_ampdamp_g0` | Amplitude damping with γ=0 reduces to identity |
+| `test_superop_ampdamp_g1` | Amplitude damping with γ=1 (full decay) |
+| `test_superop_depolarizing_full` | Depolarising channel at full mixing |
+| `test_superop_dephasing` | Dephasing channel preserves diagonal, kills off-diagonal |
+
+### MIXED_PACKED (`test/channel/test_channel_packed.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_channel_1q_identity_packed` | Identity channel leaves state unchanged |
+| `test_channel_1q_bitflip_packed` | Bit-flip channel sweep across qubit positions |
+| `test_channel_1q_phaseflip_packed` | Phase-flip channel sweep |
+| `test_channel_1q_depolar_packed` | Depolarising channel sweep |
+| `test_channel_1q_ampdamp_packed` | Amplitude-damping channel sweep |
+| `test_ampdamp_g1_decay_packed` | Full-decay (γ=1) drives state to \|0><0\| |
+| `test_depolar_full_packed` | Full depolarisation drives state to maximally mixed |
+| `test_phaseflip_coherence_packed` | Phase-flip kills off-diagonal coherences |
+| `test_bitflip_p1_involution_packed` | Bit-flip at p=1 applied twice = identity |
+| `test_trace_preserved_bitflip_packed` | Tr(E(rho)) = Tr(rho) for bit-flip |
+| `test_trace_preserved_depolar_packed` | Trace preservation for depolarising |
+| `test_trace_preserved_ampdamp_packed` | Trace preservation for amplitude damping |
+
+### MIXED_TILED (`test/channel/test_channel_tiled.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_channel_1q_identity_tiled` | Identity channel on tiled storage |
+| `test_channel_1q_bitflip_tiled` | Bit-flip sweep on tiled |
+| `test_channel_1q_phaseflip_tiled` | Phase-flip sweep on tiled |
+| `test_channel_1q_depolar_tiled` | Depolarising sweep on tiled |
+| `test_channel_1q_ampdamp_tiled` | Amplitude-damping sweep on tiled |
+| `test_ampdamp_g1_decay_tiled` | Full decay on tiled |
+| `test_depolar_full_tiled` | Full depolarisation on tiled |
+| `test_phaseflip_coherence_tiled` | Phase-flip coherence kill on tiled |
+| `test_bitflip_p1_involution_tiled` | Bit-flip involution on tiled |
+| `test_trace_preserved_bitflip_tiled` | Trace preservation on tiled (bit-flip) |
+| `test_trace_preserved_depolar_tiled` | Trace preservation on tiled (depolar) |
+| `test_trace_preserved_ampdamp_tiled` | Trace preservation on tiled (ampdamp) |
+
+### Cross-backend (`test/channel/test_channel_tiled.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_packed_tiled_agree_bitflip` | Element-wise agreement between packed and tiled outputs (bit-flip) |
+| `test_packed_tiled_agree_phaseflip` | Cross-backend agreement (phase-flip) |
+| `test_packed_tiled_agree_depolar` | Cross-backend agreement (depolarising) |
+| `test_packed_tiled_agree_ampdamp` | Cross-backend agreement (amplitude damping) |

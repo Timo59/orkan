@@ -190,11 +190,65 @@ ctest --preset debug -R test_state
 
 ## Tests
 
-| File | Coverage |
-|---|---|
-| `test/state/test_state.c` | Runner + dispatch-layer tests |
-| `test/state/test_state_pure.c` | PURE allocation, init, copy, get/set |
-| `test/state/test_state_packed.c` | MIXED_PACKED storage, Hermitian access |
-| `test/state/test_state_tiled.c` | MIXED_TILED tile geometry, padding, mirror writes |
+`test_state` does not link BLAS — `linalg.c` is excluded from this target. Test framework, build-type requirement, and shared fixtures: see `docs/TEST_SUITE.md`.
 
-`test_state` does not link BLAS — `linalg.c` is excluded from this target.
+### PURE (`test/state/test_state_pure.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_pure_len` | `state_len()` returns `2^qubits` |
+| `test_pure_init_null_data` | `state_init` allocates fresh storage when `*data == NULL` |
+| `test_pure_init_ownership` | `state_init` transfers ownership; caller's pointer is set to NULL |
+| `test_pure_free_double_free` | `state_free` is safe on a NULL or already-freed state |
+| `test_pure_plus_values` | `state_plus` initialises to \|+>^n (uniform amplitude 1/sqrt(2^n)) |
+| `test_pure_get_set_roundtrip` | `state_set` followed by `state_get` returns the value written |
+| `test_pure_cp_independence` | `state_cp` produces an independent allocation |
+| `test_pure_single_qubit` | Single-qubit state behaviour |
+| `test_pure_four_qubits` | Four-qubit state behaviour |
+| `test_pure_reinit` | Re-initialising an already-initialised state frees the previous allocation |
+
+### MIXED_PACKED (`test/state/test_state_packed.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_packed_len` | `state_len()` returns `dim*(dim+1)/2` |
+| `test_packed_init_null_data` | `state_init` allocates packed storage |
+| `test_packed_init_ownership` | Ownership transfer to packed state |
+| `test_packed_free_double_free` | Safe double-free |
+| `test_packed_plus_values` | `state_plus` initialises to \|+><+\|^n |
+| `test_packed_get_lower` | Direct read on lower triangle |
+| `test_packed_get_upper` | Upper-triangle read returns `conj` of lower |
+| `test_packed_set_lower` | Direct write on lower triangle |
+| `test_packed_set_upper` | Upper-triangle write stores `conj` into lower |
+| `test_packed_cp_independence` | Deep copy independence |
+| `test_packed_hermitian_symmetry` | `rho[r,c] = conj(rho[c,r])` invariant maintained |
+| `test_packed_single_qubit` | Single-qubit packed state |
+| `test_packed_zero_qubit` | 0-qubit edge case |
+
+### MIXED_TILED (`test/state/test_state_tiled.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_tiled_len_small` | Storage length when `dim < TILE_DIM` (single-tile case) |
+| `test_tiled_len_multi_tile` | Storage length when `dim >= TILE_DIM` |
+| `test_tiled_init_null_data` | Tiled allocation |
+| `test_tiled_init_ownership` | Ownership transfer to tiled state |
+| `test_tiled_free_double_free` | Safe double-free |
+| `test_tiled_plus_values` | `state_plus` on tiled storage |
+| `test_tiled_get_within_tile` | Read when row and col live in the same tile |
+| `test_tiled_get_cross_tile` | Read when row and col live in different tiles |
+| `test_tiled_get_upper` | Upper-triangle read returns `conj` of mirror |
+| `test_tiled_set_roundtrip` | Set/get round-trip across tile boundaries |
+| `test_tiled_cp_independence` | Deep copy of tiled storage |
+| `test_tiled_hermitian_symmetry` | Symmetry maintained on tiled layout |
+| `test_tiled_single_qubit` | Single-qubit (single-tile) state |
+| `test_tiled_tile_boundaries` | Index correctness at tile-boundary rows/cols |
+| `test_tiled_set_upper` | Upper-triangle write mirrors into lower (and into both halves of diagonal tiles) |
+| `test_tiled_multi_tile` | Multi-tile state behaviour |
+
+### Dispatch (`test/state/test_state.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_dispatch_roundtrip` | Dispatcher selects the correct backend for each `state_type_t` |
+| `test_dispatch_print` | `state_print` works for all three storage types |

@@ -149,13 +149,56 @@ ctest --preset debug -R test_gate
 
 ## Tests
 
-| File | Coverage |
+Test framework, build-type requirement, and shared fixtures: see `docs/TEST_SUITE.md`. Gate matrices are defined in `test/include/test_gate.h`; reference matrix builders are in `test/utility/gatemat.c`.
+
+### Test Architecture
+
+Two-layer harness pattern:
+
+- **`test_gate.c`** — single entry point. Contains `main()`, all named `test_<Gate>_<representation>()` wrappers (e.g. `test_X_pure`, `test_CX_tiled`), and all `RUN_TEST()` registrations.
+- **`test_gate_<repr>_<Nq>.c`** — one harness per (state representation, gate arity). Each implements a parameterized driver (e.g. `testTwoQubitGateTiled`) that applies a gate, builds the reference full-matrix via `gatemat.c`, and asserts element-wise equality across all fixture states.
+- **`test_gate_tiled_2q_mat.c`** — separate harness for the internal `two_from_mat` kernel, which accepts an arbitrary 4x4 matrix rather than a named gate. Implements `testTwoFromMat`, `testTwoFromMatDouble` (catches stale mirror-slot bugs), `testTwoFromMatSymmetry` (argument-order invariance). Defines `ISWAPMAT` and `HHMAT` constants used via `extern` in `test_gate.h`. Forward-declares `two_from_mat`, bypassing the public gate header.
+
+Rotation matrix builders (`mat_rx`, `mat_ry`, `mat_rz`, `mat_p`, `mat_rx_pi3`) live in `utility/gatemat.c` (declared in `gatemat.h`). They fill a 4-element column-major `cplx_t[4]` with the 2x2 gate matrix for a given angle, shared by pure, packed, and tiled 1Q rotation harnesses.
+
+Each harness sweeps all qubit positions across multiple system sizes and input states. Rotation gates are tested at multiple angles via `TEST_THETAS`. Correctness verified against a BLAS-based reference (`zgemv` for pure, `zgemm` for mixed) at tolerance 1e-12.
+
+### Per-gate sweep tests
+
+Each registered gate is verified independently on each storage representation. All three tables apply the same coverage strategy described above.
+
+| Representation | Tests |
 |---|---|
-| `test/gate/test_gate.c` | Runner: named per-gate wrappers + `RUN_TEST` registrations |
-| `test/gate/test_gate_pure_{1q,2q,3q}.c` | Pure-state harnesses |
-| `test/gate/test_gate_packed_{1q,2q,3q}.c` | Packed harnesses |
-| `test/gate/test_gate_tiled_{1q,2q,2q_mat,3q}.c` | Tiled harnesses (incl. internal `two_from_mat` kernel) |
+| PURE (`test_gate_pure_{1q,2q,3q}.c`) | `test_X_pure`, `test_Y_pure`, `test_Z_pure`, `test_H_pure`, `test_Hy_pure`, `test_S_pure`, `test_Sdg_pure`, `test_T_pure`, `test_Tdg_pure`, `test_Rx_pure`, `test_Ry_pure`, `test_Rz_pure`, `test_P_pure`, `test_CX_pure`, `test_CY_pure`, `test_CZ_pure`, `test_SWAP_pure`, `test_CCX_pure` |
+| MIXED_PACKED (`test_gate_packed_{1q,2q,3q}.c`) | `test_X_packed`, `test_Y_packed`, `test_Z_packed`, `test_H_packed`, `test_Hy_packed`, `test_S_packed`, `test_Sdg_packed`, `test_T_packed`, `test_Tdg_packed`, `test_Rx_packed`, `test_Ry_packed`, `test_Rz_packed`, `test_P_packed`, `test_CX_packed`, `test_CY_packed`, `test_CZ_packed`, `test_SWAP_packed`, `test_CCX_packed` |
+| MIXED_TILED (`test_gate_tiled_{1q,2q,3q}.c`) | `test_X_tiled`, `test_Y_tiled`, `test_Z_tiled`, `test_H_tiled`, `test_Hy_tiled`, `test_S_tiled`, `test_Sdg_tiled`, `test_T_tiled`, `test_Tdg_tiled`, `test_Rx_tiled`, `test_Ry_tiled`, `test_Rz_tiled`, `test_P_tiled`, `test_CX_tiled`, `test_CY_tiled`, `test_CZ_tiled`, `test_SWAP_tiled`, `test_CCX_tiled` |
 
-Each harness sweeps all qubit positions across multiple system sizes and input states. Rotation gates are tested at multiple angles. Correctness verified against BLAS-based reference (`zgemv` for pure, `zgemm` for mixed) at tolerance 1e-12.
+### Internal `single_from_mat` kernel (`test_gate_tiled_1q.c`)
 
-Gate matrices are defined in `test/include/test_gate.h`. Reference matrix builders are in `test/utility/gatemat.c`.
+Verifies the 1Q tiled kernel on arbitrary 2x2 unitaries.
+
+| Test | Matrix |
+|---|---|
+| `test_single_from_mat_id_tiled` | Identity |
+| `test_single_from_mat_x_tiled` | Pauli-X |
+| `test_single_from_mat_y_tiled` | Pauli-Y |
+| `test_single_from_mat_h_tiled` | Hadamard |
+| `test_single_from_mat_t_tiled` | T gate |
+| `test_single_from_mat_rx_tiled` | Rx(π/3) |
+| `test_single_from_mat_xh_tiled` | X · H composition |
+| `test_single_from_mat_ht_tiled` | H · T composition |
+
+### Internal `two_from_mat` kernel (`test_gate_tiled_2q_mat.c`)
+
+Verifies the 2Q tiled kernel on arbitrary 4x4 unitaries.
+
+| Test | Verifies |
+|---|---|
+| `test_two_from_mat_cx` | CNOT applied via `two_from_mat` matches named `cx` |
+| `test_two_from_mat_swap` | SWAP applied via `two_from_mat` |
+| `test_two_from_mat_cz` | CZ applied via `two_from_mat` |
+| `test_two_from_mat_iswap` | iSWAP (not in the named-gate set) |
+| `test_two_from_mat_hh` | H ⊗ H |
+| `test_two_from_mat_cx_double` | CX applied twice — catches stale mirror-slot state between applications |
+| `test_two_from_mat_iswap_double` | iSWAP applied twice |
+| `test_two_from_mat_symmetry` | Argument-order invariance for symmetric matrices |

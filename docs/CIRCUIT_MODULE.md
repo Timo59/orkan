@@ -118,11 +118,54 @@ ctest --preset debug -R test_circ
 
 ## Tests
 
-| File | Coverage |
-|---|---|
-| `test/circ/test_circ.c` | Runner |
-| `test/circ/test_circ_pure.c` | PURE: basis states, \|+>^n, zero/identity diag, unitarity |
-| `test/circ/test_circ_packed.c` | MIXED_PACKED: \|+><+\|, double-apply, zero/identity diag |
-| `test/circ/test_circ_tiled.c` | MIXED_TILED: same coverage + small-state (single-tile) + multi-tile |
+Test framework, build-type requirement, and shared fixtures: see `docs/TEST_SUITE.md`. Shared helpers `fill_ramp_diag`, `fill_zero_diag`, `fill_uniform_diag` in `test/include/test_circ.h`. Tests run at qubit counts 1 through `MAXQUBITS` (4). Reference is element-wise complex exponential at tolerance 1e-12.
 
-Shared helpers `fill_ramp_diag`, `fill_zero_diag`, `fill_uniform_diag` live in `test/include/test_circ.h`. Tests run at qubit counts 1 through `MAXQUBITS` (4). Reference is element-wise complex exponential at tolerance 1e-12.
+### PURE (`test/circ/test_circ_pure.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_exp_diag_pure_basis_k` | \|k> with diag[x]=x, t=1: amp[k] = e^{−ik}, others 0 |
+| `test_exp_diag_pure_plus` | \|+>^n with diag[x]=x, t=π/4: amp[x] = (1/√dim) e^{−ix π/4} |
+| `test_exp_diag_pure_double_apply` | Applying with t twice ≡ applying with 2t |
+| `test_exp_diag_pure_negative_t` | Applying with −t inverts a previous +t application |
+| `test_exp_diag_pure_mixed_sign_diag` | Diag with mixed signs produces correct phase pattern |
+| `test_exp_diag_pure_zero_t` | t=0 leaves state unchanged |
+| `test_exp_diag_pure_zero_obs` | diag[x]=0 leaves state unchanged |
+| `test_exp_diag_pure_global_phase` | diag[x]=1, t=π/3: every amp gets the same phase factor |
+| `test_exp_diag_pure_unitarity` | Σ\|psi[x]\|^2 = 1 after evolution (norm preserved) |
+
+### MIXED_PACKED (`test/circ/test_circ_packed.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_exp_diag_packed_basis_k` | \|k><k\| with diag[x]=x: unchanged (diagonal state) |
+| `test_exp_diag_packed_plus` | \|+><+\| with diag[x]=x, t=π/4: rho[r,c] = (1/dim) e^{−i(r−c)π/4} |
+| `test_exp_diag_packed_double_apply` | Two t-applications ≡ one 2t-application |
+| `test_exp_diag_packed_negative_t` | Forward then backward returns to original |
+| `test_exp_diag_packed_mixed_sign_diag` | Mixed-sign diag produces correct off-diagonal pattern |
+| `test_exp_diag_packed_zero_t` | t=0 leaves rho unchanged |
+| `test_exp_diag_packed_complex_input` | Complex initial off-diagonal entries evolve correctly |
+| `test_exp_diag_packed_zero_obs` | diag[x]=0 leaves rho unchanged |
+| `test_exp_diag_packed_identity_obs` | diag[x]=1 leaves rho unchanged (phase differences are zero) |
+
+### MIXED_TILED (`test/circ/test_circ_tiled.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_exp_diag_tiled_basis_k` | \|k><k\| with diag[x]=x: unchanged |
+| `test_exp_diag_tiled_plus` | \|+><+\| with diag[x]=x, t=π/4: rho[r,c] = (1/dim) e^{−i(r−c)π/4} |
+| `test_exp_diag_tiled_double_apply` | Two t-applications ≡ one 2t-application |
+| `test_exp_diag_tiled_negative_t` | Forward then backward returns to original |
+| `test_exp_diag_tiled_mixed_sign_diag` | Mixed-sign diag |
+| `test_exp_diag_tiled_zero_t` | t=0 leaves rho unchanged |
+| `test_exp_diag_tiled_complex_input` | Complex off-diagonals evolve correctly |
+| `test_exp_diag_tiled_zero_obs` | diag[x]=0 leaves rho unchanged |
+| `test_exp_diag_tiled_identity_obs` | diag[x]=1 leaves rho unchanged |
+| `test_exp_diag_tiled_small` | n=1 (single tile) edge case: rho[1,0] = −0.5i for {0,1}, t=π/2 |
+| `test_exp_diag_tiled_multi` | n = LOG_TILE_DIM+1 (multi-tile) |
+
+### Cross-backend (`test/circ/test_circ.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_exp_diag_consistency` | `exp_diag` produces matching results on PURE / MIXED_PACKED / MIXED_TILED for the same logical state and diag |

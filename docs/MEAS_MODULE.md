@@ -135,11 +135,57 @@ ctest --preset debug -R test_meas
 
 ## Tests
 
-| File | Coverage |
-|---|---|
-| `test/meas/test_meas.c` | Runner |
-| `test/meas/test_meas_pure.c` | `mean` + `matel_diag` on basis, \|+>, complex-amplitude, conjugate-symmetry fixtures |
-| `test/meas/test_meas_packed.c` | `mean` parity vs PURE reference, signed observables |
-| `test/meas/test_meas_tiled.c` | `mean` parity + small-state (single-tile) + multi-tile + cross-backend consistency |
+Test framework, build-type requirement, and shared fixtures: see `docs/TEST_SUITE.md`. Shared helpers `fill_identity_obs`, `fill_uniform_obs` in `test/include/test_meas.h`. Tests run at qubit counts 1 through `MAXQUBITS` (4). Tolerance 1e-12.
 
-Shared helpers `fill_identity_obs`, `fill_uniform_obs` in `test/include/test_meas.h`. Tests run at qubit counts 1 through `MAXQUBITS` (4). Tolerance 1e-12.
+### PURE — `mean` (`test/meas/test_meas_pure.c`)
+
+| Test | State | Observable | Expected |
+|---|---|---|---|
+| `test_mean_pure_uniform` | \|+>^n | `obs[x] = 1` | 1.0 |
+| `test_mean_pure_identity` | \|+>^n | `obs[x] = x` | (2^n − 1)/2 |
+| `test_mean_pure_basis` | \|0> | `obs[x] = x` | 0.0 |
+| `test_mean_pure_basis_k` | \|k> | `obs[x] = x` | k |
+| `test_mean_pure_imaginary` | (i/√2, i/√2) | {0, 1} | 0.5 |
+| `test_mean_pure_negative_obs` | \|+>^n | `obs[x] = −1` | −1.0 |
+| `test_mean_pure_mixed_sign_obs` | \|+>^2 | {−3, +1, −1, +3} | 0.0 |
+
+### PURE — `matel_diag` (`test/meas/test_meas_pure.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_matel_diag_pure_self` | bra=ket reduces to `mean(state, obs)` |
+| `test_matel_diag_pure_orthogonal` | <0\|H\|1> = 0 for any diagonal H |
+| `test_matel_diag_pure_conjugate_symmetry` | <a\|H\|b> = conj(<b\|H\|a>) on real states |
+| `test_matel_diag_pure_conjugate_symmetry_complex` | Same on complex states; ab ≠ ba in general |
+| `test_matel_diag_pure_known` | Hand-computed value for (1,i)/√2 vs \|+>, obs={0,1} → −i/2 |
+| `test_matel_diag_pure_complex_2q` | 2-qubit hand-computed value: \|+>^2 vs i\|+>^2, obs={0,1,2,3} → 1.5i |
+
+### MIXED_PACKED — `mean` (`test/meas/test_meas_packed.c`)
+
+| Test | State | Observable | Expected |
+|---|---|---|---|
+| `test_mean_packed_uniform` | \|+><+\|^n | `obs[x] = 1` | 1.0 |
+| `test_mean_packed_identity` | \|+><+\|^n | `obs[x] = x` | (2^n − 1)/2 |
+| `test_mean_packed_pure_embed` | \|0><0\| | `obs[x] = x` | 0.0 |
+| `test_mean_packed_basis_k` | \|k><k\| | `obs[x] = x` | k |
+| `test_mean_packed_negative_obs` | \|+><+\|^n | `obs[x] = −1` | −1.0 |
+| `test_mean_packed_mixed_sign_obs` | \|+><+\|^2 | {−3, +1, −1, +3} | 0.0 |
+
+### MIXED_TILED — `mean` (`test/meas/test_meas_tiled.c`)
+
+| Test | State | Observable | Expected |
+|---|---|---|---|
+| `test_mean_tiled_uniform` | \|+><+\|^n | `obs[x] = 1` | 1.0 |
+| `test_mean_tiled_identity` | \|+><+\|^n | `obs[x] = x` | (2^n − 1)/2 |
+| `test_mean_tiled_pure_embed` | \|0><0\| | `obs[x] = x` | 0.0 |
+| `test_mean_tiled_small` | n=1 (single tile) | `obs[x] = 1` | 1.0 |
+| `test_mean_tiled_multi` | n = LOG_TILE_DIM+1 | `obs[x] = x` | (2^n − 1)/2 |
+| `test_mean_tiled_basis_k` | \|k><k\| | `obs[x] = x` | k |
+| `test_mean_tiled_negative_obs` | \|+><+\|^n | `obs[x] = −1` | −1.0 |
+| `test_mean_tiled_mixed_sign_obs` | \|+><+\|^2 | {−3, +1, −1, +3} | 0.0 |
+
+### Cross-backend (`test/meas/test_meas.c`)
+
+| Test | Verifies |
+|---|---|
+| `test_mean_consistency` | `mean()` returns identical values on PURE / MIXED_PACKED / MIXED_TILED for the same logical state and observable |
