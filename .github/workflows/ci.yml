@@ -24,6 +24,11 @@ jobs:
       - name: Test
         run: ctest --preset debug
 
+      - name: Smoke-build benchmark targets
+        run: |
+          cmake -B cmake-build-bench -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON -DUSE_SYSTEM_OPENBLAS=ON
+          cmake --build cmake-build-bench --target bench_gate bench_kraus
+
   macos:
     runs-on: macos-latest
     steps:
@@ -40,3 +45,8 @@ jobs:
 
       - name: Test
         run: ctest --preset debug
+
+      - name: Smoke-build benchmark targets
+        run: |
+          cmake -B cmake-build-bench -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
+          cmake --build cmake-build-bench --target bench_gate bench_kraus

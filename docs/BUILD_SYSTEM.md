@@ -144,35 +144,29 @@ cmake --build cmake-build-debug --target verified_install
 
 ---
 
-## CI/CD (.gitlab-ci.yml)
+## CI (GitHub Actions)
 
-### Stages
+Defined in `.github/workflows/ci.yml`.
 
-| Stage | Job | Trigger | Description |
+| Job | Runner | Trigger | Steps |
 |---|---|---|---|
-| `test` | `test-linux` | Push to `main` | Builds and tests on Ubuntu (system OpenBLAS, debug preset) |
-| `publish` | `publish-to-github` | Tag push | Publishes a filtered copy of `main` to the public GitHub mirror |
+| `linux` | `ubuntu-latest` | Push to `main`, PR to `main` | Configure (Debug, system OpenBLAS), build, `ctest`, smoke-build benchmark targets (Release) |
+| `macos` | `macos-latest` | Push to `main`, PR to `main` | Configure (Debug, Apple Accelerate via libomp from Homebrew), build, `ctest`, smoke-build benchmark targets (Release) |
 
-### test-linux
+Both jobs run the full Debug test suite and a Release smoke-build of `bench_gate` and `bench_kraus`. The smoke-build catches benchmark-side compile breakage (e.g. internal renames) without spending CI time on the actual benchmark loops.
 
-Runs on every push to `main`. Uses `ubuntu:latest` with system OpenBLAS (`-DUSE_SYSTEM_OPENBLAS=ON`). Caches the build directory keyed by branch to avoid full recompilation.
+### Releases
 
-### publish-to-github
+GitHub auto-creates a Release page when an annotated tag matching `v*` is pushed. The Release body is taken from the tag annotation; no extra workflow is required. To publish:
 
-Publishes to [github.com/Timo59/orkan](https://github.com/Timo59/orkan) when a tag is pushed. Uses `git-filter-repo` to strip internal files before pushing:
+```bash
+git tag -a v0.X.Y -m "Release notes here"
+git push origin v0.X.Y
+```
 
-| Excluded path | Reason |
-|---|---|
-| `docs/` | Internal technical specs |
-| `profile/` | Internal profiling harness |
-| `CLAUDE.md` | Claude Code instructions |
-| `.gitlab-ci.yml` | Internal CI — irrelevant on GitHub |
+### Mirroring
 
-`git-filter-repo` produces deterministic SHAs, so subsequent publishes are regular fast-forward pushes. No force-push is needed after the initial setup.
-
-**Required CI/CD variable:** `GITHUB_TOKEN` — a GitHub classic PAT with `repo` scope.
-
-**Important:** Do not push to the GitHub repo manually. The filtered history has different SHAs than the GitLab history. A manual push would create conflicts that require a force-push to resolve.
+The GitLab project at `gitlab.uni-hannover.de/timo.ziegler/orkan` is configured as a pull-mirror from GitHub (Settings → Repository → Mirroring repositories). Pushing to GitHub auto-propagates to GitLab on the next mirror tick. Nothing pushes to GitLab directly.
 
 ---
 

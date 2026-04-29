@@ -1,5 +1,7 @@
 # Orkan
 
+[![CI](https://github.com/Timo59/orkan/actions/workflows/ci.yml/badge.svg)](https://github.com/Timo59/orkan/actions/workflows/ci.yml)
+
 A fast quantum state simulator written in C17. Named after the *Orkan* — the strongest wind force classification in German meteorology.
 
 Supports pure states (statevectors) and mixed states (density matrices) with three storage backends optimised for different use cases.
