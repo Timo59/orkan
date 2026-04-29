@@ -91,7 +91,8 @@ If a task touches multiple modules, read each relevant spec but finish one modul
 
 ## Behavioral Rules
 
-1. After completing any task — and **always before committing changes** — update the Technical Spec for the affected module(s) to reflect the current state of the code. The spec must remain the authoritative description of what is actually implemented.
-2. Each Technical Spec must include a **Build Integration** section documenting its `CMakeLists.txt`.
-3. Do not extend code in `archive/`. Treat it as read-only.
-4. Do not add historical data, changelogs, or update timestamps to documentation files. Documentation describes the current state only — git history serves that purpose.
+1. **Never edit, build, or commit on `main` unless the user explicitly asks for it.** Before making any change to a tracked file, run `git rev-parse --abbrev-ref HEAD`. If the result is `main` and the user has not explicitly authorised work on `main`, stop and create or switch to a feature branch (`git checkout -b feat/<short-name>`) before proceeding. `main` is reserved for fast-forward merges of completed work.
+2. After completing any task — and **always before committing changes** — update the Technical Spec for the affected module(s) to reflect the current state of the code. The spec must remain the authoritative description of what is actually implemented.
+3. Each Technical Spec must include a **Build Integration** section documenting its `CMakeLists.txt`.
+4. Do not extend code in `archive/`. Treat it as read-only.
+5. Do not add historical data, changelogs, or update timestamps to documentation files. Documentation describes the current state only — git history serves that purpose.
